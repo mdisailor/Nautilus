@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#020c18">
+<title>NAUTILUS — Meteo Mare</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #020c18;
+  --deep:     #040f20;
+  --surface:  #071828;
+  --card:     #0a2035;
+  --border:   #0e3050;
+  --accent:   #0af0ff;
+  --gold:     #f0b429;
+  --danger:   #ff4444;
+  --safe:     #22dd88;
+  --warn:     #ffaa00;
+  --text:     #c8dff0;
+  --muted:    #3a6080;
+  --white:    #eaf4ff;
+}
+
+- { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+height: 100%;
+background: var(–bg);
+color: var(–text);
+font-family: ‘DM Sans’, sans-serif;
+overflow-x: hidden;
+}
+
+/* ── BACKGROUND ── */
+body::before {
+content: ‘’;
+position: fixed;
+inset: 0;
+background:
+radial-gradient(ellipse 80% 40% at 50% -10%, rgba(0,160,220,0.12) 0%, transparent 60%),
+radial-gradient(ellipse 60% 30% at 80% 110%, rgba(0,80,160,0.08) 0%, transparent 50%);
+pointer-events: none;
+z-index: 0;
+}
+
+/* Animated ocean lines */
+.ocean-bg {
+position: fixed;
+bottom: 0; left: 0; right: 0;
+height: 35vh;
+pointer-events: none;
+z-index: 0;
+opacity: 0.06;
+overflow: hidden;
+}
+.wave {
+position: absolute;
+width: 200%;
+height: 100px;
+background: repeating-linear-gradient(
+90deg,
+transparent 0px, transparent 40px,
+rgba(0,240,255,0.5) 40px, rgba(0,240,255,0.5) 42px
+);
+border-radius: 50%;
+}
+.wave:nth-child(1) { bottom: 20px; animation: wavemove 8s linear infinite; }
+.wave:nth-child(2) { bottom: 45px; animation: wavemove 12s linear infinite reverse; opacity: 0.6; }
+.wave:nth-child(3) { bottom: 70px; animation: wavemove 16s linear infinite; opacity: 0.4; }
+@keyframes wavemove { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+/* ── LAYOUT ── */
+#app {
+position: relative;
+z-index: 1;
+max-width: 780px;
+margin: 0 auto;
+padding: 0 0 80px;
+min-height: 100vh;
+}
+
+/* ── HEADER ── */
+header {
+padding: 28px 24px 0;
+display: flex;
+align-items: flex-start;
+justify-content: space-between;
+}
+
+.logo {
+font-family: ‘Bebas Neue’, sans-serif;
+font-size: 2.8rem;
+letter-spacing: 0.12em;
+color: var(–white);
+line-height: 1;
+}
+.logo span { color: var(–accent); }
+
+.logo-sub {
+font-family: ‘DM Mono’, monospace;
+font-size: 0.6rem;
+letter-spacing: 0.2em;
+color: var(–muted);
+text-transform: uppercase;
+margin-top: 2px;
+}
+
+.header-right {
+text-align: right;
+}
+
+#clock {
+font-family: ‘DM Mono’, monospace;
+font-size: 1.4rem;
+color: var(–accent);
+letter-spacing: 0.05em;
+}
+#date-display {
+font-size: 0.65rem;
+color: var(–muted);
+text-transform: uppercase;
+letter-spacing: 0.1em;
+margin-top: 2px;
+}
+
+/* ── LOCATION BAR ── */
+#location-bar {
+margin: 20px 24px 0;
+display: flex;
+align-items: center;
+gap: 10px;
+padding: 12px 16px;
+background: var(–card);
+border: 1px solid var(–border);
+border-radius: 14px;
+}
+
+#loc-text {
+flex: 1;
+font-family: ‘DM Mono’, monospace;
+font-size: 0.72rem;
+color: var(–text);
+letter-spacing: 0.04em;
+}
+
+.loc-dot {
+width: 8px; height: 8px;
+border-radius: 50%;
+background: var(–muted);
+flex-shrink: 0;
+}
+.loc-dot.active { background: var(–safe); box-shadow: 0 0 6px var(–safe); animation: blink 2s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+#btn-gps {
+padding: 6px 14px;
+background: transparent;
+border: 1px solid var(–accent);
+border-radius: 8px;
+color: var(–accent);
+font-family: ‘DM Mono’, monospace;
+font-size: 0.65rem;
+letter-spacing: 0.08em;
+cursor: pointer;
+transition: all 0.2s;
+white-space: nowrap;
+}
+#btn-gps:active { background: rgba(0,240,255,0.1); }
+
+/* ── HORIZON SELECTOR ── */
+.horizon-tabs {
+display: flex;
+gap: 8px;
+margin: 16px 24px 0;
+}
+.htab {
+flex: 1;
+padding: 10px;
+text-align: center;
+background: var(–card);
+border: 1px solid var(–border);
+border-radius: 12px;
+font-family: ‘Bebas Neue’, sans-serif;
+font-size: 1.1rem;
+letter-spacing: 0.1em;
+color: var(–muted);
+cursor: pointer;
+transition: all 0.2s;
+}
+.htab.active {
+background: rgba(0,240,255,0.1);
+border-color: var(–accent);
+color: var(–accent);
+}
+
+/* ── MAIN METRICS ── */
+.metrics-row {
+display: grid;
+grid-template-columns: 1fr 1fr 1fr;
+gap: 10px;
+margin: 16px 24px 0;
+}
+
+.metric-card {
+background: var(–card);
+border: 1px solid var(–border);
+border-radius: 16px;
+padding: 16px 12px;
+text-align: center;
+position: relative;
+overflow: hidden;
+transition: border-color 0.3s;
+}
+.metric-card::after {
+content: ‘’;
+position: absolute;
+bottom: 0; left: 0; right: 0;
+height: 2px;
+background: var(–accent);
+opacity: 0.3;
+}
+
+.metric-icon { font-size: 1.4rem; margin-bottom: 6px; }
+.metric-value {
+font-family: ‘Bebas Neue’, sans-serif;
+font-size: 1.8rem;
+letter-spacing: 0.05em;
+color: var(–white);
+line-height: 1;
+}
+.metric-unit {
+font-family: ‘DM Mono’, monospace;
+font-size: 0.58rem;
+color: var(–muted);
+text-transform: uppercase;
+letter-spacing: 0.1em;
+margin-top: 3px;
+}
+.metric-label {
+font-size: 0.62rem;
+color: var(–muted);
+text-transform: uppercase;
+letter-spacing: 0.08em;
+margin-bottom: 4px;
+}
+
+/* ── WIND DIRECTION CARD ── */
+.wind-card {
+margin: 10px 24px 0;
+background: var(–card);
+border: 1px solid var(–border);
+border-radius: 16px;
+padding: 18px 20px;
+display: flex;
+align-items: center;
+gap: 20px;
+}
+
+.wind-compass {
+width: 90px;
+height: 90px;
+flex-shrink: 0;
+}
+.wind-compass svg { width: 100%; height: 100%; }
+
+.wind-details { flex: 1; }
+.wind-detail-row {
+display: flex;
+justify-content: space-between;
+align-items: center;
+padding: 5px 0;
+border-bottom: 1px solid var(–border);
+font-size: 0.72rem;
+}
+.wind-detail-row:last-child { border-bottom: none; }
+.wd-label { color: var(–muted); font-family: ‘DM Mono’, monospace; letter-spacing: 0.05em; }
+.wd-value { color: var(–white); font-family: ‘DM Mono’, monospace; font-weight: 500; }
+
+/* ── BAROMETER CARD ── */
+.baro-card {
+margin: 10px 24px 0;
+background: var(–card);
+border: 1px solid var(–border);
+border-radius: 16px;
+padding: 18px 20px;
+}
+
+.baro-header {
+display: flex;
+justify-content: space-between;
+align-items: center;
+margin-bottom: 14px;
+}
+.baro-title {
+font-family: ‘DM Mono’, monospace;
+font-size: 0.65rem;
+letter-spacing: 0.12em;
+text-transform: uppercase;
+color: var(–muted);
+}
+.baro-value-big {
+font-family: ‘Bebas Neue’, sans-serif;
+font-size: 2.2rem;
+color: var(–white);
+letter-spacing: 0.05em;
+}
+.baro-unit-sm {
+font-family: ‘DM Mono’, monospace;
+font-size: 0.65rem;
+color: var(–muted);
+margin-left: 4px;
+}
+
+/* Gauge */
+.gauge-container {
+position: relative;
+height: 12px;
+background: var(–deep);
+border-radius: 6px;
+overflow: hidden;
+border: 1px solid var(–border);
+}
+.gauge-fill {
+height: 100%;
+border-radius: 6px;
+transition: width 1s ease, background 1s ease;
+background: linear-gradient(90deg, #ff4444, #ffaa00, #22dd88, #0af0ff);
+}
+.gauge-labels {
+display: flex;
+justify-content: space-between;
+margin-top: 4px;
+}
+.gauge-label {
+font-family: ‘DM Mono’, monospace;
+font-size: 0.55rem;
+color: var(–muted);
+}
+
+.baro-trend-row {
+display: flex;
+align-items: center;
+gap: 8px;
+margin-top: 12px;
+padding: 10px 12px;
+border-radius: 10px;
+background: var(–deep);
+}
+.trend-arrow { font-size: 1.2rem; }
+.trend-text {
+font-size: 0.7rem;
+color: var(–text);
+line-height: 1.4;
+}
+
+/* ── TIMELINE ── */
+.timeline-card {
+margin: 10px 24px 0;
+background: var(–card);
+border: 1px solid var(–border);
+border-radius: 16px;
+padding: 18px 0;
+overflow: hidden;
+}
+.timeline-title {
+font-family: ‘DM Mono’, monospace;
+font-size: 0.65rem;
+letter-spacing: 0.12em;
+text-transform: uppercase;
+color: var(–muted);
+padding: 0 20px;
+margin-bottom: 14px;
+}
+.timeline-scroll {
+display: flex;
+gap: 0;
+overflow-x: auto;
+padding: 0 20px;
+scrollbar-width: none;
+}
+.timeline-scroll::-webkit-scrollbar { display: none; }
+
+.timeline-item {
+flex-shrink: 0;
+width: 72px;
+text-align: center;
+padding: 10px 6px;
+border-radius: 12px;
+border: 1px solid transparent;
+transition: all 0.2s;
+cursor: pointer;
+}
+.timeline-item.active {
+background: rgba(0,240,255,0.08);
+border-color: rgba(0,240,255,0.3);
+}
+.ti-time {
+font-family: ‘DM Mono’, monospace;
+font-size: 0.6rem;
+color: var(–muted);
+margin-bottom: 6px;
+}
+.ti-icon { font-size: 1.2rem; margin-bottom: 4px; }
+.ti-wind {
+font-family: ‘Bebas Neue’, sans-serif;
+font-size: 1rem;
+color: var(–white);
+letter-spacing: 0.05em;
+}
+.ti-wave {
+font-family: ‘DM Mono’, monospace;
+font-size: 0.6rem;
+color: var(–muted);
+margin-top: 2px;
+}
+
+/* ── AI BRIEFING ── */
+.briefing-card {
+margin: 10px 24px 0;
+background: var(–card);
+border: 1px solid var(–border);
+border-radius: 16px;
+overflow: hidden;
+}
+.briefing-header {
+display: flex;
+align-items: center;
+justify-content: space-between;
+padding: 16px 20px 12px;
+border-bottom: 1px solid var(–border);
+}
+.briefing-title {
+display: flex;
+align-items: center;
+gap: 8px;
+}
+.ai-dot {
+width: 8px; height: 8px;
+border-radius: 50%;
+background: var(–accent);
+animation: blink 2s infinite;
+}
+.briefing-label {
+font-family: ‘DM Mono’, monospace;
+font-size: 0.65rem;
+letter-spacing: 0.12em;
+text-transform: uppercase;
+color: var(–muted);
+}
+
+#btn-briefing {
+padding: 7px 16px;
+background: linear-gradient(135deg, rgba(0,240,255,0.15), rgba(0,160,255,0.1));
+border: 1px solid var(–accent);
+border-radius: 8px;
+color: var(–accent);
+font-family: ‘DM Mono’, monospace;
+font-size: 0.65rem;
+letter-spacing: 0.06em;
+cursor: pointer;
+transition: all 0.2s;
+}
+#btn-briefing:active { opacity: 0.7; }
+#btn-briefing:disabled { opacity: 0.4; cursor: default; }
+
+#briefing-text {
+padding: 16px 20px;
+font-size: 0.82rem;
+line-height: 1.7;
+color: var(–text);
+min-height: 80px;
+}
+
+.risk-badge {
+display: inline-block;
+padding: 3px 10px;
+border-radius: 20px;
+font-family: ‘DM Mono’, monospace;
+font-size: 0.65rem;
+font-weight: 500;
+letter-spacing: 0.06em;
+margin-bottom: 10px;
+}
+.risk-low { background: rgba(34,221,136,0.15); color: var(–safe); border: 1px solid rgba(34,221,136,0.3); }
+.risk-med { background: rgba(255,170,0,0.15); color: var(–warn); border: 1px solid rgba(255,170,0,0.3); }
+.risk-high { background: rgba(255,68,68,0.15); color: var(–danger); border: 1px solid rgba(255,68,68,0.3); }
+
+/* ── LOADING ── */
+.loading {
+display: flex;
+align-items: center;
+gap: 8px;
+font-family: ‘DM Mono’, monospace;
+font-size: 0.7rem;
+color: var(–muted);
+}
+.spinner {
+width: 14px; height: 14px;
+border: 2px solid var(–border);
+border-top-color: var(–accent);
+border-radius: 50%;
+animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── STATUS BAR ── */
+#status-bar {
+position: fixed;
+bottom: 0; left: 0; right: 0;
+background: var(–deep);
+border-top: 1px solid var(–border);
+padding: 10px 24px;
+display: flex;
+align-items: center;
+justify-content: space-between;
+z-index: 100;
+}
+.status-item {
+display: flex;
+align-items: center;
+gap: 6px;
+font-family: ‘DM Mono’, monospace;
+font-size: 0.6rem;
+color: var(–muted);
+}
+.status-dot {
+width: 6px; height: 6px;
+border-radius: 50%;
+background: var(–muted);
+}
+.status-dot.ok { background: var(–safe); }
+.status-dot.err { background: var(–danger); }
+
+#btn-refresh {
+padding: 6px 14px;
+background: transparent;
+border: 1px solid var(–border);
+border-radius: 8px;
+color: var(–muted);
+font-family: ‘DM Mono’, monospace;
+font-size: 0.6rem;
+cursor: pointer;
+transition: all 0.2s;
+}
+#btn-refresh:active { border-color: var(–accent); color: var(–accent); }
+
+/* Fade-in animation */
+.fade-in { animation: fadein 0.5s ease forwards; }
+@keyframes fadein { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+
+</style>
+</head>
+<body>
+<div class="ocean-bg">
+  <div class="wave"></div>
+  <div class="wave"></div>
+  <div class="wave"></div>
+</div>
+
+<div id="app">
+
+  <header>
+    <div>
+      <div class="logo">NAUTI<span>LUS</span></div>
+      <div class="logo-sub">Meteo Mare · Tirreno Nord</div>
+    </div>
+    <div class="header-right">
+      <div id="clock">--:--</div>
+      <div id="date-display">---</div>
+    </div>
+  </header>
+
+  <!-- Location -->
+
+  <div id="location-bar">
+    <div class="loc-dot" id="loc-dot"></div>
+    <div id="loc-text">Premi GPS per rilevare posizione</div>
+    <button id="btn-gps" onclick="requestGPS()">📍 GPS</button>
+  </div>
+
+  <!-- Horizon tabs -->
+
+  <div class="horizon-tabs">
+    <div class="htab active" onclick="setHorizon(3,this)">3 ORE</div>
+    <div class="htab" onclick="setHorizon(6,this)">6 ORE</div>
+    <div class="htab" onclick="setHorizon(12,this)">12 ORE</div>
+  </div>
+
+  <!-- Main metrics -->
+
+  <div class="metrics-row">
+    <div class="metric-card">
+      <div class="metric-label">Vento</div>
+      <div class="metric-icon">💨</div>
+      <div class="metric-value" id="m-wind">--</div>
+      <div class="metric-unit">nodi</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Onde</div>
+      <div class="metric-icon">🌊</div>
+      <div class="metric-value" id="m-wave">--</div>
+      <div class="metric-unit">metri</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Raffiche</div>
+      <div class="metric-icon">⚡</div>
+      <div class="metric-value" id="m-gust">--</div>
+      <div class="metric-unit">nodi</div>
+    </div>
+  </div>
+
+  <!-- Wind card -->
+
+  <div class="wind-card">
+    <svg class="wind-compass" viewBox="0 0 100 100">
+      <circle cx="50" cy="50" r="46" fill="none" stroke="#0e3050" stroke-width="1.5"/>
+      <circle cx="50" cy="50" r="38" fill="none" stroke="#071828" stroke-width="8"/>
+      <!-- Cardinal points -->
+      <text x="50" y="11" text-anchor="middle" fill="#3a6080" font-size="9" font-family="DM Mono, monospace">N</text>
+      <text x="50" y="95" text-anchor="middle" fill="#3a6080" font-size="9" font-family="DM Mono, monospace">S</text>
+      <text x="10" y="54" text-anchor="middle" fill="#3a6080" font-size="9" font-family="DM Mono, monospace">W</text>
+      <text x="90" y="54" text-anchor="middle" fill="#3a6080" font-size="9" font-family="DM Mono, monospace">E</text>
+      <!-- Tick marks -->
+      <g stroke="#0e3050" stroke-width="1">
+        <line x1="50" y1="16" x2="50" y2="22"/>
+        <line x1="50" y1="78" x2="50" y2="84"/>
+        <line x1="16" y1="50" x2="22" y2="50"/>
+        <line x1="78" y1="50" x2="84" y2="50"/>
+      </g>
+      <!-- Arrow -->
+      <g id="wind-needle" transform="rotate(0,50,50)">
+        <polygon points="50,20 46,52 50,48 54,52" fill="#0af0ff" opacity="0.9"/>
+        <polygon points="50,80 46,48 50,52 54,48" fill="#3a6080"/>
+        <circle cx="50" cy="50" r="4" fill="#020c18" stroke="#0af0ff" stroke-width="1.5"/>
+      </g>
+    </svg>
+    <div class="wind-details">
+      <div class="wind-detail-row">
+        <span class="wd-label">DIREZIONE</span>
+        <span class="wd-value" id="wd-dir">—</span>
+      </div>
+      <div class="wind-detail-row">
+        <span class="wd-label">GRADI</span>
+        <span class="wd-value" id="wd-deg">—</span>
+      </div>
+      <div class="wind-detail-row">
+        <span class="wd-label">PERIODO ONDE</span>
+        <span class="wd-value" id="wd-period">—</span>
+      </div>
+      <div class="wind-detail-row">
+        <span class="wd-label">TEMP MARE</span>
+        <span class="wd-value" id="wd-sst">—</span>
+      </div>
+      <div class="wind-detail-row">
+        <span class="wd-label">TEMP ARIA</span>
+        <span class="wd-value" id="wd-temp">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Barometer -->
+
+  <div class="baro-card">
+    <div class="baro-header">
+      <div>
+        <div class="baro-title">🌡 Pressione Atmosferica</div>
+        <div style="margin-top:6px">
+          <span class="baro-value-big" id="baro-hpa">---</span>
+          <span class="baro-unit-sm">hPa</span>
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-family:'DM Mono',monospace; font-size:0.6rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em;">Stazione locale</div>
+        <div id="baro-station" style="font-family:'DM Mono',monospace; font-size:0.7rem; color:var(--text); margin-top:4px;">—</div>
+      </div>
+    </div>
+    <div class="gauge-container">
+      <div class="gauge-fill" id="baro-gauge" style="width:50%"></div>
+    </div>
+    <div class="gauge-labels">
+      <span class="gauge-label">960</span>
+      <span class="gauge-label">980</span>
+      <span class="gauge-label">1000</span>
+      <span class="gauge-label">1020</span>
+      <span class="gauge-label">1040</span>
+    </div>
+    <div class="baro-trend-row" id="baro-trend-row">
+      <span class="trend-arrow" id="baro-trend-icon">—</span>
+      <span class="trend-text" id="baro-trend-text">In attesa di dati...</span>
+    </div>
+  </div>
+
+  <!-- Timeline -->
+
+  <div class="timeline-card">
+    <div class="timeline-title">⏱ Previsione Oraria</div>
+    <div class="timeline-scroll" id="timeline-scroll">
+      <div class="loading" style="padding:0 4px"><div class="spinner"></div> Caricamento...</div>
+    </div>
+  </div>
+
+  <!-- AI Briefing -->
+
+  <div class="briefing-card">
+    <div class="briefing-header">
+      <div class="briefing-title">
+        <div class="ai-dot"></div>
+        <span class="briefing-label">Briefing AI Nautico</span>
+      </div>
+      <button id="btn-briefing" onclick="requestBriefing()">Genera Briefing</button>
+    </div>
+    <div id="briefing-text" style="color:var(--muted); font-size:0.75rem; font-family:'DM Mono',monospace;">
+      Carica i dati meteo poi premi "Genera Briefing" per ricevere un'analisi nautica personalizzata con Claude AI.
+    </div>
+  </div>
+
+</div>
+
+<!-- Status bar -->
+
+<div id="status-bar">
+  <div class="status-item">
+    <div class="status-dot" id="dot-gps"></div>
+    <span id="stat-gps">GPS</span>
+  </div>
+  <div class="status-item">
+    <div class="status-dot" id="dot-meteo"></div>
+    <span id="stat-meteo">METEO</span>
+  </div>
+  <div class="status-item">
+    <div class="status-dot" id="dot-ai"></div>
+    <span id="stat-ai">AI</span>
+  </div>
+  <button id="btn-refresh" onclick="refreshData()">↻ AGGIORNA</button>
+</div>
+
+<script>
+// ─── STATE ──────────────────────────────────────────────────────
+const state = {
+  lat: null, lon: null,
+  locationName: null,
+  horizon: 3,
+  weatherData: null,
+  lastUpdate: null,
+};
+
+// ─── CLOCK ──────────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
+  document.getElementById('date-display').textContent =
+    now.toLocaleDateString('it-IT', {weekday:'short', day:'numeric', month:'short'}).toUpperCase();
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ─── GPS ────────────────────────────────────────────────────────
+function requestGPS() {
+  const btn = document.getElementById('btn-gps');
+  btn.textContent = '...';
+  btn.disabled = true;
+
+  navigator.geolocation.getCurrentPosition(async pos => {
+    state.lat = pos.coords.latitude;
+    state.lon = pos.coords.longitude;
+
+    document.getElementById('loc-dot').classList.add('active');
+    document.getElementById('dot-gps').classList.add('ok');
+    document.getElementById('stat-gps').textContent = 'GPS OK';
+    btn.textContent = '📍 OK';
+    btn.disabled = false;
+
+    // Reverse geocode with nominatim
+    try {
+      const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${state.lat}&lon=${state.lon}&format=json`);
+      const d = await r.json();
+      const name = d.address?.town || d.address?.village || d.address?.city || d.address?.county || 'Posizione rilevata';
+      state.locationName = name;
+      document.getElementById('loc-text').textContent =
+        `${name} · ${state.lat.toFixed(4)}°N ${state.lon.toFixed(4)}°E`;
+    } catch {
+      document.getElementById('loc-text').textContent =
+        `${state.lat.toFixed(4)}°N · ${state.lon.toFixed(4)}°E`;
+    }
+
+    fetchWeather();
+  }, err => {
+    btn.textContent = '📍 GPS';
+    btn.disabled = false;
+    document.getElementById('loc-text').textContent = 'Permesso GPS negato — usando Livorno come default';
+    state.lat = 43.548; state.lon = 10.310;
+    state.locationName = 'Livorno (default)';
+    document.getElementById('dot-gps').classList.add('err');
+    fetchWeather();
+  }, { enableHighAccuracy: true, timeout: 10000 });
+}
+
+// ─── WEATHER (Open-Meteo) ────────────────────────────────────────
+async function fetchWeather() {
+  document.getElementById('stat-meteo').textContent = 'CARICO...';
+
+  const lat = state.lat || 43.548;
+  const lon = state.lon || 10.310;
+
+  const url = `https://api.open-meteo.com/v1/forecast?` +
+    `latitude=${lat}&longitude=${lon}` +
+    `&hourly=temperature_2m,windspeed_10m,winddirection_10m,windgusts_10m,` +
+    `wave_height,wave_period,wave_direction,surface_pressure` +
+    `&wind_speed_unit=kn` +
+    `&timezone=Europe/Rome` +
+    `&forecast_days=2` +
+    `&models=best_match`;
+
+  try {
+    const r = await fetch(url);
+    const d = await r.json();
+    state.weatherData = d;
+    state.lastUpdate = new Date();
+
+    document.getElementById('dot-meteo').classList.add('ok');
+    document.getElementById('stat-meteo').textContent = 'METEO OK';
+
+    renderWeather();
+    renderTimeline();
+  } catch(e) {
+    document.getElementById('dot-meteo').classList.add('err');
+    document.getElementById('stat-meteo').textContent = 'ERRORE';
+  }
+}
+
+// ─── RENDER ─────────────────────────────────────────────────────
+function renderWeather() {
+  const d = state.weatherData;
+  if (!d) return;
+
+  // Find current hour index
+  const now = new Date();
+  const times = d.hourly.time;
+  let idx = 0;
+  for (let i = 0; i < times.length; i++) {
+    if (new Date(times[i]) <= now) idx = i;
+  }
+
+  // Horizon: take max over window
+  const hEnd = idx + state.horizon;
+  const windArr = d.hourly.windspeed_10m.slice(idx, hEnd);
+  const gustArr = d.hourly.windgusts_10m.slice(idx, hEnd);
+  const waveArr = d.hourly.wave_height.slice(idx, hEnd);
+  const pressArr = d.hourly.surface_pressure.slice(idx, hEnd);
+  const windDirArr = d.hourly.winddirection_10m.slice(idx, hEnd);
+  const wavePerArr = d.hourly.wave_period.slice(idx, hEnd);
+  const tempArr = d.hourly.temperature_2m.slice(idx, hEnd);
+
+  const maxWind = Math.max(...windArr).toFixed(0);
+  const maxGust = Math.max(...gustArr).toFixed(0);
+  const maxWave = Math.max(...waveArr).toFixed(1);
+  const avgPress = (pressArr.reduce((a,b)=>a+b,0)/pressArr.length).toFixed(0);
+  const avgWindDir = Math.round(windDirArr.reduce((a,b)=>a+b,0)/windDirArr.length);
+  const avgPeriod = (wavePerArr.reduce((a,b)=>a+b,0)/wavePerArr.length).toFixed(0);
+  const curTemp = tempArr[0]?.toFixed(1) || '--';
+
+  // Metrics
+  document.getElementById('m-wind').textContent = maxWind;
+  document.getElementById('m-wave').textContent = maxWave;
+  document.getElementById('m-gust').textContent = maxGust;
+
+  // Color wind by beaufort
+  const wNum = parseInt(maxWind);
+  const mc = document.getElementById('m-wind');
+  if (wNum < 11) mc.style.color = 'var(--safe)';
+  else if (wNum < 17) mc.style.color = 'var(--gold)';
+  else if (wNum < 22) mc.style.color = 'var(--warn)';
+  else mc.style.color = 'var(--danger)';
+
+  // Wave color
+  const wv = parseFloat(maxWave);
+  const mw = document.getElementById('m-wave');
+  if (wv < 0.5) mw.style.color = 'var(--safe)';
+  else if (wv < 1.0) mw.style.color = 'var(--gold)';
+  else if (wv < 1.5) mw.style.color = 'var(--warn)';
+  else mw.style.color = 'var(--danger)';
+
+  // Wind compass
+  document.getElementById('wind-needle').setAttribute('transform', `rotate(${avgWindDir},50,50)`);
+  document.getElementById('wd-dir').textContent = degToDir(avgWindDir);
+  document.getElementById('wd-deg').textContent = avgWindDir + '°';
+  document.getElementById('wd-period').textContent = avgPeriod + ' sec';
+  document.getElementById('wd-temp').textContent = '—'; // SST not in open-meteo free
+  document.getElementById('wd-temp').textContent = curTemp + ' °C';
+
+  // Barometer
+  const p = parseFloat(avgPress);
+  document.getElementById('baro-hpa').textContent = p.toFixed(0);
+  const pct = Math.min(100, Math.max(0, ((p - 960) / 80) * 100));
+  document.getElementById('baro-gauge').style.width = pct + '%';
+
+  // Baro trend: compare first vs last of window
+  const pFirst = pressArr[0];
+  const pLast = pressArr[pressArr.length - 1];
+  const diff = pLast - pFirst;
+  const trendIcon = document.getElementById('baro-trend-icon');
+  const trendText = document.getElementById('baro-trend-text');
+
+  if (diff > 1.5) {
+    trendIcon.textContent = '↑';
+    trendText.innerHTML = `<strong style="color:var(--safe)">In salita</strong> +${diff.toFixed(1)} hPa — tendenza al miglioramento`;
+  } else if (diff < -1.5) {
+    trendIcon.textContent = '↓';
+    trendText.innerHTML = `<strong style="color:var(--danger)">In calo</strong> ${diff.toFixed(1)} hPa — attenzione al peggioramento`;
+  } else {
+    trendIcon.textContent = '→';
+    trendText.innerHTML = `<strong style="color:var(--gold)">Stabile</strong> variazione ${diff > 0 ? '+' : ''}${diff.toFixed(1)} hPa`;
+  }
+
+  // Station name
+  document.getElementById('baro-station').textContent = state.locationName || 'Open-Meteo';
+}
+
+// ─── TIMELINE ───────────────────────────────────────────────────
+function renderTimeline() {
+  const d = state.weatherData;
+  if (!d) return;
+
+  const now = new Date();
+  const times = d.hourly.time;
+  let idx = 0;
+  for (let i = 0; i < times.length; i++) {
+    if (new Date(times[i]) <= now) idx = i;
+  }
+
+  const container = document.getElementById('timeline-scroll');
+  container.innerHTML = '';
+
+  for (let i = idx; i < idx + state.horizon + 1 && i < times.length; i++) {
+    const t = new Date(times[i]);
+    const wind = d.hourly.windspeed_10m[i]?.toFixed(0) || '--';
+    const wave = d.hourly.wave_height[i]?.toFixed(1) || '--';
+    const wDir = d.hourly.winddirection_10m[i] || 0;
+    const press = d.hourly.surface_pressure[i]?.toFixed(0) || '--';
+
+    const icon = getWeatherIcon(parseFloat(wind), parseFloat(wave));
+    const isNow = i === idx;
+
+    const item = document.createElement('div');
+    item.className = 'timeline-item' + (isNow ? ' active' : '');
+    item.innerHTML = `
+      <div class="ti-time">${isNow ? 'ORA' : t.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}</div>
+      <div class="ti-icon">${icon}</div>
+      <div class="ti-wind">${wind}kn</div>
+      <div class="ti-wave">🌊${wave}m</div>
+      <div class="ti-wave" style="color:var(--muted);margin-top:1px">↕${press}hPa</div>
+    `;
+    container.appendChild(item);
+  }
+}
+
+function getWeatherIcon(wind, wave) {
+  if (wind >= 22 || wave >= 2) return '⛈';
+  if (wind >= 17 || wave >= 1.5) return '🌬';
+  if (wind >= 11 || wave >= 1.0) return '🌊';
+  if (wind >= 7) return '💨';
+  return '⛵';
+}
+
+// ─── DIRECTION ──────────────────────────────────────────────────
+function degToDir(d) {
+  const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+  return dirs[Math.round(d / 22.5) % 16];
+}
+
+// ─── HORIZON ────────────────────────────────────────────────────
+function setHorizon(h, el) {
+  state.horizon = h;
+  document.querySelectorAll('.htab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  if (state.weatherData) { renderWeather(); renderTimeline(); }
+}
+
+// ─── AI BRIEFING ────────────────────────────────────────────────
+async function requestBriefing() {
+  if (!state.weatherData) {
+    document.getElementById('briefing-text').textContent = 'Prima carica i dati meteo con il GPS.';
+    return;
+  }
+
+  const btn = document.getElementById('btn-briefing');
+  btn.disabled = true;
+  btn.textContent = '...';
+  document.getElementById('dot-ai').className = 'status-dot';
+  document.getElementById('stat-ai').textContent = 'AI...';
+
+  document.getElementById('briefing-text').innerHTML =
+    '<div class="loading"><div class="spinner"></div> Analisi dati in corso...</div>';
+
+  const d = state.weatherData;
+  const now = new Date();
+  const times = d.hourly.time;
+  let idx = 0;
+  for (let i = 0; i < times.length; i++) {
+    if (new Date(times[i]) <= now) idx = i;
+  }
+
+  // Build data summary for AI
+  const hEnd = idx + state.horizon;
+  const hours = [];
+  for (let i = idx; i < hEnd && i < times.length; i++) {
+    hours.push({
+      ora: new Date(times[i]).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'}),
+      vento_nodi: d.hourly.windspeed_10m[i]?.toFixed(1),
+      raffica_nodi: d.hourly.windgusts_10m[i]?.toFixed(1),
+      direzione_vento: degToDir(d.hourly.winddirection_10m[i] || 0) + ' ' + (d.hourly.winddirection_10m[i]||0) + '°',
+      onda_m: d.hourly.wave_height[i]?.toFixed(2),
+      periodo_onde_s: d.hourly.wave_period[i]?.toFixed(0),
+      pressione_hpa: d.hourly.surface_pressure[i]?.toFixed(1),
+      temp_aria: d.hourly.temperature_2m[i]?.toFixed(1),
+    });
+  }
+
+  const prompt = `Sei un esperto meteorologo marino specializzato nel Mar Tirreno settentrionale (costa toscana, Isola d'Elba, Capraia, Gorgona, Giglio, Arcipelago Toscano, nord Corsica, costa ligure).
+
+Analizza questi dati meteo per le prossime ${state.horizon} ore e fornisci un briefing nautico conciso e pratico.
+
+Posizione: ${state.locationName || 'costa toscana'} (${state.lat?.toFixed(3)}°N, ${state.lon?.toFixed(3)}°E)
+Orario attuale: ${now.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}
+Orizzonte: ${state.horizon} ore
+
+Dati orari:
+${JSON.stringify(hours, null, 2)}
+
+Fornisci:
+1. VALUTAZIONE RISCHIO: (BASSO/MEDIO/ALTO) con motivazione breve
+2. CONDIZIONI ATTUALI: sintesi in 2 righe
+3. EVOLUZIONE: cosa cambia nelle prossime ore
+4. CONSIGLIO PRATICO: vai/aspetta/rientra con orario se rilevante
+5. VENTI LOCALI: indica se riconosci pattern locali (Libeccio, Maestrale, Tramontana, effetti isole)
+
+Sii diretto, tecnico ma comprensibile. Max 150 parole.`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const data = await res.json();
+    const text = data.content?.map(c => c.text || '').join('') || 'Nessuna risposta.';
+
+    document.getElementById('dot-ai').classList.add('ok');
+    document.getElementById('stat-ai').textContent = 'AI OK';
+    btn.disabled = false;
+    btn.textContent = '↻ Aggiorna';
+
+    // Detect risk level for badge
+    let riskClass = 'risk-low', riskLabel = '⛵ RISCHIO BASSO';
+    if (text.includes('ALTO') || text.includes('alto')) { riskClass = 'risk-high'; riskLabel = '⚠ RISCHIO ALTO'; }
+    else if (text.includes('MEDIO') || text.includes('medio')) { riskClass = 'risk-med'; riskLabel = '⚡ RISCHIO MEDIO'; }
+
+    // Format text
+    const formatted = text
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\n/g, '<br>');
+
+    document.getElementById('briefing-text').innerHTML =
+      `<div class="risk-badge ${riskClass}">${riskLabel}</div><br>${formatted}`;
+
+  } catch(e) {
+    document.getElementById('dot-ai').classList.add('err');
+    document.getElementById('stat-ai').textContent = 'AI ERR';
+    btn.disabled = false;
+    btn.textContent = 'Genera Briefing';
+    document.getElementById('briefing-text').textContent = 'Errore connessione AI. Riprova.';
+  }
+}
+
+// ─── REFRESH ────────────────────────────────────────────────────
+function refreshData() {
+  if (state.lat) fetchWeather();
+  else requestGPS();
+}
+
+// ─── AUTO START ─────────────────────────────────────────────────
+// Try to load Livorno default on start so UI isn't empty
+window.addEventListener('load', () => {
+  state.lat = 43.548; state.lon = 10.310;
+  state.locationName = 'Livorno (default)';
+  document.getElementById('loc-text').textContent = 'Default: Livorno · premi GPS per la tua posizione';
+  fetchWeather();
+});
+</script>
+
+</body>
+</html>

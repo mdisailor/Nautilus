@@ -27,31 +27,20 @@
 }
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 html, body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; overflow-x: hidden; }
-
-body::before {
-content: ‘’;
-position: fixed; inset: 0;
-background:
-radial-gradient(ellipse 80% 40% at 50% -10%, rgba(0,160,220,0.12) 0%, transparent 60%),
-radial-gradient(ellipse 60% 30% at 80% 110%, rgba(0,80,160,0.08) 0%, transparent 50%);
-pointer-events: none; z-index: 0;
-}
-
+body::before { content: ''; position: fixed; inset: 0; background: radial-gradient(ellipse 80% 40% at 50% -10%, rgba(0,160,220,0.12) 0%, transparent 60%), radial-gradient(ellipse 60% 30% at 80% 110%, rgba(0,80,160,0.08) 0%, transparent 50%); pointer-events: none; z-index: 0; }
 .ocean-bg { position: fixed; bottom: 0; left: 0; right: 0; height: 30vh; pointer-events: none; z-index: 0; opacity: 0.05; overflow: hidden; }
 .wave { position: absolute; width: 200%; height: 80px; background: repeating-linear-gradient(90deg, transparent 0px, transparent 40px, rgba(0,240,255,0.5) 40px, rgba(0,240,255,0.5) 42px); }
 .wave:nth-child(1) { bottom: 15px; animation: wavemove 8s linear infinite; }
 .wave:nth-child(2) { bottom: 35px; animation: wavemove 13s linear infinite reverse; opacity: 0.6; }
 .wave:nth-child(3) { bottom: 55px; animation: wavemove 18s linear infinite; opacity: 0.35; }
-@keyframes wavemove { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@keyframes wavemove { from{transform:translateX(0)} to{transform:translateX(-50%)} }
 
 #app { position: relative; z-index: 1; max-width: 780px; margin: 0 auto; padding: 0 0 90px; min-height: 100vh; }
 
-/* NAV TABS */
+/* NAV */
 .nav-tabs { display: flex; background: var(–deep); border-bottom: 1px solid var(–border); position: sticky; top: 0; z-index: 50; }
-.nav-tab { flex: 1; padding: 12px 4px; text-align: center; font-family: ‘DM Mono’, monospace; font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(–muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; }
+.nav-tab { flex: 1; padding: 12px 4px; text-align: center; font-family: ‘DM Mono’, monospace; font-size: 0.58rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(–muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; }
 .nav-tab.active { color: var(–accent); border-bottom-color: var(–accent); }
-
-/* PAGES */
 .page { display: none; }
 .page.active { display: block; }
 
@@ -59,16 +48,16 @@ pointer-events: none; z-index: 0;
 header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-content: space-between; }
 .logo { font-family: ‘Bebas Neue’, sans-serif; font-size: 2.4rem; letter-spacing: 0.12em; color: var(–white); line-height: 1; }
 .logo span { color: var(–accent); }
-.logo-sub { font-family: ‘DM Mono’, monospace; font-size: 0.55rem; letter-spacing: 0.2em; color: var(–muted); text-transform: uppercase; margin-top: 2px; }
-#clock { font-family: ‘DM Mono’, monospace; font-size: 1.3rem; color: var(–accent); letter-spacing: 0.05em; text-align: right; }
+.logo-sub { font-family: ‘DM Mono’, monospace; font-size: 0.55rem; letter-spacing: 0.18em; color: var(–muted); text-transform: uppercase; margin-top: 2px; }
+#clock { font-family: ‘DM Mono’, monospace; font-size: 1.3rem; color: var(–accent); text-align: right; }
 #date-display { font-size: 0.6rem; color: var(–muted); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 2px; text-align: right; }
 
 /* LOCATION */
 #location-bar { margin: 14px 20px 0; display: flex; align-items: center; gap: 10px; padding: 11px 14px; background: var(–card); border: 1px solid var(–border); border-radius: 12px; }
-#loc-text { flex: 1; font-family: ‘DM Mono’, monospace; font-size: 0.68rem; color: var(–text); }
+#loc-text { flex: 1; font-family: ‘DM Mono’, monospace; font-size: 0.65rem; color: var(–text); }
 .loc-dot { width: 7px; height: 7px; border-radius: 50%; background: var(–muted); flex-shrink: 0; }
 .loc-dot.active { background: var(–safe); box-shadow: 0 0 6px var(–safe); animation: blink 2s infinite; }
-@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+@keyframes blink { 0%,100%{opacity:1}50%{opacity:0.3} }
 #btn-gps { padding: 6px 12px; background: transparent; border: 1px solid var(–accent); border-radius: 8px; color: var(–accent); font-family: ‘DM Mono’, monospace; font-size: 0.62rem; cursor: pointer; white-space: nowrap; }
 
 /* HORIZON */
@@ -76,19 +65,47 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 .htab { flex: 1; padding: 9px; text-align: center; background: var(–card); border: 1px solid var(–border); border-radius: 10px; font-family: ‘Bebas Neue’, sans-serif; font-size: 1rem; letter-spacing: 0.1em; color: var(–muted); cursor: pointer; transition: all 0.2s; }
 .htab.active { background: rgba(0,240,255,0.1); border-color: var(–accent); color: var(–accent); }
 
+/* SOURCE BADGE */
+.source-row { display: flex; gap: 6px; margin: 10px 20px 0; flex-wrap: wrap; }
+.src-badge { padding: 4px 10px; border-radius: 20px; font-family: ‘DM Mono’, monospace; font-size: 0.55rem; letter-spacing: 0.08em; text-transform: uppercase; border: 1px solid var(–border); color: var(–muted); }
+.src-badge.ok { border-color: rgba(34,221,136,0.4); color: var(–safe); background: rgba(34,221,136,0.07); }
+.src-badge.err { border-color: rgba(255,68,68,0.4); color: var(–danger); background: rgba(255,68,68,0.07); }
+.src-badge.loading { border-color: rgba(0,240,255,0.3); color: var(–accent); background: rgba(0,240,255,0.05); animation: blink 1.5s infinite; }
+
 /* METRICS */
 .metrics-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin: 12px 20px 0; }
 .metric-card { background: var(–card); border: 1px solid var(–border); border-radius: 14px; padding: 14px 10px; text-align: center; }
 .metric-icon { font-size: 1.2rem; margin-bottom: 4px; }
 .metric-value { font-family: ‘Bebas Neue’, sans-serif; font-size: 1.7rem; letter-spacing: 0.05em; color: var(–white); line-height: 1; }
 .metric-unit { font-family: ‘DM Mono’, monospace; font-size: 0.55rem; color: var(–muted); text-transform: uppercase; margin-top: 2px; }
-.metric-label { font-size: 0.58rem; color: var(–muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 3px; }
+.metric-label { font-size: 0.58rem; color: var(–muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; }
+.metric-source { font-family: ‘DM Mono’, monospace; font-size: 0.48rem; color: var(–muted); margin-top: 3px; opacity: 0.6; }
 
-/* EXTRA METRICS ROW */
+/* EXTRA METRICS */
 .metrics-row-2 { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin: 8px 20px 0; }
 .metric-sm { background: var(–card); border: 1px solid var(–border); border-radius: 12px; padding: 10px 8px; text-align: center; }
 .metric-sm-value { font-family: ‘Bebas Neue’, sans-serif; font-size: 1.1rem; color: var(–white); }
-.metric-sm-label { font-family: ‘DM Mono’, monospace; font-size: 0.52rem; color: var(–muted); text-transform: uppercase; margin-top: 2px; }
+.metric-sm-label { font-family: ‘DM Mono’, monospace; font-size: 0.5rem; color: var(–muted); text-transform: uppercase; margin-top: 2px; }
+
+/* MARINE DATA CARD — Stormglass */
+.marine-card { margin: 10px 20px 0; background: var(–card); border: 1px solid var(–border); border-radius: 14px; overflow: hidden; }
+.marine-header { padding: 12px 18px; border-bottom: 1px solid var(–border); display: flex; align-items: center; justify-content: space-between; }
+.marine-title { font-family: ‘DM Mono’, monospace; font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(–muted); }
+.marine-source { font-family: ‘DM Mono’, monospace; font-size: 0.55rem; color: var(–accent); opacity: 0.7; }
+.marine-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 0; }
+.marine-item { padding: 14px 12px; text-align: center; border-right: 1px solid var(–border); border-bottom: 1px solid var(–border); }
+.marine-item:nth-child(3n) { border-right: none; }
+.marine-item:nth-last-child(-n+3) { border-bottom: none; }
+.marine-item-value { font-family: ‘Bebas Neue’, sans-serif; font-size: 1.4rem; color: var(–white); letter-spacing: 0.05em; }
+.marine-item-label { font-family: ‘DM Mono’, monospace; font-size: 0.52rem; color: var(–muted); text-transform: uppercase; margin-top: 3px; }
+.marine-item-sub { font-size: 0.58rem; color: var(–muted); margin-top: 2px; }
+
+/* SWELL CARD */
+.swell-card { margin: 8px 20px 0; background: var(–card); border: 1px solid var(–border); border-radius: 14px; padding: 16px 18px; }
+.swell-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(–border); }
+.swell-row:last-child { border-bottom: none; }
+.swell-label { font-family: ‘DM Mono’, monospace; font-size: 0.62rem; color: var(–muted); }
+.swell-value { font-family: ‘DM Mono’, monospace; font-size: 0.72rem; color: var(–white); font-weight: 500; }
 
 /* WIND CARD */
 .wind-card { margin: 8px 20px 0; background: var(–card); border: 1px solid var(–border); border-radius: 14px; padding: 16px; display: flex; align-items: center; gap: 16px; }
@@ -100,7 +117,7 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 .wd-label { color: var(–muted); font-family: ‘DM Mono’, monospace; }
 .wd-value { color: var(–white); font-family: ‘DM Mono’, monospace; font-weight: 500; }
 
-/* BAROMETER */
+/* BARO */
 .baro-card { margin: 8px 20px 0; background: var(–card); border: 1px solid var(–border); border-radius: 14px; padding: 16px; }
 .baro-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
 .baro-title { font-family: ‘DM Mono’, monospace; font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(–muted); }
@@ -116,9 +133,9 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 /* TIMELINE */
 .timeline-card { margin: 8px 20px 0; background: var(–card); border: 1px solid var(–border); border-radius: 14px; padding: 16px 0; }
 .section-title { font-family: ‘DM Mono’, monospace; font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(–muted); padding: 0 18px; margin-bottom: 12px; }
-.timeline-scroll { display: flex; gap: 0; overflow-x: auto; padding: 0 18px; scrollbar-width: none; }
+.timeline-scroll { display: flex; overflow-x: auto; padding: 0 18px; scrollbar-width: none; }
 .timeline-scroll::-webkit-scrollbar { display: none; }
-.timeline-item { flex-shrink: 0; width: 68px; text-align: center; padding: 8px 4px; border-radius: 10px; border: 1px solid transparent; }
+.timeline-item { flex-shrink: 0; width: 72px; text-align: center; padding: 8px 4px; border-radius: 10px; border: 1px solid transparent; }
 .timeline-item.active { background: rgba(0,240,255,0.08); border-color: rgba(0,240,255,0.3); }
 .ti-time { font-family: ‘DM Mono’, monospace; font-size: 0.55rem; color: var(–muted); margin-bottom: 4px; }
 .ti-icon { font-size: 1.1rem; margin-bottom: 3px; }
@@ -139,55 +156,48 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 .risk-med { background: rgba(255,170,0,0.15); color: var(–warn); border: 1px solid rgba(255,170,0,0.3); }
 .risk-high { background: rgba(255,68,68,0.15); color: var(–danger); border: 1px solid rgba(255,68,68,0.3); }
 
-/* ── OSSERVAZIONI PAGE ── */
+/* OSSERVAZIONI */
 .obs-section { margin: 12px 20px 0; }
-.obs-title { font-family: ‘DM Mono’, monospace; font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(–muted); margin-bottom: 10px; padding: 0 2px; }
-
+.obs-title { font-family: ‘DM Mono’, monospace; font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(–muted); margin-bottom: 10px; }
 .obs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .obs-card { background: var(–card); border: 1px solid var(–border); border-radius: 12px; padding: 12px; cursor: pointer; transition: all 0.2s; position: relative; }
 .obs-card.selected { border-color: var(–accent); background: rgba(0,240,255,0.07); }
-.obs-card-icon { font-size: 1.6rem; margin-bottom: 6px; }
+.obs-card-icon { font-size: 1.5rem; margin-bottom: 5px; }
 .obs-card-name { font-family: ‘DM Sans’, sans-serif; font-size: 0.75rem; font-weight: 600; color: var(–white); margin-bottom: 3px; }
-.obs-card-desc { font-size: 0.65rem; color: var(–muted); line-height: 1.4; }
-.obs-card-alert { font-size: 0.62rem; margin-top: 5px; padding: 3px 8px; border-radius: 6px; display: inline-block; }
+.obs-card-desc { font-size: 0.62rem; color: var(–muted); line-height: 1.4; }
+.obs-card-alert { font-size: 0.6rem; margin-top: 5px; padding: 3px 8px; border-radius: 6px; display: inline-block; }
 .alert-safe { background: rgba(34,221,136,0.15); color: var(–safe); }
 .alert-warn { background: rgba(255,170,0,0.15); color: var(–warn); }
 .alert-danger { background: rgba(255,68,68,0.15); color: var(–danger); }
 .obs-check { position: absolute; top: 8px; right: 8px; width: 18px; height: 18px; border-radius: 50%; background: var(–accent); display: none; align-items: center; justify-content: center; font-size: 0.6rem; color: var(–bg); font-weight: bold; }
 .obs-card.selected .obs-check { display: flex; }
-
-/* SELECT INPUTS */
-.obs-select-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
-.obs-label { font-family: ‘DM Mono’, monospace; font-size: 0.6rem; color: var(–muted); text-transform: uppercase; letter-spacing: 0.08em; }
-.obs-select { width: 100%; padding: 10px 12px; background: var(–card); border: 1px solid var(–border); border-radius: 10px; color: var(–white); font-family: ‘DM Mono’, monospace; font-size: 0.72rem; appearance: none; -webkit-appearance: none; cursor: pointer; }
+.obs-select { width: 100%; padding: 10px 12px; background: var(–card); border: 1px solid var(–border); border-radius: 10px; color: var(–white); font-family: ‘DM Mono’, monospace; font-size: 0.7rem; appearance: none; -webkit-appearance: none; cursor: pointer; margin-bottom: 10px; }
 .obs-select:focus { outline: none; border-color: var(–accent); }
 .obs-textarea { width: 100%; padding: 10px 12px; background: var(–card); border: 1px solid var(–border); border-radius: 10px; color: var(–white); font-family: ‘DM Sans’, sans-serif; font-size: 0.75rem; resize: none; height: 80px; }
 .obs-textarea:focus { outline: none; border-color: var(–accent); }
 .obs-textarea::placeholder { color: var(–muted); }
+.obs-label { font-family: ‘DM Mono’, monospace; font-size: 0.6rem; color: var(–muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; display: block; }
 
-/* ── CLOUD GUIDE PAGE ── */
+/* CLOUD GUIDE */
 .cloud-card { margin: 10px 20px 0; background: var(–card); border: 1px solid var(–border); border-radius: 14px; overflow: hidden; }
 .cloud-header { padding: 14px 18px; border-bottom: 1px solid var(–border); display: flex; align-items: center; justify-content: space-between; }
 .cloud-name { font-family: ‘Bebas Neue’, sans-serif; font-size: 1.3rem; letter-spacing: 0.08em; color: var(–white); }
-.cloud-alt { font-family: ‘DM Mono’, monospace; font-size: 0.6rem; color: var(–muted); margin-top: 2px; }
+.cloud-alt { font-family: ‘DM Mono’, monospace; font-size: 0.58rem; color: var(–muted); margin-top: 2px; }
 .cloud-body { padding: 14px 18px; }
-.cloud-emoji { font-size: 3rem; margin-bottom: 8px; }
 .cloud-meaning { font-size: 0.78rem; color: var(–text); line-height: 1.6; margin-bottom: 10px; }
 .cloud-action { font-size: 0.72rem; padding: 8px 12px; border-radius: 8px; line-height: 1.5; }
 
-/* STATUS BAR */
+/* STATUS */
 #status-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(–deep); border-top: 1px solid var(–border); padding: 9px 20px; display: flex; align-items: center; justify-content: space-between; z-index: 100; }
-.status-item { display: flex; align-items: center; gap: 5px; font-family: ‘DM Mono’, monospace; font-size: 0.58rem; color: var(–muted); }
+.status-item { display: flex; align-items: center; gap: 5px; font-family: ‘DM Mono’, monospace; font-size: 0.55rem; color: var(–muted); }
 .status-dot { width: 5px; height: 5px; border-radius: 50%; background: var(–muted); }
 .status-dot.ok { background: var(–safe); }
 .status-dot.err { background: var(–danger); }
-#btn-refresh { padding: 5px 12px; background: transparent; border: 1px solid var(–border); border-radius: 7px; color: var(–muted); font-family: ‘DM Mono’, monospace; font-size: 0.58rem; cursor: pointer; }
+#btn-refresh { padding: 5px 12px; background: transparent; border: 1px solid var(–border); border-radius: 7px; color: var(–muted); font-family: ‘DM Mono’, monospace; font-size: 0.55rem; cursor: pointer; }
 
-.loading { display: flex; align-items: center; gap: 8px; font-family: ‘DM Mono’, monospace; font-size: 0.68rem; color: var(–muted); }
+.loading { display: flex; align-items: center; gap: 8px; font-family: ‘DM Mono’, monospace; font-size: 0.68rem; color: var(–muted); padding: 8px 0; }
 .spinner { width: 13px; height: 13px; border: 2px solid var(–border); border-top-color: var(–accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-.fade-in { animation: fadein 0.4s ease forwards; }
-@keyframes fadein { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+@keyframes spin { to{transform:rotate(360deg)} }
 </style>
 
 </head>
@@ -196,15 +206,14 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 
 <div id="app">
 
-  <!-- NAV -->
-
   <div class="nav-tabs">
     <div class="nav-tab active" onclick="showPage('meteo',this)">⛵ Meteo</div>
+    <div class="nav-tab" onclick="showPage('mare',this)">🌊 Mare</div>
     <div class="nav-tab" onclick="showPage('osservazioni',this)">👁 Osservazioni</div>
     <div class="nav-tab" onclick="showPage('nuvole',this)">☁️ Nuvole</div>
   </div>
 
-  <!-- ══════════════ PAGE: METEO ══════════════ -->
+  <!-- ══ PAGE METEO ══ -->
 
   <div id="page-meteo" class="page active">
 
@@ -232,24 +241,32 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
   <div class="htab" onclick="setHorizon(12,this)">12 ORE</div>
 </div>
 
+<div class="source-row">
+  <span class="src-badge" id="src-openmeteo">⟳ Open-Meteo</span>
+  <span class="src-badge" id="src-stormglass">⟳ Stormglass</span>
+</div>
+
 <div class="metrics-row">
   <div class="metric-card">
-    <div class="metric-label">Vento</div>
+    <div class="metric-label">Vento Max</div>
     <div class="metric-icon">💨</div>
     <div class="metric-value" id="m-wind">--</div>
     <div class="metric-unit">nodi</div>
+    <div class="metric-source">Open-Meteo</div>
   </div>
   <div class="metric-card">
-    <div class="metric-label">Onde</div>
+    <div class="metric-label">Onda Max</div>
     <div class="metric-icon">🌊</div>
     <div class="metric-value" id="m-wave">--</div>
     <div class="metric-unit">metri</div>
+    <div class="metric-source" id="wave-source">Open-Meteo</div>
   </div>
   <div class="metric-card">
-    <div class="metric-label">Raffiche</div>
+    <div class="metric-label">Raffica Max</div>
     <div class="metric-icon">⚡</div>
     <div class="metric-value" id="m-gust">--</div>
     <div class="metric-unit">nodi</div>
+    <div class="metric-source">Open-Meteo</div>
   </div>
 </div>
 
@@ -259,8 +276,8 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
     <div class="metric-sm-label">°C Aria</div>
   </div>
   <div class="metric-sm">
-    <div class="metric-sm-value" id="m-humid">--</div>
-    <div class="metric-sm-label">% Umid.</div>
+    <div class="metric-sm-value" id="m-sst">--</div>
+    <div class="metric-sm-label">°C Mare</div>
   </div>
   <div class="metric-sm">
     <div class="metric-sm-value" id="m-vis">--</div>
@@ -295,7 +312,7 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
     <div class="wind-detail-row"><span class="wd-label">GRADI</span><span class="wd-value" id="wd-deg">—</span></div>
     <div class="wind-detail-row"><span class="wd-label">PERIODO ONDE</span><span class="wd-value" id="wd-period">—</span></div>
     <div class="wind-detail-row"><span class="wd-label">DIR. ONDE</span><span class="wd-value" id="wd-wavedir">—</span></div>
-    <div class="wind-detail-row"><span class="wd-label">PRECIP.</span><span class="wd-value" id="wd-precip">—</span></div>
+    <div class="wind-detail-row"><span class="wd-label">PROB. PIOGGIA</span><span class="wd-value" id="wd-precip">—</span></div>
   </div>
 </div>
 
@@ -306,8 +323,8 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
       <div style="margin-top:5px"><span class="baro-value-big" id="baro-hpa">---</span><span class="baro-unit-sm">hPa</span></div>
     </div>
     <div style="text-align:right">
-      <div style="font-family:'DM Mono',monospace;font-size:0.58rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;">Fonte</div>
-      <div id="baro-station" style="font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--text);margin-top:3px;">Open-Meteo</div>
+      <div style="font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);text-transform:uppercase;">Fonte</div>
+      <div id="baro-station" style="font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--text);margin-top:3px;">Open-Meteo</div>
     </div>
   </div>
   <div class="gauge-container"><div class="gauge-fill" id="baro-gauge" style="width:50%"></div></div>
@@ -324,7 +341,7 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 <div class="timeline-card">
   <div class="section-title">⏱ Previsione Oraria</div>
   <div class="timeline-scroll" id="timeline-scroll">
-    <div class="loading" style="padding:0 4px"><div class="spinner"></div> Caricamento...</div>
+    <div class="loading"><div class="spinner"></div> Caricamento...</div>
   </div>
 </div>
 
@@ -337,272 +354,268 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
     <button id="btn-briefing" onclick="requestBriefing()">Genera Briefing</button>
   </div>
   <div id="briefing-text" style="color:var(--muted);font-size:0.72rem;font-family:'DM Mono',monospace;">
-    Carica i dati meteo e inserisci le osservazioni locali, poi genera il briefing per un'analisi personalizzata.
+    Carica dati e osservazioni, poi genera il briefing per un'analisi completa.
   </div>
 </div>
 ```
 
-  </div><!-- /page-meteo -->
+  </div><!-- /meteo -->
 
-  <!-- ══════════════ PAGE: OSSERVAZIONI ══════════════ -->
+  <!-- ══ PAGE MARE (Stormglass) ══ -->
+
+  <div id="page-mare" class="page">
+    <div style="padding:20px 20px 0">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:0.1em;color:var(--white)">DATI <span style="color:var(--accent)">MARE</span></div>
+      <div style="font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.15em;text-transform:uppercase;margin-top:3px;">Fonte: Stormglass · Multi-modello in tempo reale</div>
+    </div>
+
+```
+<div class="marine-card" style="margin-top:16px">
+  <div class="marine-header">
+    <span class="marine-title">🌊 Stato del Mare</span>
+    <span class="marine-source" id="sg-update">—</span>
+  </div>
+  <div class="marine-grid" id="marine-grid">
+    <div class="marine-item"><div class="marine-item-value" id="sg-waveheight">--</div><div class="marine-item-label">Onda Significativa</div><div class="marine-item-sub">metri</div></div>
+    <div class="marine-item"><div class="marine-item-value" id="sg-waveperiod">--</div><div class="marine-item-label">Periodo Onda</div><div class="marine-item-sub">secondi</div></div>
+    <div class="marine-item"><div class="marine-item-value" id="sg-wavedir">--</div><div class="marine-item-label">Dir. Onda</div><div class="marine-item-sub">bussola</div></div>
+    <div class="marine-item"><div class="marine-item-value" id="sg-sst">--</div><div class="marine-item-label">Temp. Mare</div><div class="marine-item-sub">°C</div></div>
+    <div class="marine-item"><div class="marine-item-value" id="sg-current">--</div><div class="marine-item-label">Corrente</div><div class="marine-item-sub">nodi</div></div>
+    <div class="marine-item"><div class="marine-item-value" id="sg-currentdir">--</div><div class="marine-item-label">Dir. Corrente</div><div class="marine-item-sub">bussola</div></div>
+  </div>
+</div>
+
+<div class="swell-card">
+  <div class="section-title" style="padding:0;margin-bottom:14px">🏄 Swell (Moto Ondoso)</div>
+  <div class="swell-row"><span class="swell-label">ALTEZZA SWELL</span><span class="swell-value" id="sg-swellh">—</span></div>
+  <div class="swell-row"><span class="swell-label">PERIODO SWELL</span><span class="swell-value" id="sg-swellp">—</span></div>
+  <div class="swell-row"><span class="swell-label">DIREZIONE SWELL</span><span class="swell-value" id="sg-swelld">—</span></div>
+  <div class="swell-row"><span class="swell-label">ONDA DA VENTO</span><span class="swell-value" id="sg-windwave">—</span></div>
+  <div class="swell-row"><span class="swell-label">PERIODO ONDA VENTO</span><span class="swell-value" id="sg-windwavep">—</span></div>
+</div>
+
+<div class="swell-card" style="margin-top:10px;margin-bottom:20px">
+  <div class="section-title" style="padding:0;margin-bottom:14px">💨 Vento · Stormglass</div>
+  <div class="swell-row"><span class="swell-label">VELOCITÀ</span><span class="swell-value" id="sg-wind">—</span></div>
+  <div class="swell-row"><span class="swell-label">DIREZIONE</span><span class="swell-value" id="sg-winddir">—</span></div>
+  <div class="swell-row"><span class="swell-label">RAFFICA</span><span class="swell-value" id="sg-gust">—</span></div>
+  <div class="swell-row"><span class="swell-label">UMIDITÀ</span><span class="swell-value" id="sg-humid">—</span></div>
+  <div class="swell-row"><span class="swell-label">PRESSIONE</span><span class="swell-value" id="sg-pressure">—</span></div>
+  <div style="margin-top:12px;padding:10px 12px;background:var(--deep);border-radius:8px;font-family:'DM Mono',monospace;font-size:0.6rem;color:var(--muted);line-height:1.6;">
+    ⚡ Stormglass aggrega automaticamente ECMWF, NOAA, DWD, Met.no e altri modelli — seleziona la fonte migliore per la tua posizione.
+  </div>
+</div>
+```
+
+  </div><!-- /mare -->
+
+  <!-- ══ PAGE OSSERVAZIONI ══ -->
 
   <div id="page-osservazioni" class="page">
     <div style="padding:20px 20px 0">
       <div style="font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:0.1em;color:var(--white)">OSSERVAZIONI <span style="color:var(--accent)">LOCALI</span></div>
-      <div style="font-family:'DM Mono',monospace;font-size:0.58rem;color:var(--muted);letter-spacing:0.15em;text-transform:uppercase;margin-top:3px;">Dati visivi per migliorare il briefing AI</div>
+      <div style="font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.15em;text-transform:uppercase;margin-top:3px;">Dati visivi · usati nel briefing AI</div>
     </div>
 
 ```
-<!-- Nuvole osservate -->
 <div class="obs-section">
-  <div class="obs-title">☁️ Tipo di nuvole osservate (puoi selezionarne più di una)</div>
+  <div class="obs-title">☁️ Nuvole osservate (seleziona tutto quello che vedi)</div>
   <div class="obs-grid" id="cloud-selector">
     <div class="obs-card" onclick="toggleCloud(this,'Cirri')" data-cloud="Cirri">
-      <div class="obs-check">✓</div>
-      <div class="obs-card-icon">🌤</div>
+      <div class="obs-check">✓</div><div class="obs-card-icon">🌤</div>
       <div class="obs-card-name">Cirri</div>
-      <div class="obs-card-desc">Filamenti bianchi ad alta quota, aspetto a "capelli"</div>
-      <div class="obs-card-alert alert-warn">⚠ Fronte in arrivo entro 24-48h</div>
+      <div class="obs-card-desc">Filamenti bianchi ad alta quota</div>
+      <div class="obs-card-alert alert-warn">⚠ Fronte entro 24-48h</div>
     </div>
     <div class="obs-card" onclick="toggleCloud(this,'Cumuli')" data-cloud="Cumuli">
-      <div class="obs-check">✓</div>
-      <div class="obs-card-icon">⛅</div>
+      <div class="obs-check">✓</div><div class="obs-card-icon">⛅</div>
       <div class="obs-card-name">Cumuli</div>
-      <div class="obs-card-desc">Nuvole bianche a cavolfiore, base piatta, tempo bello</div>
+      <div class="obs-card-desc">Nuvole a cavolfiore, base piatta</div>
       <div class="obs-card-alert alert-safe">✅ Tempo stabile</div>
     </div>
     <div class="obs-card" onclick="toggleCloud(this,'Cumulonembi')" data-cloud="Cumulonembi">
-      <div class="obs-check">✓</div>
-      <div class="obs-card-icon">⛈</div>
+      <div class="obs-check">✓</div><div class="obs-card-icon">⛈</div>
       <div class="obs-card-name">Cumulonembi</div>
-      <div class="obs-card-desc">Torri scure, incudine in cima, si sviluppano in verticale</div>
+      <div class="obs-card-desc">Torre scura con incudine in cima</div>
       <div class="obs-card-alert alert-danger">🚨 Pericolo immediato</div>
     </div>
     <div class="obs-card" onclick="toggleCloud(this,'Strati')" data-cloud="Strati">
-      <div class="obs-check">✓</div>
-      <div class="obs-card-icon">🌫</div>
+      <div class="obs-check">✓</div><div class="obs-card-icon">🌫</div>
       <div class="obs-card-name">Strati</div>
-      <div class="obs-card-desc">Copertura uniforme grigia, bassa quota, pioggia leggera</div>
+      <div class="obs-card-desc">Copertura grigia uniforme</div>
       <div class="obs-card-alert alert-warn">⚠ Visibilità ridotta</div>
     </div>
     <div class="obs-card" onclick="toggleCloud(this,'Nembostrati')" data-cloud="Nembostrati">
-      <div class="obs-check">✓</div>
-      <div class="obs-card-icon">🌧</div>
+      <div class="obs-check">✓</div><div class="obs-card-icon">🌧</div>
       <div class="obs-card-name">Nembostrati</div>
-      <div class="obs-card-desc">Grigio scuro esteso, pioggia continua, orizzonte cancellato</div>
+      <div class="obs-card-desc">Grigio scuro, pioggia continua</div>
       <div class="obs-card-alert alert-danger">🚨 Rientrare</div>
     </div>
     <div class="obs-card" onclick="toggleCloud(this,'Cielo sereno')" data-cloud="Cielo sereno">
-      <div class="obs-check">✓</div>
-      <div class="obs-card-icon">☀️</div>
+      <div class="obs-check">✓</div><div class="obs-card-icon">☀️</div>
       <div class="obs-card-name">Cielo sereno</div>
-      <div class="obs-card-desc">Nessuna nuvola significativa, visibilità ottima</div>
+      <div class="obs-card-desc">Nessuna nuvola significativa</div>
       <div class="obs-card-alert alert-safe">✅ Condizioni ottimali</div>
     </div>
   </div>
 </div>
 
-<!-- Visibilità -->
 <div class="obs-section">
   <div class="obs-title">👁 Visibilità orizzonte</div>
-  <div class="obs-select-row">
-    <select class="obs-select" id="obs-visibility">
-      <option value="">-- Seleziona --</option>
-      <option value="ottima">Ottima — vedo oltre 10km, isole nitide</option>
-      <option value="buona">Buona — vedo 5-10km</option>
-      <option value="foschia">Foschia — contorni sfumati, 2-5km</option>
-      <option value="nebbia">Nebbia — meno di 1km, pericolo navigazione</option>
-    </select>
-  </div>
+  <label class="obs-label">Cosa vedi?</label>
+  <select class="obs-select" id="obs-visibility">
+    <option value="">-- Seleziona --</option>
+    <option value="ottima">Ottima — oltre 10km, isole nitide</option>
+    <option value="buona">Buona — 5-10km</option>
+    <option value="foschia">Foschia — contorni sfumati, 2-5km</option>
+    <option value="nebbia">Nebbia — meno di 1km, pericolo</option>
+  </select>
 </div>
 
-<!-- Stato del mare visivo -->
 <div class="obs-section">
-  <div class="obs-title">🌊 Stato del mare (scala Douglas)</div>
-  <div class="obs-select-row">
-    <select class="obs-select" id="obs-sea">
-      <option value="">-- Seleziona --</option>
-      <option value="calmo">0-1 — Calmo, specchio d'acqua</option>
-      <option value="quasi calmo">1 — Quasi calmo, increspature</option>
-      <option value="poco mosso">2 — Poco mosso, onde 0.1-0.5m</option>
-      <option value="mosso">3 — Mosso, onde 0.5-1.25m</option>
-      <option value="molto mosso">4 — Molto mosso, onde 1.25-2.5m</option>
-      <option value="agitato">5 — Agitato, onde 2.5-4m</option>
-      <option value="molto agitato">6 — Molto agitato, onde 4-6m</option>
-    </select>
-  </div>
+  <div class="obs-title">🌊 Stato del mare visivo (scala Douglas)</div>
+  <select class="obs-select" id="obs-sea">
+    <option value="">-- Seleziona --</option>
+    <option value="calmo">0 — Calmo, specchio d'acqua</option>
+    <option value="quasi calmo">1 — Quasi calmo, increspature</option>
+    <option value="poco mosso">2 — Poco mosso, onde 0.1-0.5m</option>
+    <option value="mosso">3 — Mosso, onde 0.5-1.25m</option>
+    <option value="molto mosso">4 — Molto mosso, onde 1.25-2.5m</option>
+    <option value="agitato">5 — Agitato, onde 2.5-4m</option>
+  </select>
 </div>
 
-<!-- Colore cielo -->
 <div class="obs-section">
-  <div class="obs-title">🎨 Colore cielo a ovest (tramonto/sera)</div>
-  <div class="obs-select-row">
-    <select class="obs-select" id="obs-sky">
-      <option value="">-- Seleziona --</option>
-      <option value="rosso acceso">Rosso acceso — attenzione, maltempo in arrivo</option>
-      <option value="arancione dorato">Arancione/dorato — bel tempo in arrivo</option>
-      <option value="grigio verdastro">Grigio verdastro — possibile temporale</option>
-      <option value="giallo pallido">Giallo pallido — vento probabile</option>
-      <option value="blu chiaro">Blu chiaro — stabile</option>
-      <option value="non visibile">Non visibile / coperto</option>
-    </select>
-  </div>
+  <div class="obs-title">🎨 Colore cielo a ovest</div>
+  <select class="obs-select" id="obs-sky">
+    <option value="">-- Seleziona --</option>
+    <option value="rosso acceso">Rosso acceso — maltempo in arrivo</option>
+    <option value="arancione dorato">Arancione/dorato — bel tempo</option>
+    <option value="grigio verdastro">Grigio verdastro — possibile temporale</option>
+    <option value="giallo pallido">Giallo pallido — vento probabile</option>
+    <option value="blu chiaro">Blu chiaro — stabile</option>
+    <option value="non visibile">Non visibile / coperto</option>
+  </select>
 </div>
 
-<!-- Vento locale -->
 <div class="obs-section">
-  <div class="obs-title">💨 Vento locale percepito</div>
-  <div class="obs-select-row">
-    <select class="obs-select" id="obs-wind-feel">
-      <option value="">-- Seleziona --</option>
-      <option value="assente">Assente — calma piatta</option>
-      <option value="leggera brezza">Leggera brezza — si sente sul viso</option>
-      <option value="brezza moderata">Brezza moderata — muove i capelli</option>
-      <option value="vento sostenuto">Vento sostenuto — difficile tenere oggetti</option>
-      <option value="vento forte">Vento forte — difficile camminare</option>
-      <option value="burrasca">Burrasca — pericolo in mare</option>
-    </select>
-  </div>
+  <div class="obs-title">💨 Vento percepito</div>
+  <select class="obs-select" id="obs-wind-feel">
+    <option value="">-- Seleziona --</option>
+    <option value="assente">Assente — calma piatta</option>
+    <option value="leggera brezza">Leggera brezza — si sente sul viso</option>
+    <option value="brezza moderata">Brezza moderata — muove i capelli</option>
+    <option value="vento sostenuto">Vento sostenuto — difficile tenere oggetti</option>
+    <option value="vento forte">Vento forte — difficile camminare</option>
+    <option value="burrasca">Burrasca — pericolo in mare</option>
+  </select>
 </div>
 
-<!-- Note libere -->
 <div class="obs-section" style="margin-bottom:20px">
   <div class="obs-title">📝 Note libere</div>
-  <textarea class="obs-textarea" id="obs-notes" placeholder="Es: vedo mulinelli di vento verso Capraia, mare controvento, odore di pioggia..."></textarea>
+  <textarea class="obs-textarea" id="obs-notes" placeholder="Es: mulinelli verso Capraia, odore di pioggia, mare controvento..."></textarea>
 </div>
 ```
 
-  </div><!-- /page-osservazioni -->
+  </div><!-- /osservazioni -->
 
-  <!-- ══════════════ PAGE: NUVOLE ══════════════ -->
+  <!-- ══ PAGE NUVOLE ══ -->
 
   <div id="page-nuvole" class="page">
     <div style="padding:20px 20px 0">
       <div style="font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:0.1em;color:var(--white)">GUIDA <span style="color:var(--accent)">NUVOLE</span></div>
-      <div style="font-family:'DM Mono',monospace;font-size:0.58rem;color:var(--muted);letter-spacing:0.15em;text-transform:uppercase;margin-top:3px;">Riconosci le nuvole per prevedere il tempo</div>
+      <div style="font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.15em;text-transform:uppercase;margin-top:3px;">Riconosci · interpreta · decidi</div>
     </div>
 
 ```
-<div class="cloud-card">
-  <div class="cloud-header">
-    <div><div class="cloud-name">CIRRI</div><div class="cloud-alt">Alta quota · 6.000 – 12.000m</div></div>
-    <div style="font-size:2rem">🌤</div>
-  </div>
+<div class="cloud-card" style="margin-top:16px">
+  <div class="cloud-header"><div><div class="cloud-name">CIRRI</div><div class="cloud-alt">Alta quota · 6.000–12.000m</div></div><div style="font-size:2rem">🌤</div></div>
   <div class="cloud-body">
-    <div class="cloud-meaning">Filamenti bianchi e sottili come ciocche di capelli o piume. Formati da cristalli di ghiaccio. Il cielo può sembrare quasi sereno ma questi filamenti segnalano umidità in quota.</div>
-    <div class="cloud-action alert-warn">⚠ Significato nautico: fronte in avvicinamento entro 24-48 ore. Se aumentano progressivamente e si addensano verso il basso, prepararsi al peggioramento. Controllare la tendenza barometrica.</div>
+    <div class="cloud-meaning">Filamenti bianchi sottili come capelli o piume. Formati da cristalli di ghiaccio. Il cielo sembra quasi sereno ma questi filamenti segnalano umidità in quota.</div>
+    <div class="cloud-action alert-warn">⚠ Fronte in avvicinamento entro 24-48h. Se aumentano e si addensano verso il basso, preparati al peggioramento. Controlla la tendenza barometrica.</div>
   </div>
 </div>
 
 <div class="cloud-card">
-  <div class="cloud-header">
-    <div><div class="cloud-name">CIRROSTRATI</div><div class="cloud-alt">Alta quota · 6.000 – 12.000m</div></div>
-    <div style="font-size:2rem">🌥</div>
-  </div>
+  <div class="cloud-header"><div><div class="cloud-name">CIRROSTRATI</div><div class="cloud-alt">Alta quota · 6.000–12.000m</div></div><div style="font-size:2rem">🌥</div></div>
   <div class="cloud-body">
-    <div class="cloud-meaning">Velo biancastro trasparente che copre tutto il cielo. Crea un alone luminoso attorno al sole o alla luna — questo è il segnale classico.</div>
-    <div class="cloud-action alert-warn">⚠ Significato nautico: pioggia probabile entro 12-24 ore. L'alone intorno al sole è il segnale più affidabile di fronte in arrivo nel Mediterraneo.</div>
+    <div class="cloud-meaning">Velo biancastro che copre tutto il cielo. Crea un alone luminoso attorno al sole o alla luna — il segnale classico da riconoscere.</div>
+    <div class="cloud-action alert-warn">⚠ Pioggia probabile entro 12-24h. L'alone intorno al sole è il segnale più affidabile di fronte in arrivo nel Mediterraneo.</div>
   </div>
 </div>
 
 <div class="cloud-card">
-  <div class="cloud-header">
-    <div><div class="cloud-name">ALTOCUMULI</div><div class="cloud-alt">Media quota · 2.000 – 6.000m</div></div>
-    <div style="font-size:2rem">🌦</div>
-  </div>
+  <div class="cloud-header"><div><div class="cloud-name">ALTOCUMULI</div><div class="cloud-alt">Media quota · 2.000–6.000m</div></div><div style="font-size:2rem">🌦</div></div>
   <div class="cloud-body">
-    <div class="cloud-meaning">Banchi o onde di nuvole grigio-bianche, disposte in file parallele. Aspetto a "scaglie di pesce" o "cielo a pecorelle".</div>
-    <div class="cloud-action alert-warn">⚠ Significato nautico: instabilità in aumento. "Cielo a pecorelle acqua a catinelle" — detto marinaro ancora valido. Tieni d'occhio i Cb che possono svilupparsi.</div>
+    <div class="cloud-meaning">Banchi o onde di nuvole grigio-bianche in file parallele. Aspetto a "scaglie di pesce" o "cielo a pecorelle".</div>
+    <div class="cloud-action alert-warn">⚠ Instabilità in aumento. "Cielo a pecorelle acqua a catinelle" — detto marinaro ancora valido. Tieni d'occhio i cumulonembi.</div>
   </div>
 </div>
 
 <div class="cloud-card">
-  <div class="cloud-header">
-    <div><div class="cloud-name">CUMULI</div><div class="cloud-alt">Bassa-media quota · 500 – 2.000m</div></div>
-    <div style="font-size:2rem">⛅</div>
-  </div>
+  <div class="cloud-header"><div><div class="cloud-name">CUMULI</div><div class="cloud-alt">Bassa-media quota · 500–2.000m</div></div><div style="font-size:2rem">⛅</div></div>
   <div class="cloud-body">
-    <div class="cloud-meaning">Nuvole bianche e soffici a forma di cavolfiore, con base piatta e sommità arrotondata. Bordi netti e definiti. Si formano con il riscaldamento diurno.</div>
-    <div class="cloud-action alert-safe">✅ Significato nautico: tempo generalmente buono. Attenzione se durante il pomeriggio crescono verticalmente — possono evolversi in cumulonembi entro 1-3 ore.</div>
+    <div class="cloud-meaning">Nuvole bianche soffici a forma di cavolfiore con base piatta e sommità arrotondata. Si formano con il riscaldamento diurno.</div>
+    <div class="cloud-action alert-safe">✅ Tempo generalmente buono. Attenzione se nel pomeriggio crescono rapidamente verso l'alto — possono evolversi in cumulonembi entro 1-3 ore.</div>
   </div>
 </div>
 
 <div class="cloud-card">
-  <div class="cloud-header">
-    <div><div class="cloud-name">CUMULONEMBI</div><div class="cloud-alt">Tutta la troposfera · fino a 12.000m</div></div>
-    <div style="font-size:2rem">⛈</div>
-  </div>
+  <div class="cloud-header"><div><div class="cloud-name">CUMULONEMBI</div><div class="cloud-alt">Tutta la troposfera · fino a 12.000m</div></div><div style="font-size:2rem">⛈</div></div>
   <div class="cloud-body">
-    <div class="cloud-meaning">La nuvola più pericolosa in mare. Torre scura imponente con sommità a forma di incudine piatta. Colore grigio-nerastro alla base. Può essere visibile a 50-100km di distanza.</div>
-    <div class="cloud-action alert-danger">🚨 Significato nautico: PERICOLO IMMEDIATO. Fulmini, vento improvviso fino a forza 8-10, grandine, trombe d'aria. Rientrare immediatamente o mantenersi a 20+ miglia di distanza. Non avvicinarsi mai.</div>
+    <div class="cloud-meaning">La nuvola più pericolosa in mare. Torre scura imponente con sommità a incudine. Colore grigio-nerastro alla base. Visibile a 50-100km di distanza.</div>
+    <div class="cloud-action alert-danger">🚨 PERICOLO IMMEDIATO. Fulmini, vento improvviso fino a forza 8-10, grandine, trombe d'aria. Rientrare subito o mantenersi a 20+ miglia di distanza.</div>
   </div>
 </div>
 
 <div class="cloud-card">
-  <div class="cloud-header">
-    <div><div class="cloud-name">STRATI</div><div class="cloud-alt">Bassa quota · 0 – 2.000m</div></div>
-    <div style="font-size:2rem">🌫</div>
-  </div>
+  <div class="cloud-header"><div><div class="cloud-name">STRATI</div><div class="cloud-alt">Bassa quota · 0–2.000m</div></div><div style="font-size:2rem">🌫</div></div>
   <div class="cloud-body">
-    <div class="cloud-meaning">Copertura uniforme e grigia come una coperta, bassa sul mare. Può toccare la superficie dell'acqua diventando nebbia. Pioggerella leggera e continua.</div>
-    <div class="cloud-action alert-warn">⚠ Significato nautico: visibilità ridotta, rischio collisione. Attivare radar e segnali sonori. Procedere con cautela riducendo la velocità.</div>
+    <div class="cloud-meaning">Copertura grigia uniforme come una coperta. Può toccare la superficie dell'acqua diventando nebbia. Pioggerella leggera e continua.</div>
+    <div class="cloud-action alert-warn">⚠ Visibilità ridotta, rischio collisione. Attivare radar e segnali sonori. Procedere con cautela riducendo la velocità.</div>
   </div>
 </div>
 
 <div class="cloud-card">
-  <div class="cloud-header">
-    <div><div class="cloud-name">NEMBOSTRATI</div><div class="cloud-alt">Bassa-media quota · 0 – 3.000m</div></div>
-    <div style="font-size:2rem">🌧</div>
-  </div>
+  <div class="cloud-header"><div><div class="cloud-name">REGOLE MARINARE</div><div class="cloud-alt">Segnali classici · sempre validi</div></div><div style="font-size:2rem">🧭</div></div>
   <div class="cloud-body">
-    <div class="cloud-meaning">Strato grigio scuro e compatto che copre tutto il cielo. Pioggia continua e persistente. L'orizzonte scompare. Tutto appare grigio uniforme.</div>
-    <div class="cloud-action alert-danger">🚨 Significato nautico: visibilità molto ridotta, navigazione difficile. Se sei già in mare, rientrare nel porto più vicino. Non partire in queste condizioni.</div>
-  </div>
-</div>
-
-<div class="cloud-card" style="margin-bottom:20px">
-  <div class="cloud-header">
-    <div><div class="cloud-name">REGOLE PRATICHE</div><div class="cloud-alt">Detti marinari e segnali classici</div></div>
-    <div style="font-size:2rem">🧭</div>
-  </div>
-  <div class="cloud-body">
-    <div class="cloud-meaning" style="margin-bottom:8px">📍 <strong style="color:var(--white)">Alone intorno al sole o alla luna</strong> → pioggia entro 12-24h</div>
-    <div class="cloud-meaning" style="margin-bottom:8px">📍 <strong style="color:var(--white)">Cielo rosso la sera</strong> → bel tempo in arrivo</div>
-    <div class="cloud-meaning" style="margin-bottom:8px">📍 <strong style="color:var(--white)">Cielo rosso al mattino</strong> → maltempo in arrivo</div>
-    <div class="cloud-meaning" style="margin-bottom:8px">📍 <strong style="color:var(--white)">Nuvole che crescono rapidamente verso l'alto</strong> → temporale nel pomeriggio</div>
-    <div class="cloud-meaning" style="margin-bottom:8px">📍 <strong style="color:var(--white)">Barometro in calo rapido + cirri</strong> → combinazione pericolosa, non partire</div>
-    <div class="cloud-meaning">📍 <strong style="color:var(--white)">Mare oleoso con lunghe onde regolari</strong> → fronte lontano ma in avvicinamento</div>
+    <div class="cloud-meaning" style="margin-bottom:6px">📍 <strong style="color:var(--white)">Alone attorno al sole o luna</strong> → pioggia entro 12-24h</div>
+    <div class="cloud-meaning" style="margin-bottom:6px">📍 <strong style="color:var(--white)">Cielo rosso la sera</strong> → bel tempo in arrivo</div>
+    <div class="cloud-meaning" style="margin-bottom:6px">📍 <strong style="color:var(--white)">Cielo rosso al mattino</strong> → maltempo in arrivo</div>
+    <div class="cloud-meaning" style="margin-bottom:6px">📍 <strong style="color:var(--white)">Cumuli che crescono rapidamente</strong> → temporale nel pomeriggio</div>
+    <div class="cloud-meaning" style="margin-bottom:6px">📍 <strong style="color:var(--white)">Barometro in calo + cirri</strong> → non partire</div>
+    <div class="cloud-meaning">📍 <strong style="color:var(--white)">Mare oleoso con onde lunghe regolari</strong> → fronte lontano in avvicinamento</div>
   </div>
 </div>
 ```
 
-  </div><!-- /page-nuvole -->
+  </div><!-- /nuvole -->
 
 </div><!-- /app -->
-
-<!-- STATUS BAR -->
 
 <div id="status-bar">
   <div class="status-item"><div class="status-dot" id="dot-gps"></div><span id="stat-gps">GPS</span></div>
   <div class="status-item"><div class="status-dot" id="dot-meteo"></div><span id="stat-meteo">METEO</span></div>
+  <div class="status-item"><div class="status-dot" id="dot-sg"></div><span id="stat-sg">STORMGLASS</span></div>
   <div class="status-item"><div class="status-dot" id="dot-ai"></div><span id="stat-ai">AI</span></div>
-  <button id="btn-refresh" onclick="refreshData()">↻ AGGIORNA</button>
+  <button id="btn-refresh" onclick="refreshData()">↻</button>
 </div>
 
 <script>
-// ── CONFIG ──────────────────────────────────────────────────────
-const API_KEY = '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'; // <-- sostituisci con la tua chiave Anthropic
+// ── CHIAVI API ── sostituisci con le tue ──────────────────────
+const ANTHROPIC_KEY   = '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';
+const STORMGLASS_KEY  = 'd8baeda6-1bb5-11f1-826e-0242ac120003-d8baee14-1bb5-11f1-826e-0242ac120003';
 
-// ── STATE ───────────────────────────────────────────────────────
+// ── STATE ────────────────────────────────────────────────────
 const state = {
-  lat: null, lon: null,
-  locationName: null,
+  lat: null, lon: null, locationName: null,
   horizon: 3,
   weatherData: null,
+  stormglassData: null,
   selectedClouds: [],
 };
 
-// ── NAVIGATION ──────────────────────────────────────────────────
+// ── NAV ──────────────────────────────────────────────────────
 function showPage(id, el) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
@@ -610,7 +623,7 @@ function showPage(id, el) {
   el.classList.add('active');
 }
 
-// ── CLOCK ───────────────────────────────────────────────────────
+// ── CLOCK ────────────────────────────────────────────────────
 function updateClock() {
   const now = new Date();
   document.getElementById('clock').textContent = now.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
@@ -619,7 +632,7 @@ function updateClock() {
 setInterval(updateClock, 1000);
 updateClock();
 
-// ── GPS ─────────────────────────────────────────────────────────
+// ── GPS ──────────────────────────────────────────────────────
 function requestGPS() {
   const btn = document.getElementById('btn-gps');
   btn.textContent = '...'; btn.disabled = true;
@@ -633,48 +646,150 @@ function requestGPS() {
     try {
       const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${state.lat}&lon=${state.lon}&format=json`);
       const d = await r.json();
-      state.locationName = d.address?.town || d.address?.village || d.address?.city || d.address?.county || 'Posizione rilevata';
+      state.locationName = d.address?.town || d.address?.village || d.address?.city || 'Posizione rilevata';
       document.getElementById('loc-text').textContent = `${state.locationName} · ${state.lat.toFixed(4)}°N ${state.lon.toFixed(4)}°E`;
-    } catch {
-      document.getElementById('loc-text').textContent = `${state.lat.toFixed(4)}°N · ${state.lon.toFixed(4)}°E`;
-    }
-    fetchWeather();
-  }, err => {
+    } catch { document.getElementById('loc-text').textContent = `${state.lat.toFixed(4)}°N · ${state.lon.toFixed(4)}°E`; }
+    fetchAll();
+  }, () => {
     btn.textContent = '📍 GPS'; btn.disabled = false;
-    document.getElementById('loc-text').textContent = 'GPS negato — uso Livorno come default';
     document.getElementById('dot-gps').classList.add('err');
     state.lat = 43.548; state.lon = 10.310; state.locationName = 'Livorno (default)';
-    fetchWeather();
+    document.getElementById('loc-text').textContent = 'GPS negato — uso Livorno come default';
+    fetchAll();
   }, { enableHighAccuracy: true, timeout: 10000 });
 }
 
-// ── WEATHER ─────────────────────────────────────────────────────
+function fetchAll() { fetchWeather(); fetchStormglass(); }
+
+// ── OPEN-METEO ───────────────────────────────────────────────
 async function fetchWeather() {
-  document.getElementById('stat-meteo').textContent = 'CARICO...';
-  const lat = state.lat || 43.548, lon = state.lon || 10.310;
+  document.getElementById('src-openmeteo').className = 'src-badge loading';
+  document.getElementById('src-openmeteo').textContent = '⟳ Open-Meteo';
+  const lat = state.lat, lon = state.lon;
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
     `&hourly=temperature_2m,relativehumidity_2m,visibility,cloudcover,precipitation_probability,` +
-    `windspeed_10m,winddirection_10m,windgusts_10m,` +
-    `wave_height,wave_period,wave_direction,surface_pressure` +
+    `windspeed_10m,winddirection_10m,windgusts_10m,wave_height,wave_period,wave_direction,surface_pressure` +
     `&wind_speed_unit=kn&timezone=Europe/Rome&forecast_days=2&models=best_match`;
   try {
     const r = await fetch(url);
-    const d = await r.json();
-    state.weatherData = d;
+    state.weatherData = await r.json();
+    document.getElementById('src-openmeteo').className = 'src-badge ok';
+    document.getElementById('src-openmeteo').textContent = '✓ Open-Meteo';
     document.getElementById('dot-meteo').classList.add('ok');
     document.getElementById('stat-meteo').textContent = 'METEO OK';
-    renderWeather();
-    renderTimeline();
-  } catch(e) {
+    renderWeather(); renderTimeline();
+  } catch {
+    document.getElementById('src-openmeteo').className = 'src-badge err';
+    document.getElementById('src-openmeteo').textContent = '✗ Open-Meteo';
     document.getElementById('dot-meteo').classList.add('err');
-    document.getElementById('stat-meteo').textContent = 'ERRORE';
+    document.getElementById('stat-meteo').textContent = 'METEO ERR';
   }
 }
 
-// ── RENDER ──────────────────────────────────────────────────────
+// ── STORMGLASS ───────────────────────────────────────────────
+async function fetchStormglass() {
+  if (STORMGLASS_KEY === 'd8baeda6-1bb5-11f1-826e-0242ac120003-d8baee14-1bb5-11f1-826e-0242ac120003') {
+    document.getElementById('src-stormglass').className = 'src-badge err';
+    document.getElementById('src-stormglass').textContent = '✗ Chiave mancante';
+    return;
+  }
+  document.getElementById('src-stormglass').className = 'src-badge loading';
+  document.getElementById('src-stormglass').textContent = '⟳ Stormglass';
+  document.getElementById('stat-sg').textContent = 'SG...';
+
+  const params = [
+    'waveHeight','wavePeriod','waveDirection',
+    'swellHeight','swellPeriod','swellDirection',
+    'windWaveHeight','windWavePeriod',
+    'windSpeed','windDirection','gust',
+    'waterTemperature','currentSpeed','currentDirection',
+    'airTemperature','humidity','pressure'
+  ].join(',');
+
+  const now = Math.floor(Date.now()/1000);
+  const url = `https://api.stormglass.io/v2/weather/point?lat=${state.lat}&lng=${state.lon}&params=${params}&start=${now}&end=${now+3600}`;
+
+  try {
+    const r = await fetch(url, { headers: { 'Authorization': STORMGLASS_KEY } });
+    const data = await r.json();
+    state.stormglassData = data;
+    document.getElementById('src-stormglass').className = 'src-badge ok';
+    document.getElementById('src-stormglass').textContent = '✓ Stormglass';
+    document.getElementById('dot-sg').classList.add('ok');
+    document.getElementById('stat-sg').textContent = 'SG OK';
+    renderStormglass();
+  } catch {
+    document.getElementById('src-stormglass').className = 'src-badge err';
+    document.getElementById('src-stormglass').textContent = '✗ Stormglass';
+    document.getElementById('dot-sg').classList.add('err');
+    document.getElementById('stat-sg').textContent = 'SG ERR';
+  }
+}
+
+function sgVal(hours, param) {
+  if (!hours || !hours[0] || !hours[0][param]) return null;
+  const src = hours[0][param];
+  // priorità: sg > noaa > ecmwf > primo disponibile
+  return src.sg ?? src.noaa ?? src.ecmwf ?? Object.values(src)[0] ?? null;
+}
+
+function renderStormglass() {
+  const d = state.stormglassData;
+  if (!d || !d.hours || d.hours.length === 0) return;
+  const h = d.hours;
+
+  const set = (id, val, suffix='') => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val !== null ? (parseFloat(val).toFixed(1) + suffix) : '—';
+  };
+
+  const wh = sgVal(h,'waveHeight');
+  const wp = sgVal(h,'wavePeriod');
+  const wd = sgVal(h,'waveDirection');
+  const sst = sgVal(h,'waterTemperature');
+  const cs = sgVal(h,'currentSpeed');
+  const cd = sgVal(h,'currentDirection');
+  const sh = sgVal(h,'swellHeight');
+  const sp = sgVal(h,'swellPeriod');
+  const sd = sgVal(h,'swellDirection');
+  const wwh = sgVal(h,'windWaveHeight');
+  const wwp = sgVal(h,'windWavePeriod');
+  const ws = sgVal(h,'windSpeed');
+  const wdir = sgVal(h,'windDirection');
+  const gust = sgVal(h,'gust');
+  const humid = sgVal(h,'humidity');
+  const press = sgVal(h,'pressure');
+
+  set('sg-waveheight', wh, 'm');
+  set('sg-waveperiod', wp, 's');
+  document.getElementById('sg-wavedir').textContent = wd !== null ? degToDir(wd) : '—';
+  set('sg-sst', sst, '°C');
+  set('sg-current', cs ? (cs*1.94384).toFixed(1) : null, 'kn');
+  document.getElementById('sg-currentdir').textContent = cd !== null ? degToDir(cd) : '—';
+  set('sg-swellh', sh, 'm');
+  set('sg-swellp', sp, 's');
+  document.getElementById('sg-swelld').textContent = sd !== null ? degToDir(sd) : '—';
+  set('sg-windwave', wwh, 'm');
+  set('sg-windwavep', wwp, 's');
+  set('sg-wind', ws ? (ws*1.94384).toFixed(1) : null, 'kn');
+  document.getElementById('sg-winddir').textContent = wdir !== null ? degToDir(wdir) : '—';
+  set('sg-gust', gust ? (gust*1.94384).toFixed(1) : null, 'kn');
+  set('sg-humid', humid, '%');
+  set('sg-pressure', press, 'hPa');
+
+  // Aggiorna temperatura mare nella tab meteo
+  if (sst !== null) {
+    document.getElementById('m-sst').textContent = parseFloat(sst).toFixed(1);
+    document.getElementById('wave-source').textContent = 'Stormglass';
+  }
+
+  // Aggiorna ora aggiornamento
+  document.getElementById('sg-update').textContent = 'Aggiornato ' + new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+}
+
+// ── OPEN-METEO RENDER ────────────────────────────────────────
 function getCurrentIdx() {
-  const now = new Date();
-  const times = state.weatherData.hourly.time;
+  const now = new Date(), times = state.weatherData.hourly.time;
   let idx = 0;
   for (let i = 0; i < times.length; i++) { if (new Date(times[i]) <= now) idx = i; }
   return idx;
@@ -682,9 +797,8 @@ function getCurrentIdx() {
 
 function renderWeather() {
   const d = state.weatherData; if (!d) return;
-  const idx = getCurrentIdx();
-  const h = state.horizon;
-  const sl = (arr) => arr.slice(idx, idx + h);
+  const idx = getCurrentIdx(), h = state.horizon;
+  const sl = arr => arr.slice(idx, idx+h);
 
   const winds = sl(d.hourly.windspeed_10m);
   const gusts = sl(d.hourly.windgusts_10m);
@@ -694,7 +808,6 @@ function renderWeather() {
   const wpers = sl(d.hourly.wave_period);
   const waved = sl(d.hourly.wave_direction);
   const temps = sl(d.hourly.temperature_2m);
-  const humid = sl(d.hourly.relativehumidity_2m);
   const visib = sl(d.hourly.visibility);
   const cloud = sl(d.hourly.cloudcover);
   const preci = sl(d.hourly.precipitation_probability);
@@ -707,28 +820,21 @@ function renderWeather() {
   const avgPer = (wpers.reduce((a,b)=>a+b,0)/wpers.length).toFixed(0);
   const avgWD = Math.round(waved.reduce((a,b)=>a+b,0)/waved.length);
 
-  // Metrics
-  const setColor = (id, val, thresholds) => {
-    const el = document.getElementById(id);
-    if (val >= thresholds[2]) el.style.color = 'var(--danger)';
-    else if (val >= thresholds[1]) el.style.color = 'var(--warn)';
-    else if (val >= thresholds[0]) el.style.color = 'var(--gold)';
-    else el.style.color = 'var(--safe)';
+  const col = (id, v, t) => {
+    const e = document.getElementById(id);
+    e.style.color = v>=t[2]?'var(--danger)':v>=t[1]?'var(--warn)':v>=t[0]?'var(--gold)':'var(--safe)';
   };
 
   document.getElementById('m-wind').textContent = maxW;
-  setColor('m-wind', parseFloat(maxW), [7,11,22]);
+  col('m-wind', parseFloat(maxW), [7,11,22]);
   document.getElementById('m-wave').textContent = maxWv;
-  setColor('m-wave', parseFloat(maxWv), [0.5,1.0,1.5]);
+  col('m-wave', parseFloat(maxWv), [0.5,1.0,1.5]);
   document.getElementById('m-gust').textContent = maxG;
-  setColor('m-gust', parseFloat(maxG), [10,15,25]);
-
+  col('m-gust', parseFloat(maxG), [10,15,25]);
   document.getElementById('m-temp').textContent = temps[0]?.toFixed(0) || '--';
-  document.getElementById('m-humid').textContent = humid[0]?.toFixed(0) || '--';
   document.getElementById('m-vis').textContent = visib[0] ? (visib[0]/1000).toFixed(0) : '--';
   document.getElementById('m-cloud').textContent = cloud[0]?.toFixed(0) || '--';
 
-  // Wind compass
   document.getElementById('wind-needle').setAttribute('transform', `rotate(${avgDir},50,50)`);
   document.getElementById('wd-dir').textContent = degToDir(avgDir);
   document.getElementById('wd-deg').textContent = avgDir + '°';
@@ -736,13 +842,12 @@ function renderWeather() {
   document.getElementById('wd-wavedir').textContent = degToDir(avgWD);
   document.getElementById('wd-precip').textContent = (Math.max(...preci) || 0) + '%';
 
-  // Barometer
   const p = parseFloat(avgP);
   document.getElementById('baro-hpa').textContent = p.toFixed(0);
-  document.getElementById('baro-gauge').style.width = Math.min(100, Math.max(0, ((p-960)/80)*100)) + '%';
+  document.getElementById('baro-gauge').style.width = Math.min(100,Math.max(0,((p-960)/80)*100)) + '%';
   document.getElementById('baro-station').textContent = state.locationName || 'Open-Meteo';
 
-  const pFirst = press[0], pLast = press[press.length-1], diff = pLast - pFirst;
+  const diff = press[press.length-1] - press[0];
   const ti = document.getElementById('baro-trend-icon'), tt = document.getElementById('baro-trend-text');
   if (diff > 1.5) { ti.textContent='↑'; tt.innerHTML=`<strong style="color:var(--safe)">In salita</strong> +${diff.toFixed(1)} hPa — tendenza al miglioramento`; }
   else if (diff < -1.5) { ti.textContent='↓'; tt.innerHTML=`<strong style="color:var(--danger)">In calo</strong> ${diff.toFixed(1)} hPa — possibile peggioramento`; }
@@ -751,40 +856,28 @@ function renderWeather() {
 
 function renderTimeline() {
   const d = state.weatherData; if (!d) return;
-  const idx = getCurrentIdx();
-  const container = document.getElementById('timeline-scroll');
+  const idx = getCurrentIdx(), container = document.getElementById('timeline-scroll');
   container.innerHTML = '';
-  for (let i = idx; i < idx + state.horizon + 1 && i < d.hourly.time.length; i++) {
+  for (let i = idx; i < idx+state.horizon+1 && i < d.hourly.time.length; i++) {
     const t = new Date(d.hourly.time[i]);
-    const wind = d.hourly.windspeed_10m[i]?.toFixed(0) || '--';
-    const wave = d.hourly.wave_height[i]?.toFixed(1) || '--';
-    const press = d.hourly.surface_pressure[i]?.toFixed(0) || '--';
-    const icon = getWeatherIcon(parseFloat(wind), parseFloat(wave));
+    const wind = d.hourly.windspeed_10m[i]?.toFixed(0)||'--';
+    const wave = d.hourly.wave_height[i]?.toFixed(1)||'--';
+    const press = d.hourly.surface_pressure[i]?.toFixed(0)||'--';
     const item = document.createElement('div');
-    item.className = 'timeline-item' + (i===idx?' active':'');
-    item.innerHTML = `
-      <div class="ti-time">${i===idx?'ORA':t.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}</div>
-      <div class="ti-icon">${icon}</div>
-      <div class="ti-wind">${wind}kn</div>
-      <div class="ti-wave">🌊${wave}m</div>
-      <div class="ti-wave">↕${press}hPa</div>`;
+    item.className = 'timeline-item'+(i===idx?' active':'');
+    item.innerHTML = `<div class="ti-time">${i===idx?'ORA':t.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}</div><div class="ti-icon">${getWeatherIcon(parseFloat(wind),parseFloat(wave))}</div><div class="ti-wind">${wind}kn</div><div class="ti-wave">🌊${wave}m</div><div class="ti-wave">↕${press}hPa</div>`;
     container.appendChild(item);
   }
 }
 
-function getWeatherIcon(w, wv) {
-  if (w>=22||wv>=2) return '⛈';
-  if (w>=17||wv>=1.5) return '🌬';
-  if (w>=11||wv>=1.0) return '🌊';
-  if (w>=7) return '💨';
-  return '⛵';
+function getWeatherIcon(w,wv) {
+  if(w>=22||wv>=2) return '⛈'; if(w>=17||wv>=1.5) return '🌬'; if(w>=11||wv>=1.0) return '🌊'; if(w>=7) return '💨'; return '⛵';
 }
 
 function degToDir(d) {
   return ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'][Math.round(d/22.5)%16];
 }
 
-// ── HORIZON ─────────────────────────────────────────────────────
 function setHorizon(h, el) {
   state.horizon = h;
   document.querySelectorAll('.htab').forEach(t => t.classList.remove('active'));
@@ -792,32 +885,28 @@ function setHorizon(h, el) {
   if (state.weatherData) { renderWeather(); renderTimeline(); }
 }
 
-// ── CLOUD SELECTOR ──────────────────────────────────────────────
+// ── CLOUD SELECTOR ───────────────────────────────────────────
 function toggleCloud(el, name) {
   el.classList.toggle('selected');
-  if (el.classList.contains('selected')) {
-    if (!state.selectedClouds.includes(name)) state.selectedClouds.push(name);
-  } else {
-    state.selectedClouds = state.selectedClouds.filter(c => c !== name);
-  }
+  state.selectedClouds = el.classList.contains('selected')
+    ? [...state.selectedClouds, name]
+    : state.selectedClouds.filter(c => c !== name);
 }
 
-// ── AI BRIEFING ──────────────────────────────────────────────────
+// ── AI BRIEFING ──────────────────────────────────────────────
 async function requestBriefing() {
   if (!state.weatherData) { document.getElementById('briefing-text').textContent = 'Prima carica i dati meteo.'; return; }
-  if (API_KEY === 'LA_TUA_CHIAVE_QUI') {
-    document.getElementById('briefing-text').innerHTML = '<span style="color:var(--warn)">⚠ Inserisci la tua chiave API Anthropic nel codice (cerca LA_TUA_CHIAVE_QUI)</span>';
-    return;
+  if (ANTHROPIC_KEY === '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') {
+    document.getElementById('briefing-text').innerHTML = '<span style="color:var(--warn)">⚠ Inserisci la chiave Anthropic nel codice</span>'; return;
   }
 
   const btn = document.getElementById('btn-briefing');
   btn.disabled = true; btn.textContent = '...';
   document.getElementById('briefing-text').innerHTML = '<div class="loading"><div class="spinner"></div> Analisi in corso...</div>';
 
-  const d = state.weatherData;
-  const idx = getCurrentIdx();
+  const d = state.weatherData, idx = getCurrentIdx();
   const hours = [];
-  for (let i = idx; i < idx + state.horizon && i < d.hourly.time.length; i++) {
+  for (let i = idx; i < idx+state.horizon && i < d.hourly.time.length; i++) {
     hours.push({
       ora: new Date(d.hourly.time[i]).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'}),
       vento_nodi: d.hourly.windspeed_10m[i]?.toFixed(1),
@@ -827,83 +916,90 @@ async function requestBriefing() {
       periodo_s: d.hourly.wave_period[i]?.toFixed(0),
       pressione_hpa: d.hourly.surface_pressure[i]?.toFixed(1),
       temp_aria: d.hourly.temperature_2m[i]?.toFixed(1),
-      umidita: d.hourly.relativehumidity_2m[i],
       visibilita_km: d.hourly.visibility[i] ? (d.hourly.visibility[i]/1000).toFixed(1) : '--',
-      copertura_nuvolosa: d.hourly.cloudcover[i],
-      prob_precipitazioni: d.hourly.precipitation_probability[i],
+      nuvole_pct: d.hourly.cloudcover[i],
+      prob_pioggia: d.hourly.precipitation_probability[i],
     });
   }
 
-  // Raccolta osservazioni
+  // Dati Stormglass se disponibili
+  let sgSummary = 'Non disponibile';
+  if (state.stormglassData?.hours?.length > 0) {
+    const sh = state.stormglassData.hours;
+    sgSummary = JSON.stringify({
+      swell_m: sgVal(sh,'swellHeight')?.toFixed(2),
+      swell_dir: degToDir(sgVal(sh,'swellDirection')||0),
+      swell_periodo_s: sgVal(sh,'swellPeriod')?.toFixed(0),
+      temp_mare: sgVal(sh,'waterTemperature')?.toFixed(1),
+      corrente_nodi: sgVal(sh,'currentSpeed') ? (sgVal(sh,'currentSpeed')*1.94384).toFixed(2) : null,
+      corrente_dir: degToDir(sgVal(sh,'currentDirection')||0),
+    });
+  }
+
   const obs = {
-    nuvole_osservate: state.selectedClouds.length > 0 ? state.selectedClouds.join(', ') : 'non specificato',
+    nuvole: state.selectedClouds.join(', ') || 'non specificato',
     visibilita: document.getElementById('obs-visibility').value || 'non specificato',
     stato_mare_visivo: document.getElementById('obs-sea').value || 'non specificato',
-    colore_cielo_ovest: document.getElementById('obs-sky').value || 'non specificato',
+    cielo_ovest: document.getElementById('obs-sky').value || 'non specificato',
     vento_percepito: document.getElementById('obs-wind-feel').value || 'non specificato',
-    note_libere: document.getElementById('obs-notes').value || 'nessuna',
+    note: document.getElementById('obs-notes').value || 'nessuna',
   };
 
   const prompt = `Sei un esperto meteorologo marino e skipper con 30 anni di esperienza nel Mar Tirreno settentrionale (costa toscana, Isola d'Elba, Capraia, Gorgona, Giglio, Arcipelago Toscano, nord Corsica, Liguria).
 
-Analizza i dati meteo e le osservazioni locali per le prossime ${state.horizon} ore.
-
-POSIZIONE: ${state.locationName || 'costa toscana'} (${state.lat?.toFixed(3)}°N, ${state.lon?.toFixed(3)}°E)
-ORA LOCALE: ${new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}
+POSIZIONE: ${state.locationName} (${state.lat?.toFixed(3)}°N, ${state.lon?.toFixed(3)}°E)
+ORA: ${new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}
 ORIZZONTE: ${state.horizon} ore
 
-DATI METEO ORARI:
+DATI OPEN-METEO (previsione):
 ${JSON.stringify(hours, null, 2)}
+
+DATI STORMGLASS (mare reale):
+${sgSummary}
 
 OSSERVAZIONI VISIVE LOCALI:
 ${JSON.stringify(obs, null, 2)}
 
-Fornisci un briefing strutturato così:
-
+Briefing strutturato:
 RISCHIO: [BASSO / MEDIO / ALTO]
 CONDIZIONI: sintesi attuale in 2 righe
 EVOLUZIONE: cosa cambia nelle prossime ${state.horizon} ore
-VENTI LOCALI: identifica se riconosci Libeccio, Maestrale, Tramontana, Grecale, effetti orografici isole
-CONSIGLIO: vai / aspetta / rientra — con orario preciso se possibile
-NOTA OSSERVAZIONI: commenta le osservazioni visive inserite dall'utente
+VENTI LOCALI: identifica Libeccio, Maestrale, Tramontana, Grecale o effetti isole
+MARE: commenta swell e correnti se disponibili da Stormglass
+CONSIGLIO: vai / aspetta / rientra con orario preciso
+OSSERVAZIONI: commenta i dati visivi inseriti
 
-Sii diretto e pratico. Max 180 parole.`;
+Max 200 parole. Sii diretto e pratico.`;
 
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
       body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1000, messages: [{ role: 'user', content: prompt }] })
     });
     const data = await res.json();
-    const text = data.content?.map(c => c.text||'').join('') || 'Nessuna risposta.';
-
+    const text = data.content?.map(c=>c.text||'').join('') || 'Nessuna risposta.';
     document.getElementById('dot-ai').classList.add('ok');
     document.getElementById('stat-ai').textContent = 'AI OK';
     btn.disabled = false; btn.textContent = '↻ Aggiorna';
-
-    let riskClass = 'risk-low', riskLabel = '⛵ RISCHIO BASSO';
-    if (/RISCHIO:\s*ALTO/i.test(text)) { riskClass='risk-high'; riskLabel='🚨 RISCHIO ALTO'; }
-    else if (/RISCHIO:\s*MEDIO/i.test(text)) { riskClass='risk-med'; riskLabel='⚡ RISCHIO MEDIO'; }
-
-    document.getElementById('briefing-text').innerHTML =
-      `<div class="risk-badge ${riskClass}">${riskLabel}</div><br>${text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>')}`;
-  } catch(e) {
+    let rc='risk-low', rl='⛵ RISCHIO BASSO';
+    if (/RISCHIO:\s*ALTO/i.test(text)){rc='risk-high';rl='🚨 RISCHIO ALTO';}
+    else if (/RISCHIO:\s*MEDIO/i.test(text)){rc='risk-med';rl='⚡ RISCHIO MEDIO';}
+    document.getElementById('briefing-text').innerHTML = `<div class="risk-badge ${rc}">${rl}</div><br>${text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>')}`;
+  } catch {
     document.getElementById('dot-ai').classList.add('err');
     document.getElementById('stat-ai').textContent = 'AI ERR';
     btn.disabled = false; btn.textContent = 'Genera Briefing';
-    document.getElementById('briefing-text').textContent = 'Errore connessione AI. Controlla la chiave API.';
+    document.getElementById('briefing-text').textContent = 'Errore connessione AI.';
   }
 }
 
-// ── REFRESH ─────────────────────────────────────────────────────
-function refreshData() { if (state.lat) fetchWeather(); else requestGPS(); }
+function refreshData() { if (state.lat) fetchAll(); else requestGPS(); }
 
-// ── AUTOSTART ───────────────────────────────────────────────────
 window.addEventListener('load', () => {
   state.lat = 43.548; state.lon = 10.310; state.locationName = 'Livorno (default)';
   document.getElementById('loc-text').textContent = 'Default: Livorno · premi GPS per la tua posizione';
-  fetchWeather();
+  fetchAll();
 });
 </script>
 

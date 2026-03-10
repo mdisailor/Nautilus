@@ -26,6 +26,7 @@
   --white:   #eaf4ff;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html { font-size: 120%; }
 html, body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; overflow-x: hidden; }
 body::before { content: ''; position: fixed; inset: 0; background: radial-gradient(ellipse 80% 40% at 50% -10%, rgba(0,160,220,0.12) 0%, transparent 60%), radial-gradient(ellipse 60% 30% at 80% 110%, rgba(0,80,160,0.08) 0%, transparent 50%); pointer-events: none; z-index: 0; }
 .ocean-bg { position: fixed; bottom: 0; left: 0; right: 0; height: 30vh; pointer-events: none; z-index: 0; opacity: 0.05; overflow: hidden; }
@@ -128,6 +129,13 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 .gauge-labels { display: flex; justify-content: space-between; margin-top: 3px; }
 .gauge-label { font-family: ‘DM Mono’, monospace; font-size: 0.5rem; color: var(–muted); }
 .baro-trend-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding: 9px 12px; border-radius: 9px; background: var(–deep); }
+.baro-history { margin-top: 14px; }
+.baro-history-title { font-family: ‘DM Mono’, monospace; font-size: 0.55rem; color: var(–muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }
+.baro-bars { display: flex; align-items: flex-end; gap: 4px; height: 55px; }
+.baro-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.baro-bar-col { width: 100%; border-radius: 3px 3px 0 0; min-height: 2px; }
+.baro-bar-label { font-family: ‘DM Mono’, monospace; font-size: 0.42rem; color: var(–muted); text-align: center; }
+.baro-bar-val { font-family: ‘DM Mono’, monospace; font-size: 0.4rem; color: var(–muted); text-align: center; }
 .trend-text { font-size: 0.68rem; color: var(–text); line-height: 1.4; }
 
 /* TIMELINE */
@@ -336,6 +344,10 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
     <span style="font-size:1.1rem" id="baro-trend-icon">—</span>
     <span class="trend-text" id="baro-trend-text">In attesa di dati...</span>
   </div>
+  <div class="baro-history">
+    <div class="baro-history-title">📊 Storico pressione · ultime 12 ore</div>
+    <div class="baro-bars" id="baro-history-bars"><div style="color:var(--muted);font-size:0.6rem;font-family:DM Mono,monospace;padding:8px 0">In attesa dati...</div></div>
+  </div>
 </div>
 
 <div class="timeline-card">
@@ -528,63 +540,531 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
     </div>
 
 ```
-<div class="cloud-card" style="margin-top:16px">
-  <div class="cloud-header"><div><div class="cloud-name">CIRRI</div><div class="cloud-alt">Alta quota · 6.000–12.000m</div></div><div style="font-size:2rem">🌤</div></div>
-  <div class="cloud-body">
-    <div class="cloud-meaning">Filamenti bianchi sottili come capelli o piume. Formati da cristalli di ghiaccio. Il cielo sembra quasi sereno ma questi filamenti segnalano umidità in quota.</div>
-    <div class="cloud-action alert-warn">⚠ Fronte in avvicinamento entro 24-48h. Se aumentano e si addensano verso il basso, preparati al peggioramento. Controlla la tendenza barometrica.</div>
+<!-- CLOUD GUIDE STYLES -->
+<style>
+.cloud-card-v2 { margin: 10px 20px 0; background: var(--card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+.cloud-card-v2:last-child { margin-bottom: 20px; }
+.cloud-toggle { width:100%; background:none; border:none; cursor:pointer; padding:0; text-align:left; }
+.cloud-toggle-header { display:flex; align-items:center; justify-content:space-between; padding:14px 18px; }
+.cloud-toggle-left { display:flex; align-items:center; gap:12px; }
+.cloud-emoji-lg { font-size:2rem; }
+.cloud-toggle-title { font-family:'Bebas Neue',sans-serif; font-size:1.2rem; letter-spacing:0.08em; color:var(--white); }
+.cloud-toggle-sub { font-family:'DM Mono',monospace; font-size:0.55rem; color:var(--muted); margin-top:2px; }
+.cloud-toggle-arrow { font-family:'DM Mono',monospace; font-size:0.8rem; color:var(--accent); transition:transform 0.3s; }
+.cloud-toggle-arrow.open { transform:rotate(180deg); }
+.cloud-summary-bar { padding:0 18px 12px; display:flex; gap:8px; flex-wrap:wrap; }
+.cloud-tag { font-family:'DM Mono',monospace; font-size:0.52rem; padding:3px 8px; border-radius:12px; }
+.cloud-detail { display:none; border-top:1px solid var(--border); }
+.cloud-detail.open { display:block; }
+.cloud-section { padding:14px 18px; border-bottom:1px solid var(--border); }
+.cloud-section:last-child { border-bottom:none; }
+.cloud-section-title { font-family:'DM Mono',monospace; font-size:0.6rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--accent); margin-bottom:10px; }
+.cloud-text { font-size:0.75rem; color:var(--text); line-height:1.6; margin-bottom:4px; }
+.cloud-text strong { color:var(--white); }
+.cloud-checklist { display:flex; flex-direction:column; gap:6px; }
+.cloud-check-item { display:flex; align-items:flex-start; gap:10px; cursor:pointer; }
+.cloud-check-box { width:18px; height:18px; min-width:18px; border:1.5px solid var(--muted); border-radius:4px; display:flex; align-items:center; justify-content:center; font-size:0.65rem; color:var(--accent); transition:all 0.2s; margin-top:1px; }
+.cloud-check-item.checked .cloud-check-box { background:rgba(0,240,255,0.15); border-color:var(--accent); }
+.cloud-check-label { font-size:0.72rem; color:var(--text); line-height:1.5; }
+.cloud-check-item.checked .cloud-check-label { color:var(--muted); text-decoration:line-through; }
+.cloud-score { margin-top:10px; padding:8px 12px; border-radius:8px; background:var(--deep); font-family:'DM Mono',monospace; font-size:0.65rem; color:var(--muted); }
+.cloud-score-val { font-size:1rem; font-weight:bold; color:var(--accent); }
+.evolution-steps { display:flex; align-items:center; gap:4px; flex-wrap:wrap; margin-top:6px; }
+.evo-step { font-family:'DM Mono',monospace; font-size:0.58rem; padding:3px 8px; border-radius:6px; background:var(--deep); color:var(--text); border:1px solid var(--border); }
+.evo-arrow { color:var(--muted); font-size:0.7rem; }
+.cloud-table { width:100%; border-collapse:collapse; margin-top:6px; }
+.cloud-table td { font-size:0.68rem; padding:5px 4px; border-bottom:1px solid var(--border); color:var(--text); vertical-align:top; }
+.cloud-table td:first-child { color:var(--muted); font-family:'DM Mono',monospace; font-size:0.6rem; width:45%; padding-right:8px; }
+.cloud-table tr:last-child td { border-bottom:none; }
+.action-box { padding:10px 14px; border-radius:10px; font-size:0.72rem; line-height:1.6; margin-top:6px; }
+</style>
+
+<!-- CIRRI -->
+<div class="cloud-card-v2" style="margin-top:16px">
+  <button class="cloud-toggle" onclick="toggleCloud2('ci')">
+    <div class="cloud-toggle-header">
+      <div class="cloud-toggle-left">
+        <span class="cloud-emoji-lg">🌤</span>
+        <div>
+          <div class="cloud-toggle-title">CIRRI (CI)</div>
+          <div class="cloud-toggle-sub">Alta quota · 6.000–13.000m · Cristalli di ghiaccio</div>
+        </div>
+      </div>
+      <span class="cloud-toggle-arrow" id="arrow-ci">▼</span>
+    </div>
+    <div class="cloud-summary-bar">
+      <span class="cloud-tag alert-warn">⚠ Fronte entro 24-48h</span>
+      <span class="cloud-tag" style="background:rgba(0,240,255,0.08);color:var(--accent);border:1px solid rgba(0,240,255,0.2)">Nessun rischio immediato</span>
+      <span class="cloud-tag" style="background:rgba(240,180,41,0.1);color:var(--gold);border:1px solid rgba(240,180,41,0.2)">Sorvegliare barometro</span>
+    </div>
+  </button>
+  <div class="cloud-detail" id="detail-ci">
+    <div class="cloud-section">
+      <div class="cloud-section-title">📋 Identificazione</div>
+      <div class="cloud-text">Filamenti bianchi sottilissimi, aspetto a <strong>piuma o coda di cavallo</strong>. Colore bianco puro, nessuna ombra grigia. Non oscurano il sole. Formati da cristalli di ghiaccio a temperature inferiori a −30°C. Orientati nella direzione del vento in quota.</div>
+      <div class="cloud-text" style="margin-top:6px">Varietà principali: <strong>Cirrus fibratus</strong> (filamenti dritti), <strong>Cirrus uncinus</strong> (ad uncino → forte vento in quota), <strong>Cirrus spissatus</strong> (denso, può formare un velo).</div>
+    </div>
+    <div class="cloud-section">
+      <div class="cloud-section-title">🔬 Formazione fisica</div>
+      <div class="cloud-text">• Condensazione diretta del vapore acqueo in cristalli di ghiaccio alle alte quote</div>
+      <div class="cloud-text">• Generati da correnti a getto in quota, circolazioni pre-frontali (fronte caldo in arrivo)</div>
+      <div class="cloud-text">• Possono derivare dalla sommità disgregata dei cumulonembi (cirrus anvil)</div>
+      <div class="cloud-text">• Il vento in quota modella i cristalli in strisce e uncini orientati secondo il flusso</div>
+    </div>
+    <div class="cloud-section">
+      <div class="cloud-section-title">📈 Evoluzione tipica</div>
+      <div class="evolution-steps">
+        <span class="evo-step" style="border-color:var(--accent);color:var(--accent)">CI fibrosi</span>
+        <span class="evo-arrow">→</span>
+        <span class="evo-step">CI densi</span>
+        <span class="evo-arrow">→</span>
+        <span class="evo-step">Cirrostrati</span>
+        <span class="evo-arrow">→</span>
+        <span class="evo-step">Altostrati</span>
+        <span class="evo-arrow">→</span>
+        <span class="evo-step" style="border-color:var(--danger);color:var(--danger)">Nembostrati + pioggia</span>
+      </div>
+      <div class="cloud-text" style="margin-top:8px">Tempistica: compaiono <strong>12–48h prima</strong> del fronte caldo. Durata media: da alcune ore a 1 giorno.</div>
+    </div>
+    <div class="cloud-section">
+      <div class="cloud-section-title">⚓ Impatto sulla navigazione</div>
+      <table class="cloud-table">
+        <tr><td>Previsione tempo</td><td>Possibile cambio nelle ore successive</td></tr>
+        <tr><td>Vento</td><td>Tendenza ad aumentare e ruotare da E/SE se è fronte caldo</td></tr>
+        <tr><td>Mare</td><td>Lungo periodo in formazione da settore perturbato lontano</td></tr>
+        <tr><td>Visibilità</td><td>Ottima, solo lieve velatura del Sole</td></tr>
+        <tr><td>Barometro</td><td>Prime oscillazioni discendenti — controllare ogni 2-3h</td></tr>
+        <tr><td>Radar bordo</td><td>Non rilevabili (riflettività troppo bassa)</td></tr>
+      </table>
+    </div>
+    <div class="cloud-section">
+      <div class="cloud-section-title">✅ Checklist identificazione</div>
+      <div class="cloud-checklist" id="check-ci-id"></div>
+      <div class="cloud-score" id="score-ci-id">Spunta le osservazioni per calcolare il punteggio</div>
+    </div>
+    <div class="cloud-section">
+      <div class="cloud-section-title">📊 Checklist evoluzione</div>
+      <div class="cloud-checklist" id="check-ci-evo"></div>
+    </div>
+    <div class="cloud-section">
+      <div class="cloud-section-title">🚢 Raccomandazioni operative</div>
+      <div class="action-box alert-warn">
+        <div class="cloud-text">• Annotare ora, posizione e direzione dei filamenti</div>
+        <div class="cloud-text">• Controllare il barometro ogni 2–3 ore</div>
+        <div class="cloud-text">• Avvisare l'equipaggio di possibile peggioramento entro 24–48h</div>
+        <div class="cloud-text">• Verificare fissaggi, chiusure e stato delle vele</div>
+        <div class="cloud-text">• Pianificare rotte alternative se il fronte coincide con la navigazione</div>
+        <div class="cloud-text">• Evitare mare aperto in prossimità del fronte in arrivo</div>
+      </div>
+      <div class="cloud-text" style="margin-top:8px;font-style:italic;color:var(--muted)">🧭 Cirri che aumentano + barometro in discesa = peggioramento quasi certo. Non immediato, ma da preparazione strategica.</div>
+    </div>
   </div>
 </div>
 
-<div class="cloud-card">
-  <div class="cloud-header"><div><div class="cloud-name">CIRROSTRATI</div><div class="cloud-alt">Alta quota · 6.000–12.000m</div></div><div style="font-size:2rem">🌥</div></div>
-  <div class="cloud-body">
-    <div class="cloud-meaning">Velo biancastro che copre tutto il cielo. Crea un alone luminoso attorno al sole o alla luna — il segnale classico da riconoscere.</div>
-    <div class="cloud-action alert-warn">⚠ Pioggia probabile entro 12-24h. L'alone intorno al sole è il segnale più affidabile di fronte in arrivo nel Mediterraneo.</div>
+<!-- CIRROSTRATI -->
+<div class="cloud-card-v2">
+  <button class="cloud-toggle" onclick="toggleCloud2('cs')">
+    <div class="cloud-toggle-header">
+      <div class="cloud-toggle-left">
+        <span class="cloud-emoji-lg">🌥</span>
+        <div>
+          <div class="cloud-toggle-title">CIRROSTRATI (CS)</div>
+          <div class="cloud-toggle-sub">Alta quota · 6.000–12.000m · Velo di ghiaccio</div>
+        </div>
+      </div>
+      <span class="cloud-toggle-arrow" id="arrow-cs">▼</span>
+    </div>
+    <div class="cloud-summary-bar">
+      <span class="cloud-tag alert-warn">⚠ Pioggia entro 12-24h</span>
+      <span class="cloud-tag" style="background:rgba(240,180,41,0.1);color:var(--gold);border:1px solid rgba(240,180,41,0.2)">Alone = segnale certo</span>
+    </div>
+  </button>
+  <div class="cloud-detail" id="detail-cs">
+    <div class="cloud-section">
+      <div class="cloud-section-title">📋 Identificazione</div>
+      <div class="cloud-text">Velo biancastro <strong>trasparente</strong> che copre tutto o gran parte del cielo. Aspetto latteo uniforme. Il segnale più diagnostico è l'<strong>alone luminoso</strong> attorno al sole o alla luna — causato dalla rifrazione della luce nei cristalli di ghiaccio. Il sole resta visibile ma come attraverso un vetro smerigliato.</div>
+    </div>
+    <div class="cloud-section">
+      <div class="cloud-section-title">📈 Evoluzione tipica</div>
+      <div class="evolution-steps">
+        <span class="evo-step">Cirri</span>
+        <span class="evo-arrow">→</span>
+        <span class="evo-step" style="border-color:var(--accent);color:var(--accent)">Cirrostrati</span>
+        <span class="evo-arrow">→</span>
+        <span class="evo-step">Altostrati</span>
+        <span class="evo-arrow">→</span>
+        <span class="evo-step" style="border-color:var(--danger);color:var(--danger)">Pioggia 12-24h</span>
+      </div>
+    </div>
+    <div class="cloud-section">
+      <div class="cloud-section-title">⚓ Impatto sulla navigazione</div>
+      <table class="cloud-table">
+        <tr><td>Segnale chiave</td><td><strong>Alone intorno al sole = fronte caldo a 12-24h</strong></td></tr>
+        <tr><td>Vento</td><td>Rinforzo graduale, rotazione tipica da S/SE</td></tr>
+        <tr><td>Mare</td><td>Inizio aumento periodo onde, swell in arrivo</td></tr>
+        <tr><td>Visibilità</td><td>Buona ma diffusa, ombre assenti</td></tr>
+        <tr><td>Barometro</td><td>In calo progressivo, accelera verso la fine</td></tr>
+      </table>
+    </div>
+    <div class="cloud-section">
+      <div class="cloud-section-title">✅ Checklist identificazione</div>
+      <div class="cloud-checklist" id="check-cs-id"></div>
+      <div class="cloud-score" id="score-cs-id">Spunta le osservazioni</div>
+    </div>
+    <div class="cloud-section">
+      <div class="cloud-section-title">🚢 Raccomandazioni operative</div>
+      <div class="action-box alert-warn">
+        <div class="cloud-text">• Alone visibile → peggioramento quasi certo entro 12-24h</div>
+        <div class="cloud-text">• Aggiornare bollettini meteo immediatamente</div>
+        <div class="cloud-text">• Valutare rientro in porto se la navigazione supera le 6-8 ore</div>
+        <div class="cloud-text">• Preparare attrezzatura di sicurezza: giubbotti, cime, parabordi</div>
+        <div class="cloud-text">• Ridurre velatura preventivamente se vento sta aumentando</div>
+      </div>
+    </div>
   </div>
 </div>
 
-<div class="cloud-card">
-  <div class="cloud-header"><div><div class="cloud-name">ALTOCUMULI</div><div class="cloud-alt">Media quota · 2.000–6.000m</div></div><div style="font-size:2rem">🌦</div></div>
-  <div class="cloud-body">
-    <div class="cloud-meaning">Banchi o onde di nuvole grigio-bianche in file parallele. Aspetto a "scaglie di pesce" o "cielo a pecorelle".</div>
-    <div class="cloud-action alert-warn">⚠ Instabilità in aumento. "Cielo a pecorelle acqua a catinelle" — detto marinaro ancora valido. Tieni d'occhio i cumulonembi.</div>
+<!-- ALTOCUMULI -->
+<div class="cloud-card-v2">
+  <button class="cloud-toggle" onclick="toggleCloud2('ac')">
+    <div class="cloud-toggle-header">
+      <div class="cloud-toggle-left">
+        <span class="cloud-emoji-lg">🌦</span>
+        <div>
+          <div class="cloud-toggle-title">ALTOCUMULI (AC)</div>
+          <div class="cloud-toggle-sub">Media quota · 2.000–6.000m · Gocce d'acqua</div>
+        </div>
+      </div>
+      <span class="cloud-toggle-arrow" id="arrow-ac">▼</span>
+    </div>
+    <div class="cloud-summary-bar">
+      <span class="cloud-tag alert-warn">⚠ Instabilità in aumento</span>
+      <span class="cloud-tag" style="background:rgba(255,68,68,0.1);color:var(--danger);border:1px solid rgba(255,68,68,0.2)">Monitorare Cb</span>
+    </div>
+  </button>
+  <div class="cloud-detail" id="detail-ac">
+    <div class="cloud-section">
+      <div class="cloud-section-title">📋 Identificazione</div>
+      <div class="cloud-text">Banchi o onde di nuvole <strong>grigio-bianche</strong> disposte in file parallele. Aspetto a <strong>scaglie di pesce</strong> o "cielo a pecorelle". Elementi singoli più grandi dei cirrocumuli (diametro apparente &gt; 1°). Possono avere ombreggiature grigie nella parte inferiore. Possono precedere un sistema frontale o indicare instabilità convettiva.</div>
+    </div>
+    <div class="cloud-section">
+      <div class="cloud-section-title">⚠️ Segnale critico: Altocumuli castellanus</div>
+      <div class="cloud-text" style="color:var(--warn)">Se le sommità degli altocumuli mostrano <strong>torri o cupole</strong> (forma a castello) → instabilità convettiva intensa → probabili temporali nel pomeriggio-sera. Segnale da non ignorare in estate nel Mediterraneo.</div>
+    </div>
+    <div class="cloud-section">
+      <div class="cloud-section-title">⚓ Impatto sulla navigazione</div>
+      <table class="cloud-table">
+        <tr><td>Rischio principale</td><td>Sviluppo di Cb nel pomeriggio se il cielo scalda</td></tr>
+        <tr><td>Vento</td><td>Raffiche irregolari possibili sotto i banchi</td></tr>
+        <tr><td>Mare</td><td>Possibili temporali locali con vento forte</td></tr>
+        <tr><td>Visibilità</td><td>Variabile, ridotta sotto i banchi</td></tr>
+        <tr><td>Barometro</td><td>Spesso stabile o in lieve calo</td></tr>
+      </table>
+    </div>
+    <div class="cloud-section">
+      <div class="cloud-section-title">✅ Checklist identificazione</div>
+      <div class="cloud-checklist" id="check-ac-id"></div>
+      <div class="cloud-score" id="score-ac-id">Spunta le osservazioni</div>
+    </div>
+    <div class="cloud-section">
+      <div class="cloud-section-title">🚢 Raccomandazioni operative</div>
+      <div class="action-box alert-warn">
+        <div class="cloud-text">• "Cielo a pecorelle, acqua a catinelle" — detto marinaro ancora valido</div>
+        <div class="cloud-text">• Monitorare lo sviluppo verticale: se appaiono torri → pericolo imminente</div>
+        <div class="cloud-text">• Nelle ore pomeridiane estive aumenta il rischio temporali</div>
+        <div class="cloud-text">• Pianificare arrivo in porto prima del tramonto</div>
+      </div>
+    </div>
   </div>
 </div>
 
-<div class="cloud-card">
-  <div class="cloud-header"><div><div class="cloud-name">CUMULI</div><div class="cloud-alt">Bassa-media quota · 500–2.000m</div></div><div style="font-size:2rem">⛅</div></div>
-  <div class="cloud-body">
-    <div class="cloud-meaning">Nuvole bianche soffici a forma di cavolfiore con base piatta e sommità arrotondata. Si formano con il riscaldamento diurno.</div>
-    <div class="cloud-action alert-safe">✅ Tempo generalmente buono. Attenzione se nel pomeriggio crescono rapidamente verso l'alto — possono evolversi in cumulonembi entro 1-3 ore.</div>
+<!-- CUMULI -->
+<div class="cloud-card-v2">
+  <button class="cloud-toggle" onclick="toggleCloud2('cu')">
+    <div class="cloud-toggle-header">
+      <div class="cloud-toggle-left">
+        <span class="cloud-emoji-lg">⛅</span>
+        <div>
+          <div class="cloud-toggle-title">CUMULI (CU)</div>
+          <div class="cloud-toggle-sub">Bassa-media quota · 500–2.000m · Convezione termica</div>
+        </div>
+      </div>
+      <span class="cloud-toggle-arrow" id="arrow-cu">▼</span>
+    </div>
+    <div class="cloud-summary-bar">
+      <span class="cloud-tag alert-safe">✅ Tempo stabile</span>
+      <span class="cloud-tag alert-warn">⚠ Monitorare sviluppo verticale</span>
+    </div>
+  </button>
+  <div class="cloud-detail" id="detail-cu">
+    <div class="cloud-section">
+      <div class="cloud-section-title">📋 Identificazione</div>
+      <div class="cloud-text">Nuvole bianche e soffici a forma di <strong>cavolfiore</strong>, con base piatta e sommità arrotondata ben definita. Bordi netti e precisi. Base orizzontale alla stessa quota (livello di condensazione). Si formano per riscaldamento diurno della superficie: l'aria calda sale, si raffredda e condensa.</div>
+      <div class="cloud-text" style="margin-top:6px">Segnale di allarme: se durante il pomeriggio la sommità cresce verso l'alto rapidamente → possibile evoluzione in Cumulonembo entro 1-3 ore.</div>
+    </div>
+    <div class="cloud-section">
+      <div class="cloud-section-title">📈 Evoluzione possibile</div>
+      <div class="evolution-steps">
+        <span class="evo-step" style="border-color:var(--safe);color:var(--safe)">Cu humilis</span>
+        <span class="evo-arrow">→</span>
+        <span class="evo-step">Cu mediocris</span>
+        <span class="evo-arrow">→</span>
+        <span class="evo-step" style="border-color:var(--warn);color:var(--warn)">Cu congestus</span>
+        <span class="evo-arrow">→</span>
+        <span class="evo-step" style="border-color:var(--danger);color:var(--danger)">Cumulonembo ⚡</span>
+      </div>
+      <div class="cloud-text" style="margin-top:8px">Il passaggio da Cu congestus a Cb può avvenire in <strong>20-40 minuti</strong> nelle giornate calde estive. Il segnale è la sommità che diventa fibrosa e inizia a formare l'incudine.</div>
+    </div>
+    <div class="cloud-section">
+      <div class="cloud-section-title">⚓ Impatto sulla navigazione</div>
+      <table class="cloud-table">
+        <tr><td>Mattina</td><td>Cumuli piccoli = bel tempo, navigazione sicura</td></tr>
+        <tr><td>Pomeriggio</td><td>Monitorare crescita verticale ogni 30 minuti</td></tr>
+        <tr><td>Vento</td><td>Brezze locali diurne, possibili raffiche sotto i cumuli</td></tr>
+        <tr><td>Mare</td><td>Generalmente buono con cumuli stabili</td></tr>
+        <tr><td>Visibilità</td><td>Ottima tra le nuvole</td></tr>
+      </table>
+    </div>
+    <div class="cloud-section">
+      <div class="cloud-section-title">✅ Checklist identificazione</div>
+      <div class="cloud-checklist" id="check-cu-id"></div>
+      <div class="cloud-score" id="score-cu-id">Spunta le osservazioni</div>
+    </div>
+    <div class="cloud-section">
+      <div class="cloud-section-title">🚢 Raccomandazioni operative</div>
+      <div class="action-box alert-safe">
+        <div class="cloud-text">• Cumuli piccoli e stabili = condizioni ideali per navigare</div>
+        <div class="cloud-text">• Controllare ogni 30 min se crescono verticalmente nel pomeriggio</div>
+        <div class="cloud-text">• Se la sommità diventa fibrosa → probabilmente si sta formando un Cb</div>
+        <div class="cloud-text">• Pianificare rientro entro le 14-15 nelle giornate calde estive</div>
+      </div>
+    </div>
   </div>
 </div>
 
-<div class="cloud-card">
-  <div class="cloud-header"><div><div class="cloud-name">CUMULONEMBI</div><div class="cloud-alt">Tutta la troposfera · fino a 12.000m</div></div><div style="font-size:2rem">⛈</div></div>
-  <div class="cloud-body">
-    <div class="cloud-meaning">La nuvola più pericolosa in mare. Torre scura imponente con sommità a incudine. Colore grigio-nerastro alla base. Visibile a 50-100km di distanza.</div>
-    <div class="cloud-action alert-danger">🚨 PERICOLO IMMEDIATO. Fulmini, vento improvviso fino a forza 8-10, grandine, trombe d'aria. Rientrare subito o mantenersi a 20+ miglia di distanza.</div>
+<!-- CUMULONEMBI -->
+<div class="cloud-card-v2">
+  <button class="cloud-toggle" onclick="toggleCloud2('cb')">
+    <div class="cloud-toggle-header">
+      <div class="cloud-toggle-left">
+        <span class="cloud-emoji-lg">⛈</span>
+        <div>
+          <div class="cloud-toggle-title">CUMULONEMBI (CB)</div>
+          <div class="cloud-toggle-sub">Tutta la troposfera · fino a 13.000m · PERICOLO</div>
+        </div>
+      </div>
+      <span class="cloud-toggle-arrow" id="arrow-cb">▼</span>
+    </div>
+    <div class="cloud-summary-bar">
+      <span class="cloud-tag alert-danger">🚨 Pericolo immediato</span>
+      <span class="cloud-tag" style="background:rgba(255,68,68,0.15);color:var(--danger);border:1px solid rgba(255,68,68,0.3)">Rientrare o allontanarsi 20+ miglia</span>
+    </div>
+  </button>
+  <div class="cloud-detail" id="detail-cb">
+    <div class="cloud-section">
+      <div class="cloud-section-title">📋 Identificazione</div>
+      <div class="cloud-text">La nuvola più pericolosa in mare. <strong>Torre scura imponente</strong> con sommità a forma di <strong>incudine piatta</strong> (anvil). Colore grigio-nerastro alla base. Base molto bassa e scura. Possibili precipitazioni visibili come cortine grigie sotto la base. Visibile a <strong>50-100km di distanza</strong>. Movimento spesso rapido.</div>
+    </div>
+    <div class="cloud-section">
+      <div class="cloud-section-title">⚡ Fenomeni associati</div>
+      <div class="cloud-text" style="color:var(--danger)">• <strong>Fulmini</strong> — rischio eletroctuzione, distruzione albero/attrezzatura</div>
+      <div class="cloud-text" style="color:var(--danger)">• <strong>Vento improvviso</strong> 40-80 nodi (raffiche di discesa fredda)</div>
+      <div class="cloud-text" style="color:var(--danger)">• <strong>Grandine</strong> — può danneggiare vele e coperta</div>
+      <div class="cloud-text" style="color:var(--danger)">• <strong>Trombe d'aria marine</strong> — waterspout sotto i Cb</div>
+      <div class="cloud-text" style="color:var(--danger)">• <strong>Pioggia intensa</strong> — visibilità zero in pochi minuti</div>
+      <div class="cloud-text" style="color:var(--danger)">• <strong>Mare improvviso</strong> — onde ripide e caotiche generate dal vento locale</div>
+    </div>
+    <div class="cloud-section">
+      <div class="cloud-section-title">⚓ Segnali precursori</div>
+      <table class="cloud-table">
+        <tr><td>Aria</td><td>Calma improvvisa, poi raffiche violente da direzione opposta</td></tr>
+        <tr><td>Cielo</td><td>Verde-giallastro, luce innaturale</td></tr>
+        <tr><td>Barometro</td><td>Calo rapido e poi risalita brusca</td></tr>
+        <tr><td>Temperatura</td><td>Brusco abbassamento prima dell'arrivo</td></tr>
+        <tr><td>Rumori</td><td>Tuono udibile anche a 20-30 miglia</td></tr>
+      </table>
+    </div>
+    <div class="cloud-section">
+      <div class="cloud-section-title">✅ Checklist identificazione</div>
+      <div class="cloud-checklist" id="check-cb-id"></div>
+      <div class="cloud-score" id="score-cb-id">Spunta le osservazioni</div>
+    </div>
+    <div class="cloud-section">
+      <div class="cloud-section-title">🚢 Raccomandazioni operative</div>
+      <div class="action-box alert-danger">
+        <div class="cloud-text">🚨 <strong>MAI avvicinarsi a un Cb in mare</strong></div>
+        <div class="cloud-text">• Mantenere distanza minima di 20 miglia nautiche</div>
+        <div class="cloud-text">• Se impossibile evitarlo: ammainare tutta la velatura, motore avanti, prua alle onde</div>
+        <div class="cloud-text">• Disconnettere elettronica non essenziale, proteggere GPS e VHF</div>
+        <div class="cloud-text">• Equipaggio con giubbotti di salvataggio e imbragature</div>
+        <div class="cloud-text">• Chiudere portelli e boccaporti PRIMA dell'arrivo</div>
+        <div class="cloud-text">• Trasmettere posizione su VHF canale 16 se in difficoltà</div>
+      </div>
+    </div>
   </div>
 </div>
 
-<div class="cloud-card">
-  <div class="cloud-header"><div><div class="cloud-name">STRATI</div><div class="cloud-alt">Bassa quota · 0–2.000m</div></div><div style="font-size:2rem">🌫</div></div>
-  <div class="cloud-body">
-    <div class="cloud-meaning">Copertura grigia uniforme come una coperta. Può toccare la superficie dell'acqua diventando nebbia. Pioggerella leggera e continua.</div>
-    <div class="cloud-action alert-warn">⚠ Visibilità ridotta, rischio collisione. Attivare radar e segnali sonori. Procedere con cautela riducendo la velocità.</div>
+<!-- STRATI -->
+<div class="cloud-card-v2">
+  <button class="cloud-toggle" onclick="toggleCloud2('st')">
+    <div class="cloud-toggle-header">
+      <div class="cloud-toggle-left">
+        <span class="cloud-emoji-lg">🌫</span>
+        <div>
+          <div class="cloud-toggle-title">STRATI (ST)</div>
+          <div class="cloud-toggle-sub">Bassa quota · 0–2.000m · Nebbia elevata</div>
+        </div>
+      </div>
+      <span class="cloud-toggle-arrow" id="arrow-st">▼</span>
+    </div>
+    <div class="cloud-summary-bar">
+      <span class="cloud-tag alert-warn">⚠ Visibilità ridotta</span>
+      <span class="cloud-tag" style="background:rgba(240,180,41,0.1);color:var(--gold);border:1px solid rgba(240,180,41,0.2)">Radar e segnali sonori</span>
+    </div>
+  </button>
+  <div class="cloud-detail" id="detail-st">
+    <div class="cloud-section">
+      <div class="cloud-section-title">📋 Identificazione</div>
+      <div class="cloud-text">Copertura <strong>grigia uniforme</strong> come una coperta che copre tutto il cielo a bassa quota. Base piatta, contorni indefiniti. Può toccare la superficie del mare diventando <strong>nebbia</strong>. Produce pioggerella leggera e continua (drizzle). Nessuna struttura interna visibile. Il sole appare come un disco pallido o non è visibile.</div>
+    </div>
+    <div class="cloud-section">
+      <div class="cloud-section-title">⚓ Impatto sulla navigazione</div>
+      <table class="cloud-table">
+        <tr><td>Visibilità</td><td>Da ridotta (&lt;5km) a quasi zero (nebbia)</td></tr>
+        <tr><td>Rischio principale</td><td>Collisione con altre imbarcazioni o ostacoli</td></tr>
+        <tr><td>Vento</td><td>Solitamente debole sotto gli strati</td></tr>
+        <tr><td>Mare</td><td>Generalmente calmo, ma orientamento difficile</td></tr>
+        <tr><td>Umidità</td><td>Massima — attrezzatura e vele bagnate</td></tr>
+      </table>
+    </div>
+    <div class="cloud-section">
+      <div class="cloud-section-title">✅ Checklist identificazione</div>
+      <div class="cloud-checklist" id="check-st-id"></div>
+      <div class="cloud-score" id="score-st-id">Spunta le osservazioni</div>
+    </div>
+    <div class="cloud-section">
+      <div class="cloud-section-title">🚢 Raccomandazioni operative</div>
+      <div class="action-box alert-warn">
+        <div class="cloud-text">• Attivare <strong>radar</strong> e monitorare continuamente</div>
+        <div class="cloud-text">• Emettere segnali sonori regolari (1 fischio ogni 2 min)</div>
+        <div class="cloud-text">• Ridurre la velocità a "sicura per la visibilità"</div>
+        <div class="cloud-text">• VHF canale 16 sempre aperto, annunciare posizione</div>
+        <div class="cloud-text">• Navigare preferibilmente con il GPS e carta elettronica</div>
+        <div class="cloud-text">• Evitare di uscire dal porto se la nebbia è prevista</div>
+      </div>
+    </div>
   </div>
 </div>
 
-<div class="cloud-card">
-  <div class="cloud-header"><div><div class="cloud-name">REGOLE MARINARE</div><div class="cloud-alt">Segnali classici · sempre validi</div></div><div style="font-size:2rem">🧭</div></div>
-  <div class="cloud-body">
-    <div class="cloud-meaning" style="margin-bottom:6px">📍 <strong style="color:var(--white)">Alone attorno al sole o luna</strong> → pioggia entro 12-24h</div>
-    <div class="cloud-meaning" style="margin-bottom:6px">📍 <strong style="color:var(--white)">Cielo rosso la sera</strong> → bel tempo in arrivo</div>
-    <div class="cloud-meaning" style="margin-bottom:6px">📍 <strong style="color:var(--white)">Cielo rosso al mattino</strong> → maltempo in arrivo</div>
-    <div class="cloud-meaning" style="margin-bottom:6px">📍 <strong style="color:var(--white)">Cumuli che crescono rapidamente</strong> → temporale nel pomeriggio</div>
-    <div class="cloud-meaning" style="margin-bottom:6px">📍 <strong style="color:var(--white)">Barometro in calo + cirri</strong> → non partire</div>
-    <div class="cloud-meaning">📍 <strong style="color:var(--white)">Mare oleoso con onde lunghe regolari</strong> → fronte lontano in avvicinamento</div>
+<!-- NEMBOSTRATI -->
+<div class="cloud-card-v2">
+  <button class="cloud-toggle" onclick="toggleCloud2('ns')">
+    <div class="cloud-toggle-header">
+      <div class="cloud-toggle-left">
+        <span class="cloud-emoji-lg">🌧</span>
+        <div>
+          <div class="cloud-toggle-title">NEMBOSTRATI (NS)</div>
+          <div class="cloud-toggle-sub">Bassa-media quota · 0–3.000m · Pioggia continua</div>
+        </div>
+      </div>
+      <span class="cloud-toggle-arrow" id="arrow-ns">▼</span>
+    </div>
+    <div class="cloud-summary-bar">
+      <span class="cloud-tag alert-danger">🚨 Rientrare</span>
+      <span class="cloud-tag" style="background:rgba(255,68,68,0.1);color:var(--danger);border:1px solid rgba(255,68,68,0.2)">Visibilità molto ridotta</span>
+    </div>
+  </button>
+  <div class="cloud-detail" id="detail-ns">
+    <div class="cloud-section">
+      <div class="cloud-section-title">📋 Identificazione</div>
+      <div class="cloud-text">Strato grigio scuro e compatto che copre <strong>tutto il cielo</strong>. Pioggia continua e persistente. <strong>L'orizzonte scompare</strong>. Tutto appare grigio uniforme. Nessun bordo visibile. La base è spesso indefinita per la pioggia. Può durare ore o giorni. È il risultato finale di un fronte caldo o occluso passato.</div>
+    </div>
+    <div class="cloud-section">
+      <div class="cloud-section-title">📈 Da dove arriva</div>
+      <div class="evolution-steps">
+        <span class="evo-step">Cirri</span>
+        <span class="evo-arrow">→</span>
+        <span class="evo-step">Cirrostrati</span>
+        <span class="evo-arrow">→</span>
+        <span class="evo-step">Altostrati</span>
+        <span class="evo-arrow">→</span>
+        <span class="evo-step" style="border-color:var(--danger);color:var(--danger)">Nembostrati ← siamo qui</span>
+      </div>
+      <div class="cloud-text" style="margin-top:8px">Il fronte è già arrivato. Pioggia persistente per le prossime <strong>6-24 ore</strong> tipicamente.</div>
+    </div>
+    <div class="cloud-section">
+      <div class="cloud-section-title">⚓ Impatto sulla navigazione</div>
+      <table class="cloud-table">
+        <tr><td>Visibilità</td><td>Molto ridotta, spesso &lt;1km</td></tr>
+        <tr><td>Vento</td><td>Moderato-forte, direzione variabile con il fronte</td></tr>
+        <tr><td>Mare</td><td>Mosso-agitato, onde formate dal vento del fronte</td></tr>
+        <tr><td>Barometro</td><td>In risalita dopo il passaggio del fronte</td></tr>
+        <tr><td>Durata</td><td>6-24h tipicamente, poi miglioramento</td></tr>
+      </table>
+    </div>
+    <div class="cloud-section">
+      <div class="cloud-section-title">✅ Checklist identificazione</div>
+      <div class="cloud-checklist" id="check-ns-id"></div>
+      <div class="cloud-score" id="score-ns-id">Spunta le osservazioni</div>
+    </div>
+    <div class="cloud-section">
+      <div class="cloud-section-title">🚢 Raccomandazioni operative</div>
+      <div class="action-box alert-danger">
+        <div class="cloud-text">🚨 <strong>Non uscire dal porto con nembostrati in atto</strong></div>
+        <div class="cloud-text">• Se già in mare: rientrare nel porto più vicino immediatamente</div>
+        <div class="cloud-text">• Radar acceso, velocità ridotta al minimo sicuro</div>
+        <div class="cloud-text">• Segnali sonori ogni 2 minuti obbligatori per nebbia</div>
+        <div class="cloud-text">• Attendere il miglioramento — tipicamente dopo 12-24h</div>
+        <div class="cloud-text">• Monitorare barometro: risalita = fronte in uscita, miglioramento in arrivo</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- REGOLE MARINARE -->
+<div class="cloud-card-v2">
+  <button class="cloud-toggle" onclick="toggleCloud2('rules')">
+    <div class="cloud-toggle-header">
+      <div class="cloud-toggle-left">
+        <span class="cloud-emoji-lg">🧭</span>
+        <div>
+          <div class="cloud-toggle-title">REGOLE MARINARE</div>
+          <div class="cloud-toggle-sub">Segnali classici · sempre validi</div>
+        </div>
+      </div>
+      <span class="cloud-toggle-arrow" id="arrow-rules">▼</span>
+    </div>
+  </button>
+  <div class="cloud-detail" id="detail-rules">
+    <div class="cloud-section">
+      <div class="cloud-section-title">🌅 Colore del cielo</div>
+      <div class="cloud-text" style="margin-bottom:6px">📍 <strong style="color:var(--white)">Cielo rosso la sera</strong> → bel tempo in arrivo (aria secca a ovest)</div>
+      <div class="cloud-text" style="margin-bottom:6px">📍 <strong style="color:var(--white)">Cielo rosso al mattino</strong> → maltempo in arrivo (umidità in aumento)</div>
+      <div class="cloud-text" style="margin-bottom:6px">📍 <strong style="color:var(--white)">Giallo-verdastro a ovest</strong> → possibile temporale imminente</div>
+      <div class="cloud-text">📍 <strong style="color:var(--white)">Alone intorno a sole/luna</strong> → pioggia entro 12-24h (cirrostrati)</div>
+    </div>
+    <div class="cloud-section">
+      <div class="cloud-section-title">🌊 Segnali dal mare</div>
+      <div class="cloud-text" style="margin-bottom:6px">📍 <strong style="color:var(--white)">Mare oleoso con onde lunghe e regolari</strong> → fronte lontano in avvicinamento</div>
+      <div class="cloud-text" style="margin-bottom:6px">📍 <strong style="color:var(--white)">Aumento del periodo delle onde senza vento</strong> → perturbazione distante</div>
+      <div class="cloud-text">📍 <strong style="color:var(--white)">Onde corte e ripide</strong> → vento locale in aumento rapido</div>
+    </div>
+    <div class="cloud-section">
+      <div class="cloud-section-title">📊 Barometro — regola pratica</div>
+      <table class="cloud-table">
+        <tr><td>Stabile ±1 hPa/3h</td><td>Tempo stabile nelle prossime 6-12h</td></tr>
+        <tr><td>Calo 2-4 hPa/3h</td><td>Peggioramento entro 12-24h</td></tr>
+        <tr><td>Calo &gt;4 hPa/3h</td><td>Peggioramento rapido, non uscire</td></tr>
+        <tr><td>Salita rapida</td><td>Miglioramento ma possibili raffiche di NW</td></tr>
+      </table>
+    </div>
+    <div class="cloud-section">
+      <div class="cloud-section-title">🗣️ Detti marinari</div>
+      <div class="cloud-text" style="font-style:italic;margin-bottom:4px">"Cielo a pecorelle, acqua a catinelle" — altocumuli = instabilità</div>
+      <div class="cloud-text" style="font-style:italic;margin-bottom:4px">"Rosso di sera, bel tempo si spera" — classico e spesso valido</div>
+      <div class="cloud-text" style="font-style:italic;margin-bottom:4px">"Arcobaleno di mattina, l'acqua è vicina" — umidità in aumento</div>
+      <div class="cloud-text" style="font-style:italic">"Mare lungo, vento lontano" — swell = fronte in avvicinamento</div>
+    </div>
   </div>
 </div>
 ```
@@ -676,7 +1156,7 @@ async function fetchWeather() {
     document.getElementById('src-openmeteo').textContent = '✓ Open-Meteo';
     document.getElementById('dot-meteo').classList.add('ok');
     document.getElementById('stat-meteo').textContent = 'METEO OK';
-    renderWeather(); renderTimeline();
+    renderWeather(); renderTimeline(); renderBaroHistory();
   } catch {
     document.getElementById('src-openmeteo').className = 'src-badge err';
     document.getElementById('src-openmeteo').textContent = '✗ Open-Meteo';
@@ -841,6 +1321,32 @@ function renderWeather() {
   else { ti.textContent='→'; tt.innerHTML=`<strong style="color:var(--gold)">Stabile</strong> variazione ${diff>0?'+':''}${diff.toFixed(1)} hPa`; }
 }
 
+
+function renderBaroHistory() {
+  const d = state.weatherData; if (!d) return;
+  const idx = getCurrentIdx();
+  const container = document.getElementById("baro-history-bars");
+  container.innerHTML = "";
+  // mostra le ultime 12 ore + ora attuale
+  const start = Math.max(0, idx - 11);
+  const pressArr = d.hourly.surface_pressure;
+  const timeArr = d.hourly.time;
+  const vals = [];
+  for (let i = start; i <= idx; i++) { vals.push({ t: new Date(timeArr[i]), p: pressArr[i] }); }
+  if (vals.length === 0) return;
+  const minP = Math.min(...vals.map(v=>v.p)) - 2;
+  const maxP = Math.max(...vals.map(v=>v.p)) + 2;
+  const range = maxP - minP || 1;
+  vals.forEach((v, i) => {
+    const pct = ((v.p - minP) / range) * 100;
+    const isNow = i === vals.length - 1;
+    const color = isNow ? "var(--accent)" : v.p > 1013 ? "var(--safe)" : v.p > 1000 ? "var(--gold)" : "var(--danger)";
+    const wrap = document.createElement("div");
+    wrap.className = "baro-bar-wrap";
+    wrap.innerHTML = `<div class="baro-bar-val">${v.p.toFixed(0)}</div><div class="baro-bar-col" style="height:${Math.max(4,pct*0.45)}px;background:${color};opacity:${isNow?1:0.5}"></div><div class="baro-bar-label">${isNow?"ORA":v.t.toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"})}</div>`;
+    container.appendChild(wrap);
+  });
+}
 function renderTimeline() {
   const d = state.weatherData; if (!d) return;
   const idx = getCurrentIdx(), container = document.getElementById('timeline-scroll');
@@ -869,7 +1375,7 @@ function setHorizon(h, el) {
   state.horizon = h;
   document.querySelectorAll('.htab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
-  if (state.weatherData) { renderWeather(); renderTimeline(); }
+  if (state.weatherData) { renderWeather(); renderTimeline(); renderBaroHistory(); }
 }
 
 // ── CLOUD SELECTOR ───────────────────────────────────────────
@@ -992,3 +1498,223 @@ window.addEventListener('load', () => {
 
 </body>
 </html>
+<script>
+// ── CLOUD GUIDE DATA & CHECKLISTS ────────────────────────────────
+
+const CLOUD_DATA = {
+ci: {
+id: [
+‘Filamenti molto sottili, aspetto a piuma o coda di cavallo’,
+‘Colore bianco puro, nessuna ombra grigia visibile’,
+‘Non oscurano il disco solare — sole ben visibile’,
+‘Disposti a ciuffi sparsi, non coprono tutto il cielo’,
+‘Quota molto elevata (sembrano altissimi)’,
+‘Movimento apparente molto lento’,
+‘Filamenti orientati in modo uniforme (seguono il vento in quota)’,
+‘Presenza di uncini o curvature (cirrus uncinus)’,
+],
+evo: [
+‘I cirri aumentano in numero e spessore nel tempo’,
+‘I filamenti diventano più continui → inizio formazione cirrostrati’,
+‘Appare un velo biancastro che vela il cielo’,
+‘Compare un alone attorno al sole o alla luna’,
+‘La pressione inizia a scendere lentamente’,
+‘Il vento inizia a rinforzare e ruotare da E/SE’,
+],
+thresholds: [4, 6],
+labels: [‘CI possibili — monitorare’, ‘Cirri probabili — sorvegliare barometro’, ‘Cirri confermati — peggioramento in 24-48h’],
+},
+cs: {
+id: [
+‘Velo biancastro uniforme che copre tutto o gran parte del cielo’,
+‘Il sole è visibile ma come attraverso un vetro smerigliato’,
+‘Alone luminoso attorno al sole o alla luna’,
+‘Assenza di ombre nette a terra o sul mare’,
+‘Cielo ha aspetto latteo diffuso’,
+‘Filamenti di cirri ancora visibili nella parte più sottile del velo’,
+],
+evo: [
+‘Il velo si addensa e diventa più opaco’,
+‘L'alone scompare — il sole non è più visibile’,
+‘Il cielo diventa grigio uniforme (altostrati)’,
+‘La pressione scende in modo più deciso’,
+‘Vento in rinforzo da S/SE’,
+‘Pioggia entro 6-12h’,
+],
+thresholds: [3, 5],
+labels: [‘Velatura possibile’, ‘Cirrostrati probabili — prepararsi’, ‘Cirrostrati confermati — fronte entro 12-24h’],
+},
+ac: {
+id: [
+‘Banchi o file di nuvole grigio-bianche disposte in ordine’,
+‘Aspetto a scaglie di pesce o cielo a pecorelle’,
+‘Elementi singoli più grandi delle stelle (diametro > 1°)’,
+‘Ombreggiature grigie visibili nella parte inferiore’,
+‘Il sole filtra con difficoltà o è velato’,
+‘Non producono pioggia diretta (ancora)’,
+],
+evo: [
+‘Le sommità mostrano torri o cupole (altocumuli castellanus)’,
+‘I banchi si addensano e abbassano’,
+‘Inizia instabilità convettiva visibile (Cb in formazione)’,
+‘Raffiche di vento irregolari sotto i banchi’,
+‘Il barometro scende bruscamente’,
+‘Temporali locali nel pomeriggio-sera’,
+],
+thresholds: [3, 5],
+labels: [‘Instabilità possibile’, ‘Monitorare sviluppo verticale’, ‘Rischio temporali — pianificare rientro’],
+},
+cu: {
+id: [
+‘Nuvole bianche soffici a forma di cavolfiore’,
+‘Base piatta e orizzontale ben definita’,
+‘Sommità arrotondata e luminosa’,
+‘Bordi netti e definiti — non sfrangiati’,
+‘Si formano e si dissolvono durante il giorno’,
+‘Distribuiti in modo irregolare, non in file’,
+],
+evo: [
+‘Le sommità crescono rapidamente in verticale’,
+‘I bordi diventano sfrangiati e meno definiti’,
+‘Il colore si scurisce alla base’,
+‘Compaiono prime incudini in cima (→ Cb)’,
+‘Si sentono prime raffiche sotto le nubi’,
+‘Lampi o tuoni in lontananza’,
+],
+thresholds: [3, 5],
+labels: [‘Cumuli benigni — bel tempo’, ‘Monitorare sviluppo’, ‘Sviluppo convettivo — attenzione Cb’],
+},
+cb: {
+id: [
+‘Torre scura imponente con sviluppo verticale enorme’,
+‘Sommità a forma di incudine piatta (anvil)’,
+‘Base grigio-nerastro molto scura’,
+‘Bordi sfrangiati e turbolenti’,
+‘Visibile a grande distanza (50-100km)’,
+‘Lampi, tuoni, precipitazioni visibili sotto la base’,
+‘Rotazione visibile o tromba d'aria in formazione’,
+],
+evo: [
+‘La nube si avvicina rapidamente’,
+‘Il vento aumenta improvvisamente e cambia direzione’,
+‘La temperatura scende bruscamente’,
+‘La pressione scende e poi rimbalza’,
+‘Pioggia intensa o grandine’,
+‘Calma improvvisa prima del fronte della tempesta’,
+],
+thresholds: [2, 4],
+labels: [‘Possibile Cb in zona’, ‘Cb probabile — allontanarsi’, ‘🚨 PERICOLO — rientrare immediatamente’],
+},
+st: {
+id: [
+‘Copertura grigia uniforme come una coperta bassa’,
+‘Nessun sole visibile, luce diffusa e uniforme’,
+‘Pioggerella leggera o drizzle (pioggia finissima)’,
+‘Orizzonte visibile ma sbiadito’,
+‘Nessuna struttura interna visibile nella nube’,
+‘Quota molto bassa — può toccare le cime dei colli’,
+],
+evo: [
+‘La base si abbassa ulteriormente’,
+‘La visibilità si riduce progressivamente’,
+‘La nebbia inizia a formarsi sul mare’,
+‘Il vento cala o è assente’,
+‘La pioggerella diventa più continua’,
+],
+thresholds: [3, 5],
+labels: [‘Velatura possibile’, ‘Strati probabili — ridurre velocità’, ‘Visibilità ridotta — massima cautela’],
+},
+ns: {
+id: [
+‘Cielo completamente coperto di grigio scuro uniforme’,
+‘Pioggia continua e persistente (non a scrosci)’,
+‘L'orizzonte scompare nella pioggia’,
+‘Nessuna struttura visibile nelle nubi’,
+‘Luce molto diffusa, quasi notturna’,
+‘Visibilità inferiore a 2km’,
+],
+evo: [
+‘La pioggia si intensifica’,
+‘La visibilità scende sotto 500m’,
+‘Il vento rinforza con il passaggio del fronte’,
+‘Dopo alcune ore il barometro inizia a risalire (fronte in uscita)’,
+‘Il cielo inizia a schiarire da ovest’,
+],
+thresholds: [3, 5],
+labels: [‘Nembostrati possibili’, ‘Nembostrati confermati — rientrare’, ‘🚨 Non navigare — attendere miglioramento’],
+},
+};
+
+// ── Popola le checklist all’avvio ────────────────────────────────
+function buildChecklist(containerId, scoreId, items, thresholds, labels) {
+const container = document.getElementById(containerId);
+if (!container) return;
+container.innerHTML = ‘’;
+items.forEach((text, i) => {
+const item = document.createElement(‘div’);
+item.className = ‘cloud-check-item’;
+item.dataset.score = containerId;
+item.innerHTML = `<div class="cloud-check-box" id="${containerId}-box-${i}"></div><div class="cloud-check-label">${text}</div>`;
+item.addEventListener(‘click’, () => {
+item.classList.toggle(‘checked’);
+const box = document.getElementById(`${containerId}-box-${i}`);
+box.textContent = item.classList.contains(‘checked’) ? ‘✓’ : ‘’;
+updateScore(containerId, scoreId, items.length, thresholds, labels);
+});
+container.appendChild(item);
+});
+if (scoreId) {
+const scoreEl = document.getElementById(scoreId);
+if (scoreEl) scoreEl.textContent = `0 / ${items.length} — spunta le osservazioni per calcolare`;
+}
+}
+
+function updateScore(containerId, scoreId, total, thresholds, labels) {
+const container = document.getElementById(containerId);
+const checked = container.querySelectorAll(’.cloud-check-item.checked’).length;
+const scoreEl = document.getElementById(scoreId);
+if (!scoreEl) return;
+let level = 0;
+if (checked >= thresholds[1]) level = 2;
+else if (checked >= thresholds[0]) level = 1;
+const colors = [‘var(–muted)’, ‘var(–warn)’, ‘var(–safe)’];
+const label = labels[level];
+scoreEl.innerHTML = `<span class="cloud-score-val" style="color:${colors[level]}">${checked}/${total}</span> — ${label}`;
+}
+
+function toggleCloud2(id) {
+const detail = document.getElementById(‘detail-’ + id);
+const arrow = document.getElementById(‘arrow-’ + id);
+if (!detail) return;
+detail.classList.toggle(‘open’);
+if (arrow) arrow.classList.toggle(‘open’);
+}
+
+// ── Popola checklist evolutive (senza score) ─────────────────────
+function buildEvoList(id) {
+const data = CLOUD_DATA[id];
+if (!data || !data.evo) return;
+const container = document.getElementById(‘check-’ + id + ‘-evo’);
+if (!container) return;
+container.innerHTML = ‘’;
+data.evo.forEach((text, i) => {
+const item = document.createElement(‘div’);
+item.className = ‘cloud-check-item’;
+item.innerHTML = `<div class="cloud-check-box" id="evo-${id}-box-${i}"></div><div class="cloud-check-label">${text}</div>`;
+item.addEventListener(‘click’, () => {
+item.classList.toggle(‘checked’);
+document.getElementById(`evo-${id}-box-${i}`).textContent = item.classList.contains(‘checked’) ? ‘✓’ : ‘’;
+});
+container.appendChild(item);
+});
+}
+
+// ── Init all clouds ───────────────────────────────────────────────
+document.addEventListener(‘DOMContentLoaded’, () => {
+Object.keys(CLOUD_DATA).forEach(id => {
+const d = CLOUD_DATA[id];
+buildChecklist(`check-${id}-id`, `score-${id}-id`, d.id, d.thresholds, d.labels);
+buildEvoList(id);
+});
+});
+</script>

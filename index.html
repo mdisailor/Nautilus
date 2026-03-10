@@ -1,5 +1,7 @@
 <!DOCTYPE html>
 
+<!-- NAUTILUS v3.2.0 — 2026-03-10 -->
+
 <html lang="it">
 <head>
 <meta charset="UTF-8">
@@ -307,6 +309,7 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v3.2.0</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1353,9 +1356,19 @@ function renderWeather() {
   const cloud = sl(d.hourly.cloudcover);
   const preci = sl(d.hourly.precipitation_probability);
 
-  const maxW = Math.max(...winds).toFixed(0);
-  const maxG = Math.max(...gusts).toFixed(0);
-  const maxWv = Math.max(...waves).toFixed(1);
+  // Weighted average: recent hours count more (last hour weight=3, others=1)
+  const wavg = arr => {
+    if (!arr.length) return 0;
+    const weights = arr.map((_,i) => i === arr.length-1 ? 3 : 1);
+    const sum = arr.reduce((a,v,i) => a + v*weights[i], 0);
+    const wsum = weights.reduce((a,b) => a+b, 0);
+    return sum/wsum;
+  };
+  const maxW = Math.max(...winds).toFixed(0);      // still show peak wind (safety)
+  const maxG = Math.max(...gusts).toFixed(0);      // still show peak gust (safety)
+  const maxWv = Math.max(...waves).toFixed(1);     // still show peak wave (safety)
+  const avgW = wavg(winds).toFixed(0);
+  const avgG = wavg(gusts).toFixed(0);
   const avgP = (press.reduce((a,b)=>a+b,0)/press.length).toFixed(0);
   const avgDir = Math.round(wdirs.reduce((a,b)=>a+b,0)/wdirs.length);
   const avgPer = (wpers.reduce((a,b)=>a+b,0)/wpers.length).toFixed(0);
@@ -1367,6 +1380,7 @@ function renderWeather() {
   };
 
   document.getElementById('m-wind').textContent = maxW;
+  document.getElementById('m-wind').title = 'Media: ' + avgW + ' kn · Picco: ' + maxW + ' kn';
   col('m-wind', parseFloat(maxW), [7,11,22]);
   document.getElementById('m-wave').textContent = maxWv;
   col('m-wave', parseFloat(maxWv), [0.5,1.0,1.5]);
@@ -1818,14 +1832,18 @@ detail.classList.toggle(‘open’);
 if (arrow) arrow.classList.toggle(‘open’);
 }
 
-// Delegate cloud toggle via data attribute (avoids Safari inline onclick issues)
-document.addEventListener(‘click’, function(e) {
-const btn = e.target.closest(’[data-cloud-toggle]’);
-if (btn) {
-e.preventDefault();
+// Cloud toggle — attach directly after DOM ready
+function initCloudToggles() {
+document.querySelectorAll(’[data-cloud-toggle]’).forEach(function(btn) {
+btn.addEventListener(‘click’, function(e) {
+e.stopPropagation();
 toggleCloud2(btn.getAttribute(‘data-cloud-toggle’));
-}
 });
+});
+}
+document.addEventListener(‘DOMContentLoaded’, initCloudToggles);
+// Also run immediately in case DOM already loaded
+if (document.readyState !== ‘loading’) { initCloudToggles(); }
 
 // ── Popola checklist evolutive (senza score) ─────────────────────
 function buildEvoList(id) {

@@ -336,11 +336,11 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 
 <div class="metrics-row">
   <div class="metric-card">
-    <div class="metric-label" id="lbl-wind">Vento Max · 3h</div>
+    <div class="metric-label" id="lbl-wind">Vento · 3h</div>
     <div class="metric-icon">💨</div>
     <div class="metric-value" id="m-wind">--</div>
-    <div class="metric-unit">nodi</div>
-    <div class="metric-source">Open-Meteo</div>
+    <div class="metric-unit" style="font-size:0.5rem">picco · nodi</div>
+    <div class="metric-source" id="m-wind-avg" style="color:#9ac0d8;font-size:0.55rem">media --kn</div>
   </div>
   <div class="metric-card">
     <div class="metric-label" id="lbl-wave">Onda Max · 3h</div>
@@ -350,11 +350,11 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
     <div class="metric-source" id="wave-source">Open-Meteo</div>
   </div>
   <div class="metric-card">
-    <div class="metric-label" id="lbl-gust">Raffica Max · 3h</div>
+    <div class="metric-label" id="lbl-gust">Raffica · 3h</div>
     <div class="metric-icon">⚡</div>
     <div class="metric-value" id="m-gust">--</div>
-    <div class="metric-unit">nodi</div>
-    <div class="metric-source">Open-Meteo</div>
+    <div class="metric-unit" style="font-size:0.5rem">picco · nodi</div>
+    <div class="metric-source" id="m-gust-avg" style="color:#9ac0d8;font-size:0.55rem">media --kn</div>
   </div>
 </div>
 
@@ -641,7 +641,7 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 ```
 <!-- CIRRI -->
 <div class="cloud-card-v2" style="margin-top:16px">
-  <button class="cloud-toggle" data-cloud-toggle="ci">
+  <button class="cloud-toggle" onclick="toggleCloud2('ci')" type="button">
     <div class="cloud-toggle-header">
       <div class="cloud-toggle-left">
         <span class="cloud-emoji-lg">🌤</span>
@@ -731,7 +731,7 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 
 <!-- CIRROSTRATI -->
 <div class="cloud-card-v2">
-  <button class="cloud-toggle" data-cloud-toggle="cs">
+  <button class="cloud-toggle" onclick="toggleCloud2('cs')" type="button">
     <div class="cloud-toggle-header">
       <div class="cloud-toggle-left">
         <span class="cloud-emoji-lg">🌥</span>
@@ -801,7 +801,7 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 
 <!-- ALTOCUMULI -->
 <div class="cloud-card-v2">
-  <button class="cloud-toggle" data-cloud-toggle="ac">
+  <button class="cloud-toggle" onclick="toggleCloud2('ac')" type="button">
     <div class="cloud-toggle-header">
       <div class="cloud-toggle-left">
         <span class="cloud-emoji-lg">🌦</span>
@@ -857,7 +857,7 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 
 <!-- CUMULI -->
 <div class="cloud-card-v2">
-  <button class="cloud-toggle" data-cloud-toggle="cu">
+  <button class="cloud-toggle" onclick="toggleCloud2('cu')" type="button">
     <div class="cloud-toggle-header">
       <div class="cloud-toggle-left">
         <span class="cloud-emoji-lg">⛅</span>
@@ -921,7 +921,7 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 
 <!-- CUMULONEMBI -->
 <div class="cloud-card-v2">
-  <button class="cloud-toggle" data-cloud-toggle="cb">
+  <button class="cloud-toggle" onclick="toggleCloud2('cb')" type="button">
     <div class="cloud-toggle-header">
       <div class="cloud-toggle-left">
         <span class="cloud-emoji-lg">⛈</span>
@@ -983,7 +983,7 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 
 <!-- STRATI -->
 <div class="cloud-card-v2">
-  <button class="cloud-toggle" data-cloud-toggle="st">
+  <button class="cloud-toggle" onclick="toggleCloud2('st')" type="button">
     <div class="cloud-toggle-header">
       <div class="cloud-toggle-left">
         <span class="cloud-emoji-lg">🌫</span>
@@ -1035,7 +1035,7 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 
 <!-- NEMBOSTRATI -->
 <div class="cloud-card-v2">
-  <button class="cloud-toggle" data-cloud-toggle="ns">
+  <button class="cloud-toggle" onclick="toggleCloud2('ns')" type="button">
     <div class="cloud-toggle-header">
       <div class="cloud-toggle-left">
         <span class="cloud-emoji-lg">🌧</span>
@@ -1100,7 +1100,7 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 
 <!-- REGOLE MARINARE -->
 <div class="cloud-card-v2">
-  <button class="cloud-toggle" data-cloud-toggle="rules">
+  <button class="cloud-toggle" onclick="toggleCloud2('rules')" type="button">
     <div class="cloud-toggle-header">
       <div class="cloud-toggle-left">
         <span class="cloud-emoji-lg">🧭</span>
@@ -1380,11 +1380,12 @@ function renderWeather() {
   };
 
   document.getElementById('m-wind').textContent = maxW;
-  document.getElementById('m-wind').title = 'Media: ' + avgW + ' kn · Picco: ' + maxW + ' kn';
+  const mwa = document.getElementById('m-wind-avg'); if(mwa) mwa.textContent = 'media ' + avgW + 'kn';
   col('m-wind', parseFloat(maxW), [7,11,22]);
   document.getElementById('m-wave').textContent = maxWv;
   col('m-wave', parseFloat(maxWv), [0.5,1.0,1.5]);
   document.getElementById('m-gust').textContent = maxG;
+  const mga = document.getElementById('m-gust-avg'); if(mga) mga.textContent = 'media ' + avgG + 'kn';
   col('m-gust', parseFloat(maxG), [10,15,25]);
   document.getElementById('m-temp').textContent = temps[0]?.toFixed(0) || '--';
   document.getElementById('m-vis').textContent = visib[0] ? (visib[0]/1000).toFixed(0) : '--';
@@ -1631,6 +1632,19 @@ Max 200 parole. Sii diretto e pratico.`;
 
 function refreshData() { if (state.lat) fetchAll(); else requestGPS(); }
 
+function toggleCloud2(id) {
+  var detail = document.getElementById('detail-' + id);
+  var arrow = document.getElementById('arrow-' + id);
+  if (!detail) return;
+  if (detail.style.display === 'block') {
+    detail.style.display = 'none';
+    if (arrow) arrow.style.transform = '';
+  } else {
+    detail.style.display = 'block';
+    if (arrow) arrow.style.transform = 'rotate(180deg)';
+  }
+}
+
 window.addEventListener('load', () => {
   state.lat = 43.548; state.lon = 10.310; state.locationName = 'Livorno (default)';
   document.getElementById('loc-text').textContent = 'Default: Livorno · premi GPS per la tua posizione';
@@ -1823,27 +1837,6 @@ const colors = [‘var(–muted)’, ‘var(–warn)’, ‘var(–safe)’];
 const label = labels[level];
 scoreEl.innerHTML = `<span class="cloud-score-val" style="color:${colors[level]}">${checked}/${total}</span> — ${label}`;
 }
-
-function toggleCloud2(id) {
-const detail = document.getElementById(‘detail-’ + id);
-const arrow = document.getElementById(‘arrow-’ + id);
-if (!detail) return;
-detail.classList.toggle(‘open’);
-if (arrow) arrow.classList.toggle(‘open’);
-}
-
-// Cloud toggle — attach directly after DOM ready
-function initCloudToggles() {
-document.querySelectorAll(’[data-cloud-toggle]’).forEach(function(btn) {
-btn.addEventListener(‘click’, function(e) {
-e.stopPropagation();
-toggleCloud2(btn.getAttribute(‘data-cloud-toggle’));
-});
-});
-}
-document.addEventListener(‘DOMContentLoaded’, initCloudToggles);
-// Also run immediately in case DOM already loaded
-if (document.readyState !== ‘loading’) { initCloudToggles(); }
 
 // ── Popola checklist evolutive (senza score) ─────────────────────
 function buildEvoList(id) {

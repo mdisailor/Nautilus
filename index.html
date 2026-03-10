@@ -883,7 +883,7 @@ function toggleCloud(el, name) {
 // ── AI BRIEFING ──────────────────────────────────────────────
 async function requestBriefing() {
   if (!state.weatherData) { document.getElementById('briefing-text').textContent = 'Prima carica i dati meteo.'; return; }
-  if (ANTHROPIC_KEY === 'LA_TUA_CHIAVE_ANTHROPIC') {
+  if (ANTHROPIC_KEY === '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') {
     document.getElementById('briefing-text').innerHTML = '<span style="color:var(--warn)">⚠ Inserisci la chiave Anthropic nel codice</span>'; return;
   }
 

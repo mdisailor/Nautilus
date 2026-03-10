@@ -26,7 +26,7 @@
   --white:   #eaf4ff;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-html { font-size: 120%; }
+html { font-size: 144%; }
 html, body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; overflow-x: hidden; }
 body::before { content: ''; position: fixed; inset: 0; background: radial-gradient(ellipse 80% 40% at 50% -10%, rgba(0,160,220,0.12) 0%, transparent 60%), radial-gradient(ellipse 60% 30% at 80% 110%, rgba(0,80,160,0.08) 0%, transparent 50%); pointer-events: none; z-index: 0; }
 .ocean-bg { position: fixed; bottom: 0; left: 0; right: 0; height: 30vh; pointer-events: none; z-index: 0; opacity: 0.05; overflow: hidden; }
@@ -49,7 +49,7 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
 header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-content: space-between; }
 .logo { font-family: ‘Bebas Neue’, sans-serif; font-size: 2.4rem; letter-spacing: 0.12em; color: var(–white); line-height: 1; }
 .logo span { color: var(–accent); }
-.logo-sub { font-family: ‘DM Mono’, monospace; font-size: 0.55rem; letter-spacing: 0.18em; color: var(–muted); text-transform: uppercase; margin-top: 2px; }
+.logo-sub { font-family: ‘DM Mono’, monospace; font-size: 0.55rem; letter-spacing: 0.18em; color: #8ab8d0; text-transform: uppercase; margin-top: 2px; }
 #clock { font-family: ‘DM Mono’, monospace; font-size: 1.3rem; color: var(–accent); text-align: right; }
 #date-display { font-size: 0.6rem; color: var(–muted); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 2px; text-align: right; }
 
@@ -68,7 +68,7 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 
 /* SOURCE BADGE */
 .source-row { display: flex; gap: 6px; margin: 10px 20px 0; flex-wrap: wrap; }
-.src-badge { padding: 4px 10px; border-radius: 20px; font-family: ‘DM Mono’, monospace; font-size: 0.55rem; letter-spacing: 0.08em; text-transform: uppercase; border: 1px solid var(–border); color: var(–muted); }
+.src-badge { padding: 4px 10px; border-radius: 20px; font-family: ‘DM Mono’, monospace; font-size: 0.55rem; letter-spacing: 0.08em; text-transform: uppercase; border: 1px solid var(–border); color: #8ab8d0; }
 .src-badge.ok { border-color: rgba(34,221,136,0.4); color: var(–safe); background: rgba(34,221,136,0.07); }
 .src-badge.err { border-color: rgba(255,68,68,0.4); color: var(–danger); background: rgba(255,68,68,0.07); }
 .src-badge.loading { border-color: rgba(0,240,255,0.3); color: var(–accent); background: rgba(0,240,255,0.05); animation: blink 1.5s infinite; }
@@ -78,9 +78,9 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 .metric-card { background: var(–card); border: 1px solid var(–border); border-radius: 14px; padding: 14px 10px; text-align: center; }
 .metric-icon { font-size: 1.2rem; margin-bottom: 4px; }
 .metric-value { font-family: ‘Bebas Neue’, sans-serif; font-size: 1.7rem; letter-spacing: 0.05em; color: var(–white); line-height: 1; }
-.metric-unit { font-family: ‘DM Mono’, monospace; font-size: 0.55rem; color: var(–muted); text-transform: uppercase; margin-top: 2px; }
-.metric-label { font-size: 0.58rem; color: var(–muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; }
-.metric-source { font-family: ‘DM Mono’, monospace; font-size: 0.48rem; color: var(–muted); margin-top: 3px; opacity: 0.6; }
+.metric-unit { font-family: ‘DM Mono’, monospace; font-size: 0.55rem; color: #8ab8d0; text-transform: uppercase; margin-top: 2px; }
+.metric-label { font-size: 0.58rem; color: #9ac0d8; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; }
+.metric-source { font-family: ‘DM Mono’, monospace; font-size: 0.48rem; color: #7aa8c0; margin-top: 3px; opacity: 0.6; }
 
 /* EXTRA METRICS */
 .metrics-row-2 { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin: 8px 20px 0; }
@@ -91,7 +91,7 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 /* MARINE DATA CARD — Stormglass */
 .marine-card { margin: 10px 20px 0; background: var(–card); border: 1px solid var(–border); border-radius: 14px; overflow: hidden; }
 .marine-header { padding: 12px 18px; border-bottom: 1px solid var(–border); display: flex; align-items: center; justify-content: space-between; }
-.marine-title { font-family: ‘DM Mono’, monospace; font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(–muted); }
+.marine-title { font-family: ‘DM Mono’, monospace; font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: #9ac0d8; }
 .marine-source { font-family: ‘DM Mono’, monospace; font-size: 0.55rem; color: var(–accent); opacity: 0.7; }
 .marine-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 0; }
 .marine-item { padding: 14px 12px; text-align: center; border-right: 1px solid var(–border); border-bottom: 1px solid var(–border); }
@@ -99,13 +99,13 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 .marine-item:nth-last-child(-n+3) { border-bottom: none; }
 .marine-item-value { font-family: ‘Bebas Neue’, sans-serif; font-size: 1.4rem; color: var(–white); letter-spacing: 0.05em; }
 .marine-item-label { font-family: ‘DM Mono’, monospace; font-size: 0.52rem; color: var(–muted); text-transform: uppercase; margin-top: 3px; }
-.marine-item-sub { font-size: 0.58rem; color: var(–muted); margin-top: 2px; }
+.marine-item-sub { font-size: 0.58rem; color: #8ab8d0; margin-top: 2px; }
 
 /* SWELL CARD */
 .swell-card { margin: 8px 20px 0; background: var(–card); border: 1px solid var(–border); border-radius: 14px; padding: 16px 18px; }
 .swell-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(–border); }
 .swell-row:last-child { border-bottom: none; }
-.swell-label { font-family: ‘DM Mono’, monospace; font-size: 0.62rem; color: var(–muted); }
+.swell-label { font-family: ‘DM Mono’, monospace; font-size: 0.62rem; color: #9ac0d8; }
 .swell-value { font-family: ‘DM Mono’, monospace; font-size: 0.72rem; color: var(–white); font-weight: 500; }
 
 /* WIND CARD */
@@ -115,23 +115,24 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 .wind-details { flex: 1; }
 .wind-detail-row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid var(–border); font-size: 0.68rem; }
 .wind-detail-row:last-child { border-bottom: none; }
-.wd-label { color: var(–muted); font-family: ‘DM Mono’, monospace; }
+.wd-label { color: #9ac0d8; font-family: ‘DM Mono’, monospace; }
 .wd-value { color: var(–white); font-family: ‘DM Mono’, monospace; font-weight: 500; }
 
 /* BARO */
 .baro-card { margin: 8px 20px 0; background: var(–card); border: 1px solid var(–border); border-radius: 14px; padding: 16px; }
 .baro-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
-.baro-title { font-family: ‘DM Mono’, monospace; font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(–muted); }
+.baro-title { font-family: ‘DM Mono’, monospace; font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: #9ac0d8; }
 .baro-value-big { font-family: ‘Bebas Neue’, sans-serif; font-size: 2rem; color: var(–white); }
 .baro-unit-sm { font-family: ‘DM Mono’, monospace; font-size: 0.62rem; color: var(–muted); margin-left: 3px; }
 .gauge-container { height: 10px; background: var(–deep); border-radius: 5px; overflow: hidden; border: 1px solid var(–border); }
 .gauge-fill { height: 100%; border-radius: 5px; transition: width 1s ease; background: linear-gradient(90deg, #ff4444, #ffaa00, #22dd88, #0af0ff); }
 .gauge-labels { display: flex; justify-content: space-between; margin-top: 3px; }
-.gauge-label { font-family: ‘DM Mono’, monospace; font-size: 0.5rem; color: var(–muted); }
+.gauge-label { font-family: ‘DM Mono’, monospace; font-size: 0.5rem; color: #8ab8d0; }
 .baro-trend-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; padding: 9px 12px; border-radius: 9px; background: var(–deep); }
 .baro-history { margin-top: 14px; }
 .baro-history-title { font-family: ‘DM Mono’, monospace; font-size: 0.55rem; color: var(–muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }
-.baro-bars { display: flex; align-items: flex-end; gap: 4px; height: 55px; }
+.baro-bars { display: flex; align-items: flex-end; gap: 3px; height: 120px; flex-wrap: nowrap; }
+.baro-bar-delta { font-family: ‘DM Mono’, monospace; font-size: 0.38rem; text-align: center; height: 12px; line-height: 12px; }
 .baro-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .baro-bar-col { width: 100%; border-radius: 3px 3px 0 0; min-height: 2px; }
 .baro-bar-label { font-family: ‘DM Mono’, monospace; font-size: 0.42rem; color: var(–muted); text-align: center; }
@@ -140,15 +141,15 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 
 /* TIMELINE */
 .timeline-card { margin: 8px 20px 0; background: var(–card); border: 1px solid var(–border); border-radius: 14px; padding: 16px 0; }
-.section-title { font-family: ‘DM Mono’, monospace; font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(–muted); padding: 0 18px; margin-bottom: 12px; }
+.section-title { font-family: ‘DM Mono’, monospace; font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: #9ac8e0; padding: 0 18px; margin-bottom: 12px; }
 .timeline-scroll { display: flex; overflow-x: auto; padding: 0 18px; scrollbar-width: none; }
 .timeline-scroll::-webkit-scrollbar { display: none; }
 .timeline-item { flex-shrink: 0; width: 72px; text-align: center; padding: 8px 4px; border-radius: 10px; border: 1px solid transparent; }
 .timeline-item.active { background: rgba(0,240,255,0.08); border-color: rgba(0,240,255,0.3); }
-.ti-time { font-family: ‘DM Mono’, monospace; font-size: 0.55rem; color: var(–muted); margin-bottom: 4px; }
+.ti-time { font-family: ‘DM Mono’, monospace; font-size: 0.55rem; color: #8ab8d0; margin-bottom: 4px; }
 .ti-icon { font-size: 1.1rem; margin-bottom: 3px; }
 .ti-wind { font-family: ‘Bebas Neue’, sans-serif; font-size: 0.95rem; color: var(–white); }
-.ti-wave { font-family: ‘DM Mono’, monospace; font-size: 0.55rem; color: var(–muted); margin-top: 1px; }
+.ti-wave { font-family: ‘DM Mono’, monospace; font-size: 0.55rem; color: #8ab8d0; margin-top: 1px; }
 
 /* BRIEFING */
 .briefing-card { margin: 8px 20px 0; background: var(–card); border: 1px solid var(–border); border-radius: 14px; overflow: hidden; }
@@ -166,7 +167,7 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 
 /* OSSERVAZIONI */
 .obs-section { margin: 12px 20px 0; }
-.obs-title { font-family: ‘DM Mono’, monospace; font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(–muted); margin-bottom: 10px; }
+.obs-title { font-family: ‘DM Mono’, monospace; font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: #9ac0d8; margin-bottom: 10px; }
 .obs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .obs-card { background: var(–card); border: 1px solid var(–border); border-radius: 12px; padding: 12px; cursor: pointer; transition: all 0.2s; position: relative; }
 .obs-card.selected { border-color: var(–accent); background: rgba(0,240,255,0.07); }
@@ -184,7 +185,7 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 .obs-textarea { width: 100%; padding: 10px 12px; background: var(–card); border: 1px solid var(–border); border-radius: 10px; color: var(–white); font-family: ‘DM Sans’, sans-serif; font-size: 0.75rem; resize: none; height: 80px; }
 .obs-textarea:focus { outline: none; border-color: var(–accent); }
 .obs-textarea::placeholder { color: var(–muted); }
-.obs-label { font-family: ‘DM Mono’, monospace; font-size: 0.6rem; color: var(–muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; display: block; }
+.obs-label { font-family: ‘DM Mono’, monospace; font-size: 0.6rem; color: #9ac0d8; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; display: block; }
 
 /* CLOUD GUIDE */
 .cloud-card { margin: 10px 20px 0; background: var(–card); border: 1px solid var(–border); border-radius: 14px; overflow: hidden; }
@@ -197,7 +198,7 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 
 /* STATUS */
 #status-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(–deep); border-top: 1px solid var(–border); padding: 9px 20px; display: flex; align-items: center; justify-content: space-between; z-index: 100; }
-.status-item { display: flex; align-items: center; gap: 5px; font-family: ‘DM Mono’, monospace; font-size: 0.55rem; color: var(–muted); }
+.status-item { display: flex; align-items: center; gap: 5px; font-family: ‘DM Mono’, monospace; font-size: 0.55rem; color: #8ab8d0; }
 .status-dot { width: 5px; height: 5px; border-radius: 50%; background: var(–muted); }
 .status-dot.ok { background: var(–safe); }
 .status-dot.err { background: var(–danger); }
@@ -549,7 +550,7 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 .cloud-toggle-left { display:flex; align-items:center; gap:12px; }
 .cloud-emoji-lg { font-size:2rem; }
 .cloud-toggle-title { font-family:'Bebas Neue',sans-serif; font-size:1.2rem; letter-spacing:0.08em; color:var(--white); }
-.cloud-toggle-sub { font-family:'DM Mono',monospace; font-size:0.55rem; color:var(--muted); margin-top:2px; }
+.cloud-toggle-sub { font-family:'DM Mono',monospace; font-size:0.55rem; color:#8ab8d0; margin-top:2px; }
 .cloud-toggle-arrow { font-family:'DM Mono',monospace; font-size:0.8rem; color:var(--accent); transition:transform 0.3s; }
 .cloud-toggle-arrow.open { transform:rotate(180deg); }
 .cloud-summary-bar { padding:0 18px 12px; display:flex; gap:8px; flex-wrap:wrap; }
@@ -559,29 +560,29 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 .cloud-section { padding:14px 18px; border-bottom:1px solid var(--border); }
 .cloud-section:last-child { border-bottom:none; }
 .cloud-section-title { font-family:'DM Mono',monospace; font-size:0.6rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--accent); margin-bottom:10px; }
-.cloud-text { font-size:0.75rem; color:var(--text); line-height:1.6; margin-bottom:4px; }
+.cloud-text { font-size:0.75rem; color:#e8f4ff; line-height:1.65; margin-bottom:5px; }
 .cloud-text strong { color:var(--white); }
 .cloud-checklist { display:flex; flex-direction:column; gap:6px; }
 .cloud-check-item { display:flex; align-items:flex-start; gap:10px; cursor:pointer; }
 .cloud-check-box { width:18px; height:18px; min-width:18px; border:1.5px solid var(--muted); border-radius:4px; display:flex; align-items:center; justify-content:center; font-size:0.65rem; color:var(--accent); transition:all 0.2s; margin-top:1px; }
 .cloud-check-item.checked .cloud-check-box { background:rgba(0,240,255,0.15); border-color:var(--accent); }
-.cloud-check-label { font-size:0.72rem; color:var(--text); line-height:1.5; }
+.cloud-check-label { font-size:0.72rem; color:#e8f4ff; line-height:1.5; }
 .cloud-check-item.checked .cloud-check-label { color:var(--muted); text-decoration:line-through; }
-.cloud-score { margin-top:10px; padding:8px 12px; border-radius:8px; background:var(--deep); font-family:'DM Mono',monospace; font-size:0.65rem; color:var(--muted); }
+.cloud-score { margin-top:10px; padding:8px 12px; border-radius:8px; background:var(--deep); font-family:'DM Mono',monospace; font-size:0.65rem; color:#8ab8d0; }
 .cloud-score-val { font-size:1rem; font-weight:bold; color:var(--accent); }
 .evolution-steps { display:flex; align-items:center; gap:4px; flex-wrap:wrap; margin-top:6px; }
-.evo-step { font-family:'DM Mono',monospace; font-size:0.58rem; padding:3px 8px; border-radius:6px; background:var(--deep); color:var(--text); border:1px solid var(--border); }
+.evo-step { font-family:'DM Mono',monospace; font-size:0.58rem; padding:3px 8px; border-radius:6px; background:var(--deep); color:#d8ecfa; border:1px solid var(--border); }
 .evo-arrow { color:var(--muted); font-size:0.7rem; }
 .cloud-table { width:100%; border-collapse:collapse; margin-top:6px; }
-.cloud-table td { font-size:0.68rem; padding:5px 4px; border-bottom:1px solid var(--border); color:var(--text); vertical-align:top; }
-.cloud-table td:first-child { color:var(--muted); font-family:'DM Mono',monospace; font-size:0.6rem; width:45%; padding-right:8px; }
+.cloud-table td { font-size:0.68rem; padding:6px 4px; border-bottom:1px solid var(--border); color:#eaf4ff; vertical-align:top; line-height:1.5; }
+.cloud-table td:first-child { color:#a8d0e8; font-family:'DM Mono',monospace; font-size:0.6rem; width:42%; padding-right:8px; font-weight:500; }
 .cloud-table tr:last-child td { border-bottom:none; }
 .action-box { padding:10px 14px; border-radius:10px; font-size:0.72rem; line-height:1.6; margin-top:6px; }
 </style>
 
 <!-- CIRRI -->
 <div class="cloud-card-v2" style="margin-top:16px">
-  <button class="cloud-toggle" onclick="toggleCloud2('ci')">
+  <button class="cloud-toggle" data-cloud-toggle="ci">
     <div class="cloud-toggle-header">
       <div class="cloud-toggle-left">
         <span class="cloud-emoji-lg">🌤</span>
@@ -625,6 +626,14 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
         <span class="evo-step" style="border-color:var(--danger);color:var(--danger)">Nembostrati + pioggia</span>
       </div>
       <div class="cloud-text" style="margin-top:8px">Tempistica: compaiono <strong>12–48h prima</strong> del fronte caldo. Durata media: da alcune ore a 1 giorno.</div>
+      <div class="cloud-text" style="margin-top:6px;color:var(--warn)">⚠ <strong>Segnali che accelerano il pericolo:</strong> filamenti che si addensano rapidamente + alone attorno al sole + barometro che scende → fronte in avvicinamento veloce, agire entro 6-12h.</div>
+      <div class="cloud-text" style="margin-top:4px">In caso di miglioramento: i cirri si ritirano verso l'orizzonte lasciando cielo sereno — segnale positivo.</div>
+      <table class="cloud-table" style="margin-top:8px">
+        <tr><td>Fase 1 · CI fibrosi</td><td>Nessun rischio · sorvegliare barometro</td></tr>
+        <tr><td>Fase 2 · CI che si addensano</td><td>Pianificare rotta alternativa · controllare ogni ora</td></tr>
+        <tr><td>Fase 3 · Velo e alone</td><td>Peggioramento quasi certo · valutare rientro</td></tr>
+        <tr><td>Fase 4 · Cirrostrati</td><td>Fronte a 12-24h · ridurre velatura preventivamente</td></tr>
+      </table>
     </div>
     <div class="cloud-section">
       <div class="cloud-section-title">⚓ Impatto sulla navigazione</div>
@@ -663,7 +672,7 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 
 <!-- CIRROSTRATI -->
 <div class="cloud-card-v2">
-  <button class="cloud-toggle" onclick="toggleCloud2('cs')">
+  <button class="cloud-toggle" data-cloud-toggle="cs">
     <div class="cloud-toggle-header">
       <div class="cloud-toggle-left">
         <span class="cloud-emoji-lg">🌥</span>
@@ -695,6 +704,13 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
         <span class="evo-arrow">→</span>
         <span class="evo-step" style="border-color:var(--danger);color:var(--danger)">Pioggia 12-24h</span>
       </div>
+      <div class="cloud-text" style="margin-top:8px;color:var(--warn)">⚠ <strong>L'alone è il segnale più affidabile nel Mediterraneo</strong> — quando compare, hai ancora 12-18h di tempo buono. Usale per rientrare o raggiungere un porto sicuro.</div>
+      <table class="cloud-table" style="margin-top:8px">
+        <tr><td>Alone presente</td><td>Fronte a 12-24h · pianificare immediatamente</td></tr>
+        <tr><td>Velo si addensa</td><td>Fronte a 6-12h · ridurre velatura</td></tr>
+        <tr><td>Sole scompare</td><td>Fronte a 3-6h · cercare riparo</td></tr>
+        <tr><td>Pioggia inizia</td><td>Fronte arrivato · siete in nembostrati</td></tr>
+      </table>
     </div>
     <div class="cloud-section">
       <div class="cloud-section-title">⚓ Impatto sulla navigazione</div>
@@ -726,7 +742,7 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 
 <!-- ALTOCUMULI -->
 <div class="cloud-card-v2">
-  <button class="cloud-toggle" onclick="toggleCloud2('ac')">
+  <button class="cloud-toggle" data-cloud-toggle="ac">
     <div class="cloud-toggle-header">
       <div class="cloud-toggle-left">
         <span class="cloud-emoji-lg">🌦</span>
@@ -748,17 +764,19 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
       <div class="cloud-text">Banchi o onde di nuvole <strong>grigio-bianche</strong> disposte in file parallele. Aspetto a <strong>scaglie di pesce</strong> o "cielo a pecorelle". Elementi singoli più grandi dei cirrocumuli (diametro apparente &gt; 1°). Possono avere ombreggiature grigie nella parte inferiore. Possono precedere un sistema frontale o indicare instabilità convettiva.</div>
     </div>
     <div class="cloud-section">
-      <div class="cloud-section-title">⚠️ Segnale critico: Altocumuli castellanus</div>
+      <div class="cloud-section-title">⚡ Segnale critico: Altocumuli castellanus (ACC)</div>
       <div class="cloud-text" style="color:var(--warn)">Se le sommità degli altocumuli mostrano <strong>torri o cupole</strong> (forma a castello) → instabilità convettiva intensa → probabili temporali nel pomeriggio-sera. Segnale da non ignorare in estate nel Mediterraneo.</div>
     </div>
     <div class="cloud-section">
       <div class="cloud-section-title">⚓ Impatto sulla navigazione</div>
       <table class="cloud-table">
         <tr><td>Rischio principale</td><td>Sviluppo di Cb nel pomeriggio se il cielo scalda</td></tr>
-        <tr><td>Vento</td><td>Raffiche irregolari possibili sotto i banchi</td></tr>
-        <tr><td>Mare</td><td>Possibili temporali locali con vento forte</td></tr>
-        <tr><td>Visibilità</td><td>Variabile, ridotta sotto i banchi</td></tr>
-        <tr><td>Barometro</td><td>Spesso stabile o in lieve calo</td></tr>
+        <tr><td>Vento</td><td>Raffiche irregolari possibili sotto i banchi · cambio direzione improvviso</td></tr>
+        <tr><td>Mare</td><td>Possibili temporali locali con vento forte · onde corte e ripide</td></tr>
+        <tr><td>Visibilità</td><td>Variabile · ridotta sotto i banchi · zero in caso di temporale</td></tr>
+        <tr><td>Barometro</td><td>Spesso stabile o in lieve calo · crollo rapido se sviluppa Cb</td></tr>
+        <tr><td>Timing critico</td><td>Massimo rischio tra le 14:00 e le 19:00 in estate</td></tr>
+        <tr><td>Azione</td><td>Se vedi torri sugli AC → pianificare rientro entro 2-3h</td></tr>
       </table>
     </div>
     <div class="cloud-section">
@@ -780,7 +798,7 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 
 <!-- CUMULI -->
 <div class="cloud-card-v2">
-  <button class="cloud-toggle" onclick="toggleCloud2('cu')">
+  <button class="cloud-toggle" data-cloud-toggle="cu">
     <div class="cloud-toggle-header">
       <div class="cloud-toggle-left">
         <span class="cloud-emoji-lg">⛅</span>
@@ -844,7 +862,7 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 
 <!-- CUMULONEMBI -->
 <div class="cloud-card-v2">
-  <button class="cloud-toggle" onclick="toggleCloud2('cb')">
+  <button class="cloud-toggle" data-cloud-toggle="cb">
     <div class="cloud-toggle-header">
       <div class="cloud-toggle-left">
         <span class="cloud-emoji-lg">⛈</span>
@@ -906,7 +924,7 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 
 <!-- STRATI -->
 <div class="cloud-card-v2">
-  <button class="cloud-toggle" onclick="toggleCloud2('st')">
+  <button class="cloud-toggle" data-cloud-toggle="st">
     <div class="cloud-toggle-header">
       <div class="cloud-toggle-left">
         <span class="cloud-emoji-lg">🌫</span>
@@ -958,7 +976,7 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 
 <!-- NEMBOSTRATI -->
 <div class="cloud-card-v2">
-  <button class="cloud-toggle" onclick="toggleCloud2('ns')">
+  <button class="cloud-toggle" data-cloud-toggle="ns">
     <div class="cloud-toggle-header">
       <div class="cloud-toggle-left">
         <span class="cloud-emoji-lg">🌧</span>
@@ -1023,7 +1041,7 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 
 <!-- REGOLE MARINARE -->
 <div class="cloud-card-v2">
-  <button class="cloud-toggle" onclick="toggleCloud2('rules')">
+  <button class="cloud-toggle" data-cloud-toggle="rules">
     <div class="cloud-toggle-header">
       <div class="cloud-toggle-left">
         <span class="cloud-emoji-lg">🧭</span>
@@ -1083,7 +1101,7 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 
 <script>
 // ── CHIAVI API ── sostituisci con le tue ──────────────────────
-const ANTHROPIC_KEY = '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';
+const ANTHROPIC_KEY = 'LA_TUA_CHIAVE_ANTHROPIC';
 
 // ── STATE ────────────────────────────────────────────────────
 const state = {
@@ -1327,25 +1345,78 @@ function renderBaroHistory() {
   const idx = getCurrentIdx();
   const container = document.getElementById("baro-history-bars");
   container.innerHTML = "";
-  // mostra le ultime 12 ore + ora attuale
+
+  // Ultime 12 ore + ora attuale
   const start = Math.max(0, idx - 11);
   const pressArr = d.hourly.surface_pressure;
   const timeArr = d.hourly.time;
   const vals = [];
-  for (let i = start; i <= idx; i++) { vals.push({ t: new Date(timeArr[i]), p: pressArr[i] }); }
+  for (let i = start; i <= idx; i++) {
+    vals.push({ t: new Date(timeArr[i]), p: pressArr[i] });
+  }
   if (vals.length === 0) return;
-  const minP = Math.min(...vals.map(v=>v.p)) - 2;
-  const maxP = Math.max(...vals.map(v=>v.p)) + 2;
-  const range = maxP - minP || 1;
+
+  // Scala RELATIVA: usa range stretto per amplificare le differenze visive
+  const allP = vals.map(v => v.p);
+  const minP = Math.min(...allP);
+  const maxP = Math.max(...allP);
+  const range = Math.max(maxP - minP, 2); // minimo 2 hPa di range per evitare barre tutte uguali
+
+  const MAX_H = 80; // altezza massima barra in px
+  const MIN_H = 6;  // altezza minima
+
   vals.forEach((v, i) => {
-    const pct = ((v.p - minP) / range) * 100;
     const isNow = i === vals.length - 1;
-    const color = isNow ? "var(--accent)" : v.p > 1013 ? "var(--safe)" : v.p > 1000 ? "var(--gold)" : "var(--danger)";
+    const prev = i > 0 ? vals[i-1].p : v.p;
+    const delta = v.p - prev; // variazione rispetto all'ora precedente
+
+    // Colore basato sul delta (variazione oraria)
+    // Verde: stabile o in salita
+    // Arancione: calo lieve (-1 a -2 hPa/h)
+    // Rosso: calo significativo (< -2 hPa/h)
+    let color;
+    if (isNow) {
+      color = "var(--accent)";
+    } else if (delta > 0.5) {
+      color = "var(--safe)";       // in salita
+    } else if (delta >= -1.0) {
+      color = "var(--gold)";       // stabile o lieve calo
+    } else if (delta >= -2.0) {
+      color = "var(--warn)";       // calo moderato — attenzione
+    } else {
+      color = "var(--danger)";     // calo rapido — pericolo
+    }
+
+    // Altezza proporzionale al valore assoluto
+    const pct = (v.p - minP) / range;
+    const h = Math.round(MIN_H + pct * (MAX_H - MIN_H));
+
+    // Tooltip con delta
+    const deltaStr = delta >= 0 ? "+" + delta.toFixed(1) : delta.toFixed(1);
+    const deltaLabel = i > 0 ? deltaStr + " hPa" : "";
+
     const wrap = document.createElement("div");
     wrap.className = "baro-bar-wrap";
-    wrap.innerHTML = `<div class="baro-bar-val">${v.p.toFixed(0)}</div><div class="baro-bar-col" style="height:${Math.max(4,pct*0.45)}px;background:${color};opacity:${isNow?1:0.5}"></div><div class="baro-bar-label">${isNow?"ORA":v.t.toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"})}</div>`;
+    wrap.title = v.p.toFixed(1) + " hPa" + (deltaLabel ? " (" + deltaLabel + "/h)" : "");
+    wrap.innerHTML =
+      "<div class=\"baro-bar-val\">" + v.p.toFixed(0) + "</div>" +
+      "<div class=\"baro-bar-delta\" style=\"color:" + (delta < -2 ? "var(--danger)" : delta < -1 ? "var(--warn)" : "var(--muted)") + "\">" +
+        (i > 0 ? deltaStr : "") +
+      "</div>" +
+      "<div class=\"baro-bar-col\" style=\"height:" + h + "px;background:" + color + ";opacity:" + (isNow ? 1 : 0.75) + (isNow ? ";box-shadow:0 0 8px var(--accent)" : "") + "\"></div>" +
+      "<div class=\"baro-bar-label\">" + (isNow ? "ORA" : v.t.toLocaleTimeString("it-IT", {hour:"2-digit",minute:"2-digit"})) + "</div>";
     container.appendChild(wrap);
   });
+
+  // Legenda delta sotto le barre
+  const legend = document.createElement("div");
+  legend.style.cssText = "width:100%;margin-top:8px;font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap;padding:0 2px";
+  legend.innerHTML =
+    "<span style=\"color:var(--safe)\">▲ in salita</span>" +
+    "<span style=\"color:var(--gold)\">→ stabile</span>" +
+    "<span style=\"color:var(--warn)\">▼ -1/-2 attenzione</span>" +
+    "<span style=\"color:var(--danger)\">▼▼ &lt;-2 pericolo</span>";
+  container.appendChild(legend);
 }
 function renderTimeline() {
   const d = state.weatherData; if (!d) return;
@@ -1389,10 +1460,6 @@ function toggleCloud(el, name) {
 // ── AI BRIEFING ──────────────────────────────────────────────
 async function requestBriefing() {
   if (!state.weatherData) { document.getElementById('briefing-text').textContent = 'Prima carica i dati meteo.'; return; }
-  if (ANTHROPIC_KEY === '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') {
-    document.getElementById('briefing-text').innerHTML = '<span style="color:var(--warn)">⚠ Inserisci la chiave Anthropic nel codice</span>'; return;
-  }
-
   const btn = document.getElementById('btn-briefing');
   btn.disabled = true; btn.textContent = '...';
   document.getElementById('briefing-text').innerHTML = '<div class="loading"><div class="spinner"></div> Analisi in corso...</div>';
@@ -1465,10 +1532,11 @@ OSSERVAZIONI: commenta i dati visivi inseriti
 Max 200 parole. Sii diretto e pratico.`;
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    // Chiave letta dal Worker Cloudflare — nessuna chiave nel codice pubblico
+    const res = await fetch('https://nautilus-proxy.6z2jhzb7dn.workers.dev/briefing', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-      body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 1000, messages: [{ role: 'user', content: prompt }] })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: prompt })
     });
     const data = await res.json();
     const text = data.content?.map(c=>c.text||'').join('') || 'Nessuna risposta.';
@@ -1689,6 +1757,15 @@ if (!detail) return;
 detail.classList.toggle(‘open’);
 if (arrow) arrow.classList.toggle(‘open’);
 }
+
+// Delegate cloud toggle via data attribute (avoids Safari inline onclick issues)
+document.addEventListener(‘click’, function(e) {
+const btn = e.target.closest(’[data-cloud-toggle]’);
+if (btn) {
+e.preventDefault();
+toggleCloud2(btn.getAttribute(‘data-cloud-toggle’));
+}
+});
 
 // ── Popola checklist evolutive (senza score) ─────────────────────
 function buildEvoList(id) {

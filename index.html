@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v3.2.0 — 2026-03-10 -->
+<!-- NAUTILUS v3.3.0 — 2026-03-10 -->
 
 <html lang="it">
 <head>
@@ -309,7 +309,7 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v3.2.0</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v3.3.0</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -317,10 +317,64 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
   </div>
 </header>
 
-<div id="location-bar">
-  <div class="loc-dot" id="loc-dot"></div>
-  <div id="loc-text">Premi GPS per rilevare posizione</div>
-  <button id="btn-gps" onclick="requestGPS()">📍 GPS</button>
+<div id="location-bar" style="flex-direction:column;align-items:stretch;gap:8px;">
+  <div style="display:flex;align-items:center;gap:10px;">
+    <div class="loc-dot" id="loc-dot"></div>
+    <div id="loc-text" style="flex:1">Seleziona località o usa GPS</div>
+    <button id="btn-gps" onclick="requestGPS()">📍 GPS</button>
+  </div>
+  <select id="loc-select" onchange="selectLocation(this.value)" style="width:100%;padding:8px 10px;background:var(--deep);border:1px solid var(--border);border-radius:9px;color:var(--white);font-family:'DM Mono',monospace;font-size:0.65rem;appearance:none;-webkit-appearance:none;cursor:pointer;">
+    <option value="">— Scegli una località —</option>
+    <optgroup label="🌊 Costa Toscana Nord">
+      <option value="44.003,10.031">Viareggio</option>
+      <option value="43.800,10.243">Marina di Pisa</option>
+      <option value="43.548,10.310">Livorno</option>
+      <option value="43.418,10.468">Castiglioncello</option>
+      <option value="43.313,10.528">Marina di Cecina</option>
+      <option value="43.158,10.535">San Vincenzo</option>
+    </optgroup>
+    <optgroup label="🌊 Costa Toscana Sud">
+      <option value="42.922,10.534">Piombino</option>
+      <option value="42.838,10.536">Follonica</option>
+      <option value="42.647,10.889">Punta Ala</option>
+      <option value="42.767,11.003">Castiglione della Pescaia</option>
+      <option value="42.644,11.128">Marina di Grosseto</option>
+      <option value="42.480,11.149">Talamone</option>
+      <option value="42.433,11.155">Porto Santo Stefano</option>
+      <option value="42.378,11.167">Porto Ercole</option>
+    </optgroup>
+    <optgroup label="🏝 Isola d'Elba">
+      <option value="42.813,10.315">Portoferraio</option>
+      <option value="42.730,10.179">Marina di Campo</option>
+      <option value="42.748,10.399">Rio Marina</option>
+      <option value="42.759,10.451">Cavo (Elba Nord)</option>
+      <option value="42.715,10.155">Fetovaia (Elba SW)</option>
+      <option value="42.695,10.398">Porto Azzurro</option>
+    </optgroup>
+    <optgroup label="🏝 Arcipelago Toscano">
+      <option value="43.044,9.839">Capraia</option>
+      <option value="43.169,9.921">Gorgona</option>
+      <option value="42.366,10.912">Giglio Porto</option>
+      <option value="42.324,10.869">Giglio Campese</option>
+      <option value="42.243,11.355">Giannutri</option>
+      <option value="42.560,10.090">Pianosa</option>
+      <option value="42.601,10.475">Montecristo (largo)</option>
+    </optgroup>
+    <optgroup label="🌊 Liguria">
+      <option value="44.106,9.828">La Spezia</option>
+      <option value="44.048,9.681">Lerici</option>
+      <option value="44.100,9.530">Sestri Levante</option>
+      <option value="44.203,8.771">Savona</option>
+      <option value="43.833,7.800">Imperia</option>
+      <option value="43.781,7.641">Sanremo</option>
+    </optgroup>
+    <optgroup label="🏝 Nord Corsica">
+      <option value="42.699,9.451">Bastia</option>
+      <option value="42.563,8.748">Calvi</option>
+      <option value="42.966,9.282">Saint-Florent</option>
+      <option value="42.384,8.907">Porto (Corsica)</option>
+    </optgroup>
+  </select>
 </div>
 
 <div class="horizon-tabs">
@@ -1631,6 +1685,20 @@ Max 200 parole. Sii diretto e pratico.`;
 }
 
 function refreshData() { if (state.lat) fetchAll(); else requestGPS(); }
+
+function selectLocation(val) {
+  if (!val) return;
+  const parts = val.split(',');
+  state.lat = parseFloat(parts[0]);
+  state.lon = parseFloat(parts[1]);
+  const name = document.getElementById('loc-select').options[document.getElementById('loc-select').selectedIndex].text;
+  state.locationName = name;
+  document.getElementById('loc-text').textContent = name + ' · ' + state.lat.toFixed(3) + '°N ' + state.lon.toFixed(3) + '°E';
+  document.getElementById('loc-dot').classList.add('active');
+  document.getElementById('dot-gps').classList.add('ok');
+  document.getElementById('stat-gps').textContent = 'POS OK';
+  fetchAll();
+}
 
 function toggleCloud2(id) {
   var detail = document.getElementById('detail-' + id);

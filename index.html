@@ -320,7 +320,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v3.7.0 - by mdisailor engine -</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">-v3.7.0 by mdisailor engine -</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1850,11 +1850,12 @@ Max 220 parole. Sii diretto e operativo — il navigatore deve decidere.`;
     if (/RISCHIO:\s*ALTO/i.test(text)){rc='risk-high';rl='🚨 RISCHIO ALTO';}
     else if (/RISCHIO:\s*MEDIO/i.test(text)){rc='risk-med';rl='⚡ RISCHIO MEDIO';}
     document.getElementById('briefing-text').innerHTML = `<div class="risk-badge ${rc}">${rl}</div><br>${text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>')}`;
-  } catch {
+  } catch(err) {
     document.getElementById('dot-ai').classList.add('err');
     document.getElementById('stat-ai').textContent = 'AI ERR';
     btn.disabled = false; btn.textContent = 'Genera Briefing';
-    document.getElementById('briefing-text').textContent = 'Errore connessione AI.';
+    document.getElementById('briefing-text').textContent = 'Errore: ' + (err.message || err);
+    console.error('Briefing error:', err);
   }
 }
 

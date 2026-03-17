@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v3.6.0 — 2026-03-11 - DeglInocenti Marco -->
+<!-- NAUTILUS v3.6.1 — 2026-03-17 -->
 
 <html lang="it">
 <head>
@@ -204,7 +204,9 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 .status-dot { width: 5px; height: 5px; border-radius: 50%; background: var(–muted); }
 .status-dot.ok { background: var(–safe); }
 .status-dot.err { background: var(–danger); }
-#btn-refresh { padding: 5px 12px; background: transparent; border: 1px solid var(–border); border-radius: 7px; color: var(–muted); font-family: ‘DM Mono’, monospace; font-size: 0.55rem; cursor: pointer; }
+#btn-top { position:fixed; bottom:52px; right:16px; z-index:200; width:40px; height:40px; border-radius:50%; background:rgba(0,240,255,0.15); border:1px solid var(–accent); color:var(–accent); font-size:1.1rem; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 12px rgba(0,240,255,0.2); transition:background 0.2s; }
+#btn-top:active { background:rgba(0,240,255,0.3); }
+padding: 5px 12px; background: transparent; border: 1px solid var(–border); border-radius: 7px; color: var(–muted); font-family: ‘DM Mono’, monospace; font-size: 0.55rem; cursor: pointer; }
 
 .loading { display: flex; align-items: center; gap: 8px; font-family: ‘DM Mono’, monospace; font-size: 0.68rem; color: var(–muted); padding: 8px 0; }
 .spinner { width: 13px; height: 13px; border: 2px solid var(–border); border-top-color: var(–accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
@@ -316,7 +318,7 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v3.6.0 - Degl'Innocenti Marco </div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v3.6.1</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -507,6 +509,10 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
   <div class="baro-history">
     <div class="baro-history-title">📊 Storico pressione · ultime 12 ore</div>
     <div class="baro-bars" id="baro-history-bars"><div style="color:var(--muted);font-size:0.6rem;font-family:DM Mono,monospace;padding:8px 0">In attesa dati...</div></div>
+  </div>
+  <div class="baro-history" style="margin-top:18px">
+    <div class="baro-history-title">🌡️ Storico temperatura · ultime 12 ore</div>
+    <div class="baro-bars" id="temp-history-bars"><div style="color:var(--muted);font-size:0.6rem;font-family:DM Mono,monospace;padding:8px 0">In attesa dati...</div></div>
   </div>
 </div>
 
@@ -1228,6 +1234,8 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 
 </div><!-- /app -->
 
+<button id="btn-top" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Torna su">↑</button>
+
 <div id="status-bar">
   <div class="status-item"><div class="status-dot" id="dot-gps"></div><span id="stat-gps">GPS</span></div>
   <div class="status-item"><div class="status-dot" id="dot-meteo"></div><span id="stat-meteo">METEO</span></div>
@@ -1311,7 +1319,7 @@ async function fetchWeather() {
     document.getElementById('src-openmeteo').textContent = '✓ Open-Meteo';
     document.getElementById('dot-meteo').classList.add('ok');
     document.getElementById('stat-meteo').textContent = 'METEO OK';
-    renderWeather(); renderTimeline(); renderBaroHistory();
+    renderWeather(); renderTimeline(); renderBaroHistory(); renderTempHistory();
   } catch {
     document.getElementById('src-openmeteo').className = 'src-badge err';
     document.getElementById('src-openmeteo').textContent = '✗ Open-Meteo';
@@ -1567,7 +1575,74 @@ function renderBaroHistory() {
     "<span style=\"color:var(--danger)\">▼▼ &lt;-2 pericolo</span>";
   container.appendChild(legend);
 }
-function renderTimeline() {
+function renderTempHistory() {
+  const d = state.weatherData; if (!d) return;
+  const idx = getCurrentIdx();
+  const container = document.getElementById("temp-history-bars");
+  container.innerHTML = "";
+
+  const start = Math.max(0, idx - 11);
+  const tempArr = d.hourly.temperature_2m;
+  const timeArr = d.hourly.time;
+  const vals = [];
+  for (let i = start; i <= idx; i++) {
+    vals.push({ t: new Date(timeArr[i]), v: tempArr[i] });
+  }
+  if (vals.length === 0) return;
+
+  const allT = vals.map(v => v.v);
+  const minT = Math.min(...allT);
+  const maxT = Math.max(...allT);
+  const range = Math.max(maxT - minT, 1);
+
+  const MAX_H = 80, MIN_H = 6;
+
+  vals.forEach((v, i) => {
+    const isNow = i === vals.length - 1;
+    const prev = i > 0 ? vals[i-1].v : v.v;
+    const delta = v.v - prev;
+
+    // Colore: caldo=arancione, fresco=azzurro, neutro=accent
+    let color;
+    if (isNow) {
+      color = "var(--accent)";
+    } else if (v.v >= 25) {
+      color = "#ff7043";   // caldo
+    } else if (v.v >= 18) {
+      color = "var(--gold)";  // mite
+    } else if (v.v >= 10) {
+      color = "var(--safe)";  // fresco
+    } else {
+      color = "#90caf9";  // freddo
+    }
+
+    const pct = (v.v - minT) / range;
+    const h = Math.round(MIN_H + pct * (MAX_H - MIN_H));
+    const deltaStr = (delta >= 0 ? "+" : "") + delta.toFixed(1);
+
+    const wrap = document.createElement("div");
+    wrap.className = "baro-bar-wrap";
+    wrap.title = v.v.toFixed(1) + "°C" + (i > 0 ? " (" + deltaStr + "°/h)" : "");
+    wrap.innerHTML =
+      "<div class=\"baro-bar-val\">" + v.v.toFixed(0) + "°</div>" +
+      "<div class=\"baro-bar-delta\" style=\"color:" + (Math.abs(delta) > 1.5 ? "var(--warn)" : "var(--muted)") + "\">" +
+        (i > 0 ? deltaStr : "") +
+      "</div>" +
+      "<div class=\"baro-bar-col\" style=\"height:" + h + "px;background:" + color + ";opacity:" + (isNow ? 1 : 0.75) + (isNow ? ";box-shadow:0 0 8px var(--accent)" : "") + "\"></div>" +
+      "<div class=\"baro-bar-label\">" + (isNow ? "ORA" : v.t.toLocaleTimeString("it-IT", {hour:"2-digit",minute:"2-digit"})) + "</div>";
+    container.appendChild(wrap);
+  });
+
+  const legend = document.createElement("div");
+  legend.style.cssText = "width:100%;margin-top:8px;font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);display:flex;gap:10px;flex-wrap:wrap;padding:0 2px";
+  legend.innerHTML =
+    "<span style=\"color:#ff7043\">■ &gt;25° caldo</span>" +
+    "<span style=\"color:var(--gold)\">■ 18–25° mite</span>" +
+    "<span style=\"color:var(--safe)\">■ 10–18° fresco</span>" +
+    "<span style=\"color:#90caf9\">■ &lt;10° freddo</span>";
+  container.appendChild(legend);
+}
+
   const d = state.weatherData; if (!d) return;
   const idx = getCurrentIdx(), container = document.getElementById('timeline-scroll');
   container.innerHTML = '';
@@ -1599,7 +1674,7 @@ function setHorizon(h, el) {
     const el2 = document.getElementById(id);
     if (el2) el2.textContent = el2.textContent.replace(/· \d+h/, '· ' + h + 'h');
   });
-  if (state.weatherData) { renderWeather(); renderTimeline(); renderBaroHistory(); }
+  if (state.weatherData) { renderWeather(); renderTimeline(); renderBaroHistory(); renderTempHistory(); }
 }
 
 // ── CLOUD SELECTOR ───────────────────────────────────────────
@@ -1743,7 +1818,28 @@ Max 220 parole. Sii diretto e operativo — il navigatore deve decidere.`;
       body: JSON.stringify({ prompt: prompt })
     });
     const data = await res.json();
-    const text = data.content?.map(c=>c.text||'').join('') || 'Nessuna risposta.';
+
+    // Debug: mostra struttura risposta in console
+    console.log('Worker response:', JSON.stringify(data).slice(0, 500));
+
+    // Gestisce tutti i possibili formati di risposta del Worker
+    let text = '';
+    if (data.content && Array.isArray(data.content)) {
+      // Formato Anthropic diretto: {content: [{type:'text', text:'...'}]}
+      text = data.content.map(c => c.text || '').join('');
+    } else if (data.text) {
+      // Formato semplificato: {text: '...'}
+      text = data.text;
+    } else if (data.message) {
+      // Formato errore: {message: '...'}
+      text = '⚠️ Errore Worker: ' + data.message;
+    } else if (typeof data === 'string') {
+      text = data;
+    } else {
+      // Fallback: mostra la struttura ricevuta per diagnosticare
+      text = '⚠️ Risposta inattesa dal Worker. Struttura: ' + JSON.stringify(data).slice(0, 200);
+    }
+    if (!text) text = 'Nessuna risposta dal modello.';
     document.getElementById('dot-ai').classList.add('ok');
     document.getElementById('stat-ai').textContent = 'AI OK';
     btn.disabled = false; btn.textContent = '↻ Aggiorna';
@@ -1779,11 +1875,14 @@ function toggleCloud2(id) {
   var detail = document.getElementById('detail-' + id);
   var arrow = document.getElementById('arrow-' + id);
   if (!detail) return;
-  if (detail.style.display === 'block') {
+  var isOpen = detail.style.display === 'block' || detail.classList.contains('open');
+  if (isOpen) {
     detail.style.display = 'none';
+    detail.classList.remove('open');
     if (arrow) arrow.style.transform = '';
   } else {
     detail.style.display = 'block';
+    detail.classList.add('open');
     if (arrow) arrow.style.transform = 'rotate(180deg)';
   }
 }

@@ -1643,6 +1643,7 @@ function renderTempHistory() {
   container.appendChild(legend);
 }
 
+function renderTimeline() {
   const d = state.weatherData; if (!d) return;
   const idx = getCurrentIdx(), container = document.getElementById('timeline-scroll');
   container.innerHTML = '';

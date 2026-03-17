@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v3.8.0 — 2026-03-17 -->
+<!-- NAUTILUS v3.8.1 — 2026-03-17 -->
 
 <html lang="it">
 <head>
@@ -320,7 +320,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v3.8.0 · by mdisailor engine</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v3.8.1 · by mdisailor engine</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -532,6 +532,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
       <span class="briefing-label">Briefing AI Nautico</span>
     </div>
     <button id="btn-briefing" onclick="requestBriefing()">Genera Briefing</button>
+    <button id="btn-ping" onclick="testWorker()" style="padding:7px 10px;background:rgba(255,200,0,0.1);border:1px solid var(--gold);border-radius:8px;color:var(--gold);font-family:'DM Mono',monospace;font-size:0.55rem;cursor:pointer;margin-left:6px">🔧 Test</button>
   </div>
   <div id="briefing-text" style="color:var(--muted);font-size:0.72rem;font-family:'DM Mono',monospace;">
     Carica dati e osservazioni, poi genera il briefing per un'analisi completa.
@@ -1857,6 +1858,21 @@ Max 220 parole. Sii diretto e operativo — il navigatore deve decidere.`;
     document.getElementById('briefing-text').textContent = 'Errore: ' + (err.message || err);
     console.error('Briefing error:', err);
   }
+}
+
+function testWorker() {
+  const btn = document.getElementById('btn-ping');
+  btn.textContent = '...';
+  fetch('https://nautilus-proxy.6z2jhzb7dn.workers.dev/ping')
+    .then(r => r.json())
+    .then(d => {
+      btn.textContent = '🔧 Test';
+      document.getElementById('briefing-text').textContent = '✅ Worker OK: ' + JSON.stringify(d);
+    })
+    .catch(e => {
+      btn.textContent = '🔧 Test';
+      document.getElementById('briefing-text').textContent = '❌ Worker non raggiungibile: ' + e.message;
+    });
 }
 
 function refreshData() { if (state.lat) fetchAll(); else requestGPS(); }

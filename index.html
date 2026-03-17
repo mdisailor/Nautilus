@@ -1892,156 +1892,162 @@ window.addEventListener('load', () => {
   document.getElementById('loc-text').textContent = 'Default: Livorno · premi GPS per la tua posizione';
   fetchAll();
 });
+
+
+
+// ── CLOUD GUIDE DATA & CHECKLISTS ────────────────────────────────
+
+const CLOUD_DATA = {
+  ci: {
+    id: ['Filamenti molto sottili, aspetto a piuma o coda di cavallo','Colore bianco puro, nessun grigio percepibile','Nessun oscuramento del disco solare','Aloni intorno al Sole/Luna → cristalli di ghiaccio presenti','Altezza apparente molto elevata','Forma di uncini (cirrus uncinus) → vento forte in quota','Zero precipitazioni','Barometro inizia a scendere, vento in lieve rotazione'],
+    evo: ['Ci → Cs → As: fronte caldo in avvicinamento','Cirri che si intensificano e si abbassano: peggioramento entro 12–24 h','Barometro in discesa costante: cambiamento barico in corso','Onda cresce di periodo (lunga): perturbazione lontana ma in avvicinamento',"Cirri che si ritirano verso l\'orizzonte: miglioramento in arrivo"],
+    sic: ['Pianificare rotte alternative','Valutare tempi di arrivo in porto o rifugio','Controllare barometro ogni 30–60 min','Prevedere aumento vento e regolazioni vele','Evitare tratti esposti se peggioramento confermato',"Avvisare equipaggio dell\'evoluzione meteo prevista"],
+    sic: ['Pianificare rotte alternative','Valutare tempi di arrivo in porto o rifugio','Controllare barometro ogni 30–60 min','Prevedere aumento vento e regolazioni vele','Evitare tratti esposti se peggioramento confermato','Avvisare equipaggio dell\'evoluzione meteo prevista'],
+    thresholds: [3,6], labels: ["Nessun rischio immediato — monitorare","Fronte caldo probabile — preparare barca","⚠️ Peggioramento quasi certo entro 24–48 h"],
+  },
+  cs: {
+    id: ['Velo uniforme bianco o lattiginoso, senza struttura interna','Sole visibile ma attenuato (disco pallido)','Alone solare o lunare presente','Assenza di ombre nette al suolo','Preceduti da cirri nelle ultime 3–6 ore','Estensione enorme, non una banda isolata','Nessuna percezione di struttura interna definita'],
+    evo: ['Aumentano spessore e opacità: preparare barca ed equipaggio','Pressione in calo: aspettarsi fronte caldo','Vento in rinforzo da E/SE: cambia piano di rotta','Nuvolosità sale da 2/10 a 8/10: tempo peggiora entro 6–24 h','Transizione rapida verso altostrati: peggioramento più vicino del previsto'],
+    sic: ['Ridurre superfici veliche se previsto vento in rinforzo','Revisionare pompe di sentina e teli antipioggia','Verificare scotte, drizze e attrezzatura di coperta','Pianificare approdi alternativi','Preparare equipaggio a turno di guardia più attento','Monitorare barometro ogni 30–60 min'],
+    thresholds: [3,5], labels: ["Nessun rischio immediato — allerta precoce","Fronte caldo entro 12–24 h — organizzarsi","⚠️ Peggioramento QUASI CERTO — poche ore per prepararsi"],
+  },
+  cc: {
+    id: ['"Cielo a pecorelle" (mackerel sky): piccoli elementi bianchi','Pattern regolare e ripetitivo','Singole nubi piccole e bianche, mai scure','Quota molto elevata; sole nitido e brillante','Ombre interne a volte visibili','Movimento apparente lento','File orientate → direzione del flusso in quota'],
+    evo: ['Aumentano numero e compattezza: preparare rotta alternativa','Compaiono cirrostrati in avvicinamento: peggioramento entro 6–24 h','Pressione in calo: fronte in avvicinamento','Se accanto a cirri: peggioramento più certo','Rapida variazione nelle forme: instabilità crescente'],
+    sic: ['Preparare riduzione velica graduale','Anticipare cambio rotta se lontano da rifugi','Controllare stato batterie e strumenti',"Mantenere osservazione continua dell\'evoluzione nuvolosa",'Aggiornare piano di navigazione in base alla rotta del fronte','Tenere pressione e copertura sotto controllo'],
+    thresholds: [3,5], labels: ["Aria stabile — monitorare","Cambiamento in quota — allerta moderata","⚠️ Possibile peggioramento entro 12–36 h"],
+  },
+  as_: {
+    id: ['Strato uniforme grigio-azzurro, nessun buco nel cielo','Sole visibile come disco lattiginoso o sbiadito','Bordi sfumati, non definiti','Espansione su orizzonte marino in entrambe le direzioni','Copertura superiore a 6/10','Assenza di strutture interne o ombre','Preceduto da cirrostrati o cirri nelle ultime ore'],
+    evo: ['Base si abbassa: prepararsi a pioggia continua','Umidità in aumento: ridurre velatura con anticipo','Vento in rotazione: assestare rotta in anticipo sul fronte','Disco del Sole sparisce del tutto: pioggia molto probabile','Base ondulata: vento in quota in rinforzo'],
+    sic: ['Chiudere o verificare boccaporti e prese a mare','Preparare coperture per carte e strumenti','Prevenire ponte scivoloso: scarpe antiscivolo',"Ottimizzare gestione dell\'energia (strumenti accesi a lungo)",'Pianificare rifugi o ridossi nella prossima finestra di 2–6 ore','Ridurre assetto velico prima del primo scroscio'],
+    thresholds: [3,5], labels: ["Preludio a piogge — monitorare","Piogge diffuse imminenti — prepararsi","⚠️ Pioggia IN ARRIVO — fronte caldo imminente"],
+  },
+  ac: {
+    id: ['"Cielo a pecorelle" con elementi più grandi dei cirrocumuli','Batuffoli bianchi o grigi, ben definiti','Alternanza chiaro/scuro nel cielo','Ombre nette tra gli elementi: spessore maggiore','File parallele visibili','Sole meno brillante rispetto ai cirrocumuli','Ombre interne indicano tendenza verso altostrati'],
+    evo: ['Grigiore in aumento e copertura progressiva: possibile evoluzione verso altostrati','Passaggio da batuffoli separati a strato continuo: evoluzione verso altostrati','Altocumuli castellanus al mattino: possibili temporali pomeridiani','Calo barometrico associato: alta probabilità di peggioramento','Linee orientate E–W: venti in quota da sud; N–S: flussi da ovest'],
+    sic: ['Monitorare continuamente cielo e barometro','Verificare evoluzione barica ogni 2 h','Prepararsi a peggioramento in 6–18 h se tendenza negativa','Valutare rotta e ancoraggi in previsione meteo sfavorevole','Attivare osservazione continua del cielo'],
+    thresholds: [3,5], labels: ["Instabilità in quota — monitorare","Cambiamento probabile entro 6–18 h","⚠️ Peggioramento in corso — alta allerta"],
+  },
+  ns: {
+    id: ['Copertura totale del cielo, colore grigio ferro uniforme','Sole completamente oscurato','Base molto bassa, possibilmente confusa con spray marino','Precipitazioni continue, mai a rovescio','Orizzonte invisibile o indistinto','Aspetto compatto e opaco, nessuna struttura verticale','Umidità 100%'],
+    evo: ['Base si abbassa rapidamente: fronte molto vicino','Calo barometrico continuo: intensificazione del fronte','Vento ruota verso SW–W: passaggio del fronte in atto','Dissoluzione parziale e comparsa cumuli: passaggio completato','Cirri e altostrati comparsi 12–24 h prima: segnale premonitore classico'],
+    sic: ['Luci di via accese di continuo','Monitoraggio pressione ogni 30 min','Controllare prese a mare e pompe di sentina','Limitare velocità per garantire visibilità e manovrabilità','Aggiornare punto nave ogni 10–15 min (GPS + plotter)','Segnalare posizione via AIS se visibilità < 1 km'],
+    thresholds: [3,5], labels: ["Nembostrati possibili — navigazione prudente","Nembostrati confermati — ridurre attività","🚨 FRONTE CALDO ATTIVO — Non navigare senza strumentazione"],
+  },
+  sc: {
+    id: ['Cielo a "pezzi di coperta" grigio-biancastra','Aperture tra le nubi con cielo azzurro','Sole visibile in modo intermittente','Margini ondulati o arrotondati','Barometro stabile o in lenta risalita','Vento in attenuazione','Nessuna o pochissima precipitazione'],
+    evo: ['Barometro stabile: perturbazione in esaurimento','Graduale attenuazione delle precipitazioni: miglioramento confermato','Cielo da coperto (Ns) a chiazzato (Sc): miglioramento in corso','Aperture nel cielo in aumento: dissoluzione in atto','Vento in attenuazione e rotazione verso NW/W: rimonta in atto'],
+    sic: ['Confermare stabilizzazione barometrica','Verificare tendenza vento: attenuazione e rotazione NW/W','Controllare stato strumenti post-perturbazione','Monitorare visibilità se ancora presenti precipitazioni leggere','Valutare ripresa attività in coperta in condizioni sicure','Annotare evoluzione ogni 2–3 h'],
+    thresholds: [3,5], labels: ["Perturbazione in esaurimento","Stabilità in ripresa — miglioramento","✅ Miglioramento confermato — rimonta anticiclonica"],
+  },
+  st: {
+    id: ['Copertura grigiastra uniforme, nessun buco visibile','Orizzonte poco distinguibile','Sole visibile solo come disco opaco o totalmente nascosto','Assenza di strutture verticali','Umidità 95–100%','Venti deboli o calmi','Nessuna o pochissima precipitazione (al massimo pioviggine)'],
+    evo: ['Base si solleva progressivamente: dissoluzione imminente','Sfumature azzurre: strato sottile in dissipazione','Aumenta di spessore o scurisce: ingresso aria più umida','Nebbia che si solleva: passaggio a strati','Temperatura in aumento mattutino: dissoluzione in corso'],
+    sic: ['Luci di via accese se visibilità < 2 km','Controllo radar e AIS continuo','Annotare T aria e T acqua (se diff. < 1°C: rischio nebbia)','Tenere asciutti radar e ottiche','Verificare tendenza barometrica','Navigazione prevalentemente strumentale se persiste'],
+    thresholds: [3,5], labels: ["Stabilità marcata — visibilità da monitorare","Strati persistenti — navigazione strumentale consigliata","⚠️ Rischio nebbia — luci di via e radar attivo"],
+  },
+  cu: {
+    id: ['Base piatta e scura, sommità arrotondata bianca','Colore bianco brillante nella sommità','Sviluppo verticale limitato (humilis): bel tempo','Sviluppo verticale importante (congestus): attenzione','Isolati e separati tra loro','Movimento visibile delle sommità (crescita)','Ombre proiettate sul mare'],
+    evo: ['Cumuli crescono in altezza nel corso delle ore: instabilità in sviluppo','Sommità diventa fibrosa o glaciale: possibile evoluzione a Cb','Cumuli si avvicinano formando linee: fronte convettivo','Barometro scende mentre crescono: temporale probabile','Raffiche di vento irregolari in aumento: attenzione'],
+    sic: ['Osservare evoluzione verticale nel corso della giornata',"Se cumuli congestus visibili all\'orizzonte: prepararsi per possibile temporale",'Monitorare barometro ogni 30 min se cumuli in sviluppo','Evitare navigazione sotto la base di cumuli molto sviluppati','Prepararsi a riduzione velica rapida se evoluzione verso Cb',"Pianificare rotta alternativa se linea di cumuli sull\'asse di navigazione"],
+    thresholds: [3,5], labels: ["Bel tempo (humilis) — navigazione normale","Instabilità in sviluppo — monitorare attivamente","⚠️ Cumuli congestus — prepararsi a temporale"],
+  },
+  cb: {
+    id: ["Torri verticali scure o forma a incudine visibile all\'orizzonte",'Base piatta e grigio scuro','Sommità bianca a incudine (anvil)','Rapido aumento del vento in raffiche','Fulmini o tuoni udibili','Barometro in caduta improvvisa','Luce verde-gialla: probabile grandine'],
+    evo: ['Cumuli con torri in rapido sviluppo: evoluzione in corso','Shelf cloud visibile: groppo in avvicinamento — azione immediata','Vento che ruota improvvisamente: pericolo imminente','Basi che si uniscono: formazione di sistema convettivo (squall line)','Dissoluzione irregolare: instabilità residua post-frontale'],
+    sic: ['Pianificare rotta alternativa con almeno 15–20 NM di distanza','Indossare giubbotti salvagente e cinture di sicurezza','Chiudere tutti i boccaporti e prese a mare','Fissare o rimuovere oggetti mobili dal ponte','Ridurre vela o mettere motore al minimo','Accendere radar e luci di navigazione','Segnalare posizione via AIS; evitare radio durante fulmini'],
+    thresholds: [2,4], labels: ["Cumulonembi possibili — allerta massima","Temporale in avvicinamento — PREPARARSI","🔴 PERICOLO IMMEDIATO — Azione prioritaria"],
+  },
+};
+
+// ── Popola le checklist all'avvio ────────────────────────────────
+function buildChecklist(containerId, scoreId, items, thresholds, labels) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+  items.forEach((text, i) => {
+    const item = document.createElement('div');
+    item.className = 'cloud-check-item';
+    item.dataset.score = containerId;
+    item.innerHTML = `<div class="cloud-check-box" id="${containerId}-box-${i}"></div><div class="cloud-check-label">${text}</div>`;
+    item.addEventListener('click', () => {
+      item.classList.toggle('checked');
+      const box = document.getElementById(`${containerId}-box-${i}`);
+      box.textContent = item.classList.contains('checked') ? '✓' : '';
+      updateScore(containerId, scoreId, items.length, thresholds, labels);
+    });
+    container.appendChild(item);
+  });
+  if (scoreId) {
+    const scoreEl = document.getElementById(scoreId);
+    if (scoreEl) scoreEl.textContent = `0 / ${items.length} — spunta le osservazioni per calcolare`;
+  }
+}
+
+function updateScore(containerId, scoreId, total, thresholds, labels) {
+  const container = document.getElementById(containerId);
+  const checked = container.querySelectorAll('.cloud-check-item.checked').length;
+  const scoreEl = document.getElementById(scoreId);
+  if (!scoreEl) return;
+  let level = 0;
+  if (checked >= thresholds[1]) level = 2;
+  else if (checked >= thresholds[0]) level = 1;
+  const colors = ['var(--muted)', 'var(--warn)', 'var(--safe)'];
+  const label = labels[level];
+  scoreEl.innerHTML = `<span class="cloud-score-val" style="color:${colors[level]}">${checked}/${total}</span> — ${label}`;
+}
+
+
+
+// ── Popola checklist evolutive (senza score) ─────────────────────
+function buildEvoList(id) {
+  const data = CLOUD_DATA[id];
+  if (!data || !data.evo) return;
+  const container = document.getElementById('check-' + id + '-evo');
+  if (!container) return;
+  container.innerHTML = '';
+  data.evo.forEach((text, i) => {
+    const item = document.createElement('div');
+    item.className = 'cloud-check-item';
+    item.innerHTML = `<div class="cloud-check-box" id="evo-${id}-box-${i}"></div><div class="cloud-check-label">${text}</div>`;
+    item.addEventListener('click', () => {
+      item.classList.toggle('checked');
+      document.getElementById(`evo-${id}-box-${i}`).textContent = item.classList.contains('checked') ? '✓' : '';
+    });
+    container.appendChild(item);
+  });
+}
+
+// ── Init all clouds ───────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  Object.keys(CLOUD_DATA).forEach(id => {
+    const d = CLOUD_DATA[id];
+    buildChecklist(`check-${id}-id`, `score-${id}-id`, d.id, d.thresholds, d.labels);
+    buildEvoList(id);
+    if (d.sic) buildSimpleList(`check-${id}-sic`, d.sic);
+  });
+});
+
+function buildSimpleList(containerId, items) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+  items.forEach((text, i) => {
+    const item = document.createElement('div');
+    item.className = 'cloud-check-item';
+    item.innerHTML = `<div class="cloud-check-box" id="${containerId}-box-${i}"></div><div class="cloud-check-label">${text}</div>`;
+    item.addEventListener('click', () => {
+      item.classList.toggle('checked');
+      document.getElementById(`${containerId}-box-${i}`).textContent = item.classList.contains('checked') ? '✓' : '';
+    });
+    container.appendChild(item);
+  });
+}
+
+
+// Fine codice
 </script>
 
 </body>
 </html>
-<script>
-// ── CLOUD GUIDE DATA & CHECKLISTS ────────────────────────────────
-
-const CLOUD_DATA = {
-ci: {
-id: [‘Filamenti molto sottili, aspetto a piuma o coda di cavallo’,‘Colore bianco puro, nessun grigio percepibile’,‘Nessun oscuramento del disco solare’,‘Aloni intorno al Sole/Luna → cristalli di ghiaccio presenti’,‘Altezza apparente molto elevata’,‘Forma di uncini (cirrus uncinus) → vento forte in quota’,‘Zero precipitazioni’,‘Barometro inizia a scendere, vento in lieve rotazione’],
-evo: [‘Ci → Cs → As: fronte caldo in avvicinamento’,‘Cirri che si intensificano e si abbassano: peggioramento entro 12–24 h’,‘Barometro in discesa costante: cambiamento barico in corso’,‘Onda cresce di periodo (lunga): perturbazione lontana ma in avvicinamento’,“Cirri che si ritirano verso l’orizzonte: miglioramento in arrivo”],
-sic: [‘Pianificare rotte alternative’,‘Valutare tempi di arrivo in porto o rifugio’,‘Controllare barometro ogni 30–60 min’,‘Prevedere aumento vento e regolazioni vele’,‘Evitare tratti esposti se peggioramento confermato’,“Avvisare equipaggio dell’evoluzione meteo prevista”],
-sic: [‘Pianificare rotte alternative’,‘Valutare tempi di arrivo in porto o rifugio’,‘Controllare barometro ogni 30–60 min’,‘Prevedere aumento vento e regolazioni vele’,‘Evitare tratti esposti se peggioramento confermato’,‘Avvisare equipaggio dell'evoluzione meteo prevista’],
-thresholds: [3,6], labels: [“Nessun rischio immediato — monitorare”,“Fronte caldo probabile — preparare barca”,“⚠️ Peggioramento quasi certo entro 24–48 h”],
-},
-cs: {
-id: [‘Velo uniforme bianco o lattiginoso, senza struttura interna’,‘Sole visibile ma attenuato (disco pallido)’,‘Alone solare o lunare presente’,‘Assenza di ombre nette al suolo’,‘Preceduti da cirri nelle ultime 3–6 ore’,‘Estensione enorme, non una banda isolata’,‘Nessuna percezione di struttura interna definita’],
-evo: [‘Aumentano spessore e opacità: preparare barca ed equipaggio’,‘Pressione in calo: aspettarsi fronte caldo’,‘Vento in rinforzo da E/SE: cambia piano di rotta’,‘Nuvolosità sale da 2/10 a 8/10: tempo peggiora entro 6–24 h’,‘Transizione rapida verso altostrati: peggioramento più vicino del previsto’],
-sic: [‘Ridurre superfici veliche se previsto vento in rinforzo’,‘Revisionare pompe di sentina e teli antipioggia’,‘Verificare scotte, drizze e attrezzatura di coperta’,‘Pianificare approdi alternativi’,‘Preparare equipaggio a turno di guardia più attento’,‘Monitorare barometro ogni 30–60 min’],
-thresholds: [3,5], labels: [“Nessun rischio immediato — allerta precoce”,“Fronte caldo entro 12–24 h — organizzarsi”,“⚠️ Peggioramento QUASI CERTO — poche ore per prepararsi”],
-},
-cc: {
-id: [’“Cielo a pecorelle” (mackerel sky): piccoli elementi bianchi’,‘Pattern regolare e ripetitivo’,‘Singole nubi piccole e bianche, mai scure’,‘Quota molto elevata; sole nitido e brillante’,‘Ombre interne a volte visibili’,‘Movimento apparente lento’,‘File orientate → direzione del flusso in quota’],
-evo: [‘Aumentano numero e compattezza: preparare rotta alternativa’,‘Compaiono cirrostrati in avvicinamento: peggioramento entro 6–24 h’,‘Pressione in calo: fronte in avvicinamento’,‘Se accanto a cirri: peggioramento più certo’,‘Rapida variazione nelle forme: instabilità crescente’],
-sic: [‘Preparare riduzione velica graduale’,‘Anticipare cambio rotta se lontano da rifugi’,‘Controllare stato batterie e strumenti’,“Mantenere osservazione continua dell’evoluzione nuvolosa”,‘Aggiornare piano di navigazione in base alla rotta del fronte’,‘Tenere pressione e copertura sotto controllo’],
-thresholds: [3,5], labels: [“Aria stabile — monitorare”,“Cambiamento in quota — allerta moderata”,“⚠️ Possibile peggioramento entro 12–36 h”],
-},
-as_: {
-id: [‘Strato uniforme grigio-azzurro, nessun buco nel cielo’,‘Sole visibile come disco lattiginoso o sbiadito’,‘Bordi sfumati, non definiti’,‘Espansione su orizzonte marino in entrambe le direzioni’,‘Copertura superiore a 6/10’,‘Assenza di strutture interne o ombre’,‘Preceduto da cirrostrati o cirri nelle ultime ore’],
-evo: [‘Base si abbassa: prepararsi a pioggia continua’,‘Umidità in aumento: ridurre velatura con anticipo’,‘Vento in rotazione: assestare rotta in anticipo sul fronte’,‘Disco del Sole sparisce del tutto: pioggia molto probabile’,‘Base ondulata: vento in quota in rinforzo’],
-sic: [‘Chiudere o verificare boccaporti e prese a mare’,‘Preparare coperture per carte e strumenti’,‘Prevenire ponte scivoloso: scarpe antiscivolo’,“Ottimizzare gestione dell’energia (strumenti accesi a lungo)”,‘Pianificare rifugi o ridossi nella prossima finestra di 2–6 ore’,‘Ridurre assetto velico prima del primo scroscio’],
-thresholds: [3,5], labels: [“Preludio a piogge — monitorare”,“Piogge diffuse imminenti — prepararsi”,“⚠️ Pioggia IN ARRIVO — fronte caldo imminente”],
-},
-ac: {
-id: [’“Cielo a pecorelle” con elementi più grandi dei cirrocumuli’,‘Batuffoli bianchi o grigi, ben definiti’,‘Alternanza chiaro/scuro nel cielo’,‘Ombre nette tra gli elementi: spessore maggiore’,‘File parallele visibili’,‘Sole meno brillante rispetto ai cirrocumuli’,‘Ombre interne indicano tendenza verso altostrati’],
-evo: [‘Grigiore in aumento e copertura progressiva: possibile evoluzione verso altostrati’,‘Passaggio da batuffoli separati a strato continuo: evoluzione verso altostrati’,‘Altocumuli castellanus al mattino: possibili temporali pomeridiani’,‘Calo barometrico associato: alta probabilità di peggioramento’,‘Linee orientate E–W: venti in quota da sud; N–S: flussi da ovest’],
-sic: [‘Monitorare continuamente cielo e barometro’,‘Verificare evoluzione barica ogni 2 h’,‘Prepararsi a peggioramento in 6–18 h se tendenza negativa’,‘Valutare rotta e ancoraggi in previsione meteo sfavorevole’,‘Attivare osservazione continua del cielo’],
-thresholds: [3,5], labels: [“Instabilità in quota — monitorare”,“Cambiamento probabile entro 6–18 h”,“⚠️ Peggioramento in corso — alta allerta”],
-},
-ns: {
-id: [‘Copertura totale del cielo, colore grigio ferro uniforme’,‘Sole completamente oscurato’,‘Base molto bassa, possibilmente confusa con spray marino’,‘Precipitazioni continue, mai a rovescio’,‘Orizzonte invisibile o indistinto’,‘Aspetto compatto e opaco, nessuna struttura verticale’,‘Umidità 100%’],
-evo: [‘Base si abbassa rapidamente: fronte molto vicino’,‘Calo barometrico continuo: intensificazione del fronte’,‘Vento ruota verso SW–W: passaggio del fronte in atto’,‘Dissoluzione parziale e comparsa cumuli: passaggio completato’,‘Cirri e altostrati comparsi 12–24 h prima: segnale premonitore classico’],
-sic: [‘Luci di via accese di continuo’,‘Monitoraggio pressione ogni 30 min’,‘Controllare prese a mare e pompe di sentina’,‘Limitare velocità per garantire visibilità e manovrabilità’,‘Aggiornare punto nave ogni 10–15 min (GPS + plotter)’,‘Segnalare posizione via AIS se visibilità < 1 km’],
-thresholds: [3,5], labels: [“Nembostrati possibili — navigazione prudente”,“Nembostrati confermati — ridurre attività”,“🚨 FRONTE CALDO ATTIVO — Non navigare senza strumentazione”],
-},
-sc: {
-id: [‘Cielo a “pezzi di coperta” grigio-biancastra’,‘Aperture tra le nubi con cielo azzurro’,‘Sole visibile in modo intermittente’,‘Margini ondulati o arrotondati’,‘Barometro stabile o in lenta risalita’,‘Vento in attenuazione’,‘Nessuna o pochissima precipitazione’],
-evo: [‘Barometro stabile: perturbazione in esaurimento’,‘Graduale attenuazione delle precipitazioni: miglioramento confermato’,‘Cielo da coperto (Ns) a chiazzato (Sc): miglioramento in corso’,‘Aperture nel cielo in aumento: dissoluzione in atto’,‘Vento in attenuazione e rotazione verso NW/W: rimonta in atto’],
-sic: [‘Confermare stabilizzazione barometrica’,‘Verificare tendenza vento: attenuazione e rotazione NW/W’,‘Controllare stato strumenti post-perturbazione’,‘Monitorare visibilità se ancora presenti precipitazioni leggere’,‘Valutare ripresa attività in coperta in condizioni sicure’,‘Annotare evoluzione ogni 2–3 h’],
-thresholds: [3,5], labels: [“Perturbazione in esaurimento”,“Stabilità in ripresa — miglioramento”,“✅ Miglioramento confermato — rimonta anticiclonica”],
-},
-st: {
-id: [‘Copertura grigiastra uniforme, nessun buco visibile’,‘Orizzonte poco distinguibile’,‘Sole visibile solo come disco opaco o totalmente nascosto’,‘Assenza di strutture verticali’,‘Umidità 95–100%’,‘Venti deboli o calmi’,‘Nessuna o pochissima precipitazione (al massimo pioviggine)’],
-evo: [‘Base si solleva progressivamente: dissoluzione imminente’,‘Sfumature azzurre: strato sottile in dissipazione’,‘Aumenta di spessore o scurisce: ingresso aria più umida’,‘Nebbia che si solleva: passaggio a strati’,‘Temperatura in aumento mattutino: dissoluzione in corso’],
-sic: [‘Luci di via accese se visibilità < 2 km’,‘Controllo radar e AIS continuo’,‘Annotare T aria e T acqua (se diff. < 1°C: rischio nebbia)’,‘Tenere asciutti radar e ottiche’,‘Verificare tendenza barometrica’,‘Navigazione prevalentemente strumentale se persiste’],
-thresholds: [3,5], labels: [“Stabilità marcata — visibilità da monitorare”,“Strati persistenti — navigazione strumentale consigliata”,“⚠️ Rischio nebbia — luci di via e radar attivo”],
-},
-cu: {
-id: [‘Base piatta e scura, sommità arrotondata bianca’,‘Colore bianco brillante nella sommità’,‘Sviluppo verticale limitato (humilis): bel tempo’,‘Sviluppo verticale importante (congestus): attenzione’,‘Isolati e separati tra loro’,‘Movimento visibile delle sommità (crescita)’,‘Ombre proiettate sul mare’],
-evo: [‘Cumuli crescono in altezza nel corso delle ore: instabilità in sviluppo’,‘Sommità diventa fibrosa o glaciale: possibile evoluzione a Cb’,‘Cumuli si avvicinano formando linee: fronte convettivo’,‘Barometro scende mentre crescono: temporale probabile’,‘Raffiche di vento irregolari in aumento: attenzione’],
-sic: [‘Osservare evoluzione verticale nel corso della giornata’,“Se cumuli congestus visibili all’orizzonte: prepararsi per possibile temporale”,‘Monitorare barometro ogni 30 min se cumuli in sviluppo’,‘Evitare navigazione sotto la base di cumuli molto sviluppati’,‘Prepararsi a riduzione velica rapida se evoluzione verso Cb’,“Pianificare rotta alternativa se linea di cumuli sull’asse di navigazione”],
-thresholds: [3,5], labels: [“Bel tempo (humilis) — navigazione normale”,“Instabilità in sviluppo — monitorare attivamente”,“⚠️ Cumuli congestus — prepararsi a temporale”],
-},
-cb: {
-id: [“Torri verticali scure o forma a incudine visibile all’orizzonte”,‘Base piatta e grigio scuro’,‘Sommità bianca a incudine (anvil)’,‘Rapido aumento del vento in raffiche’,‘Fulmini o tuoni udibili’,‘Barometro in caduta improvvisa’,‘Luce verde-gialla: probabile grandine’],
-evo: [‘Cumuli con torri in rapido sviluppo: evoluzione in corso’,‘Shelf cloud visibile: groppo in avvicinamento — azione immediata’,‘Vento che ruota improvvisamente: pericolo imminente’,‘Basi che si uniscono: formazione di sistema convettivo (squall line)’,‘Dissoluzione irregolare: instabilità residua post-frontale’],
-sic: [‘Pianificare rotta alternativa con almeno 15–20 NM di distanza’,‘Indossare giubbotti salvagente e cinture di sicurezza’,‘Chiudere tutti i boccaporti e prese a mare’,‘Fissare o rimuovere oggetti mobili dal ponte’,‘Ridurre vela o mettere motore al minimo’,‘Accendere radar e luci di navigazione’,‘Segnalare posizione via AIS; evitare radio durante fulmini’],
-thresholds: [2,4], labels: [“Cumulonembi possibili — allerta massima”,“Temporale in avvicinamento — PREPARARSI”,“🔴 PERICOLO IMMEDIATO — Azione prioritaria”],
-},
-};
-
-// ── Popola le checklist all’avvio ────────────────────────────────
-function buildChecklist(containerId, scoreId, items, thresholds, labels) {
-const container = document.getElementById(containerId);
-if (!container) return;
-container.innerHTML = ‘’;
-items.forEach((text, i) => {
-const item = document.createElement(‘div’);
-item.className = ‘cloud-check-item’;
-item.dataset.score = containerId;
-item.innerHTML = `<div class="cloud-check-box" id="${containerId}-box-${i}"></div><div class="cloud-check-label">${text}</div>`;
-item.addEventListener(‘click’, () => {
-item.classList.toggle(‘checked’);
-const box = document.getElementById(`${containerId}-box-${i}`);
-box.textContent = item.classList.contains(‘checked’) ? ‘✓’ : ‘’;
-updateScore(containerId, scoreId, items.length, thresholds, labels);
-});
-container.appendChild(item);
-});
-if (scoreId) {
-const scoreEl = document.getElementById(scoreId);
-if (scoreEl) scoreEl.textContent = `0 / ${items.length} — spunta le osservazioni per calcolare`;
-}
-}
-
-function updateScore(containerId, scoreId, total, thresholds, labels) {
-const container = document.getElementById(containerId);
-const checked = container.querySelectorAll(’.cloud-check-item.checked’).length;
-const scoreEl = document.getElementById(scoreId);
-if (!scoreEl) return;
-let level = 0;
-if (checked >= thresholds[1]) level = 2;
-else if (checked >= thresholds[0]) level = 1;
-const colors = [‘var(–muted)’, ‘var(–warn)’, ‘var(–safe)’];
-const label = labels[level];
-scoreEl.innerHTML = `<span class="cloud-score-val" style="color:${colors[level]}">${checked}/${total}</span> — ${label}`;
-}
-
-// ── Popola checklist evolutive (senza score) ─────────────────────
-function buildEvoList(id) {
-const data = CLOUD_DATA[id];
-if (!data || !data.evo) return;
-const container = document.getElementById(‘check-’ + id + ‘-evo’);
-if (!container) return;
-container.innerHTML = ‘’;
-data.evo.forEach((text, i) => {
-const item = document.createElement(‘div’);
-item.className = ‘cloud-check-item’;
-item.innerHTML = `<div class="cloud-check-box" id="evo-${id}-box-${i}"></div><div class="cloud-check-label">${text}</div>`;
-item.addEventListener(‘click’, () => {
-item.classList.toggle(‘checked’);
-document.getElementById(`evo-${id}-box-${i}`).textContent = item.classList.contains(‘checked’) ? ‘✓’ : ‘’;
-});
-container.appendChild(item);
-});
-}
-
-// ── Init all clouds ───────────────────────────────────────────────
-document.addEventListener(‘DOMContentLoaded’, () => {
-Object.keys(CLOUD_DATA).forEach(id => {
-const d = CLOUD_DATA[id];
-buildChecklist(`check-${id}-id`, `score-${id}-id`, d.id, d.thresholds, d.labels);
-buildEvoList(id);
-if (d.sic) buildSimpleList(`check-${id}-sic`, d.sic);
-});
-});
-
-function buildSimpleList(containerId, items) {
-const container = document.getElementById(containerId);
-if (!container) return;
-container.innerHTML = ‘’;
-items.forEach((text, i) => {
-const item = document.createElement(‘div’);
-item.className = ‘cloud-check-item’;
-item.innerHTML = `<div class="cloud-check-box" id="${containerId}-box-${i}"></div><div class="cloud-check-label">${text}</div>`;
-item.addEventListener(‘click’, () => {
-item.classList.toggle(‘checked’);
-document.getElementById(`${containerId}-box-${i}`).textContent = item.classList.contains(‘checked’) ? ‘✓’ : ‘’;
-});
-container.appendChild(item);
-});
-}
-</script>

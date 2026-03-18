@@ -2,7 +2,7 @@
 // Proxy per dati marini Stormglass
 // Endpoint: /api/marine?lat=xx&lon=xx (GET)
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
 
 res.setHeader(‘Access-Control-Allow-Origin’, ‘*’);
 res.setHeader(‘Access-Control-Allow-Methods’, ‘GET, OPTIONS’);
@@ -12,7 +12,8 @@ if (req.method === ‘OPTIONS’) {
 return res.status(204).end();
 }
 
-const { lat, lon } = req.query;
+const lat = req.query.lat;
+const lon = req.query.lon;
 
 if (!lat || !lon) {
 return res.status(400).json({ error: ‘lat e lon richiesti’ });
@@ -48,6 +49,6 @@ return res.status(200).json(data);
 } catch (err) {
 return res.status(500).json({ error: ‘Errore Stormglass’, detail: err.message });
 }
-}
+};
 
 // Fine codice

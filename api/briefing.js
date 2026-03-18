@@ -1,8 +1,8 @@
 // NAUTILUS · Vercel API · briefing.js · v1.0.0 · by mdisailor engine
-// Sostituisce nautilus-proxy Cloudflare per il briefing AI
+// Proxy per briefing AI Anthropic
 // Endpoint: /api/briefing (POST)
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
 
 res.setHeader(‘Access-Control-Allow-Origin’, ‘*’);
 res.setHeader(‘Access-Control-Allow-Methods’, ‘GET, POST, OPTIONS’);
@@ -16,7 +16,8 @@ if (req.method !== ‘POST’) {
 return res.status(405).json({ error: ‘Method not allowed’ });
 }
 
-const { prompt } = req.body;
+const body = req.body;
+const prompt = body ? body.prompt : null;
 
 if (!prompt) {
 return res.status(400).json({ error: ‘prompt mancante’ });
@@ -51,6 +52,6 @@ return res.status(response.status).json(data);
 } catch (err) {
 return res.status(500).json({ error: ‘fetch_failed’, detail: err.message });
 }
-}
+};
 
 // Fine codice

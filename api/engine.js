@@ -191,7 +191,7 @@ msg: 'Condizioni favorevoli a sviluppo convettivo pomeridiano — monitorare for
 }
 
 // ── DETERMINA CASO PREVALENTE ────────────────────
-const maxScore = Math.max(…Object.values(caseScores));
+const maxScore = Math.max(Object.values(caseScores));
 const dominantCase = Object.entries(caseScores).find(([, v]) => v === maxScore)?.[0] || 'stable';
 
 // Calcola confidenza

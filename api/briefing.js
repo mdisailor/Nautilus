@@ -4,53 +4,53 @@
 
 module.exports = async function handler(req, res) {
 
-res.setHeader(‘Access-Control-Allow-Origin’, ‘*’);
-res.setHeader(‘Access-Control-Allow-Methods’, ‘GET, POST, OPTIONS’);
-res.setHeader(‘Access-Control-Allow-Headers’, ‘Content-Type’);
+res.setHeader('Access-Control-Allow-Origin', '*');
+res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-if (req.method === ‘OPTIONS’) {
+if (req.method === 'OPTIONS') {
 return res.status(204).end();
 }
 
-if (req.method !== ‘POST’) {
-return res.status(405).json({ error: ‘Method not allowed’ });
+if (req.method !== 'POST') {
+return res.status(405).json({ error: 'Method not allowed' });
 }
 
 const body = req.body;
 const prompt = body ? body.prompt : null;
 
 if (!prompt) {
-return res.status(400).json({ error: ‘prompt mancante’ });
+return res.status(400).json({ error: 'prompt mancante' });
 }
 
 const ANTHROPIC_KEY = process.env.ANTHROPIC_KEY;
 
 if (!ANTHROPIC_KEY) {
-return res.status(500).json({ error: ‘ANTHROPIC_KEY non configurata’ });
+return res.status(500).json({ error: 'ANTHROPIC_KEY non configurata' });
 }
 
 try {
-const response = await fetch(‘https://api.anthropic.com/v1/messages’, {
-method: ‘POST’,
+const response = await fetch('https://api.anthropic.com/v1/messages', {
+method: 'POST',
 headers: {
-‘Content-Type’: ‘application/json’,
-‘x-api-key’: ANTHROPIC_KEY,
-‘anthropic-version’: ‘2023-06-01’,
+'Content-Type': 'application/json',
+'x-api-key': ANTHROPIC_KEY,
+'anthropic-version': '2023-06-01',
 },
 body: JSON.stringify({
-model: ‘claude-haiku-4-5-20251001’,
+model: 'claude-haiku-4-5-20251001',
 max_tokens: 1024,
-messages: [{ role: ‘user’, content: prompt.slice(0, 12000) }]
+messages: [{ role: 'user', content: prompt.slice(0, 12000) }]
 })
 });
 
-```
+
 const data = await response.json();
 return res.status(response.status).json(data);
-```
+
 
 } catch (err) {
-return res.status(500).json({ error: ‘fetch_failed’, detail: err.message });
+return res.status(500).json({ error: 'fetch_failed', detail: err.message });
 }
 };
 

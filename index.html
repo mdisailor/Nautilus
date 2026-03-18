@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v3.8.1 — 2026-03-17 -->
+<!-- NAUTILUS v3.9.0 — 2026-03-18 -->
 
 <html lang="it">
 <head>
@@ -320,7 +320,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v3.8.1 · by mdisailor engine</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v3.9.0 · by mdisailor engine</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1332,14 +1332,14 @@ async function fetchWeather() {
 }
 
 // ── STORMGLASS (via Cloudflare Worker proxy) ─────────────────
-const STORMGLASS_PROXY = 'https://nautilus-proxy.6z2jhzb7dn.workers.dev';
+const STORMGLASS_PROXY = 'https://nautilus-red.vercel.app/api';
 
 async function fetchStormglass() {
   document.getElementById('src-stormglass').className = 'src-badge loading';
   document.getElementById('src-stormglass').textContent = '⟳ Stormglass';
   document.getElementById('stat-sg').textContent = 'SG...';
 
-  const url = `${STORMGLASS_PROXY}?lat=${state.lat}&lon=${state.lon}`;
+  const url = STORMGLASS_PROXY + '/marine?lat=' + state.lat + '&lon=' + state.lon;
 
   try {
     const r = await fetch(url);
@@ -1816,7 +1816,7 @@ Max 220 parole. Sii diretto e operativo — il navigatore deve decidere.`;
 
   try {
     // Chiave letta dal Worker Cloudflare — nessuna chiave nel codice pubblico
-    const res = await fetch('https://nautilus-proxy.6z2jhzb7dn.workers.dev/briefing', {
+    const res = await fetch('https://nautilus-red.vercel.app/api/briefing', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt: prompt })
@@ -1863,7 +1863,7 @@ Max 220 parole. Sii diretto e operativo — il navigatore deve decidere.`;
 function testWorker() {
   const btn = document.getElementById('btn-ping');
   btn.textContent = '...';
-  fetch('https://nautilus-proxy.6z2jhzb7dn.workers.dev/ping')
+  fetch('https://nautilus-red.vercel.app/api/ping')
     .then(r => r.json())
     .then(d => {
       btn.textContent = '🔧 Test';

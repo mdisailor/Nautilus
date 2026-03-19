@@ -1,19 +1,19 @@
-// NAUTILUS ENGINE · Vercel API · engine.js · v1.2.0 · by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v1.3.0 - by mdisailor engine
 // Motore diagnostico meteo-marino per navigazione costiera
-// Zone pilota: Elba/Piombino · Viareggio/Livorno
+// Zone pilota: Elba/Piombino - Viareggio/Livorno
 // Endpoint: /api/engine?action=ping|zones|run|zone&zone=xxx
 
-// ── NAUTILUS ENGINE · Cloudflare Worker · Modulo 1 · v1.0.0 · by mdisailor engine ──
+// – NAUTILUS ENGINE - Cloudflare Worker - Modulo 1 - v1.0.0 - by mdisailor engine –
 // Motore diagnostico meteo-marino per navigazione costiera
-// Zone pilota: Elba/Piombino · Viareggio/Livorno
+// Zone pilota: Elba/Piombino - Viareggio/Livorno
 // Preleva dati Open-Meteo, calcola diagnosi sinottica, scenari, avvisi, finestre operative
 // Salva risultati in Cloudflare KV per lettura da nautilus-proxy
 
-// ── CONFIGURAZIONE ZONE ─────────────────────────────────────────────────────────────
+// – CONFIGURAZIONE ZONE ————————————————————─
 
 const ZONES = {
 elba_piombino: {
-name: 'Elba · Piombino · Capraia',
+name: 'Elba - Piombino - Capraia',
 lat: 42.82,
 lon: 10.32,
 ports: {
@@ -52,7 +52,7 @@ note: 'Tramontana canalizzata tra Elba e Capraia — accelerazione marcata'
 }
 },
 viareggio_livorno: {
-name: 'Viareggio · Livorno · Gorgona',
+name: 'Viareggio - Livorno - Gorgona',
 lat: 43.68,
 lon: 10.16,
 ports: {
@@ -83,17 +83,29 @@ note: 'Zona di calma relativa sottovento all isola con flussi da W/NW'
 }
 };
 
-// ── REGOLE DIAGNOSTICHE ──────────────────────────────────────────────────────────────
+function sf(v, d) { return (v !== null && v !== undefined) ? Number(v).toFixed(d) : '–'; }
+function sn(v, def) { return (v !== null && v !== undefined) ? Number(v) : (def || 0); }
+
+// – REGOLE DIAGNOSTICHE –––––––––––––––––––––––––––––––
 
 function diagnoseSynopticCase(data) {
-const { pressure_trend_1h, pressure_trend_3h, wind_dir, wind_dir_prev,
-wave_height, swell_height, swell_period, swell_dir,
-temp_air, temp_water, humidity, wind_speed } = data;
+var pressure_trend_1h = sn(data.pressure_trend_1h);
+var pressure_trend_3h = sn(data.pressure_trend_3h);
+var wind_dir = sn(data.wind_dir);
+var wind_dir_prev = sn(data.wind_dir_prev);
+var wave_height = sn(data.wave_height);
+var swell_height = sn(data.swell_height);
+var swell_period = sn(data.swell_period);
+var swell_dir = sn(data.swell_dir);
+var temp_air = sn(data.temp_air, 15);
+var temp_water = sn(data.temp_water, 15);
+var humidity = sn(data.humidity, 70);
+var wind_speed = sn(data.wind_speed);
 
 const signals = [];
 let caseScores = { A: 0, B: 0, C: 0, D: 0, stable: 0 };
 
-// ── TENDENZA BARICA ─────────────────────────────
+// – TENDENZA BARICA ––––––––––––––─
 if (pressure_trend_3h <= -4.0) {
 signals.push({ type: 'pressure_drop', strength: 'strong', msg: 'Calo pressione ' + pressure_trend_3h.toFixed(1) + ' hPa/3h — fronte in arrivo entro 6-12h' });
 caseScores.A += 3; caseScores.C += 2;
@@ -111,7 +123,7 @@ signals.push({ type: 'pressure_stable', strength: 'weak', msg: 'Pressione stabil
 caseScores.stable += 2;
 }
 
-// ── ROTAZIONE VENTO ──────────────────────────────
+// – ROTAZIONE VENTO ——————————
 const windRotation = calcWindRotation(wind_dir_prev, wind_dir);
 if (windRotation !== null) {
 const rotDeg = Math.abs(windRotation);
@@ -154,7 +166,7 @@ if (rotDeg > 30) {
 
 }
 
-// ── SWELL ANTICIPATO (fronte caldo a distanza) ───
+// – SWELL ANTICIPATO (fronte caldo a distanza) –─
 if (swell_period >= 10 && swell_height >= 0.8) {
 const swellWindAngle = Math.abs(swell_dir - wind_dir);
 const angleDiff = Math.min(swellWindAngle, 360 - swellWindAngle);
@@ -164,7 +176,7 @@ caseScores.B += 3;
 }
 }
 
-// ── MARE INCROCIATO ──────────────────────────────
+// – MARE INCROCIATO ——————————
 if (swell_height > 0.5 && wave_height > 0.5) {
 const crossAngle = Math.abs(swell_dir - wind_dir);
 const normAngle = Math.min(crossAngle, 360 - crossAngle);
@@ -174,14 +186,14 @@ msg: 'Mare incrociato: swell ' + swell_dir.toFixed(0) + '° vs vento ' + wind_di
 }
 }
 
-// ── NEBBIA DA AVVEZIONE ───────────────────────────
+// – NEBBIA DA AVVEZIONE –––––––––––––─
 const deltaTempAW = temp_air - temp_water;
 if (deltaTempAW < 1.0 && humidity > 85) {
 signals.push({ type: 'fog_risk', strength: deltaTempAW < 0.5 ? 'strong' : 'medium',
 msg: 'Delta T aria/acqua ' + deltaTempAW.toFixed(1) + '°C, umidità ' + humidity.toFixed(0) + '% — rischio nebbia da avvezione' });
 }
 
-// ── TEMPORALE CONVETTIVO ─────────────────────────
+// – TEMPORALE CONVETTIVO ————————─
 // Stima semplificata: umidità alta + T elevata + vento instabile
 const hour = new Date().getUTCHours();
 const afternoonHours = hour >= 12 && hour <= 18;
@@ -190,8 +202,10 @@ signals.push({ type: 'convective_risk', strength: 'medium',
 msg: 'Condizioni favorevoli a sviluppo convettivo pomeridiano — monitorare formazione cumuli' });
 }
 
-// ── DETERMINA CASO PREVALENTE ────────────────────
-const maxScore = Math.max(Object.values(caseScores));
+// – DETERMINA CASO PREVALENTE ––––––––––
+var caseScoreVals = Object.values(caseScores);
+var maxScore = caseScoreVals[0];
+for (var si = 1; si < caseScoreVals.length; si++) { if (caseScoreVals[si] > maxScore) maxScore = caseScoreVals[si]; }
 const dominantCase = Object.entries(caseScores).find(([, v]) => v === maxScore)?.[0] || 'stable';
 
 // Calcola confidenza
@@ -215,11 +229,15 @@ scores: caseScores
 };
 }
 
-// ── EFFETTI LOCALI ───────────────────────────────────────────────────────────────────
+// – EFFETTI LOCALI ——————————————————————─
 
 function calcLocalEffects(zoneKey, data) {
 const zone = ZONES[zoneKey];
-const { wind_dir, wind_speed, temp_air, temp_water, humidity } = data;
+var wind_dir = sn(data.wind_dir);
+var wind_speed = sn(data.wind_speed);
+var temp_air = sn(data.temp_air, 15);
+var temp_water = sn(data.temp_water, 15);
+var humidity = sn(data.humidity, 70);
 const effects = {};
 
 for (const [effectKey, effect] of Object.entries(zone.local_effects)) {
@@ -255,15 +273,21 @@ note: 'Delta T aria/acqua: ' + (temp_air - temp_water).toFixed(1) + '°C'
 return effects;
 }
 
-// ── ACCESSIBILITÀ PORTI ──────────────────────────────────────────────────────────────
+// – ACCESSIBILITÀ PORTI –––––––––––––––––––––––––––––––
 
 function calcPortAccess(zoneKey, data, localEffects) {
 const zone = ZONES[zoneKey];
-const { wave_height, swell_height, swell_dir, wind_dir, wind_speed, visibility } = data;
+var wave_height = sn(data.wave_height);
+var swell_height = sn(data.swell_height);
+var swell_dir = sn(data.swell_dir);
+var wind_dir = sn(data.wind_dir);
+var wind_speed = sn(data.wind_speed);
+var visibility = sn(data.visibility, 10);
 const ports = {};
 
 for (const [portKey, port] of Object.entries(zone.ports)) {
 const effectiveWave = Math.max(wave_height, swell_height * 0.7);
+
 
 // Verifica esposizione diretta
 const isExposed = checkExposure(port.exposure, swell_dir, wind_dir);
@@ -313,7 +337,7 @@ ports[portKey] = {
   name: port.name,
   risk,
   accessible,
-  note: notes.join(' · ') || 'Condizioni nella norma'
+  note: notes.join(' - ') || 'Condizioni nella norma'
 };
 
 
@@ -333,11 +357,13 @@ const swellAngleDiff = Math.abs(((swellDir - expAngle) + 360) % 360);
 return Math.min(swellAngleDiff, 360 - swellAngleDiff) < 60;
 }
 
-// ── SCENARI PREVISIONALI ─────────────────────────────────────────────────────────────
+// – SCENARI PREVISIONALI ————————————————————─
 
 function buildForecast(diagnosis, data, forecastData) {
 const { case: synCase, confidence, signals } = diagnosis;
-const { pressure_trend_3h, wind_speed, wave_height } = data;
+var pressure_trend_3h = sn(data.pressure_trend_3h);
+var wind_speed_a = sn(data.wind_speed);
+var wave_height_a = sn(data.wave_height);
 
 const forecasts = {};
 
@@ -495,11 +521,13 @@ note: 'Monitorare evoluzione barica oltre 12h'
 return forecasts;
 }
 
-// ── FINESTRA OPERATIVA ───────────────────────────────────────────────────────────────
+// – FINESTRA OPERATIVA –––––––––––––––––––––––––––––––─
 
 function calcOperationalWindow(diagnosis, data) {
 const { case: synCase, confidence } = diagnosis;
-const { pressure_trend_1h, wind_speed, wave_height } = data;
+var pressure_trend_1h = sn(data.pressure_trend_1h);
+var wind_speed = sn(data.wind_speed);
+var wave_height = sn(data.wave_height);
 const hour = new Date().getUTCHours() + 1; // UTC+1 approssimativo
 
 let window = {
@@ -613,12 +641,19 @@ color: 'warn'
 return window;
 }
 
-// ── AVVISI ───────────────────────────────────────────────────────────────────────────
+// – AVVISI –––––––––––––––––––––––––––––––––––––─
 
 function buildAlerts(diagnosis, data, localEffects, ports) {
 const alerts = [];
-const { pressure_trend_1h, pressure_trend_3h, wind_speed, wave_height,
-swell_height, swell_period, temp_air, temp_water, humidity } = data;
+var pressure_trend_1h = sn(data.pressure_trend_1h);
+var pressure_trend_3h = sn(data.pressure_trend_3h);
+var wind_speed = sn(data.wind_speed);
+var wave_height = sn(data.wave_height);
+var swell_height = sn(data.swell_height);
+var swell_period = sn(data.swell_period);
+var temp_air = sn(data.temp_air, 15);
+var temp_water = sn(data.temp_water, 15);
+var humidity = sn(data.humidity, 70);
 
 // Soglie barica
 if (pressure_trend_3h <= -4.0) {
@@ -691,7 +726,7 @@ alerts.sort((a, b) => order[a.severity] - order[b.severity]);
 return alerts;
 }
 
-// ── FETCH DATI OPEN-METEO ────────────────────────────────────────────────────────────
+// – FETCH DATI OPEN-METEO ————————————————————
 
 async function fetchOpenMeteo(lat, lon) {
 const params = [
@@ -761,7 +796,7 @@ score += Math.round(signalRatio * 10);
 return Math.min(98, Math.max(30, score));
 }
 
-// ── ESTRAI DATI CORRENTI E PRECEDENTI ────────────────────────────────────────────────
+// – ESTRAI DATI CORRENTI E PRECEDENTI ————————————————
 
 function extractCurrentData(omData, sgData) {
 const h = omData.hourly;
@@ -825,7 +860,7 @@ base.sources.wind = 'open-meteo+stormglass';
 return base;
 }
 
-// ── CALCOLO ROTAZIONE VENTO ──────────────────────────────────────────────────────────
+// – CALCOLO ROTAZIONE VENTO –––––––––––––––––––––––––––––
 
 function calcWindRotation(prevDir, currDir) {
 if (prevDir === null || currDir === null) return null;
@@ -835,11 +870,17 @@ if (diff < -180) diff += 360;
 return diff; // positivo = oraria, negativo = antioraria
 }
 
-// ── GENERA TESTO BRIEFING ────────────────────────────────────────────────────────────
+// – GENERA TESTO BRIEFING ————————————————————
 
 function generateBriefingText(zoneName, diagnosis, data, localEffects, forecast, window, alerts) {
 const { case: synCase, confidence, description } = diagnosis;
-const { wind_speed, wind_dir, wave_height, swell_height, pressure, pressure_trend_3h, temp_air } = data;
+var wind_speed = sn(data.wind_speed);
+var wind_dir = sn(data.wind_dir);
+var wave_height = sn(data.wave_height);
+var swell_height = sn(data.swell_height);
+var pressure = sn(data.pressure, 1013);
+var pressure_trend_3h = sn(data.pressure_trend_3h);
+var temp_air = sn(data.temp_air, 15);
 
 const dirName = (d) => ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'][Math.round(d/22.5)%16];
 const highAlerts = alerts.filter(a => a.severity === 'high');
@@ -865,7 +906,7 @@ if (window.next_window) text += '\nProssima finestra: ' + window.next_window;
 return text;
 }
 
-// ── VERCEL API HANDLER ──────────────────────────────────────────────────────────────
+// – VERCEL API HANDLER –––––––––––––––––––––––––––––––
 
 module.exports = async function handler(req, res) {
 

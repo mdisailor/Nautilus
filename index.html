@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020c18">
 <title>NAUTILUS — Meteo Mare</title>
-<link href="https://eur01.safelinks.protection.outlook.com/?url=https%3A%2F%2Ffonts.googleapis.com%2Fcss2%3Ffamily%3DBebas%2BNeue%26family%3DDM%2BMono%3Awght%40300%3B400%3B500%26family%3DDM%2BSans%3Awght%40300%3B400%3B600%26display%3Dswap&data=05%7C02%7Cmarco.deglinnocenti%40unicoopfirenze.coop.it%7Cf9a0f743aebb4888c2cf08de859b4d36%7C2266bc20c37146bfa6129581b119bc1f%7C0%7C0%7C639095099283528715%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=r2Dm52sdvU2A%2BnUgDR5gkxtgEWf26mLO%2BmevAcaFPls%3D&reserved=0" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;600&display=swap" rel="stylesheet">
 <style>
 :root {
   --bg:      #020c18;
@@ -1397,7 +1397,7 @@ function requestGPS() {
     document.getElementById('stat-gps').textContent = 'GPS OK';
     btn.textContent = '📍 OK'; btn.disabled = false;
     try {
-      const r = await fetch(`https://eur01.safelinks.protection.outlook.com/?url=https%3A%2F%2Fnominatim.openstreetmap.org%2Freverse%3Flat%3D%24&data=05%7C02%7Cmarco.deglinnocenti%40unicoopfirenze.coop.it%7Cf9a0f743aebb4888c2cf08de859b4d36%7C2266bc20c37146bfa6129581b119bc1f%7C0%7C0%7C639095099283570328%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=i4v3JvSSkC4fLGdHoXcC70kpcMlV%2BgmsNd9wotJX7yg%3D&reserved=0{state.lat}&lon=${state.lon}&format=json`);
+      const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${state.lat}&lon=${state.lon}&format=json`);
       const d = await r.json();
       state.locationName = d.address?.town || d.address?.village || d.address?.city || 'Posizione rilevata';
       document.getElementById('loc-text').textContent = `${state.locationName} · ${state.lat.toFixed(4)}°N ${state.lon.toFixed(4)}°E`;
@@ -1419,7 +1419,7 @@ async function fetchWeather() {
   document.getElementById('src-openmeteo').className = 'src-badge loading';
   document.getElementById('src-openmeteo').textContent = '⟳ Open-Meteo';
   const lat = state.lat, lon = state.lon;
-  const url = 'https://eur01.safelinks.protection.outlook.com/?url=https%3A%2F%2Fapi.open-meteo.com%2Fv1%2Fforecast%3Flatitude%3D&data=05%7C02%7Cmarco.deglinnocenti%40unicoopfirenze.coop.it%7Cf9a0f743aebb4888c2cf08de859b4d36%7C2266bc20c37146bfa6129581b119bc1f%7C0%7C0%7C639095099283614380%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=YjaGCpI4blzrfI531Lt24D7XaJYnpHjbi2xEm%2BDjBC8%3D&reserved=0' + lat + '&longitude=' + lon +
+  const url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon +
     '&hourly=temperature_2m,relativehumidity_2m,visibility,cloudcover,precipitation_probability,' +
     'windspeed_10m,winddirection_10m,windgusts_10m,wave_height,wave_period,wave_direction,surface_pressure' +
     '&wind_speed_unit=kn&timezone=Europe/Rome&forecast_days=2&models=best_match';
@@ -1441,7 +1441,7 @@ async function fetchWeather() {
 }
 
 // ── STORMGLASS (via Cloudflare Worker proxy) ─────────────────
-const STORMGLASS_PROXY = 'https://eur01.safelinks.protection.outlook.com/?url=https%3A%2F%2Fnautilus-red.vercel.app%2Fapi&data=05%7C02%7Cmarco.deglinnocenti%40unicoopfirenze.coop.it%7Cf9a0f743aebb4888c2cf08de859b4d36%7C2266bc20c37146bfa6129581b119bc1f%7C0%7C0%7C639095099283642849%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=R8EKW%2B7urS3C1tQeVp0SZ8z2hERj07KzbTGFQuMx3hs%3D&reserved=0';
+const STORMGLASS_PROXY = 'https://nautilus-red.vercel.app/api';
 
 async function fetchStormglass() {
   document.getElementById('src-stormglass').className = 'src-badge loading';
@@ -1926,7 +1926,7 @@ Max 220 parole. Sii diretto e operativo — il navigatore deve decidere.`;
 
   try {
     // Chiave letta dal Worker Cloudflare — nessuna chiave nel codice pubblico
-    const res = await fetch('https://eur01.safelinks.protection.outlook.com/?url=https%3A%2F%2Fnautilus-red.vercel.app%2Fapi%2Fbriefing&data=05%7C02%7Cmarco.deglinnocenti%40unicoopfirenze.coop.it%7Cf9a0f743aebb4888c2cf08de859b4d36%7C2266bc20c37146bfa6129581b119bc1f%7C0%7C0%7C639095099283670589%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=65fWeHSMYx4E4pD1dNvgxEb6%2B8v5SE7%2FclcHZqKM4JQ%3D&reserved=0', {
+    const res = await fetch('https://nautilus-red.vercel.app/api/briefing', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt: prompt })
@@ -1973,7 +1973,7 @@ Max 220 parole. Sii diretto e operativo — il navigatore deve decidere.`;
 function testWorker() {
   const btn = document.getElementById('btn-ping');
   btn.textContent = '...';
-  fetch('https://eur01.safelinks.protection.outlook.com/?url=https%3A%2F%2Fnautilus-red.vercel.app%2Fapi%2Fping&data=05%7C02%7Cmarco.deglinnocenti%40unicoopfirenze.coop.it%7Cf9a0f743aebb4888c2cf08de859b4d36%7C2266bc20c37146bfa6129581b119bc1f%7C0%7C0%7C639095099283699308%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=NxPsZR5gKjJ0Wbk%2BRgZ%2FTeLRc2ZYsnTQSpNqY1WvD%2Fg%3D&reserved=0')
+  fetch('https://nautilus-red.vercel.app/api/ping')
     .then(r => r.json())
     .then(d => {
       btn.textContent = '🔧 Test';
@@ -2179,7 +2179,7 @@ function buildSimpleList(containerId, items) {
 
 // ── ENGINE ───────────────────────────────────────────────────────────────────────────
 
-const ENGINE_URL = 'https://eur01.safelinks.protection.outlook.com/?url=https%3A%2F%2Fnautilus-red.vercel.app%2Fapi%2Fengine&data=05%7C02%7Cmarco.deglinnocenti%40unicoopfirenze.coop.it%7Cf9a0f743aebb4888c2cf08de859b4d36%7C2266bc20c37146bfa6129581b119bc1f%7C0%7C0%7C639095099283721088%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=Vi%2BIiyXhoO2sH%2FQCjYTT9%2BCszCwmki0rGFl914MJ%2B4g%3D&reserved=0';
+const ENGINE_URL = 'https://nautilus-red.vercel.app/api/engine';
 
 function loadEngine() {
   // Auto-load if never loaded

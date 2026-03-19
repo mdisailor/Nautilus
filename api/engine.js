@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v1.4.0 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v1.5.0 - by mdisailor engine
 // Motore diagnostico meteo-marino per navigazione costiera
 // Zone pilota: Elba/Piombino - Viareggio/Livorno
 // Endpoint: /api/engine?action=ping|zones|run|zone&zone=xxx
@@ -729,20 +729,50 @@ return alerts;
 // – FETCH DATI OPEN-METEO ————————————————————
 
 async function fetchOpenMeteo(lat, lon) {
-const params = [
+// Fetch atmospheric params (best_match model)
+const atmParams = [
 'temperature_2m', 'relativehumidity_2m', 'surface_pressure',
 'windspeed_10m', 'winddirection_10m', 'windgusts_10m',
-'cloudcover', 'precipitation', 'visibility',
+'cloudcover', 'precipitation', 'visibility'
+].join(',');
+
+// Fetch wave params separately using marine model (more accurate for Mediterranean)
+const waveParams = [
 'wave_height', 'wave_period', 'wave_direction',
 'swell_wave_height', 'swell_wave_period', 'swell_wave_direction'
 ].join(',');
 
-const url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon +
-'&hourly=' + params + '&wind_speed_unit=kn&timezone=Europe/Rome&forecast_days=2';
+const baseUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon +
+'&wind_speed_unit=kn&timezone=Europe/Rome&forecast_days=2';
 
-const res = await fetch(url);
-if (!res.ok) throw new Error('Open-Meteo error: ' + res.status);
-return await res.json();
+const atmUrl = baseUrl + '&hourly=' + atmParams + '&models=best_match';
+const waveUrl = 'https://marine-api.open-meteo.com/v1/marine?latitude=' + lat + '&longitude=' + lon +
+'&hourly=' + waveParams + '&length_unit=metric&timezone=Europe/Rome&forecast_days=2';
+
+const [atmRes, waveRes] = await Promise.all([
+fetch(atmUrl),
+fetch(waveUrl)
+]);
+
+if (!atmRes.ok) throw new Error('Open-Meteo ATM error: ' + atmRes.status);
+
+const atmData = await atmRes.json();
+
+// Merge wave data if available
+if (waveRes.ok) {
+const waveData = await waveRes.json();
+if (waveData.hourly) {
+var wh = waveData.hourly;
+atmData.hourly.wave_height = wh.wave_height;
+atmData.hourly.wave_period = wh.wave_period;
+atmData.hourly.wave_direction = wh.wave_direction;
+atmData.hourly.swell_wave_height = wh.swell_wave_height;
+atmData.hourly.swell_wave_period = wh.swell_wave_period;
+atmData.hourly.swell_wave_direction = wh.swell_wave_direction;
+}
+}
+
+return atmData;
 }
 
 async function fetchStormglass(lat, lon, apiKey) {

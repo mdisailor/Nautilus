@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v1.3.0 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v1.4.0 - by mdisailor engine
 // Motore diagnostico meteo-marino per navigazione costiera
 // Zone pilota: Elba/Piombino - Viareggio/Livorno
 // Endpoint: /api/engine?action=ping|zones|run|zone&zone=xxx
@@ -9,7 +9,7 @@
 // Preleva dati Open-Meteo, calcola diagnosi sinottica, scenari, avvisi, finestre operative
 // Salva risultati in Cloudflare KV per lettura da nautilus-proxy
 
-// – CONFIGURAZIONE ZONE ————————————————————─
+// – CONFIGURAZIONE ZONE ———————————————————––
 
 const ZONES = {
 elba_piombino: {
@@ -47,7 +47,7 @@ canale_corsica: {
 desc: 'Canale di Corsica',
 active_wind_dirs: [330, 30], // N-NNE
 amplification: 1.40,
-note: 'Tramontana canalizzata tra Elba e Capraia — accelerazione marcata'
+note: 'Tramontana canalizzata tra Elba e Capraia  -  accelerazione marcata'
 }
 }
 },
@@ -67,12 +67,12 @@ local_effects: {
 fetch_libeccio: {
 desc: 'Fetch aperto da SW',
 active_wind_dirs: [210, 270],
-note: 'Costa esposta a lungo fetch da SW — mare formato rapidamente con Libeccio'
+note: 'Costa esposta a lungo fetch da SW  -  mare formato rapidamente con Libeccio'
 },
 convergenza_arno: {
 desc: 'Convergenza termica foce Arno',
 active_wind_dirs: [0, 360],
-note: 'Brezza termica locale nelle ore centrali può creare turbolenza costiera'
+note: 'Brezza termica locale nelle ore centrali puo creare turbolenza costiera'
 },
 gorgona_scia: {
 desc: 'Scia sottovento Gorgona',
@@ -105,18 +105,18 @@ var wind_speed = sn(data.wind_speed);
 const signals = [];
 let caseScores = { A: 0, B: 0, C: 0, D: 0, stable: 0 };
 
-// – TENDENZA BARICA ––––––––––––––─
+// – TENDENZA BARICA —————————–
 if (pressure_trend_3h <= -4.0) {
-signals.push({ type: 'pressure_drop', strength: 'strong', msg: 'Calo pressione ' + pressure_trend_3h.toFixed(1) + ' hPa/3h — fronte in arrivo entro 6-12h' });
+signals.push({ type: 'pressure_drop', strength: 'strong', msg: 'Calo pressione ' + pressure_trend_3h.toFixed(1) + ' hPa/3h  -  fronte in arrivo entro 6-12h' });
 caseScores.A += 3; caseScores.C += 2;
 } else if (pressure_trend_3h <= -2.0) {
-signals.push({ type: 'pressure_drop', strength: 'strong', msg: 'Calo pressione ' + pressure_trend_3h.toFixed(1) + ' hPa/3h — deterioramento probabile' });
+signals.push({ type: 'pressure_drop', strength: 'strong', msg: 'Calo pressione ' + pressure_trend_3h.toFixed(1) + ' hPa/3h  -  deterioramento probabile' });
 caseScores.A += 2; caseScores.B += 1; caseScores.C += 1;
 } else if (pressure_trend_3h <= -1.0) {
-signals.push({ type: 'pressure_drop', strength: 'medium', msg: 'Calo pressione ' + pressure_trend_3h.toFixed(1) + ' hPa/3h — monitorare' });
+signals.push({ type: 'pressure_drop', strength: 'medium', msg: 'Calo pressione ' + pressure_trend_3h.toFixed(1) + ' hPa/3h  -  monitorare' });
 caseScores.B += 2;
 } else if (pressure_trend_3h >= 1.5) {
-signals.push({ type: 'pressure_rise', strength: 'medium', msg: 'Rialzo pressione ' + pressure_trend_3h.toFixed(1) + ' hPa/3h — rimonta in corso' });
+signals.push({ type: 'pressure_rise', strength: 'medium', msg: 'Rialzo pressione ' + pressure_trend_3h.toFixed(1) + ' hPa/3h  -  rimonta in corso' });
 caseScores.D += 3; caseScores.stable += 2;
 } else {
 signals.push({ type: 'pressure_stable', strength: 'weak', msg: 'Pressione stabile' });
@@ -133,17 +133,17 @@ const isBacking = windRotation < 0; // antioraria
 
 if (rotDeg > 30) {
   if (isVeering) {
-    // Oraria: S→N = fronte freddo, N→S = fronte caldo
+    // Oraria: S->N = fronte freddo, N->S = fronte caldo
     const fromS = wind_dir_prev >= 150 && wind_dir_prev <= 240;
     const fromN = wind_dir_prev >= 330 || wind_dir_prev <= 30;
     if (fromS) {
-      signals.push({ type: 'wind_veering', strength: 'strong', msg: 'Rotazione oraria S→N ' + rotDeg.toFixed(0) + '° — CASO A: fronte freddo' });
+      signals.push({ type: 'wind_veering', strength: 'strong', msg: 'Rotazione oraria S->N ' + rotDeg.toFixed(0) + ' gradi  -  CASO A: fronte freddo' });
       caseScores.A += 4;
     } else if (fromN) {
-      signals.push({ type: 'wind_veering', strength: 'strong', msg: 'Rotazione oraria N→S ' + rotDeg.toFixed(0) + '° — CASO B: fronte caldo' });
+      signals.push({ type: 'wind_veering', strength: 'strong', msg: 'Rotazione oraria N->S ' + rotDeg.toFixed(0) + ' gradi  -  CASO B: fronte caldo' });
       caseScores.B += 4;
     } else {
-      signals.push({ type: 'wind_veering', strength: 'medium', msg: 'Rotazione oraria ' + rotDeg.toFixed(0) + '°' });
+      signals.push({ type: 'wind_veering', strength: 'medium', msg: 'Rotazione oraria ' + rotDeg.toFixed(0) + ' gradi' });
       caseScores.A += 1; caseScores.B += 1;
     }
   } else {
@@ -151,13 +151,13 @@ if (rotDeg > 30) {
     const fromS = wind_dir_prev >= 150 && wind_dir_prev <= 240;
     const fromN = wind_dir_prev >= 330 || wind_dir_prev <= 30;
     if (fromS) {
-      signals.push({ type: 'wind_backing', strength: 'strong', msg: 'Rotazione antioraria S→N ' + rotDeg.toFixed(0) + '° — CASO C: ciclogenesi' });
+      signals.push({ type: 'wind_backing', strength: 'strong', msg: 'Rotazione antioraria S->N ' + rotDeg.toFixed(0) + ' gradi  -  CASO C: ciclogenesi' });
       caseScores.C += 4;
     } else if (fromN) {
-      signals.push({ type: 'wind_backing', strength: 'medium', msg: 'Rotazione antioraria N→S ' + rotDeg.toFixed(0) + '° — CASO D: miglioramento' });
+      signals.push({ type: 'wind_backing', strength: 'medium', msg: 'Rotazione antioraria N->S ' + rotDeg.toFixed(0) + ' gradi  -  CASO D: miglioramento' });
       caseScores.D += 3;
     } else {
-      signals.push({ type: 'wind_backing', strength: 'medium', msg: 'Rotazione antioraria ' + rotDeg.toFixed(0) + '°' });
+      signals.push({ type: 'wind_backing', strength: 'medium', msg: 'Rotazione antioraria ' + rotDeg.toFixed(0) + ' gradi' });
       caseScores.C += 1; caseScores.D += 1;
     }
   }
@@ -166,12 +166,12 @@ if (rotDeg > 30) {
 
 }
 
-// – SWELL ANTICIPATO (fronte caldo a distanza) –─
+// – SWELL ANTICIPATO (fronte caldo a distanza) —
 if (swell_period >= 10 && swell_height >= 0.8) {
 const swellWindAngle = Math.abs(swell_dir - wind_dir);
 const angleDiff = Math.min(swellWindAngle, 360 - swellWindAngle);
 if (angleDiff > 45) {
-signals.push({ type: 'early_swell', strength: 'strong', msg: 'Swell lungo ' + swell_period.toFixed(0) + 's da direzione diversa dal vento — fronte in avvicinamento' });
+signals.push({ type: 'early_swell', strength: 'strong', msg: 'Swell lungo ' + swell_period.toFixed(0) + 's da direzione diversa dal vento  -  fronte in avvicinamento' });
 caseScores.B += 3;
 }
 }
@@ -182,24 +182,24 @@ const crossAngle = Math.abs(swell_dir - wind_dir);
 const normAngle = Math.min(crossAngle, 360 - crossAngle);
 if (normAngle > 60) {
 signals.push({ type: 'cross_sea', strength: normAngle > 90 ? 'strong' : 'medium',
-msg: 'Mare incrociato: swell ' + swell_dir.toFixed(0) + '° vs vento ' + wind_dir.toFixed(0) + '° — angolo ' + normAngle.toFixed(0) + '°' });
+msg: 'Mare incrociato: swell ' + swell_dir.toFixed(0) + ' gradi vs vento ' + wind_dir.toFixed(0) + ' gradi  -  angolo ' + normAngle.toFixed(0) + ' gradi' });
 }
 }
 
-// – NEBBIA DA AVVEZIONE –––––––––––––─
+// – NEBBIA DA AVVEZIONE —————————
 const deltaTempAW = temp_air - temp_water;
 if (deltaTempAW < 1.0 && humidity > 85) {
 signals.push({ type: 'fog_risk', strength: deltaTempAW < 0.5 ? 'strong' : 'medium',
-msg: 'Delta T aria/acqua ' + deltaTempAW.toFixed(1) + '°C, umidità ' + humidity.toFixed(0) + '% — rischio nebbia da avvezione' });
+msg: 'Delta T aria/acqua ' + deltaTempAW.toFixed(1) + ' gradiC, umidita ' + humidity.toFixed(0) + '%  -  rischio nebbia da avvezione' });
 }
 
-// – TEMPORALE CONVETTIVO ————————─
-// Stima semplificata: umidità alta + T elevata + vento instabile
+// – TEMPORALE CONVETTIVO ———————––
+// Stima semplificata: umidita alta + T elevata + vento instabile
 const hour = new Date().getUTCHours();
 const afternoonHours = hour >= 12 && hour <= 18;
 if (humidity > 75 && temp_air > 20 && afternoonHours) {
 signals.push({ type: 'convective_risk', strength: 'medium',
-msg: 'Condizioni favorevoli a sviluppo convettivo pomeridiano — monitorare formazione cumuli' });
+msg: 'Condizioni favorevoli a sviluppo convettivo pomeridiano  -  monitorare formazione cumuli' });
 }
 
 // – DETERMINA CASO PREVALENTE ––––––––––
@@ -213,11 +213,11 @@ const totalScore = Object.values(caseScores).reduce((a, b) => a + b, 0);
 const confidence = totalScore > 0 ? Math.min(95, Math.round((maxScore / totalScore) * 100)) : 50;
 
 const caseDescriptions = {
-A: 'Rotazione oraria S→N — Fronte freddo in transito',
-B: 'Rotazione oraria N→S — Warm advection / Fronte caldo',
-C: 'Rotazione antioraria S→N — Ciclogenesi / Stallo',
-D: 'Rotazione antioraria N→S — Miglioramento post-perturbato',
-stable: 'Situazione stabile — nessun pattern frontale attivo'
+A: 'Rotazione oraria S->N  -  Fronte freddo in transito',
+B: 'Rotazione oraria N->S  -  Warm advection / Fronte caldo',
+C: 'Rotazione antioraria S->N  -  Ciclogenesi / Stallo',
+D: 'Rotazione antioraria N->S  -  Miglioramento post-perturbato',
+stable: 'Situazione stabile  -  nessun pattern frontale attivo'
 };
 
 return {
@@ -229,7 +229,7 @@ scores: caseScores
 };
 }
 
-// – EFFETTI LOCALI ——————————————————————─
+// – EFFETTI LOCALI —————————————————————––
 
 function calcLocalEffects(zoneKey, data) {
 const zone = ZONES[zoneKey];
@@ -267,13 +267,13 @@ effects[effectKey] = {
 effects.fog_advection = {
 active: (temp_air - temp_water) < 1.0 && humidity > 85,
 desc: 'Nebbia da avvezione',
-note: 'Delta T aria/acqua: ' + (temp_air - temp_water).toFixed(1) + '°C'
+note: 'Delta T aria/acqua: ' + (temp_air - temp_water).toFixed(1) + ' gradiC'
 };
 
 return effects;
 }
 
-// – ACCESSIBILITÀ PORTI –––––––––––––––––––––––––––––––
+// – ACCESSIBILITA PORTI –––––––––––––––––––––––––––––––
 
 function calcPortAccess(zoneKey, data, localEffects) {
 const zone = ZONES[zoneKey];
@@ -307,12 +307,12 @@ notes.push('Onda ' + effectiveWave.toFixed(1) + 'm vicina alla soglia');
 
 if (isExposed && swell_height > 0.6) {
   if (risk === 'low') risk = 'medium';
-notes.push('Esposizione diretta swell da ' + (swell_dir != null ? swell_dir.toFixed(0) : '--') + '°');
+notes.push('Esposizione diretta swell da ' + (swell_dir != null ? swell_dir.toFixed(0) : '--') + ' gradi');
 }
 
 if (wind_speed > 25) {
   risk = 'high'; accessible = false;
-notes.push('Vento ' + wind_speed.toFixed(0) + 'kn — manovra difficile');
+notes.push('Vento ' + wind_speed.toFixed(0) + 'kn  -  manovra difficile');
 } else if (wind_speed > 18) {
   if (risk === 'low') risk = 'medium';
 notes.push('Vento sostenuto ' + wind_speed.toFixed(0) + 'kn');
@@ -320,7 +320,7 @@ notes.push('Vento sostenuto ' + wind_speed.toFixed(0) + 'kn');
 
 if (visibility !== undefined && visibility < 1.0) {
   if (risk === 'low') risk = 'medium';
-notes.push('Visibilità ridotta ' + (visibility * 1000).toFixed(0) + 'm');
+notes.push('Visibilita ridotta ' + (visibility * 1000).toFixed(0) + 'm');
 }
 
 // Applica effetti locali
@@ -357,17 +357,17 @@ const swellAngleDiff = Math.abs(((swellDir - expAngle) + 360) % 360);
 return Math.min(swellAngleDiff, 360 - swellAngleDiff) < 60;
 }
 
-// – SCENARI PREVISIONALI ————————————————————─
+// – SCENARI PREVISIONALI ———————————————————––
 
 function buildForecast(diagnosis, data, forecastData) {
 const { case: synCase, confidence, signals } = diagnosis;
 var pressure_trend_3h = sn(data.pressure_trend_3h);
-var wind_speed_a = sn(data.wind_speed);
-var wave_height_a = sn(data.wave_height);
+var wind_speed = sn(data.wind_speed);
+var wave_height = sn(data.wave_height);
 
 const forecasts = {};
 
-// Scenari per Caso A — Fronte freddo
+// Scenari per Caso A  -  Fronte freddo
 if (synCase === 'A') {
 forecasts.h6 = {
 scenario: 'peggioramento_rapido',
@@ -376,7 +376,7 @@ wind_max: Math.round(wind_speed * 1.6),
 wave_max: parseFloat((wave_height * 1.8).toFixed(1)),
 confidence: Math.min(85, confidence + 10),
 color: 'danger',
-note: 'Fronte freddo in transito — raffiche e mare formato rapidamente'
+note: 'Fronte freddo in transito  -  raffiche e mare formato rapidamente'
 };
 forecasts.h12 = {
 scenario: 'post_fronte_instabile',
@@ -385,7 +385,7 @@ wind_max: Math.round(wind_speed * 1.3),
 wave_max: parseFloat((wave_height * 1.5).toFixed(1)),
 confidence: Math.min(70, confidence),
 color: 'warn',
-note: 'Mare ancora formato — vento in attenuazione ma ondoso residuo'
+note: 'Mare ancora formato  -  vento in attenuazione ma ondoso residuo'
 };
 forecasts.h24 = {
 scenario: 'normalizzazione',
@@ -394,10 +394,10 @@ wind_max: Math.round(wind_speed * 0.8),
 wave_max: parseFloat((wave_height * 0.9).toFixed(1)),
 confidence: Math.min(60, confidence - 10),
 color: 'safe',
-note: 'Progressivo miglioramento — swell residuo possibile'
+note: 'Progressivo miglioramento  -  swell residuo possibile'
 };
 }
-// Caso B — Fronte caldo
+// Caso B  -  Fronte caldo
 else if (synCase === 'B') {
 forecasts.h6 = {
 scenario: 'deterioramento_graduale',
@@ -406,7 +406,7 @@ wind_max: Math.round(wind_speed * 1.3),
 wave_max: parseFloat((wave_height * 1.4).toFixed(1)),
 confidence: Math.min(80, confidence + 5),
 color: 'warn',
-note: 'Fronte caldo in avvicinamento — visibilità in calo, swell in aumento'
+note: 'Fronte caldo in avvicinamento  -  visibilita in calo, swell in aumento'
 };
 forecasts.h12 = {
 scenario: 'fronte_al_passaggio',
@@ -415,7 +415,7 @@ wind_max: Math.round(wind_speed * 1.5),
 wave_max: parseFloat((wave_height * 1.7).toFixed(1)),
 confidence: Math.min(65, confidence),
 color: 'danger',
-note: 'Piogge continue — nebbia possibile — navigazione strumentale'
+note: 'Piogge continue  -  nebbia possibile  -  navigazione strumentale'
 };
 forecasts.h24 = {
 scenario: 'warm_sector',
@@ -427,7 +427,7 @@ color: 'warn',
 note: 'Miglioramento solo dopo completo passaggio del fronte'
 };
 }
-// Caso C — Ciclogenesi
+// Caso C  -  Ciclogenesi
 else if (synCase === 'C') {
 forecasts.h6 = {
 scenario: 'peggioramento_prolungato',
@@ -436,7 +436,7 @@ wind_max: Math.round(wind_speed * 1.8),
 wave_max: parseFloat((wave_height * 2.0).toFixed(1)),
 confidence: Math.min(70, confidence),
 color: 'danger',
-note: 'Ciclogenesi attiva — mare confuso multi-direzionale'
+note: 'Ciclogenesi attiva  -  mare confuso multi-direzionale'
 };
 forecasts.h12 = {
 scenario: 'massimo_perturbazione',
@@ -445,7 +445,7 @@ wind_max: Math.round(wind_speed * 2.0),
 wave_max: parseFloat((wave_height * 2.2).toFixed(1)),
 confidence: Math.min(55, confidence - 10),
 color: 'danger',
-note: 'Condizioni severe — evitare navigazione se possibile'
+note: 'Condizioni severe  -  evitare navigazione se possibile'
 };
 forecasts.h24 = {
 scenario: 'evoluzione_incerta',
@@ -454,10 +454,10 @@ wind_max: Math.round(wind_speed * 1.4),
 wave_max: parseFloat((wave_height * 1.6).toFixed(1)),
 confidence: Math.min(40, confidence - 20),
 color: 'warn',
-note: 'Dipende da traiettoria del minimo — monitorare costantemente'
+note: 'Dipende da traiettoria del minimo  -  monitorare costantemente'
 };
 }
-// Caso D — Miglioramento
+// Caso D  -  Miglioramento
 else if (synCase === 'D') {
 forecasts.h6 = {
 scenario: 'miglioramento_in_corso',
@@ -466,7 +466,7 @@ wind_max: Math.round(wind_speed * 0.8),
 wave_max: parseFloat((wave_height * 0.85).toFixed(1)),
 confidence: Math.min(82, confidence + 8),
 color: 'safe',
-note: 'Vento in attenuazione — swell residuo ancora presente'
+note: 'Vento in attenuazione  -  swell residuo ancora presente'
 };
 forecasts.h12 = {
 scenario: 'stabilizzazione',
@@ -475,7 +475,7 @@ wind_max: Math.round(wind_speed * 0.6),
 wave_max: parseFloat((wave_height * 0.7).toFixed(1)),
 confidence: Math.min(75, confidence + 5),
 color: 'safe',
-note: 'Condizioni in miglioramento — attenzione a seiche nei porti'
+note: 'Condizioni in miglioramento  -  attenzione a seiche nei porti'
 };
 forecasts.h24 = {
 scenario: 'bel_tempo',
@@ -484,7 +484,7 @@ wind_max: Math.round(wind_speed * 0.5),
 wave_max: parseFloat((wave_height * 0.5).toFixed(1)),
 confidence: Math.min(65, confidence),
 color: 'safe',
-note: 'Buone condizioni attese — finestra favorevole'
+note: 'Buone condizioni attese  -  finestra favorevole'
 };
 }
 // Stabile
@@ -496,7 +496,7 @@ wind_max: Math.round(wind_speed * 1.1),
 wave_max: parseFloat((wave_height * 1.1).toFixed(1)),
 confidence: 78,
 color: 'safe',
-note: 'Condizioni stabili — variazioni minime attese'
+note: 'Condizioni stabili  -  variazioni minime attese'
 };
 forecasts.h12 = {
 scenario: 'stabile',
@@ -521,7 +521,7 @@ note: 'Monitorare evoluzione barica oltre 12h'
 return forecasts;
 }
 
-// – FINESTRA OPERATIVA –––––––––––––––––––––––––––––––─
+// – FINESTRA OPERATIVA —————————————————————
 
 function calcOperationalWindow(diagnosis, data) {
 const { case: synCase, confidence } = diagnosis;
@@ -550,7 +550,7 @@ window = {
 status: 'closing',
 best_start: 'Ora',
 best_end: Math.min(endHour, 23).toString().padStart(2,'0') + ':00',
-reason: 'Finestra in chiusura — fronte freddo in arrivo. Parti subito o aspetta 18-24h',
+reason: 'Finestra in chiusura  -  fronte freddo in arrivo. Parti subito o aspetta 18-24h',
 next_window: 'Domani mattina dopo le 07:00',
 color: 'warn'
 };
@@ -559,8 +559,8 @@ window = {
 status: 'closed',
 best_start: null,
 best_end: null,
-reason: 'Finestra chiusa — fronte freddo attivo. Attendere normalizzazione',
-next_window: 'Domani mattina — verificare condizioni',
+reason: 'Finestra chiusa  -  fronte freddo attivo. Attendere normalizzazione',
+next_window: 'Domani mattina  -  verificare condizioni',
 color: 'danger'
 };
 }
@@ -572,7 +572,7 @@ status: 'open',
 best_start: 'Ora',
 best_end: Math.min(hour + 3, 10).toString().padStart(2,'0') + ':00',
 reason: 'Finestra mattutina disponibile prima del peggioramento. Rientro anticipato consigliato',
-next_window: 'Dopo il passaggio del fronte — 24-36h',
+next_window: 'Dopo il passaggio del fronte  -  24-36h',
 color: 'warn'
 };
 } else {
@@ -580,8 +580,8 @@ window = {
 status: 'closed',
 best_start: null,
 best_end: null,
-reason: 'Finestra chiusa — fronte caldo in avvicinamento. Non partire',
-next_window: 'Domani dopo le 10:00 — verificare passaggio fronte',
+reason: 'Finestra chiusa  -  fronte caldo in avvicinamento. Non partire',
+next_window: 'Domani dopo le 10:00  -  verificare passaggio fronte',
 color: 'danger'
 };
 }
@@ -590,8 +590,8 @@ window = {
 status: 'closed',
 best_start: null,
 best_end: null,
-reason: 'Finestra chiusa — ciclogenesi attiva. Condizioni imprevedibili',
-next_window: 'Indefinita — monitorare evoluzione minimo',
+reason: 'Finestra chiusa  -  ciclogenesi attiva. Condizioni imprevedibili',
+next_window: 'Indefinita  -  monitorare evoluzione minimo',
 color: 'danger'
 };
 } else if (synCase === 'D') {
@@ -601,7 +601,7 @@ window = {
 status: 'open',
 best_start: 'Ora',
 best_end: '18:00',
-reason: 'Finestra aperta — rimonta anticiclonica in corso. Attenzione a swell residuo nelle imboccature',
+reason: 'Finestra aperta  -  rimonta anticiclonica in corso. Attenzione a swell residuo nelle imboccature',
 next_window: null,
 color: 'safe'
 };
@@ -610,7 +610,7 @@ window = {
 status: 'opening',
 best_start: '08:00',
 best_end: '17:00',
-reason: 'Finestra in apertura — attendere attenuazione ondoso residuo',
+reason: 'Finestra in apertura  -  attendere attenuazione ondoso residuo',
 next_window: 'Domani mattina dalle 08:00',
 color: 'warn'
 };
@@ -622,7 +622,7 @@ window = {
 status: 'open',
 best_start: '06:00',
 best_end: '17:00',
-reason: 'Finestra aperta — condizioni stabili. Brezza termica pomeridiana possibile',
+reason: 'Finestra aperta  -  condizioni stabili. Brezza termica pomeridiana possibile',
 next_window: null,
 color: 'safe'
 };
@@ -631,8 +631,8 @@ window = {
 status: 'limited',
 best_start: '07:00',
 best_end: '11:00',
-reason: 'Finestra limitata — vento/onda ai limiti. Usare con cautela',
-next_window: 'Domani mattina — stesse condizioni attese',
+reason: 'Finestra limitata  -  vento/onda ai limiti. Usare con cautela',
+next_window: 'Domani mattina  -  stesse condizioni attese',
 color: 'warn'
 };
 }
@@ -641,7 +641,7 @@ color: 'warn'
 return window;
 }
 
-// – AVVISI –––––––––––––––––––––––––––––––––––––─
+// – AVVISI —————————————————————————
 
 function buildAlerts(diagnosis, data, localEffects, ports) {
 const alerts = [];
@@ -658,51 +658,51 @@ var humidity = sn(data.humidity, 70);
 // Soglie barica
 if (pressure_trend_3h <= -4.0) {
 alerts.push({ type: 'pressure_critical', severity: 'high',
-msg: '🔴 Calo pressione ' + pressure_trend_3h.toFixed(1) + ' hPa/3h — fronte IMMINENTE entro 3-6h' });
+msg: '[ROSSO] Calo pressione ' + pressure_trend_3h.toFixed(1) + ' hPa/3h  -  fronte IMMINENTE entro 3-6h' });
 } else if (pressure_trend_3h <= -2.0) {
 alerts.push({ type: 'pressure_drop', severity: 'medium',
-msg: '⚠️ Calo pressione ' + pressure_trend_3h.toFixed(1) + ' hPa/3h — peggioramento entro 6-12h' });
+msg: '[ATTENZIONE] Calo pressione ' + pressure_trend_3h.toFixed(1) + ' hPa/3h  -  peggioramento entro 6-12h' });
 }
 
 // Vento
 if (wind_speed >= 28) {
 alerts.push({ type: 'wind_high', severity: 'high',
-msg: '🔴 Vento ' + wind_speed.toFixed(0) + 'kn — Forza 7+. Navigazione sconsigliata' });
+msg: '[ROSSO] Vento ' + wind_speed.toFixed(0) + 'kn  -  Forza 7+. Navigazione sconsigliata' });
 } else if (wind_speed >= 20) {
 alerts.push({ type: 'wind_medium', severity: 'medium',
-msg: '⚠️ Vento ' + wind_speed.toFixed(0) + 'kn — Forza 5-6. Cautela per piccole imbarcazioni' });
+msg: '[ATTENZIONE] Vento ' + wind_speed.toFixed(0) + 'kn  -  Forza 5-6. Cautela per piccole imbarcazioni' });
 }
 
 // Onda
 if (wave_height >= 2.5) {
 alerts.push({ type: 'wave_high', severity: 'high',
-msg: '🔴 Altezza onda ' + wave_height.toFixed(1) + 'm — Mare agitato' });
+msg: '[ROSSO] Altezza onda ' + wave_height.toFixed(1) + 'm  -  Mare agitato' });
 } else if (wave_height >= 1.5) {
 alerts.push({ type: 'wave_medium', severity: 'medium',
-msg: '⚠️ Altezza onda ' + wave_height.toFixed(1) + 'm — Mare mosso' });
+msg: '[ATTENZIONE] Altezza onda ' + wave_height.toFixed(1) + 'm  -  Mare mosso' });
 }
 
 // Swell anticipato
 if (swell_period >= 10 && swell_height >= 0.8) {
 alerts.push({ type: 'early_swell', severity: 'medium',
-msg: '⚠️ Swell lungo ' + swell_period.toFixed(0) + 's — sistema perturbato in avvicinamento' });
+msg: '[ATTENZIONE] Swell lungo ' + swell_period.toFixed(0) + 's  -  sistema perturbato in avvicinamento' });
 }
 
 // Nebbia
 const deltaT = temp_air - temp_water;
 if (deltaT < 0.5 && humidity > 90) {
 alerts.push({ type: 'fog_high', severity: 'high',
-msg: '🔴 Delta T ' + deltaT.toFixed(1) + '°C, umidità ' + humidity.toFixed(0) + '% — nebbia probabile' });
+msg: '[ROSSO] Delta T ' + deltaT.toFixed(1) + ' gradiC, umidita ' + humidity.toFixed(0) + '%  -  nebbia probabile' });
 } else if (deltaT < 1.0 && humidity > 85) {
 alerts.push({ type: 'fog_risk', severity: 'low',
-msg: 'ℹ️ Delta T ' + deltaT.toFixed(1) + '°C — rischio nebbia nelle ore notturne' });
+msg: '[INFO] Delta T ' + deltaT.toFixed(1) + ' gradiC  -  rischio nebbia nelle ore notturne' });
 }
 
 // Effetti locali attivi
 for (const [key, effect] of Object.entries(localEffects)) {
 if (effect.active && effect.amplified_speed) {
 alerts.push({ type: 'local_effect', severity: 'medium',
-msg: '⚠️ ' + effect.desc + ' attivo — vento locale stimato ' + effect.amplified_speed + 'kn' });
+msg: '[ATTENZIONE] ' + effect.desc + ' attivo  -  vento locale stimato ' + effect.amplified_speed + 'kn' });
 }
 }
 
@@ -710,16 +710,16 @@ msg: '⚠️ ' + effect.desc + ' attivo — vento locale stimato ' + effect.ampl
 const closedPorts = Object.values(ports).filter(p => !p.accessible);
 if (closedPorts.length > 0) {
 alerts.push({ type: 'ports_closed', severity: 'medium',
-msg: '⚠️ Porti con accesso difficile: ' + closedPorts.map(function(p){return p.name;}).join(', ') });
+msg: '[ATTENZIONE] Porti con accesso difficile: ' + closedPorts.map(function(p){return p.name;}).join(', ') });
 }
 
-// Caso C — sempre allerta alta
+// Caso C  -  sempre allerta alta
 if (diagnosis.case === 'C') {
 alerts.push({ type: 'cyclogenesis', severity: 'high',
-msg: '🔴 Ciclogenesi identificata — condizioni imprevedibili. Evitare navigazione' });
+msg: '[ROSSO] Ciclogenesi identificata  -  condizioni imprevedibili. Evitare navigazione' });
 }
 
-// Ordina per severità
+// Ordina per severita
 const order = { high: 0, medium: 1, low: 2 };
 alerts.sort((a, b) => order[a.severity] - order[b.severity]);
 
@@ -896,9 +896,9 @@ text += '\nALLERTE ATTIVE:\n' + highAlerts.map(function(a){return a.msg;}).join(
 }
 
 text += '\nEVOLUZIONE:\n';
-text += '• 6h: ' + forecast.h6.label + ' — vento max ' + forecast.h6.wind_max + 'kn, onda max ' + forecast.h6.wave_max + 'm\n';
-text += '• 12h: ' + forecast.h12.label + ' — vento max ' + forecast.h12.wind_max + 'kn, onda max ' + forecast.h12.wave_max + 'm\n';
-text += '• 24h: ' + forecast.h24.label + ' — vento max ' + forecast.h24.wind_max + 'kn, onda max ' + forecast.h24.wave_max + 'm\n';
+text += '- 6h: ' + forecast.h6.label + '  -  vento max ' + forecast.h6.wind_max + 'kn, onda max ' + forecast.h6.wave_max + 'm\n';
+text += '- 12h: ' + forecast.h12.label + '  -  vento max ' + forecast.h12.wind_max + 'kn, onda max ' + forecast.h12.wave_max + 'm\n';
+text += '- 24h: ' + forecast.h24.label + '  -  vento max ' + forecast.h24.wind_max + 'kn, onda max ' + forecast.h24.wave_max + 'm\n';
 
 text += '\nFINESTRA OPERATIVA: ' + window.reason;
 if (window.next_window) text += '\nProssima finestra: ' + window.next_window;
@@ -943,7 +943,7 @@ ports: Object.keys(entry[1].ports).length
 return res.status(200).json({ zones: list });
 }
 
-// /api/engine?action=run — calcola tutte le zone
+// /api/engine?action=run  -  calcola tutte le zone
 if (action === 'run') {
 const sgKey = process.env.STORMGLASS_KEY || null;
 const zoneKeys = Object.keys(ZONES);

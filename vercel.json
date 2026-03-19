@@ -1,3 +1,8 @@
 {
-  "version":2
+  "version": 2,
+  "functions": {
+    "api/engine.js": { "maxDuration": 30 },
+    "api/briefing.js": { "maxDuration": 30 },
+    "api/marine.js": { "maxDuration": 15 }
+  }
 }

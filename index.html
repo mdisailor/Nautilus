@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v3.9.0 — 2026-03-18 -->
+<!-- NAUTILUS v4.0.0 — 2026-03-18 -->
 
 <html lang="it">
 <head>
@@ -296,6 +296,79 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 .cloud-list { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:5px; }
 .cloud-list li { font-size:0.72rem; color:#e8f4ff; line-height:1.55; padding-left:10px; position:relative; }
 .cloud-list li::before { content:"·"; position:absolute; left:0; color:var(--accent); }
+
+/* ── ENGINE TAB ─────────────────────────────────────────── */
+.engine-header { padding:20px 20px 0; }
+.engine-title { font-family:'Bebas Neue',sans-serif; font-size:2rem; letter-spacing:0.1em; color:var(--white); }
+.engine-title span { color:var(--accent); }
+.engine-sub { font-family:'DM Mono',monospace; font-size:0.55rem; color:#8ab8d0; letter-spacing:0.15em; text-transform:uppercase; margin-top:3px; }
+.engine-controls { display:flex; gap:10px; margin:14px 20px 0; align-items:center; }
+#btn-engine-run { flex:1; padding:11px; background:rgba(0,240,255,0.12); border:1px solid var(--accent); border-radius:10px; color:var(--accent); font-family:'DM Mono',monospace; font-size:0.7rem; letter-spacing:0.1em; cursor:pointer; transition:all 0.2s; }
+#btn-engine-run:active { background:rgba(0,240,255,0.25); }
+#btn-engine-run:disabled { opacity:0.4; cursor:default; }
+.engine-updated { font-family:'DM Mono',monospace; font-size:0.52rem; color:var(--muted); }
+.zone-card { margin:12px 20px 0; background:var(--card); border:1px solid var(--border); border-radius:14px; overflow:hidden; }
+.zone-card-header { padding:12px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+.zone-card-title { font-family:'DM Mono',monospace; font-size:0.65rem; letter-spacing:0.1em; text-transform:uppercase; color:#9ac0d8; }
+.zone-card-updated { font-family:'DM Mono',monospace; font-size:0.5rem; color:var(--muted); }
+.zone-body { padding:14px 16px; }
+.engine-case-badge { display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:20px; font-family:'DM Mono',monospace; font-size:0.6rem; letter-spacing:0.08em; margin-bottom:10px; }
+.case-A { background:rgba(255,68,68,0.12); border:1px solid rgba(255,68,68,0.35); color:#ff8888; }
+.case-B { background:rgba(255,170,0,0.12); border:1px solid rgba(255,170,0,0.35); color:#ffcc44; }
+.case-C { background:rgba(100,100,255,0.12); border:1px solid rgba(100,100,255,0.35); color:#aaaaff; }
+.case-D { background:rgba(34,221,136,0.12); border:1px solid rgba(34,221,136,0.35); color:#22dd88; }
+.case-stable { background:rgba(0,240,255,0.08); border:1px solid rgba(0,240,255,0.2); color:#0af0ff; }
+.engine-confidence { font-family:'DM Mono',monospace; font-size:0.55rem; color:var(--muted); margin-bottom:12px; }
+.engine-section-title { font-family:'DM Mono',monospace; font-size:0.55rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--accent); margin:12px 0 6px; opacity:0.8; }
+.forecast-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-bottom:10px; }
+.forecast-cell { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:10px 8px; text-align:center; }
+.forecast-cell.danger { border-color:rgba(255,68,68,0.4); background:rgba(255,68,68,0.06); }
+.forecast-cell.warn { border-color:rgba(255,170,0,0.4); background:rgba(255,170,0,0.06); }
+.forecast-cell.safe { border-color:rgba(34,221,136,0.3); background:rgba(34,221,136,0.05); }
+.forecast-cell.gold { border-color:rgba(240,180,41,0.3); background:rgba(240,180,41,0.05); }
+.forecast-horizon { font-family:'DM Mono',monospace; font-size:0.5rem; color:var(--muted); margin-bottom:4px; }
+.forecast-label { font-size:0.6rem; color:var(--text); margin-bottom:6px; line-height:1.3; }
+.forecast-val { font-family:'Bebas Neue',sans-serif; font-size:1rem; color:var(--white); }
+.forecast-unit { font-family:'DM Mono',monospace; font-size:0.45rem; color:var(--muted); }
+.forecast-conf { font-family:'DM Mono',monospace; font-size:0.48rem; color:var(--muted); margin-top:3px; }
+.alert-row { display:flex; align-items:flex-start; gap:8px; padding:7px 0; border-bottom:1px solid var(--border); }
+.alert-row:last-child { border-bottom:none; }
+.alert-dot { width:8px; height:8px; min-width:8px; border-radius:50%; margin-top:3px; }
+.alert-dot.high { background:var(--danger); box-shadow:0 0 6px var(--danger); }
+.alert-dot.medium { background:var(--warn); }
+.alert-dot.low { background:var(--safe); }
+.alert-text { font-size:0.68rem; color:var(--text); line-height:1.5; }
+.window-box { padding:10px 12px; border-radius:10px; margin-bottom:10px; }
+.window-box.open { background:rgba(34,221,136,0.08); border:1px solid rgba(34,221,136,0.3); }
+.window-box.closing { background:rgba(255,170,0,0.08); border:1px solid rgba(255,170,0,0.3); }
+.window-box.closed { background:rgba(255,68,68,0.08); border:1px solid rgba(255,68,68,0.3); }
+.window-box.opening { background:rgba(255,170,0,0.08); border:1px solid rgba(255,170,0,0.3); }
+.window-box.limited { background:rgba(240,180,41,0.08); border:1px solid rgba(240,180,41,0.3); }
+.window-status { font-family:'DM Mono',monospace; font-size:0.6rem; font-weight:600; margin-bottom:4px; }
+.window-status.open { color:var(--safe); }
+.window-status.closing { color:var(--warn); }
+.window-status.closed { color:var(--danger); }
+.window-status.opening { color:var(--warn); }
+.window-status.limited { color:var(--gold); }
+.window-reason { font-size:0.68rem; color:var(--text); line-height:1.5; }
+.window-next { font-family:'DM Mono',monospace; font-size:0.55rem; color:var(--muted); margin-top:4px; }
+.ports-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.port-cell { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:8px 10px; }
+.port-cell.low { border-color:rgba(34,221,136,0.3); }
+.port-cell.medium { border-color:rgba(255,170,0,0.3); }
+.port-cell.high { border-color:rgba(255,68,68,0.4); background:rgba(255,68,68,0.05); }
+.port-name { font-family:'DM Mono',monospace; font-size:0.58rem; color:var(--text); margin-bottom:2px; }
+.port-risk { font-size:0.55rem; }
+.port-risk.low { color:var(--safe); }
+.port-risk.medium { color:var(--warn); }
+.port-risk.high { color:var(--danger); }
+.port-note { font-size:0.52rem; color:var(--muted); margin-top:2px; line-height:1.4; }
+.local-effect { display:flex; align-items:center; gap:8px; padding:5px 0; font-size:0.65rem; color:var(--text); }
+.local-effect-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+.local-effect-dot.active { background:var(--warn); box-shadow:0 0 5px var(--warn); }
+.local-effect-dot.inactive { background:var(--muted); }
+.engine-briefing { margin-top:10px; padding:12px; background:var(--surface); border:1px solid var(--border); border-radius:10px; font-size:0.68rem; color:var(--text); line-height:1.7; white-space:pre-line; }
+.engine-empty { padding:40px 20px; text-align:center; font-family:'DM Mono',monospace; font-size:0.65rem; color:var(--muted); }
 </style>
 
 </head>
@@ -309,6 +382,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
     <div class="nav-tab" onclick="showPage('mare',this)">🌊 Mare</div>
     <div class="nav-tab" onclick="showPage('osservazioni',this)">👁 Osservazioni</div>
     <div class="nav-tab" onclick="showPage('nuvole',this)">☁️ Nuvole</div>
+    <div class="nav-tab" onclick="showPage('engine',this);loadEngine()">🧭 Engine</div>
   </div>
 
   <!-- ══ PAGE METEO ══ -->
@@ -320,7 +394,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v3.9.0 · by mdisailor engine</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.0.0 · by mdisailor engine</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1235,6 +1309,28 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 </div><!-- /nuvole -->
 ```
 
+  <!-- ── ENGINE PAGE ──────────────────────────────────────── -->
+
+  <div id="page-engine" class="page">
+
+```
+<div class="engine-header">
+  <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
+  <div class="engine-sub">Diagnostica sinottica · Previsione operativa · by mdisailor engine</div>
+</div>
+
+<div class="engine-controls">
+  <button id="btn-engine-run" onclick="runEngine()">▶ AVVIA ANALISI</button>
+  <span class="engine-updated" id="engine-updated">Non aggiornato</span>
+</div>
+
+<div id="engine-content">
+  <div class="engine-empty">Premi AVVIA ANALISI per calcolare<br>diagnosi sinottica e previsioni operative</div>
+</div>
+```
+
+  </div><!-- /engine -->
+
 </div><!-- /app -->
 
 <button id="btn-top" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Torna su">↑</button>
@@ -2065,6 +2161,163 @@ function buildSimpleList(containerId, items) {
   });
 }
 
+
+
+// ── ENGINE ───────────────────────────────────────────────────────────────────────────
+
+const ENGINE_URL = 'https://nautilus-red.vercel.app/api/engine';
+
+function loadEngine() {
+  // Auto-load if never loaded
+  const content = document.getElementById('engine-content');
+  if (content && content.querySelector('.engine-empty')) {
+    // Show hint but don't auto-run to save API calls
+  }
+}
+
+async function runEngine() {
+  const btn = document.getElementById('btn-engine-run');
+  const content = document.getElementById('engine-content');
+  btn.disabled = true;
+  btn.textContent = '⏳ Analisi in corso...';
+  content.innerHTML = '<div class="engine-empty">Calcolo diagnosi sinottica...<br><div class="loading" style="margin-top:16px"><div class="spinner"></div></div></div>';
+
+  try {
+    const res = await fetch(ENGINE_URL + '?action=run');
+    const data = await res.json();
+
+    if (!data.ok || !data.results) throw new Error('Risposta non valida');
+
+    let html = '';
+    for (const zk of Object.keys(data.results)) {
+      const z = data.results[zk];
+      if (z.error) {
+        html += '<div class="zone-card"><div class="zone-body"><p style="color:var(--danger);font-size:0.7rem">Errore zona ' + zk + ': ' + z.error + '</p></div></div>';
+        continue;
+      }
+      html += renderZone(z);
+    }
+
+    content.innerHTML = html;
+    document.getElementById('engine-updated').textContent = 'Aggiornato: ' + new Date().toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
+
+  } catch(err) {
+    content.innerHTML = '<div class="engine-empty" style="color:var(--danger)">Errore: ' + err.message + '</div>';
+  }
+
+  btn.disabled = false;
+  btn.textContent = '↻ AGGIORNA ANALISI';
+}
+
+function renderZone(z) {
+  const d = z.diagnosis;
+  const caseColors = {A:'case-A', B:'case-B', C:'case-C', D:'case-D', stable:'case-stable'};
+  const caseEmoji = {A:'🔴', B:'🟡', C:'🔵', D:'🟢', stable:'⚪'};
+  const caseClass = caseColors[d.case] || 'case-stable';
+  const caseIcon = caseEmoji[d.case] || '⚪';
+
+  // Alerts
+  let alertsHtml = '';
+  if (z.alerts && z.alerts.length > 0) {
+    alertsHtml = '<div class="engine-section-title">⚠️ Avvisi attivi</div>';
+    z.alerts.forEach(function(a) {
+      alertsHtml += '<div class="alert-row"><div class="alert-dot ' + a.severity + '"></div><div class="alert-text">' + a.msg + '</div></div>';
+    });
+  } else {
+    alertsHtml = '<div class="engine-section-title">⚠️ Avvisi</div><div style="font-size:0.65rem;color:var(--safe)">✓ Nessun avviso attivo</div>';
+  }
+
+  // Forecast
+  const fKeys = ['h6', 'h12', 'h24'];
+  const fLabels = ['6h', '12h', '24h'];
+  let forecastHtml = '<div class="engine-section-title">📈 Evoluzione prevista</div><div class="forecast-row">';
+  fKeys.forEach(function(fk, i) {
+    const f = z.forecast[fk];
+    if (!f) return;
+    forecastHtml += '<div class="forecast-cell ' + (f.color || 'safe') + '">' +
+      '<div class="forecast-horizon">+' + fLabels[i] + '</div>' +
+      '<div class="forecast-label">' + f.label + '</div>' +
+      '<div class="forecast-val">' + f.wind_max + '<span class="forecast-unit">kn</span></div>' +
+      '<div class="forecast-val">' + f.wave_max + '<span class="forecast-unit">m</span></div>' +
+      '<div class="forecast-conf">' + f.confidence + '% conf.</div>' +
+      '</div>';
+  });
+  forecastHtml += '</div>';
+
+  // Window
+  const win = z.window;
+  const winTime = win.best_start && win.best_end ? ' · ' + win.best_start + ' → ' + win.best_end : '';
+  let windowHtml = '<div class="engine-section-title">🕐 Finestra operativa</div>' +
+    '<div class="window-box ' + win.status + '">' +
+    '<div class="window-status ' + win.status + '">' + win.status.toUpperCase() + winTime + '</div>' +
+    '<div class="window-reason">' + win.reason + '</div>' +
+    (win.next_window ? '<div class="window-next">Prossima: ' + win.next_window + '</div>' : '') +
+    '</div>';
+
+  // Ports
+  let portsHtml = '<div class="engine-section-title">⚓ Accessibilità porti</div><div class="ports-grid">';
+  const riskIcon = {low:'✓', medium:'⚠', high:'✗'};
+  Object.values(z.ports).forEach(function(p) {
+    portsHtml += '<div class="port-cell ' + p.risk + '">' +
+      '<div class="port-name">' + p.name + '</div>' +
+      '<div class="port-risk ' + p.risk + '">' + (riskIcon[p.risk] || '') + ' ' + p.risk.toUpperCase() + '</div>' +
+      (p.note ? '<div class="port-note">' + p.note + '</div>' : '') +
+      '</div>';
+  });
+  portsHtml += '</div>';
+
+  // Local effects
+  let effectsHtml = '<div class="engine-section-title">🗺️ Effetti locali</div>';
+  Object.entries(z.local_effects).forEach(function(entry) {
+    const ek = entry[0];
+    const ef = entry[1];
+    if (ek === 'fog_advection') return; // shown in alerts
+    effectsHtml += '<div class="local-effect">' +
+      '<div class="local-effect-dot ' + (ef.active ? 'active' : 'inactive') + '"></div>' +
+      '<span>' + ef.desc + (ef.active && ef.amplified_speed ? ' — <strong style="color:var(--warn)">' + ef.amplified_speed + 'kn stimati</strong>' : '') + '</span>' +
+      '</div>';
+  });
+
+  // Raw data summary
+  const r = z.raw;
+  const dirName = function(d) {
+    return ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'][Math.round(d/22.5)%16];
+  };
+  let rawHtml = '<div class="engine-section-title">📡 Dati correnti</div>' +
+    '<table class="cloud-table">' +
+    '<tr><td>🌡️ Pressione</td><td>' + (r.pressure ? r.pressure.toFixed(0) : '--') + ' hPa (' + (r.pressure_trend_3h >= 0 ? '+' : '') + (r.pressure_trend_3h ? r.pressure_trend_3h.toFixed(1) : '0') + '/3h)</td></tr>' +
+    '<tr><td>💨 Vento</td><td>' + (r.wind_speed ? r.wind_speed.toFixed(0) : '--') + 'kn da ' + (r.wind_dir ? dirName(r.wind_dir) : '--') + ' · Raffica ' + (r.wind_gust ? r.wind_gust.toFixed(0) : '--') + 'kn</td></tr>' +
+    '<tr><td>🌊 Onda</td><td>' + (r.wave_height ? r.wave_height.toFixed(1) : '--') + 'm / ' + (r.wave_period ? r.wave_period.toFixed(0) : '--') + 's</td></tr>' +
+    '<tr><td>🌊 Swell</td><td>' + (r.swell_height ? r.swell_height.toFixed(1) : '--') + 'm / ' + (r.swell_period ? r.swell_period.toFixed(0) : '--') + 's da ' + (r.swell_dir ? dirName(r.swell_dir) : '--') + '</td></tr>' +
+    '<tr><td>🌡️ T aria/acqua</td><td>' + (r.temp_air ? r.temp_air.toFixed(1) : '--') + '°C / ' + (r.temp_water ? r.temp_water.toFixed(1) : '--') + '°C</td></tr>' +
+    '<tr><td>💧 Umidità</td><td>' + (r.humidity ? r.humidity.toFixed(0) : '--') + '%</td></tr>' +
+    '</table>';
+
+  // Briefing text
+  let briefingHtml = '';
+  if (z.briefing_text) {
+    briefingHtml = '<div class="engine-section-title">📋 Briefing operativo</div>' +
+      '<div class="engine-briefing">' + z.briefing_text + '</div>';
+  }
+
+  return '<div class="zone-card">' +
+    '<div class="zone-card-header">' +
+      '<div class="zone-card-title">📍 ' + z.name + '</div>' +
+      '<div class="zone-card-updated">' + new Date(z.updated).toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'}) + '</div>' +
+    '</div>' +
+    '<div class="zone-body">' +
+      '<div class="engine-case-badge ' + caseClass + '">' + caseIcon + ' CASO ' + d.case.toUpperCase() + ' — ' + (d.confidence || 0) + '% conf.</div>' +
+      '<div class="engine-confidence">' + d.description + '</div>' +
+      rawHtml +
+      alertsHtml +
+      forecastHtml +
+      windowHtml +
+      portsHtml +
+      effectsHtml +
+      briefingHtml +
+    '</div>' +
+  '</div>';
+}
 
 // Fine codice
 </script>

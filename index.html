@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v4.0.0 — 2026-03-18 -->
+<!-- NAUTILUS v4.1.0 — 2026-03-18 -->
 
 <html lang="it">
 <head>
@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020c18">
 <title>NAUTILUS — Meteo Mare</title>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+<link href="https://eur01.safelinks.protection.outlook.com/?url=https%3A%2F%2Ffonts.googleapis.com%2Fcss2%3Ffamily%3DBebas%2BNeue%26family%3DDM%2BMono%3Awght%40300%3B400%3B500%26family%3DDM%2BSans%3Awght%40300%3B400%3B600%26display%3Dswap&data=05%7C02%7Cmarco.deglinnocenti%40unicoopfirenze.coop.it%7Cdff86ae62cc848eddaf508de859797dd%7C2266bc20c37146bfa6129581b119bc1f%7C0%7C0%7C639095083339821974%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=IibH5au76KTBXuxzl1%2BBcCp2RZOgEdXVvS4Ty5rjvz8%3D&reserved=0" rel="stylesheet">
 <style>
 :root {
   --bg:      #020c18;
@@ -367,6 +367,11 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 .local-effect-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
 .local-effect-dot.active { background:var(--warn); box-shadow:0 0 5px var(--warn); }
 .local-effect-dot.inactive { background:var(--muted); }
+.engine-reliability { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:12px; font-family:'DM Mono',monospace; font-size:0.55rem; margin-bottom:10px; margin-left:8px; }
+.reliability-high { background:rgba(34,221,136,0.1); border:1px solid rgba(34,221,136,0.3); color:var(--safe); }
+.reliability-medium { background:rgba(255,170,0,0.1); border:1px solid rgba(255,170,0,0.3); color:var(--warn); }
+.reliability-low { background:rgba(255,68,68,0.1); border:1px solid rgba(255,68,68,0.3); color:var(--danger); }
+.engine-zone-select { flex:1; padding:10px 14px; background:var(--card); border:1px solid var(--border); border-radius:10px; color:var(--text); font-family:'DM Mono',monospace; font-size:0.65rem; -webkit-appearance:none; }
 .engine-briefing { margin-top:10px; padding:12px; background:var(--surface); border:1px solid var(--border); border-radius:10px; font-size:0.68rem; color:var(--text); line-height:1.7; white-space:pre-line; }
 .engine-empty { padding:40px 20px; text-align:center; font-family:'DM Mono',monospace; font-size:0.65rem; color:var(--muted); }
 </style>
@@ -394,7 +399,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.0.0 · by mdisailor engine</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.1.0 · by mdisailor engine</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1320,6 +1325,13 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 </div>
 
 <div class="engine-controls">
+  <select id="engine-zone-select" class="engine-zone-select" onchange="filterZone()">
+    <option value="all">📍 Tutte le zone</option>
+    <option value="elba_piombino">⚓ Elba · Piombino · Capraia</option>
+    <option value="viareggio_livorno">⚓ Viareggio · Livorno · Gorgona</option>
+  </select>
+</div>
+<div class="engine-controls" style="margin-top:8px">
   <button id="btn-engine-run" onclick="runEngine()">▶ AVVIA ANALISI</button>
   <span class="engine-updated" id="engine-updated">Non aggiornato</span>
 </div>
@@ -1385,7 +1397,7 @@ function requestGPS() {
     document.getElementById('stat-gps').textContent = 'GPS OK';
     btn.textContent = '📍 OK'; btn.disabled = false;
     try {
-      const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${state.lat}&lon=${state.lon}&format=json`);
+      const r = await fetch(`https://eur01.safelinks.protection.outlook.com/?url=https%3A%2F%2Fnominatim.openstreetmap.org%2Freverse%3Flat%3D%24&data=05%7C02%7Cmarco.deglinnocenti%40unicoopfirenze.coop.it%7Cdff86ae62cc848eddaf508de859797dd%7C2266bc20c37146bfa6129581b119bc1f%7C0%7C0%7C639095083339871671%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=28YtTV1paqDBn7w09dImDZqzcrcCMNw%2FCb2o9%2BCs5Lg%3D&reserved=0{state.lat}&lon=${state.lon}&format=json`);
       const d = await r.json();
       state.locationName = d.address?.town || d.address?.village || d.address?.city || 'Posizione rilevata';
       document.getElementById('loc-text').textContent = `${state.locationName} · ${state.lat.toFixed(4)}°N ${state.lon.toFixed(4)}°E`;
@@ -1407,7 +1419,7 @@ async function fetchWeather() {
   document.getElementById('src-openmeteo').className = 'src-badge loading';
   document.getElementById('src-openmeteo').textContent = '⟳ Open-Meteo';
   const lat = state.lat, lon = state.lon;
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+  const url = `https://eur01.safelinks.protection.outlook.com/?url=https%3A%2F%2Fapi.open-meteo.com%2Fv1%2Fforecast%3Flatitude%3D%24&data=05%7C02%7Cmarco.deglinnocenti%40unicoopfirenze.coop.it%7Cdff86ae62cc848eddaf508de859797dd%7C2266bc20c37146bfa6129581b119bc1f%7C0%7C0%7C639095083339934678%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=yn7mOmRUFt0o5ZVFP2XyV6jSLKuE7Xe6WGIsvz48a%2BE%3D&reserved=0{lat}&longitude=${lon}` +
     `&hourly=temperature_2m,relativehumidity_2m,visibility,cloudcover,precipitation_probability,` +
     `windspeed_10m,winddirection_10m,windgusts_10m,wave_height,wave_period,wave_direction,surface_pressure` +
     `&wind_speed_unit=kn&timezone=Europe/Rome&forecast_days=2&models=best_match`;
@@ -1428,7 +1440,7 @@ async function fetchWeather() {
 }
 
 // ── STORMGLASS (via Cloudflare Worker proxy) ─────────────────
-const STORMGLASS_PROXY = 'https://nautilus-red.vercel.app/api';
+const STORMGLASS_PROXY = 'https://eur01.safelinks.protection.outlook.com/?url=https%3A%2F%2Fnautilus-red.vercel.app%2Fapi&data=05%7C02%7Cmarco.deglinnocenti%40unicoopfirenze.coop.it%7Cdff86ae62cc848eddaf508de859797dd%7C2266bc20c37146bfa6129581b119bc1f%7C0%7C0%7C639095083339982937%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=5zzxfjvY8PpiEdlPtkf3MwmgyHZyXNmOuhRZTljn40Y%3D&reserved=0';
 
 async function fetchStormglass() {
   document.getElementById('src-stormglass').className = 'src-badge loading';
@@ -1912,7 +1924,7 @@ Max 220 parole. Sii diretto e operativo — il navigatore deve decidere.`;
 
   try {
     // Chiave letta dal Worker Cloudflare — nessuna chiave nel codice pubblico
-    const res = await fetch('https://nautilus-red.vercel.app/api/briefing', {
+    const res = await fetch('https://eur01.safelinks.protection.outlook.com/?url=https%3A%2F%2Fnautilus-red.vercel.app%2Fapi%2Fbriefing&data=05%7C02%7Cmarco.deglinnocenti%40unicoopfirenze.coop.it%7Cdff86ae62cc848eddaf508de859797dd%7C2266bc20c37146bfa6129581b119bc1f%7C0%7C0%7C639095083340021463%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=CgFHuTEr3o0L0CvfIlcbMZoCIlF5xwIU89kIBXE2qjc%3D&reserved=0', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt: prompt })
@@ -1959,7 +1971,7 @@ Max 220 parole. Sii diretto e operativo — il navigatore deve decidere.`;
 function testWorker() {
   const btn = document.getElementById('btn-ping');
   btn.textContent = '...';
-  fetch('https://nautilus-red.vercel.app/api/ping')
+  fetch('https://eur01.safelinks.protection.outlook.com/?url=https%3A%2F%2Fnautilus-red.vercel.app%2Fapi%2Fping&data=05%7C02%7Cmarco.deglinnocenti%40unicoopfirenze.coop.it%7Cdff86ae62cc848eddaf508de859797dd%7C2266bc20c37146bfa6129581b119bc1f%7C0%7C0%7C639095083340055219%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=jIkXy6VQom64bfgo%2BWi%2BtWARbRWBVgJbC2p6FF80YSU%3D&reserved=0')
     .then(r => r.json())
     .then(d => {
       btn.textContent = '🔧 Test';
@@ -2165,7 +2177,7 @@ function buildSimpleList(containerId, items) {
 
 // ── ENGINE ───────────────────────────────────────────────────────────────────────────
 
-const ENGINE_URL = 'https://nautilus-red.vercel.app/api/engine';
+const ENGINE_URL = 'https://eur01.safelinks.protection.outlook.com/?url=https%3A%2F%2Fnautilus-red.vercel.app%2Fapi%2Fengine&data=05%7C02%7Cmarco.deglinnocenti%40unicoopfirenze.coop.it%7Cdff86ae62cc848eddaf508de859797dd%7C2266bc20c37146bfa6129581b119bc1f%7C0%7C0%7C639095083340080074%7CUnknown%7CTWFpbGZsb3d8eyJFbXB0eU1hcGkiOnRydWUsIlYiOiIwLjAuMDAwMCIsIlAiOiJXaW4zMiIsIkFOIjoiTWFpbCIsIldUIjoyfQ%3D%3D%7C0%7C%7C%7C&sdata=%2FxBlUH4RE6rCt8y0PH4l7cM5DjvM0AUNOr8VrJxlb7M%3D&reserved=0';
 
 function loadEngine() {
   // Auto-load if never loaded
@@ -2175,42 +2187,13 @@ function loadEngine() {
   }
 }
 
-async function runEngine() {
-  const btn = document.getElementById('btn-engine-run');
-  const content = document.getElementById('engine-content');
-  btn.disabled = true;
-  btn.textContent = '⏳ Analisi in corso...';
-  content.innerHTML = '<div class="engine-empty">Calcolo diagnosi sinottica...<br><div class="loading" style="margin-top:16px"><div class="spinner"></div></div></div>';
-
-  try {
-    const res = await fetch(ENGINE_URL + '?action=run');
-    const data = await res.json();
-
-    if (!data.ok || !data.results) throw new Error('Risposta non valida');
-
-    let html = '';
-    for (const zk of Object.keys(data.results)) {
-      const z = data.results[zk];
-      if (z.error) {
-        html += '<div class="zone-card"><div class="zone-body"><p style="color:var(--danger);font-size:0.7rem">Errore zona ' + zk + ': ' + z.error + '</p></div></div>';
-        continue;
-      }
-      html += renderZone(z);
-    }
-
-    content.innerHTML = html;
-    document.getElementById('engine-updated').textContent = 'Aggiornato: ' + new Date().toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
-
-  } catch(err) {
-    content.innerHTML = '<div class="engine-empty" style="color:var(--danger)">Errore: ' + err.message + '</div>';
-  }
-
-  btn.disabled = false;
-  btn.textContent = '↻ AGGIORNA ANALISI';
-}
+// runEngine moved below
 
 function renderZone(z) {
   const d = z.diagnosis;
+  const rel = z.reliability || 50;
+  const relClass = rel >= 75 ? 'reliability-high' : rel >= 55 ? 'reliability-medium' : 'reliability-low';
+  const relNote = z.reliability_note || 'Open-Meteo';
   const caseColors = {A:'case-A', B:'case-B', C:'case-C', D:'case-D', stable:'case-stable'};
   const caseEmoji = {A:'🔴', B:'🟡', C:'🔵', D:'🟢', stable:'⚪'};
   const caseClass = caseColors[d.case] || 'case-stable';
@@ -2307,6 +2290,7 @@ function renderZone(z) {
     '</div>' +
     '<div class="zone-body">' +
       '<div class="engine-case-badge ' + caseClass + '">' + caseIcon + ' CASO ' + d.case.toUpperCase() + ' — ' + (d.confidence || 0) + '% conf.</div>' +
+      '<div class="engine-reliability ' + relClass + '">📊 Affidabilità ' + rel + '% — ' + relNote + '</div>' +
       '<div class="engine-confidence">' + d.description + '</div>' +
       rawHtml +
       alertsHtml +
@@ -2319,8 +2303,57 @@ function renderZone(z) {
   '</div>';
 }
 
+// ── ENGINE FILTER ────────────────────────────────────────────────────────────────────
+
+let engineResults = null;
+
+async function runEngine() {
+  engineResults = null;
+  const btn = document.getElementById('btn-engine-run');
+  const content = document.getElementById('engine-content');
+  btn.disabled = true;
+  btn.textContent = '⏳ Analisi in corso...';
+  content.innerHTML = '<div class="engine-empty">Calcolo diagnosi sinottica...<br><div class="loading" style="margin-top:16px"><div class="spinner"></div></div></div>';
+
+  try {
+    const res = await fetch(ENGINE_URL + '?action=run');
+    const data = await res.json();
+    if (!data.ok || !data.results) throw new Error('Risposta non valida');
+    engineResults = data.results;
+    renderEngineResults();
+    document.getElementById('engine-updated').textContent = 'Aggiornato: ' + new Date().toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
+  } catch(err) {
+    content.innerHTML = '<div class="engine-empty" style="color:var(--danger)">Errore: ' + err.message + '</div>';
+  }
+
+  btn.disabled = false;
+  btn.textContent = '↻ AGGIORNA ANALISI';
+}
+
+function filterZone() {
+  if (engineResults) renderEngineResults();
+}
+
+function renderEngineResults() {
+  const sel = document.getElementById('engine-zone-select');
+  const filter = sel ? sel.value : 'all';
+  const content = document.getElementById('engine-content');
+  let html = '';
+  for (const zk of Object.keys(engineResults)) {
+    if (filter !== 'all' && zk !== filter) continue;
+    const z = engineResults[zk];
+    if (z.error) {
+      html += '<div class="zone-card"><div class="zone-body"><p style="color:var(--danger);font-size:0.7rem">Errore zona ' + zk + ': ' + z.error + '</p></div></div>';
+      continue;
+    }
+    html += renderZone(z);
+  }
+  content.innerHTML = html || '<div class="engine-empty">Nessun dato per la zona selezionata</div>';
+}
+
 // Fine codice
 </script>
 
 </body>
 </html>
+

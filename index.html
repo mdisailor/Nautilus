@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v4.2.0 — 2026-03-19  -->
+<!-- NAUTILUS v4.2.1 — 2026-03-19 -->
 
 <html lang="it">
 <head>
@@ -403,7 +403,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.2.0.x · by mdisailor engine</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.2.1 · by mdisailor engine</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1328,14 +1328,9 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div class="engine-sub">Diagnostica sinottica · Previsione operativa · by mdisailor engine</div>
 </div>
 
-<div class="engine-controls">
-  <select id="engine-zone-select" class="engine-zone-select" onchange="filterZone()">
-    <option value="all">📍 Tutte le zone</option>
-    <option value="elba_piombino">⚓ Elba · Piombino · Capraia</option>
-    <option value="viareggio_livorno">⚓ Viareggio · Livorno · Gorgona</option>
-  </select>
-</div>
-<div class="engine-controls" style="margin-top:8px">
+<div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
+<div id="engine-zone-list" style="margin:8px 20px 0;display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 14px"></div>
+<div class="engine-controls" style="margin-top:10px">
   <button id="btn-engine-run" onclick="runEngine()">▶ AVVIA ANALISI</button>
   <span class="engine-updated" id="engine-updated">Non aggiornato</span>
 </div>

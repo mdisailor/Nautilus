@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.4.0 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.4.1 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -838,6 +838,92 @@ to_dir: dirs[dirs.length - 1]
 }
 
 //- CALCOLO ZONA -
+
+async function verifyForecasts(zoneKey, currentData, kvUrl, kvToken) {
+if (!kvUrl || !kvToken) return;
+var now = new Date();
+var horizons = [6, 12, 24];
+for (var hi = 0; hi < horizons.length; hi = hi + 1) {
+var h = horizons[hi];
+var pastTime = new Date(now.getTime() - h * 3600000);
+var pastKey = 'forecast:' + zoneKey + ':' + pastTime.toISOString().slice(0, 13);
+var forecast = await kvGet(pastKey, kvUrl, kvToken);
+if (!forecast) continue;
+var windError = currentData.wind_speed - forecast['h' + h + '_wind'];
+var waveError = currentData.wave_height - forecast['h' + h + '_wave'];
+var verKey = 'verify:' + zoneKey + ':' + pastTime.toISOString().slice(0, 13) + ':h' + h;
+var verRecord = {
+forecast_time: pastTime.toISOString(),
+horizon_h: h,
+predicted_wind: forecast['h' + h + '_wind'],
+predicted_wave: forecast['h' + h + '_wave'],
+actual_wind: currentData.wind_speed,
+actual_wave: currentData.wave_height,
+wind_error: parseFloat(windError.toFixed(1)),
+wave_error: parseFloat(waveError.toFixed(2))
+};
+await kvSet(verKey, verRecord, 2592000, kvUrl, kvToken);
+await updateBias(zoneKey, verRecord, kvUrl, kvToken);
+}
+}
+
+async function updateBias(zoneKey, verRecord, kvUrl, kvToken) {
+var biasKey = 'bias:' + zoneKey;
+var bias = await kvGet(biasKey, kvUrl, kvToken);
+if (!bias) {
+bias = { zone: zoneKey, samples: 0, wind_bias_sum: 0, wind_mae_sum: 0, wave_bias_sum: 0, wave_mae_sum: 0, last_updated: null };
+}
+bias.samples = bias.samples + 1;
+bias.wind_bias_sum = (bias.wind_bias_sum || 0) + verRecord.wind_error;
+bias.wind_mae_sum = (bias.wind_mae_sum || 0) + Math.abs(verRecord.wind_error);
+bias.wave_bias_sum = (bias.wave_bias_sum || 0) + verRecord.wave_error;
+bias.wave_mae_sum = (bias.wave_mae_sum || 0) + Math.abs(verRecord.wave_error);
+bias.wind_bias = parseFloat((bias.wind_bias_sum / bias.samples).toFixed(2));
+bias.wind_mae = parseFloat((bias.wind_mae_sum / bias.samples).toFixed(2));
+bias.wave_bias = parseFloat((bias.wave_bias_sum / bias.samples).toFixed(2));
+bias.wave_mae = parseFloat((bias.wave_mae_sum / bias.samples).toFixed(2));
+bias.last_updated = new Date().toISOString();
+await kvSet(biasKey, bias, 0, kvUrl, kvToken);
+}
+
+async function getBias(zoneKey, kvUrl, kvToken) {
+if (!kvUrl || !kvToken) return null;
+return await kvGet('bias:' + zoneKey, kvUrl, kvToken);
+}
+
+function applyBias(forecast, bias) {
+if (!bias || bias.samples < 10) return forecast;
+var corrected = JSON.parse(JSON.stringify(forecast));
+var windCorr = bias.wind_bias || 0;
+var waveCorr = bias.wave_bias || 0;
+var keys = ['h6', 'h12', 'h24'];
+for (var ki = 0; ki < keys.length; ki = ki + 1) {
+var hk = keys[ki];
+if (corrected[hk]) {
+corrected[hk].wind_max = Math.max(0, Math.round(corrected[hk].wind_max - windCorr));
+corrected[hk].wave_max = Math.max(0, parseFloat((corrected[hk].wave_max - waveCorr).toFixed(1)));
+corrected[hk].bias_corrected = true;
+}
+}
+return corrected;
+}
+
+async function getZoneStats(zoneKey, kvUrl, kvToken) {
+if (!kvUrl || !kvToken) return null;
+var bias = await getBias(zoneKey, kvUrl, kvToken);
+var now = new Date();
+var countPromises = [];
+for (var h = 0; h < 24; h = h + 1) {
+(function(hh) {
+var d = new Date(now.getTime() - hh * 3600000);
+var key = 'snap:' + zoneKey + ':' + d.toISOString().slice(0, 13);
+countPromises.push(kvGet(key, kvUrl, kvToken).then(function(s) { return s ? 1 : 0; }));
+})(h);
+}
+var counts = await Promise.all(countPromises);
+var snapCount = counts.reduce(function(a, b) { return a + b; }, 0);
+return { zone: zoneKey, snapshots_72h: snapCount, bias: bias };
+}
 
 async function calcZone(zoneKey, sgKey, kvUrl, kvToken, req) {
 var zone = ZONES[zoneKey];

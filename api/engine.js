@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.3.1 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.4.0 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -839,7 +839,7 @@ to_dir: dirs[dirs.length - 1]
 
 //- CALCOLO ZONA -
 
-async function calcZone(zoneKey, sgKey, kvUrl, kvToken) {
+async function calcZone(zoneKey, sgKey, kvUrl, kvToken, req) {
 var zone = ZONES[zoneKey];
 var omData = await fetchOpenMeteo(zone.lat, zone.lon);
 
@@ -855,19 +855,19 @@ hasStormglass = sgData !== null;
 
 var currentData = extractCurrentData(omData, sgData);
 
-// Get wind history from KV for rotation analysis - fully optional
-var windHistory = [];
+// Rotation analysis from KV history - read only if explicitly requested
 var rotationAnalysis = { trend: 'insufficient_data', hours: 0, rotation: null, consistent: false };
+var useHistory = req && req.query && req.query.history === '1';
 try {
-if (kvUrl && kvToken) {
-windHistory = await getWindHistory(zoneKey, kvUrl, kvToken);
+if (kvUrl && kvToken && useHistory) {
+var windHistory = await getWindHistory(zoneKey, kvUrl, kvToken);
 rotationAnalysis = analyzeWindRotation(windHistory);
-// Save current snapshot - fire and forget
+}
+// Always save snapshot - fire and forget, never blocks
+if (kvUrl && kvToken) {
 saveZoneSnapshot(zoneKey, currentData, kvUrl, kvToken).catch(function() {});
 }
-} catch(kvErr) {
-// KV failed - continue without history
-}
+} catch(kvErr) {}
 
 var diagnosis = diagnoseSynopticCase(currentData, rotationAnalysis);
 var localEffects = calcLocalEffects(zoneKey, currentData);
@@ -895,10 +895,10 @@ saveForecast(zoneKey, forecast, currentData, kvUrl, kvToken).catch(function() {}
 verifyForecasts(zoneKey, currentData, kvUrl, kvToken).catch(function() {});
 }
 
-// Get stats for reliability display
+// Get stats only when history is requested (cron mode)
 var stats = null;
 try {
-if (kvUrl && kvToken) stats = await getZoneStats(zoneKey, kvUrl, kvToken);
+if (kvUrl && kvToken && useHistory) stats = await getZoneStats(zoneKey, kvUrl, kvToken);
 } catch(e) {}
 
 return {
@@ -961,7 +961,7 @@ return res.status(401).json({ error: 'Unauthorized' });
 }
 var cronResults = {};
 var cronPromises = Object.keys(ZONES).map(function(zk) {
-return calcZone(zk, sgKey, kvUrl, kvToken)
+return calcZone(zk, sgKey, kvUrl, kvToken, { query: { history: '1' } })
 .then(function(r) { cronResults[zk] = { ok: true, case: r.diagnosis.case, alerts: r.alerts.length }; })
 .catch(function(e) { cronResults[zk] = { ok: false, error: e.message }; });
 });
@@ -994,7 +994,7 @@ if (!zoneKey || !ZONES[zoneKey]) {
 return res.status(404).json({ error: 'Zona non trovata', available: Object.keys(ZONES) });
 }
 try {
-var result = await calcZone(zoneKey, sgKey, kvUrl, kvToken);
+var result = await calcZone(zoneKey, sgKey, kvUrl, kvToken, req);
 return res.status(200).json(result);
 } catch (err) {
 return res.status(500).json({ error: err.message, zone: zoneKey });

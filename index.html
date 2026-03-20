@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v4.1.1 — 2026-03-18 -->
+<!-- NAUTILUS v4.2.0 — 2026-03-19 -->
 
 <html lang="it">
 <head>
@@ -371,6 +371,10 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 .reliability-high { background:rgba(34,221,136,0.1); border:1px solid rgba(34,221,136,0.3); color:var(--safe); }
 .reliability-medium { background:rgba(255,170,0,0.1); border:1px solid rgba(255,170,0,0.3); color:var(--warn); }
 .reliability-low { background:rgba(255,68,68,0.1); border:1px solid rgba(255,68,68,0.3); color:var(--danger); }
+.engine-zone-checkbox { display:flex; align-items:center; gap:10px; padding:5px 2px; cursor:pointer; }
+.engine-zone-checkbox input[type=checkbox] { width:16px; height:16px; accent-color:var(--accent); cursor:pointer; flex-shrink:0; }
+.engine-zone-checkbox-label { font-family:DM Mono,monospace; font-size:0.62rem; color:var(--text); }
+.engine-zone-checkbox-sub { font-size:0.52rem; color:var(--muted); }
 .engine-zone-select { flex:1; padding:10px 14px; background:var(--card); border:1px solid var(--border); border-radius:10px; color:var(--text); font-family:'DM Mono',monospace; font-size:0.65rem; -webkit-appearance:none; }
 .engine-briefing { margin-top:10px; padding:12px; background:var(--surface); border:1px solid var(--border); border-radius:10px; font-size:0.68rem; color:var(--text); line-height:1.7; white-space:pre-line; }
 .engine-empty { padding:40px 20px; text-align:center; font-family:'DM Mono',monospace; font-size:0.65rem; color:var(--muted); }
@@ -399,7 +403,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.1.1 · by mdisailor engine</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.2.0 · by mdisailor engine</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -2177,16 +2181,57 @@ function buildSimpleList(containerId, items) {
 
 
 
-// ── ENGINE ───────────────────────────────────────────────────────────────────────────
+// -- ENGINE -------------------------------------------------------------------------------
 
 const ENGINE_URL = 'https://nautilus-red.vercel.app/api/engine';
 
+const ALL_ZONES = [
+  { key: 'canale_piombino',  name: 'Canale di Piombino',       sub: 'Elba, Piombino, Punta Ala',         checked: true  },
+  { key: 'livorno',          name: 'Livorno',                   sub: 'Castiglioncello, Livorno Porto',    checked: true  },
+  { key: 'viareggio',        name: 'Viareggio - Versilia',      sub: 'Viareggio, Marina di Pisa',         checked: true  },
+  { key: 'capraia',          name: 'Capraia',                   sub: 'Capraia Porto',                     checked: false },
+  { key: 'elba_nord',        name: 'Elba Nord - Portoferraio',  sub: 'Portoferraio, Cavo, Rio Marina',    checked: false },
+  { key: 'elba_sud',         name: 'Elba Sud - Porto Azzurro',  sub: 'Porto Azzurro, Marina di Campo',    checked: false },
+  { key: 'gorgona',          name: 'Gorgona',                   sub: 'Isola di Gorgona',                  checked: false },
+  { key: 'giglio',           name: 'Isola del Giglio',          sub: 'Giglio Porto, Giglio Campese',      checked: false },
+  { key: 'castiglioncello',  name: 'Castiglioncello - Cecina',  sub: 'Castiglioncello, Cecina, S.Vincenzo',checked: false },
+  { key: 'punta_ala',        name: 'Punta Ala - Follonica',     sub: 'Punta Ala, Follonica',              checked: false },
+  { key: 'la_spezia',        name: 'La Spezia - Lerici',        sub: 'La Spezia, Lerici, Portovenere',    checked: false },
+  { key: 'bastia',           name: 'Bastia - Nord Corsica',     sub: 'Bastia, Saint-Florent',             checked: false },
+];
+
 function loadEngine() {
-  // Auto-load if never loaded
-  const content = document.getElementById('engine-content');
-  if (content && content.querySelector('.engine-empty')) {
-    // Show hint but don't auto-run to save API calls
+  const list = document.getElementById('engine-zone-list');
+  if (!list || list.children.length > 0) return;
+  ALL_ZONES.forEach(function(z) {
+    const row = document.createElement('label');
+    row.className = 'engine-zone-checkbox';
+    row.innerHTML = '<input type="checkbox" id="ez-' + z.key + '" ' + (z.checked ? 'checked' : '') + ' onchange="limitCheckboxes()">' +
+      '<div><div class="engine-zone-checkbox-label">' + z.name + '</div><div class="engine-zone-checkbox-sub">' + z.sub + '</div></div>';
+    list.appendChild(row);
+  });
+}
+
+function limitCheckboxes() {
+  const checked = ALL_ZONES.filter(function(z) { return document.getElementById('ez-' + z.key) && document.getElementById('ez-' + z.key).checked; });
+  if (checked.length > 3) {
+    ALL_ZONES.forEach(function(z) {
+      const cb = document.getElementById('ez-' + z.key);
+      if (cb && !cb.checked) cb.disabled = true;
+    });
+  } else {
+    ALL_ZONES.forEach(function(z) {
+      const cb = document.getElementById('ez-' + z.key);
+      if (cb) cb.disabled = false;
+    });
   }
+}
+
+function getSelectedZones() {
+  return ALL_ZONES.filter(function(z) {
+    const cb = document.getElementById('ez-' + z.key);
+    return cb && cb.checked;
+  }).map(function(z) { return z.key; });
 }
 
 
@@ -2309,47 +2354,49 @@ function renderZone(z) {
 let engineResults = null;
 
 async function runEngine() {
-  engineResults = null;
+  const selectedZones = getSelectedZones();
+  if (selectedZones.length === 0) {
+    document.getElementById('engine-content').innerHTML = '<div class="engine-empty">Seleziona almeno una zona</div>';
+    return;
+  }
+
+  engineResults = {};
   const btn = document.getElementById('btn-engine-run');
-  const content = document.getElementById('engine-content');
+  const cont = document.getElementById('engine-content');
   btn.disabled = true;
   btn.textContent = '⏳ Analisi in corso...';
-  content.innerHTML = '<div class="engine-empty">Calcolo diagnosi sinottica...<br><div class="loading" style="margin-top:16px"><div class="spinner"></div></div></div>';
+  cont.innerHTML = '<div class="engine-empty">Calcolo diagnosi per ' + selectedZones.length + ' zona/e...<br><div class="loading" style="margin-top:16px"><div class="spinner"></div></div></div>';
 
   try {
-    const res = await fetch(ENGINE_URL + '?action=run');
-    const data = await res.json();
-    if (!data.ok || !data.results) throw new Error('Risposta non valida');
-    engineResults = data.results;
+    const promises = selectedZones.map(function(zk) {
+      return fetch(ENGINE_URL + '?action=zone&zone=' + zk)
+        .then(function(r) { return r.json(); })
+        .then(function(d) { engineResults[zk] = d; })
+        .catch(function(e) { engineResults[zk] = { error: e.message, zone: zk }; });
+    });
+    await Promise.all(promises);
     renderEngineResults();
     document.getElementById('engine-updated').textContent = 'Aggiornato: ' + new Date().toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
   } catch(err) {
-    content.innerHTML = '<div class="engine-empty" style="color:var(--danger)">Errore: ' + err.message + '</div>';
+    cont.innerHTML = '<div class="engine-empty" style="color:var(--danger)">Errore: ' + err.message + '</div>';
   }
 
   btn.disabled = false;
   btn.textContent = '↻ AGGIORNA ANALISI';
 }
 
-function filterZone() {
-  if (engineResults) renderEngineResults();
-}
-
 function renderEngineResults() {
-  const sel = document.getElementById('engine-zone-select');
-  const filter = sel ? sel.value : 'all';
-  const content = document.getElementById('engine-content');
+  const cont = document.getElementById('engine-content');
   let html = '';
   for (const zk of Object.keys(engineResults)) {
-    if (filter !== 'all' && zk !== filter) continue;
     const z = engineResults[zk];
     if (z.error) {
-      html += '<div class="zone-card"><div class="zone-body"><p style="color:var(--danger);font-size:0.7rem">Errore zona ' + zk + ': ' + z.error + '</p></div></div>';
+      html += '<div class="zone-card"><div class="zone-body"><p style="color:var(--danger);font-size:0.7rem">Errore ' + zk + ': ' + z.error + '</p></div></div>';
       continue;
     }
     html += renderZone(z);
   }
-  content.innerHTML = html || '<div class="engine-empty">Nessun dato per la zona selezionata</div>';
+  cont.innerHTML = html || '<div class="engine-empty">Nessun dato disponibile</div>';
 }
 
 // Fine codice

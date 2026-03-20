@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v4.3.0 — 2026-03-19 -->
+<!-- NAUTILUS v4.4.0 — 2026-03-20 -->
 
 <html lang="it">
 <head>
@@ -403,7 +403,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.3.0 · by mdisailor engine</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.4.0 · by mdisailor engine</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -2320,8 +2320,28 @@ function renderZone(z) {
   // Briefing text
   let briefingHtml = '';
   if (z.briefing_text) {
-    briefingHtml = '<div class="engine-section-title">📋 Briefing operativo</div>' +
+    briefingHtml = '<div class="engine-section-title">Briefing operativo</div>' +
       '<div class="engine-briefing">' + z.briefing_text + '</div>';
+  }
+
+  // Stats and bias
+  var statsHtml = '';
+  if (z.stats) {
+    var s = z.stats;
+    statsHtml = '<div class="engine-section-title">Storico e affidabilita</div>' +
+      '<table class="cloud-table">' +
+      '<tr><td>Snapshot 72h</td><td>' + (s.snapshots_72h || 0) + ' ore di dati</td></tr>';
+    if (s.bias && s.bias.samples >= 5) {
+      statsHtml += '<tr><td>Campioni bias</td><td>' + s.bias.samples + ' verifiche</td></tr>' +
+        '<tr><td>Errore medio vento</td><td>' + s.bias.wind_mae + 'kn (bias ' + (s.bias.wind_bias >= 0 ? '+' : '') + s.bias.wind_bias + 'kn)</td></tr>' +
+        '<tr><td>Errore medio onda</td><td>' + s.bias.wave_mae + 'm (bias ' + (s.bias.wave_bias >= 0 ? '+' : '') + s.bias.wave_bias + 'm)</td></tr>';
+      if (z.forecast && z.forecast.h6 && z.forecast.h6.bias_corrected) {
+        statsHtml += '<tr><td>Correzione bias</td><td style="color:var(--safe)">Applicata alle previsioni</td></tr>';
+      }
+    } else {
+      statsHtml += '<tr><td>Bias</td><td style="color:var(--muted)">Dati insufficienti (min 10 campioni)</td></tr>';
+    }
+    statsHtml += '</table>';
   }
 
   return '<div class="zone-card">' +
@@ -2340,6 +2360,7 @@ function renderZone(z) {
       portsHtml +
       effectsHtml +
       briefingHtml +
+      statsHtml +
     '</div>' +
   '</div>';
 }

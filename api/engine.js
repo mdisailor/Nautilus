@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.0.0 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.1.0 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -157,7 +157,8 @@ function sf(v, d) { return (v !== null && v !== undefined) ? Number(v).toFixed(d
 
 // – DIAGNOSI SINOTTICA –––––––––––––––––––––––––––––
 
-function diagnoseSynopticCase(data) {
+function diagnoseSynopticCase(data, rotationAnalysis) {
+if (!rotationAnalysis) rotationAnalysis = { trend: 'insufficient_data', hours: 0, rotation: null };
 var pressure_trend_1h = sn(data.pressure_trend_1h);
 var pressure_trend_3h = sn(data.pressure_trend_3h);
 var wind_dir = sn(data.wind_dir);
@@ -271,7 +272,29 @@ for (var ci = 0; ci < caseKeys.length; ci++) { if (caseScores[caseKeys[ci]] === 
 
 var totalScore = 0;
 for (var ti = 0; ti < caseScoreVals.length; ti++) { totalScore += caseScoreVals[ti]; }
-var confidence = totalScore > 0 ? Math.min(95, Math.round((maxScore / totalScore) * 100)) : 50;
+var rawConf = totalScore > 0 ? Math.round((maxScore / totalScore) * 100) : 50;
+
+// Limit confidence based on available history
+// Without rotation history, max 65% - we cannot confirm rotation trend
+var maxConf = 65;
+var confLabel = 'pattern probabile';
+if (rotationAnalysis.hours >= 12 && rotationAnalysis.trend !== 'variable' && rotationAnalysis.consistent) {
+maxConf = 92;
+confLabel = 'confermato da storico ' + rotationAnalysis.hours + 'h';
+} else if (rotationAnalysis.hours >= 6 && rotationAnalysis.trend !== 'insufficient_data') {
+maxConf = 78;
+confLabel = 'probabile - storico ' + rotationAnalysis.hours + 'h';
+} else if (rotationAnalysis.hours > 0) {
+maxConf = 68;
+confLabel = 'indicativo - dati insufficienti (' + rotationAnalysis.hours + 'h)';
+}
+
+// Boost confidence if rotation history confirms the diagnosed case
+if (rotationAnalysis.trend === 'veering' && (dominantCase === 'A' || dominantCase === 'B')) maxConf = Math.min(95, maxConf + 10);
+if (rotationAnalysis.trend === 'backing' && (dominantCase === 'C' || dominantCase === 'D')) maxConf = Math.min(95, maxConf + 10);
+if (rotationAnalysis.trend === 'stable' && dominantCase === 'stable') maxConf = Math.min(90, maxConf + 10);
+
+var confidence = Math.min(maxConf, rawConf);
 
 var caseDescriptions = {
 A: 'Rotazione oraria S->N - Fronte freddo in transito',
@@ -281,7 +304,15 @@ D: 'Rotazione antioraria N->S - Miglioramento post-perturbato',
 stable: 'Situazione stabile - nessun pattern frontale attivo'
 };
 
-return { case: dominantCase, confidence: confidence, description: caseDescriptions[dominantCase], signals: signals, scores: caseScores };
+return {
+case: dominantCase,
+confidence: confidence,
+confidence_label: confLabel,
+description: caseDescriptions[dominantCase],
+signals: signals,
+scores: caseScores,
+history_hours: rotationAnalysis.hours
+};
 }
 
 // – EFFETTI LOCALI –––––––––––––––––––––––––––––––
@@ -518,12 +549,14 @@ return alerts;
 
 // – AFFIDABILITA ––––––––––––––––––––––––––––––––
 
-function calcReliability(hasStormglass, signals) {
+function calcReliability(hasStormglass, signals, rotationAnalysis) {
 var score = 50;
-if (hasStormglass) score += 25;
+if (hasStormglass) score += 20;
 var strong = signals.filter(function(s) { return s.strength === 'strong'; }).length;
 score += Math.min(10, strong * 3);
-return Math.min(98, Math.max(30, score));
+if (rotationAnalysis && rotationAnalysis.hours >= 6) score += 10;
+if (rotationAnalysis && rotationAnalysis.hours >= 12) score += 8;
+return Math.min(95, Math.max(30, score));
 }
 
 // – TESTO BRIEFING –––––––––––––––––––––––––––––––
@@ -673,9 +706,123 @@ base.sources.wind = 'open-meteo+stormglass';
 return base;
 }
 
+// – UPSTASH KV STORAGE ———————————————————
+
+async function kvGet(key, restUrl, restToken) {
+if (!restUrl || !restToken) return null;
+try {
+var res = await fetch(restUrl + '/get/' + encodeURIComponent(key), {
+headers: { 'Authorization': 'Bearer ' + restToken }
+});
+var data = await res.json();
+return data.result ? JSON.parse(data.result) : null;
+} catch(e) { return null; }
+}
+
+async function kvSet(key, value, ttlSeconds, restUrl, restToken) {
+if (!restUrl || !restToken) return false;
+try {
+var url = restUrl + '/set/' + encodeURIComponent(key);
+if (ttlSeconds) url += '/ex/' + ttlSeconds;
+await fetch(url, {
+method: 'POST',
+headers: { 'Authorization': 'Bearer ' + restToken, 'Content-Type': 'application/json' },
+body: JSON.stringify(JSON.stringify(value))
+});
+return true;
+} catch(e) { return false; }
+}
+
+async function saveZoneSnapshot(zoneKey, data, restUrl, restToken) {
+if (!restUrl || !restToken) return;
+var now = new Date();
+var hourKey = now.toISOString().slice(0, 13);
+var key = 'snap:' + zoneKey + ':' + hourKey;
+var snapshot = {
+ts: now.toISOString(),
+wind_dir: data.wind_dir,
+wind_speed: data.wind_speed,
+pressure: data.pressure,
+wave_height: data.wave_height,
+swell_height: data.swell_height,
+swell_dir: data.swell_dir,
+temp_air: data.temp_air,
+humidity: data.humidity
+};
+await kvSet(key, snapshot, 86400, restUrl, restToken);
+}
+
+async function saveForecast(zoneKey, forecast, data, restUrl, restToken) {
+if (!restUrl || !restToken) return;
+var now = new Date();
+var key = 'forecast:' + zoneKey + ':' + now.toISOString().slice(0, 13);
+var record = {
+made_at: now.toISOString(),
+actual_wind: data.wind_speed,
+actual_wave: data.wave_height,
+actual_pressure: data.pressure,
+h6_wind: forecast.h6.wind_max,
+h6_wave: forecast.h6.wave_max,
+h12_wind: forecast.h12.wind_max,
+h12_wave: forecast.h12.wave_max,
+h24_wind: forecast.h24.wind_max,
+h24_wave: forecast.h24.wave_max
+};
+await kvSet(key, record, 172800, restUrl, restToken);
+}
+
+async function getWindHistory(zoneKey, restUrl, restToken) {
+if (!restUrl || !restToken) return [];
+var now = new Date();
+var snapshots = [];
+for (var h = 11; h >= 0; h–) {
+var d = new Date(now.getTime() - h * 3600000);
+var hourKey = d.toISOString().slice(0, 13);
+var key = 'snap:' + zoneKey + ':' + hourKey;
+var snap = await kvGet(key, restUrl, restToken);
+if (snap) snapshots.push(snap);
+}
+return snapshots;
+}
+
+function analyzeWindRotation(snapshots) {
+if (snapshots.length < 3) return { rotation: null, trend: 'insufficient_data', hours: snapshots.length };
+var dirs = snapshots.map(function(s) { return s.wind_dir; });
+var totalRotation = 0;
+var rotations = [];
+for (var i = 1; i < dirs.length; i++) {
+var diff = dirs[i] - dirs[i-1];
+if (diff > 180) diff -= 360;
+if (diff < -180) diff += 360;
+rotations.push(diff);
+totalRotation += diff;
+}
+var avgRotation = totalRotation / rotations.length;
+var isConsistent = rotations.filter(function(r) { return r * avgRotation > 0; }).length >= rotations.length * 0.6;
+var trend;
+if (Math.abs(totalRotation) < 20) {
+trend = 'stable';
+} else if (totalRotation > 0 && isConsistent) {
+trend = 'veering';
+} else if (totalRotation < 0 && isConsistent) {
+trend = 'backing';
+} else {
+trend = 'variable';
+}
+return {
+rotation: totalRotation,
+avg_per_hour: avgRotation,
+trend: trend,
+consistent: isConsistent,
+hours: snapshots.length,
+from_dir: dirs[0],
+to_dir: dirs[dirs.length - 1]
+};
+}
+
 // – CALCOLO ZONA ––––––––––––––––––––––––––––––––
 
-async function calcZone(zoneKey, sgKey) {
+async function calcZone(zoneKey, sgKey, kvUrl, kvToken) {
 var zone = ZONES[zoneKey];
 var omData = await fetchOpenMeteo(zone.lat, zone.lon);
 
@@ -690,14 +837,25 @@ hasStormglass = sgData !== null;
 }
 
 var currentData = extractCurrentData(omData, sgData);
-var diagnosis = diagnoseSynopticCase(currentData);
+
+// Get wind history from KV for rotation analysis
+var windHistory = await getWindHistory(zoneKey, kvUrl, kvToken);
+var rotationAnalysis = analyzeWindRotation(windHistory);
+
+// Save current snapshot to KV
+await saveZoneSnapshot(zoneKey, currentData, kvUrl, kvToken);
+
+var diagnosis = diagnoseSynopticCase(currentData, rotationAnalysis);
 var localEffects = calcLocalEffects(zoneKey, currentData);
 var ports = calcPortAccess(zoneKey, currentData, localEffects);
 var forecast = buildForecast(diagnosis, currentData);
 var win = calcOperationalWindow(diagnosis, currentData);
 var alerts = buildAlerts(diagnosis, currentData, localEffects, ports);
-var reliability = calcReliability(hasStormglass, diagnosis.signals);
+var reliability = calcReliability(hasStormglass, diagnosis.signals, rotationAnalysis);
 var briefingText = generateBriefingText(zone.name, diagnosis, currentData, forecast, win, alerts);
+
+// Save forecast for future comparison
+await saveForecast(zoneKey, forecast, currentData, kvUrl, kvToken);
 
 return {
 zone: zoneKey,
@@ -706,7 +864,8 @@ updated: new Date().toISOString(),
 raw: currentData,
 diagnosis: diagnosis,
 reliability: reliability,
-reliability_note: hasStormglass ? 'Open-Meteo + Stormglass' : 'Solo Open-Meteo',
+reliability_note: buildReliabilityNote(hasStormglass, rotationAnalysis),
+rotation_history: rotationAnalysis,
 local_effects: localEffects,
 forecast: forecast,
 ports: ports,
@@ -714,6 +873,16 @@ window: win,
 alerts: alerts,
 briefing_text: briefingText
 };
+}
+
+function buildReliabilityNote(hasStormglass, rot) {
+var sources = hasStormglass ? 'Open-Meteo + Stormglass' : 'Solo Open-Meteo';
+if (rot.hours >= 6) {
+sources += ' + storico ' + rot.hours + 'h';
+} else if (rot.hours > 0) {
+sources += ' + ' + rot.hours + 'h dati (min 6h per rotazione)';
+}
+return sources;
 }
 
 // – VERCEL HANDLER –––––––––––––––––––––––––––––––
@@ -727,6 +896,8 @@ if (req.method === 'OPTIONS') return res.status(204).end();
 var action = req.query.action || 'zones';
 var zoneKey = req.query.zone || null;
 var sgKey = process.env.STORMGLASS_KEY || null;
+var kvUrl = process.env.UPSTASH_REDIS_REST_URL || null;
+var kvToken = process.env.UPSTASH_REDIS_REST_TOKEN || null;
 
 if (action === 'ping') {
 return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.0.0', zones: Object.keys(ZONES).length, ts: Date.now() });
@@ -744,7 +915,7 @@ if (!zoneKey || !ZONES[zoneKey]) {
 return res.status(404).json({ error: 'Zona non trovata', available: Object.keys(ZONES) });
 }
 try {
-var result = await calcZone(zoneKey, sgKey);
+var result = await calcZone(zoneKey, sgKey, kvUrl, kvToken);
 return res.status(200).json(result);
 } catch (err) {
 return res.status(500).json({ error: err.message, zone: zoneKey });

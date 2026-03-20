@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.1.0 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.1.1 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -714,22 +714,28 @@ try {
 var res = await fetch(restUrl + '/get/' + encodeURIComponent(key), {
 headers: { 'Authorization': 'Bearer ' + restToken }
 });
+if (!res.ok) return null;
 var data = await res.json();
-return data.result ? JSON.parse(data.result) : null;
+if (data.result === null || data.result === undefined) return null;
+// Upstash returns the value as-is if it was stored as JSON
+if (typeof data.result === 'object') return data.result;
+try { return JSON.parse(data.result); } catch(e) { return data.result; }
 } catch(e) { return null; }
 }
 
 async function kvSet(key, value, ttlSeconds, restUrl, restToken) {
 if (!restUrl || !restToken) return false;
 try {
+// Upstash REST API: POST to /set/key with value as body
+// For TTL use EX parameter as query string
 var url = restUrl + '/set/' + encodeURIComponent(key);
-if (ttlSeconds) url += '/ex/' + ttlSeconds;
-await fetch(url, {
+if (ttlSeconds) url += '?ex=' + ttlSeconds;
+var res = await fetch(url, {
 method: 'POST',
 headers: { 'Authorization': 'Bearer ' + restToken, 'Content-Type': 'application/json' },
-body: JSON.stringify(JSON.stringify(value))
+body: JSON.stringify(value)
 });
-return true;
+return res.ok;
 } catch(e) { return false; }
 }
 

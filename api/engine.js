@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.3.0 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.3.1 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -780,7 +780,7 @@ await kvSet(key, record, 259200, restUrl, restToken);
 
 async function getWindHistory(zoneKey, restUrl, restToken, hours) {
 if (!restUrl || !restToken) return [];
-if (!hours) hours = 72;
+if (!hours) hours = 24;
 var now = new Date();
 var snapshots = [];
 // Fetch in parallel for speed

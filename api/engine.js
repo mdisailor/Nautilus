@@ -153,7 +153,7 @@ canale_corsica: { desc: 'Canale di Corsica', active_wind_dirs: [330, 60], amplif
 // -- HELPER FUNCTIONS ------------------------------------------------------------
 
 function sn(v, def) { return (v !== null && v !== undefined) ? Number(v) : (def || 0); }
-function sf(v, d) { return (v !== null && v !== undefined) ? Number(v).toFixed(d) : ----; }
+function sf(v, d) { return (v !== null && v !== undefined) ? Number(v).toFixed(d) : '--'; }
 
 // -- DIAGNOSI SINOTTICA ----------------------------------------------------------
 

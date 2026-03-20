@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.1.1 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.2.0 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -726,14 +726,15 @@ try { return JSON.parse(data.result); } catch(e) { return data.result; }
 async function kvSet(key, value, ttlSeconds, restUrl, restToken) {
 if (!restUrl || !restToken) return false;
 try {
-// Upstash REST API: POST to /set/key with value as body
-// For TTL use EX parameter as query string
+// Upstash REST API correct format:
+// POST /set/key/ex/ttl with body = JSON string of value
 var url = restUrl + '/set/' + encodeURIComponent(key);
-if (ttlSeconds) url += '?ex=' + ttlSeconds;
+if (ttlSeconds) url += '/ex/' + ttlSeconds;
+var serialized = JSON.stringify(value);
 var res = await fetch(url, {
 method: 'POST',
 headers: { 'Authorization': 'Bearer ' + restToken, 'Content-Type': 'application/json' },
-body: JSON.stringify(value)
+body: serialized
 });
 return res.ok;
 } catch(e) { return false; }
@@ -844,12 +845,19 @@ hasStormglass = sgData !== null;
 
 var currentData = extractCurrentData(omData, sgData);
 
-// Get wind history from KV for rotation analysis
-var windHistory = await getWindHistory(zoneKey, kvUrl, kvToken);
-var rotationAnalysis = analyzeWindRotation(windHistory);
-
-// Save current snapshot to KV
-await saveZoneSnapshot(zoneKey, currentData, kvUrl, kvToken);
+// Get wind history from KV for rotation analysis - fully optional
+var windHistory = [];
+var rotationAnalysis = { trend: 'insufficient_data', hours: 0, rotation: null, consistent: false };
+try {
+if (kvUrl && kvToken) {
+windHistory = await getWindHistory(zoneKey, kvUrl, kvToken);
+rotationAnalysis = analyzeWindRotation(windHistory);
+// Save current snapshot - fire and forget
+saveZoneSnapshot(zoneKey, currentData, kvUrl, kvToken).catch(function() {});
+}
+} catch(kvErr) {
+// KV failed - continue without history
+}
 
 var diagnosis = diagnoseSynopticCase(currentData, rotationAnalysis);
 var localEffects = calcLocalEffects(zoneKey, currentData);
@@ -860,8 +868,10 @@ var alerts = buildAlerts(diagnosis, currentData, localEffects, ports);
 var reliability = calcReliability(hasStormglass, diagnosis.signals, rotationAnalysis);
 var briefingText = generateBriefingText(zone.name, diagnosis, currentData, forecast, win, alerts);
 
-// Save forecast for future comparison
-await saveForecast(zoneKey, forecast, currentData, kvUrl, kvToken);
+// Save forecast for future comparison - fire and forget
+if (kvUrl && kvToken) {
+saveForecast(zoneKey, forecast, currentData, kvUrl, kvToken).catch(function() {});
+}
 
 return {
 zone: zoneKey,

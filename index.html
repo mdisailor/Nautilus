@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v4.2.1 — 2026-03-19 -->
+<!-- NAUTILUS v4.3.0 — 2026-03-19 -->
 
 <html lang="it">
 <head>
@@ -403,7 +403,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.2.1 · by mdisailor engine</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.3.0 · by mdisailor engine</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -2331,8 +2331,8 @@ function renderZone(z) {
     '</div>' +
     '<div class="zone-body">' +
       '<div class="engine-case-badge ' + caseClass + '">' + caseIcon + ' CASO ' + d.case.toUpperCase() + ' — ' + (d.confidence || 0) + '% conf.</div>' +
-      '<div class="engine-reliability ' + relClass + '">📊 Affidabilità ' + rel + '% — ' + relNote + '</div>' +
-      '<div class="engine-confidence">' + d.description + '</div>' +
+      '<div class="engine-reliability ' + relClass + '">Affidabilita ' + rel + '% - ' + relNote + '</div>' +
+      '<div class="engine-confidence">' + d.description + (d.confidence_label ? ' <span style="color:var(--muted);font-size:0.52rem">(' + d.confidence_label + ')</span>' : '') + '</div>' +
       rawHtml +
       alertsHtml +
       forecastHtml +

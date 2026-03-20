@@ -3,7 +3,7 @@
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
 
-// – ZONE PUNTUALI —————————————————————
+//- ZONE PUNTUALI -
 
 var ZONES = {
 canale_piombino: {
@@ -150,12 +150,12 @@ canale_corsica: { desc: 'Canale di Corsica', active_wind_dirs: [330, 60], amplif
 },
 };
 
-// – HELPER FUNCTIONS ————————————————————
+//- HELPER FUNCTIONS -
 
 function sn(v, def) { return (v !== null && v !== undefined) ? Number(v) : (def || 0); }
-function sf(v, d) { return (v !== null && v !== undefined) ? Number(v).toFixed(d) : '–'; }
+function sf(v, d) { return (v !== null && v !== undefined) ? Number(v).toFixed(d) : 'n/d'; }
 
-// – DIAGNOSI SINOTTICA –––––––––––––––––––––––––––––
+//- DIAGNOSI SINOTTICA -
 
 function diagnoseSynopticCase(data, rotationAnalysis) {
 if (!rotationAnalysis) rotationAnalysis = { trend: 'insufficient_data', hours: 0, rotation: null };
@@ -315,7 +315,7 @@ history_hours: rotationAnalysis.hours
 };
 }
 
-// – EFFETTI LOCALI –––––––––––––––––––––––––––––––
+//- EFFETTI LOCALI -
 
 function calcLocalEffects(zoneKey, data) {
 var zone = ZONES[zoneKey];
@@ -354,7 +354,7 @@ note: 'Delta T aria/acqua: ' + sf(temp_air - temp_water, 1) + ' C'
 return effects;
 }
 
-// – ACCESSIBILITA PORTI ———————————————————
+//- ACCESSIBILITA PORTI -
 
 function calcPortAccess(zoneKey, data, localEffects) {
 var zone = ZONES[zoneKey];
@@ -430,7 +430,7 @@ ports[portKey] = {
 return ports;
 }
 
-// – SCENARI PREVISIONALI ––––––––––––––––––––––––––––
+//- SCENARI PREVISIONALI -
 
 function buildForecast(diagnosis, data) {
 var synCase = diagnosis.case;
@@ -464,7 +464,7 @@ h24 = { scenario: 'possibile_variazione', label: 'Possibile variazione', wind_ma
 return { h6: h6, h12: h12, h24: h24 };
 }
 
-// – FINESTRA OPERATIVA –––––––––––––––––––––––––––––
+//- FINESTRA OPERATIVA -
 
 function calcOperationalWindow(diagnosis, data) {
 var synCase = diagnosis.case;
@@ -501,7 +501,7 @@ return { status: 'open', best_start: '06:00', best_end: '17:00', reason: 'Finest
 return { status: 'limited', best_start: '07:00', best_end: '11:00', reason: 'Finestra limitata - vento/onda ai limiti. Usare con cautela', next_window: 'Domani mattina - stesse condizioni attese', color: 'warn' };
 }
 
-// – AVVISI –––––––––––––––––––––––––––––––––––
+//- AVVISI -
 
 function buildAlerts(diagnosis, data, localEffects, ports) {
 var pressure_trend_3h = sn(data.pressure_trend_3h);
@@ -547,7 +547,7 @@ alerts.sort(function(a, b) { return order[a.severity] - order[b.severity]; });
 return alerts;
 }
 
-// – AFFIDABILITA ––––––––––––––––––––––––––––––––
+//- AFFIDABILITA -
 
 function calcReliability(hasStormglass, signals, rotationAnalysis) {
 var score = 50;
@@ -559,7 +559,7 @@ if (rotationAnalysis && rotationAnalysis.hours >= 12) score += 8;
 return Math.min(95, Math.max(30, score));
 }
 
-// – TESTO BRIEFING –––––––––––––––––––––––––––––––
+//- TESTO BRIEFING -
 
 function generateBriefingText(zoneName, diagnosis, data, forecast, window, alerts) {
 var wind_speed = sn(data.wind_speed);
@@ -588,7 +588,7 @@ if (window.next_window) text += '\nProssima: ' + window.next_window;
 return text;
 }
 
-// – FETCH DATI ——————————————————————
+//- FETCH DATI -
 
 function calcWindRotation(prevDir, currDir) {
 if (prevDir === null || currDir === null) return null;
@@ -706,7 +706,7 @@ base.sources.wind = 'open-meteo+stormglass';
 return base;
 }
 
-// – UPSTASH KV STORAGE ———————————————————
+//- UPSTASH KV STORAGE -
 
 async function kvGet(key, restUrl, restToken) {
 if (!restUrl || !restToken) return null;
@@ -782,7 +782,7 @@ async function getWindHistory(zoneKey, restUrl, restToken) {
 if (!restUrl || !restToken) return [];
 var now = new Date();
 var snapshots = [];
-for (var h = 11; h >= 0; h–) {
+for (var h = 11; h >= 0; h = h - 1) {
 var d = new Date(now.getTime() - h * 3600000);
 var hourKey = d.toISOString().slice(0, 13);
 var key = 'snap:' + zoneKey + ':' + hourKey;
@@ -827,7 +827,7 @@ to_dir: dirs[dirs.length - 1]
 };
 }
 
-// – CALCOLO ZONA ––––––––––––––––––––––––––––––––
+//- CALCOLO ZONA -
 
 async function calcZone(zoneKey, sgKey, kvUrl, kvToken) {
 var zone = ZONES[zoneKey];
@@ -901,7 +901,7 @@ sources += ' + ' + rot.hours + 'h dati (min 6h per rotazione)';
 return sources;
 }
 
-// – VERCEL HANDLER –––––––––––––––––––––––––––––––
+//- VERCEL HANDLER -
 
 module.exports = async function handler(req, res) {
 res.setHeader('Access-Control-Allow-Origin', '*');

@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.5.0 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.5.1 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -951,7 +951,13 @@ rotationAnalysis = analyzeWindRotation(windHistory);
 }
 // Always save snapshot - fire and forget, never blocks
 if (kvUrl && kvToken) {
+// In cron mode await the save, otherwise fire and forget
+var isCron = req && req.query && req.query.history === '1';
+if (isCron) {
+await saveZoneSnapshot(zoneKey, currentData, kvUrl, kvToken);
+} else {
 saveZoneSnapshot(zoneKey, currentData, kvUrl, kvToken).catch(function() {});
+}
 }
 } catch(kvErr) {}
 
@@ -977,8 +983,14 @@ forecast = applyBias(forecast, bias);
 
 // Save forecast + verify past forecasts - fire and forget
 if (kvUrl && kvToken) {
+var isCronMode = req && req.query && req.query.history === '1';
+if (isCronMode) {
+await saveForecast(zoneKey, forecast, currentData, kvUrl, kvToken);
+await verifyForecasts(zoneKey, currentData, kvUrl, kvToken);
+} else {
 saveForecast(zoneKey, forecast, currentData, kvUrl, kvToken).catch(function() {});
 verifyForecasts(zoneKey, currentData, kvUrl, kvToken).catch(function() {});
+}
 }
 
 // Get stats only when history is requested (cron mode)
@@ -1053,6 +1065,27 @@ return calcZone(zk, sgKey, kvUrl, kvToken, { query: { history: '1' } })
 });
 await Promise.all(cronPromises);
 return res.status(200).json({ ok: true, ts: new Date().toISOString(), zones: cronResults });
+}
+
+// /api/engine?action=diag - test KV connection
+if (action === 'diag') {
+var diagResult = { kv_configured: !!(kvUrl && kvToken), kv_write: false, kv_read: false, error: null };
+if (kvUrl && kvToken) {
+try {
+var testKey = 'diag:test:' + Date.now();
+var testVal = { ts: new Date().toISOString(), test: true };
+var writeOk = await kvSet(testKey, testVal, 60, kvUrl, kvToken);
+diagResult.kv_write = writeOk;
+if (writeOk) {
+var readBack = await kvGet(testKey, kvUrl, kvToken);
+diagResult.kv_read = readBack !== null;
+diagResult.read_value = readBack;
+}
+} catch(e) {
+diagResult.error = e.message;
+}
+}
+return res.status(200).json(diagResult);
 }
 
 // /api/engine?action=stats&zone=xxx - get zone statistics

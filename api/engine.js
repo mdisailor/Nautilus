@@ -1069,17 +1069,32 @@ return res.status(200).json({ ok: true, ts: new Date().toISOString(), zones: cro
 
 // /api/engine?action=diag - test KV connection
 if (action === 'diag') {
-var diagResult = { kv_configured: !!(kvUrl && kvToken), kv_write: false, kv_read: false, error: null };
+var diagResult = {
+kv_configured: !!(kvUrl && kvToken),
+kv_url_prefix: kvUrl ? kvUrl.slice(0, 30) : null,
+kv_write: false, kv_read: false,
+write_response: null, error: null
+};
 if (kvUrl && kvToken) {
 try {
 var testKey = 'diag:test:' + Date.now();
-var testVal = { ts: new Date().toISOString(), test: true };
-var writeOk = await kvSet(testKey, testVal, 60, kvUrl, kvToken);
-diagResult.kv_write = writeOk;
-if (writeOk) {
-var readBack = await kvGet(testKey, kvUrl, kvToken);
-diagResult.kv_read = readBack !== null;
-diagResult.read_value = readBack;
+var testUrl = kvUrl + '/set/' + encodeURIComponent(testKey) + '/ex/60';
+var writeRes = await fetch(testUrl, {
+method: 'POST',
+headers: { 'Authorization': 'Bearer ' + kvToken, 'Content-Type': 'application/json' },
+body: JSON.stringify({ ts: new Date().toISOString(), test: true })
+});
+var writeBody = await writeRes.text();
+diagResult.write_status = writeRes.status;
+diagResult.write_response = writeBody;
+diagResult.kv_write = writeRes.ok;
+if (writeRes.ok) {
+var readRes = await fetch(kvUrl + '/get/' + encodeURIComponent(testKey), {
+headers: { 'Authorization': 'Bearer ' + kvToken }
+});
+var readBody = await readRes.json();
+diagResult.kv_read = readBody.result !== null;
+diagResult.read_result = readBody.result;
 }
 } catch(e) {
 diagResult.error = e.message;

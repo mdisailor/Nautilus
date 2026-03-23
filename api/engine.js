@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.5.1 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.5.2 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -711,13 +711,15 @@ return base;
 async function kvGet(key, restUrl, restToken) {
 if (!restUrl || !restToken) return null;
 try {
-var res = await fetch(restUrl + '/get/' + encodeURIComponent(key), {
-headers: { 'Authorization': 'Bearer ' + restToken }
+var cmd = ['GET', key];
+var res = await fetch(restUrl, {
+method: 'POST',
+headers: { 'Authorization': 'Bearer ' + restToken, 'Content-Type': 'application/json' },
+body: JSON.stringify(cmd)
 });
 if (!res.ok) return null;
 var data = await res.json();
 if (data.result === null || data.result === undefined) return null;
-// Upstash returns the value as-is if it was stored as JSON
 if (typeof data.result === 'object') return data.result;
 try { return JSON.parse(data.result); } catch(e) { return data.result; }
 } catch(e) { return null; }
@@ -726,15 +728,16 @@ try { return JSON.parse(data.result); } catch(e) { return data.result; }
 async function kvSet(key, value, ttlSeconds, restUrl, restToken) {
 if (!restUrl || !restToken) return false;
 try {
-// Upstash REST API correct format:
-// POST /set/key/ex/ttl with body = JSON string of value
-var url = restUrl + '/set/' + encodeURIComponent(key);
-if (ttlSeconds) url += '/ex/' + ttlSeconds;
+// Upstash REST API: POST to base URL with command array
+// Format: [“SET”, “key”, “value”, “EX”, “ttl”]
 var serialized = JSON.stringify(value);
-var res = await fetch(url, {
+var cmd = ttlSeconds
+? ['SET', key, serialized, 'EX', String(ttlSeconds)]
+: ['SET', key, serialized];
+var res = await fetch(restUrl, {
 method: 'POST',
 headers: { 'Authorization': 'Bearer ' + restToken, 'Content-Type': 'application/json' },
-body: serialized
+body: JSON.stringify(cmd)
 });
 return res.ok;
 } catch(e) { return false; }
@@ -1078,19 +1081,23 @@ write_response: null, error: null
 if (kvUrl && kvToken) {
 try {
 var testKey = 'diag:test:' + Date.now();
-var testUrl = kvUrl + '/set/' + encodeURIComponent(testKey) + '/ex/60';
-var writeRes = await fetch(testUrl, {
+var testVal = JSON.stringify({ ts: new Date().toISOString(), test: true });
+var setCmd = ['SET', testKey, testVal, 'EX', '60'];
+var writeRes = await fetch(kvUrl, {
 method: 'POST',
 headers: { 'Authorization': 'Bearer ' + kvToken, 'Content-Type': 'application/json' },
-body: JSON.stringify({ ts: new Date().toISOString(), test: true })
+body: JSON.stringify(setCmd)
 });
 var writeBody = await writeRes.text();
 diagResult.write_status = writeRes.status;
 diagResult.write_response = writeBody;
 diagResult.kv_write = writeRes.ok;
 if (writeRes.ok) {
-var readRes = await fetch(kvUrl + '/get/' + encodeURIComponent(testKey), {
-headers: { 'Authorization': 'Bearer ' + kvToken }
+var getCmd = ['GET', testKey];
+var readRes = await fetch(kvUrl, {
+method: 'POST',
+headers: { 'Authorization': 'Bearer ' + kvToken, 'Content-Type': 'application/json' },
+body: JSON.stringify(getCmd)
 });
 var readBody = await readRes.json();
 diagResult.kv_read = readBody.result !== null;

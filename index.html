@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v4.5.1 — 2026-03-20 -->
+<!-- NAUTILUS v4.5.2 — 2026-03-23 -->
 
 <html lang="it">
 <head>
@@ -447,7 +447,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.5.1 · by mdisailor engine</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.5.2 · by mdisailor engine</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -2393,7 +2393,10 @@ function renderZone(z) {
   return '<div class="zone-card" id="zone-detail-' + z.zone + '">' +
     '<div class="zone-card-header">' +
       '<div class="zone-card-title">📍 ' + z.name + '</div>' +
+      '<div style="display:flex;align-items:center;gap:6px">' +
+      (z.risk ? '<div style="padding:3px 8px;border-radius:6px;font-family:DM Mono,monospace;font-size:0.55rem;background:var(--' + (z.risk.color||'safe') + ');color:#000;font-weight:600">' + (z.risk.label||'') + '</div>' : '') +
       '<div class="zone-card-updated">' + new Date(z.updated).toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'}) + '</div>' +
+      '</div>' +
     '</div>' +
     '<div class="zone-body">' +
       '<div class="engine-case-badge ' + caseClass + '">' + caseIcon + ' CASO ' + d.case.toUpperCase() + ' — ' + (d.confidence || 0) + '% conf.</div>' +
@@ -2483,10 +2486,11 @@ function renderZoneSummary(z) {
   const wave = z.raw ? z.raw.wave_height : 0;
   const gust = z.raw ? z.raw.wind_gust : 0;
 
-  // Severity color
-  const hasHighAlert = z.alerts && z.alerts.some(function(a) { return a.severity === 'high'; });
-  const hasMedAlert = z.alerts && z.alerts.some(function(a) { return a.severity === 'medium'; });
-  const severity = hasHighAlert ? 'danger' : hasMedAlert ? 'warn' : 'safe';
+  // Use overall risk from engine (includes gust thresholds)
+  const risk = z.risk || {};
+  const severity = risk.color || (z.alerts && z.alerts.some(function(a) { return a.severity === 'high'; }) ? 'danger' : z.alerts && z.alerts.some(function(a) { return a.severity === 'medium'; }) ? 'warn' : 'safe');
+  const riskLabel = risk.label || '';
+  const riskSummary = risk.summary || '';
 
   // Wind description
   const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
@@ -2500,7 +2504,8 @@ function renderZoneSummary(z) {
     '<div class="summary-dot ' + severity + '"></div>' +
     '<div class="summary-main">' +
       '<div class="summary-name">' + z.name + '</div>' +
-      '<div class="summary-desc">' + caseLabel + ' - ' + waveDesc + '</div>' +
+      '<div class="summary-desc">' + (riskLabel ? 'Rischio ' + riskLabel + ' - ' : '') + caseLabel + '</div>' +
+      '<div class="summary-desc" style="font-size:0.52rem">' + riskSummary + '</div>' +
     '</div>' +
     '<div class="summary-data">' +
       '<div class="summary-wind ' + severity + '">' + Math.round(wind) + '<span style="font-family:DM Mono,monospace;font-size:0.5rem">kn</span></div>' +

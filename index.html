@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v4.4.0 — 2026-03-20 -->
+<!-- NAUTILUS v4.5.0 — 2026-03-20 -->
 
 <html lang="it">
 <head>
@@ -376,6 +376,23 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 .engine-zone-checkbox-label { font-family:DM Mono,monospace; font-size:0.62rem; color:var(--text); }
 .engine-zone-checkbox-sub { font-size:0.52rem; color:var(--muted); }
 .engine-zone-select { flex:1; padding:10px 14px; background:var(--card); border:1px solid var(--border); border-radius:10px; color:var(--text); font-family:'DM Mono',monospace; font-size:0.65rem; -webkit-appearance:none; }
+.history-chart { margin-top:8px; }
+.history-bars { display:flex; align-items:flex-end; gap:2px; height:60px; }
+.history-bar-wrap { flex:1; display:flex; flex-direction:column; align-items:center; gap:1px; }
+.history-bar { width:100%; border-radius:2px 2px 0 0; min-height:2px; transition:height 0.3s; }
+.history-bar-label { font-family:DM Mono,monospace; font-size:0.38rem; color:var(--muted); text-align:center; white-space:nowrap; }
+.history-bar-val { font-family:DM Mono,monospace; font-size:0.38rem; color:var(--muted); text-align:center; }
+.history-legend { display:flex; gap:10px; margin-top:6px; flex-wrap:wrap; }
+.history-legend-item { font-family:DM Mono,monospace; font-size:0.5rem; color:var(--muted); display:flex; align-items:center; gap:4px; }
+.history-legend-dot { width:8px; height:8px; border-radius:2px; flex-shrink:0; }
+.history-empty { font-family:DM Mono,monospace; font-size:0.6rem; color:var(--muted); padding:16px 0; text-align:center; }
+.history-rotation { margin-top:8px; padding:8px 10px; border-radius:8px; font-size:0.65rem; }
+.history-rotation.veering { background:rgba(255,170,0,0.08); border:1px solid rgba(255,170,0,0.3); color:var(--warn); }
+.history-rotation.backing { background:rgba(100,100,255,0.08); border:1px solid rgba(100,100,255,0.3); color:#aaaaff; }
+.history-rotation.stable { background:rgba(34,221,136,0.08); border:1px solid rgba(34,221,136,0.3); color:var(--safe); }
+.history-rotation.insufficient_data { background:rgba(58,96,128,0.08); border:1px solid rgba(58,96,128,0.3); color:var(--muted); }
+.btn-history { padding:5px 12px; background:transparent; border:1px solid var(--muted); border-radius:8px; color:var(--muted); font-family:DM Mono,monospace; font-size:0.55rem; cursor:pointer; margin-top:8px; }
+.btn-history:hover { border-color:var(--accent); color:var(--accent); }
 .engine-briefing { margin-top:10px; padding:12px; background:var(--surface); border:1px solid var(--border); border-radius:10px; font-size:0.68rem; color:var(--text); line-height:1.7; white-space:pre-line; }
 .engine-empty { padding:40px 20px; text-align:center; font-family:'DM Mono',monospace; font-size:0.65rem; color:var(--muted); }
 </style>
@@ -403,7 +420,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.4.0 · by mdisailor engine</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.5.0 · by mdisailor engine</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -2361,6 +2378,9 @@ function renderZone(z) {
       effectsHtml +
       briefingHtml +
       statsHtml +
+      '<div class="engine-section-title">Storico 24h</div>' +
+      '<div id="hist-' + z.zone + '" class="history-chart"><div class="history-empty">Carica storico per vedere evoluzione pressione e vento</div></div>' +
+      '<button class="btn-history" onclick="loadHistory(this.dataset.zone)" data-zone="' + z.zone + '">Carica storico 24h</button>' +
     '</div>' +
   '</div>';
 }
@@ -2413,6 +2433,112 @@ function renderEngineResults() {
     html += renderZone(z);
   }
   cont.innerHTML = html || '<div class="engine-empty">Nessun dato disponibile</div>';
+}
+
+// -- HISTORY -----------------------------------------------------------------
+
+async function loadHistory(zoneKey) {
+  var container = document.getElementById('hist-' + zoneKey);
+  if (!container) return;
+  container.innerHTML = '<div class="history-empty"><div class="loading"><div class="spinner"></div></div></div>';
+
+  try {
+    var res = await fetch(ENGINE_URL + '?action=history&zone=' + zoneKey + '&hours=24');
+    var data = await res.json();
+
+    if (!data.snapshots || data.snapshots.length === 0) {
+      container.innerHTML = '<div class="history-empty">Nessun dato storico disponibile.<br>Il cron accumula dati ogni ora.</div>';
+      return;
+    }
+
+    var snaps = data.snapshots;
+    var html = '';
+
+    // Pressure chart
+    html += '<div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);margin-top:8px;text-transform:uppercase;letter-spacing:0.1em">Pressione hPa</div>';
+    html += renderHistoryBars(snaps, 'pressure', 'var(--accent)', function(s) { return s.pressure; }, 1);
+
+    // Wind chart
+    html += '<div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);margin-top:10px;text-transform:uppercase;letter-spacing:0.1em">Vento kn</div>';
+    html += renderHistoryBars(snaps, 'wind', 'var(--gold)', function(s) { return s.wind_speed; }, 0);
+
+    // Wind direction chart
+    html += '<div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);margin-top:10px;text-transform:uppercase;letter-spacing:0.1em">Direzione vento</div>';
+    html += renderDirBars(snaps);
+
+    // Rotation analysis
+    if (data.rotation && data.rotation.trend !== 'insufficient_data') {
+      var rot = data.rotation;
+      var rotLabel = {
+        veering: 'Rotazione ORARIA - ' + Math.abs(rot.rotation).toFixed(0) + ' gradi in ' + rot.hours + 'h',
+        backing: 'Rotazione ANTIORARIA - ' + Math.abs(rot.rotation).toFixed(0) + ' gradi in ' + rot.hours + 'h',
+        stable: 'Vento STABILE - variazione ' + Math.abs(rot.rotation).toFixed(0) + ' gradi in ' + rot.hours + 'h',
+        variable: 'Direzione VARIABILE - rotazione non costante'
+      };
+      html += '<div class="history-rotation ' + rot.trend + '">' + (rotLabel[rot.trend] || rot.trend) + '</div>';
+    } else {
+      html += '<div class="history-rotation insufficient_data">Dati insufficienti per analisi rotazione (' + (data.hours_available || 0) + 'h disponibili, min 3h)</div>';
+    }
+
+    // Bias info
+    if (data.bias && data.bias.samples >= 5) {
+      html += '<div style="margin-top:8px;font-size:0.6rem;color:var(--muted)">Bias storico (' + data.bias.samples + ' campioni): vento ' +
+        (data.bias.wind_bias >= 0 ? '+' : '') + data.bias.wind_bias + 'kn, onda ' +
+        (data.bias.wave_bias >= 0 ? '+' : '') + data.bias.wave_bias + 'm</div>';
+    }
+
+    container.innerHTML = html;
+
+  } catch(err) {
+    container.innerHTML = '<div class="history-empty" style="color:var(--danger)">Errore: ' + err.message + '</div>';
+  }
+}
+
+function renderHistoryBars(snaps, type, color, getValue, decimals) {
+  var vals = snaps.map(getValue).filter(function(v) { return v !== null && v !== undefined; });
+  if (vals.length === 0) return '<div class="history-empty">Nessun dato</div>';
+  var minV = Math.min.apply(null, vals);
+  var maxV = Math.max.apply(null, vals);
+  var range = Math.max(maxV - minV, 1);
+  var MAX_H = 50, MIN_H = 4;
+
+  var html = '<div class="history-bars">';
+  snaps.forEach(function(s, i) {
+    var v = getValue(s);
+    if (v === null || v === undefined) return;
+    var pct = (v - minV) / range;
+    var h = Math.round(MIN_H + pct * (MAX_H - MIN_H));
+    var isLast = i === snaps.length - 1;
+    var time = s.ts ? new Date(s.ts).toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'}) : '';
+    html += '<div class="history-bar-wrap">' +
+      '<div class="history-bar-val">' + (isLast ? Number(v).toFixed(decimals) : '') + '</div>' +
+      '<div class="history-bar" style="height:' + h + 'px;background:' + (isLast ? color : color.replace(')', ',0.6)').replace('var(', 'var(')) + ';' + (isLast ? 'box-shadow:0 0 6px ' + color + ';' : '') + '"></div>' +
+      '<div class="history-bar-label">' + (i % 4 === 0 || isLast ? time.slice(0,2) : '') + '</div>' +
+      '</div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+function renderDirBars(snaps) {
+  var dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+  var html = '<div class="history-bars">';
+  snaps.forEach(function(s, i) {
+    var d = s.wind_dir;
+    if (d === null || d === undefined) return;
+    var dirName = dirs[Math.round(d / 22.5) % 16];
+    var isLast = i === snaps.length - 1;
+    // Color by quadrant
+    var col = d < 90 ? '#90caf9' : d < 180 ? 'var(--gold)' : d < 270 ? 'var(--warn)' : 'var(--accent)';
+    var time = s.ts ? new Date(s.ts).toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'}) : '';
+    html += '<div class="history-bar-wrap">' +
+      '<div class="history-bar-val">' + (isLast ? dirName : '') + '</div>' +
+      '<div class="history-bar" style="height:30px;background:' + col + ';opacity:' + (isLast ? 1 : 0.6) + '"></div>' +
+      '<div class="history-bar-label">' + (i % 4 === 0 || isLast ? time.slice(0,2) : '') + '</div>' +
+      '</div>';
+  });
+  html += '</div>';
+  return html;
 }
 
 // Fine codice

@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v4.5.2 — 2026-03-23 -->
+<!-- NAUTILUS v4.5.3 — 2026-03-23 -->
 
 <html lang="it">
 <head>
@@ -447,7 +447,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.5.2 · by mdisailor engine</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.5.3 · by mdisailor engine</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1895,81 +1895,70 @@ async function requestBriefing() {
   // Nuvole osservate dall'utente nella tab Osservazioni
   const nuvoleSel = state.selectedClouds?.length ? state.selectedClouds.join(', ') : 'non specificate';
 
-  const prompt = `Sei un esperto meteorologo marino e skipper con 30 anni di esperienza nel Mar Tirreno settentrionale (costa toscana, Isola d'Elba, Capraia, Gorgona, Giglio, Arcipelago Toscano, nord Corsica, Liguria).
+  // Build engine context if available
+  var engineContext = '';
+  if (engineResults && Object.keys(engineResults).length > 0) {
+    var ezLines = [];
+    for (var ezk in engineResults) {
+      var ez = engineResults[ezk];
+      if (ez && ez.diagnosis && !ez.error) {
+        var ezLine = 'Zona ' + ez.name + ': CASO ' + ez.diagnosis.case.toUpperCase() + ' (' + ez.diagnosis.confidence + '%)';
+        if (ez.risk) ezLine += ' - Rischio ' + ez.risk.label;
+        var ezHigh = ez.alerts ? ez.alerts.filter(function(a){return a.severity==='high';}).map(function(a){return a.msg;}) : [];
+        if (ezHigh.length > 0) ezLine += ' - ALLERTE: ' + ezHigh.join('; ');
+        var ezAct = ez.local_effects ? Object.values(ez.local_effects).filter(function(e){return e.active;}).map(function(e){return e.desc;}) : [];
+        if (ezAct.length > 0) ezLine += ' - Effetti: ' + ezAct.join(', ');
+        if (ez.window) ezLine += ' - Finestra: ' + ez.window.status.toUpperCase() + ' - ' + ez.window.reason;
+        ezLines.push(ezLine);
+      }
+    }
+    if (ezLines.length > 0) {
+      engineContext = 'DIAGNOSI MOTORE ENGINE (priorita massima - calcolo numerico):\n' + ezLines.join('\n') + '\n';
+    }
+  }
 
-═══ KNOWLEDGE BASE — NUVOLE WMO ═══
-SEQUENZE FRONTALI:
-- Ci → Cs → As → Ns = fronte caldo (peggioramento GRADUALE 12–48h; swell lungo arriva prima del vento)
-- Cu → Cb con incudine = fronte freddo/squall line (peggioramento BRUSCO; raffiche 40–50kn)
-- Sc + pressione in risalita = fine perturbazione
-- As al mattino = piogge diffuse nelle successive 6–24h
-- Ac castellanus al mattino = temporali pomeridiani probabili
+  var promptParts = [];
+  promptParts.push('Sei un esperto meteorologo marino e skipper con 30 anni di esperienza nel Mar Tirreno settentrionale.');
+  promptParts.push('');
+  promptParts.push('KNOWLEDGE BASE - ROTAZIONI DEL VENTO:');
+  promptParts.push('CASO A - Rotazione ORARIA S->N: fronte freddo. PERICOLOSO.');
+  promptParts.push('CASO B - Rotazione ORARIA N->S: fronte caldo. Deterioramento graduale.');
+  promptParts.push('CASO C - Rotazione ANTIORARIA S->N: ciclogenesi. IMPREVEDIBILE.');
+  promptParts.push('CASO D - Rotazione ANTIORARIA N->S: miglioramento. Swell residuo.');
+  promptParts.push('');
+  promptParts.push('SOGLIE OPERATIVE:');
+  promptParts.push('Raffica >=28kn = ROSSO. Raffica >=22kn = ATTENZIONE. Vento >=22kn = ATTENZIONE. Onda >=2.0m = ROSSO. Calo pressione >=4hPa/3h = fronte imminente.');
+  promptParts.push('');
+  if (engineContext) {
+    promptParts.push(engineContext);
+    promptParts.push('Il motore Engine ha gia calcolato la diagnosi numerica sopra. Usala come base e arricchiscila con i dati osservativi.');
+    promptParts.push('');
+  }
+  promptParts.push('POSIZIONE: ' + state.locationName + ' (' + (state.lat ? state.lat.toFixed(3) : '--') + 'N, ' + (state.lon ? state.lon.toFixed(3) : '--') + 'E)');
+  promptParts.push('ORA: ' + new Date().toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'}));
+  promptParts.push('ORIZZONTE: ' + state.horizon + ' ore');
+  promptParts.push('');
+  promptParts.push('DATI METEO:');
+  promptParts.push(JSON.stringify(hours));
+  promptParts.push('');
+  promptParts.push('DATI MARE (Stormglass):');
+  promptParts.push(sgSummary);
+  promptParts.push('');
+  promptParts.push('OSSERVAZIONI BORDO - Nuvole: ' + nuvoleSel);
+  promptParts.push(JSON.stringify(obs));
+  promptParts.push('');
+  promptParts.push('Briefing strutturato:');
+  promptParts.push('RISCHIO: [BASSO / MEDIO / ALTO]');
+  promptParts.push('PATTERN: scenario sinottico identificato');
+  promptParts.push('CONDIZIONI: sintesi attuale 2 righe');
+  promptParts.push('EVOLUZIONE: cosa cambia nelle prossime ' + state.horizon + ' ore');
+  promptParts.push('VENTI LOCALI: effetti isole/canali');
+  promptParts.push('MARE: swell, correnti, mare incrociato');
+  promptParts.push('CONSIGLIO OPERATIVO: vai / aspetta / rientra con orario e motivazione');
+  promptParts.push('Max 220 parole. Diretto e operativo.');
+  const prompt = promptParts.join('\n');
 
-OSSERVABILI STRUMENTALI PER TIPO DI NUBE:
-- Ci: barometro stabile o lieve discesa; radar: nessun eco
-- Cs: pressione in calo già in atto; alone solare
-- As: calo continuo o accelerato; echi deboli radar
-- Ns: calo costante; umidità 100%; vento moderato da SE/S
-- Cb: caduta improvvisa 3–5 hPa in minuti; eco radar >40dBZ; raffiche 40–50kn
-
-═══ KNOWLEDGE BASE — ROTAZIONI DEL VENTO (Cap.11) ═══
-LE 6 LEVE DIAGNOSTICHE (incrociare sempre):
-1. Barometro: calo rapido >2hPa/h = fronte freddo; calo lento = fronte caldo; rialzo = rimonta
-2. Nuvole: Cu→Cb = fronte freddo (BRUSCO); Ci→As→Ns = fronte caldo (GRADUALE); dissoluzione da N/W = miglioramento
-3. Vento: aumento brusco + veering rapido = fronte freddo; rinforzo lento morbido = fronte caldo
-4. Mare: swell lungo PRIMA del vento = fronte caldo a distanza; onde corte + corrente contraria = passaggio frontale
-5. Massa d'aria: aria fredda/secca post-scatto = post-fronte freddo; aria calda/umida + nebbie = fronte caldo
-6. Geografia: Venturi nei canali, risacca su imboccature, costa toscana (Capraia, Elba, Piombino)
-
-I 4 CASI OPERATIVI:
-CASO A — Rotazione ORARIA S→N (fronte freddo): veering S→SW→W→NW→N; barometro cade poi rimbalza; cross-sea + swell; effetto Venturi nei canali. PERICOLOSO. Segnali 1–3h prima.
-CASO B — Rotazione ORARIA N→S (fronte caldo): veering N→NE→E→SE→S lento; barometro calo lento 12–24h; swell lungo ORE PRIMA del vento; nebbia da avvezione. Deterioramento 12–36h.
-CASO C — Rotazione ANTIORARIA S→N (ciclogenesi): backing S→SE→E→NE→N; barometro caduta continua >3–4hPa/3h; mare confuso multi-direzionale. Peggioramento prolungato e irregolare.
-CASO D — Rotazione ANTIORARIA N→S (miglioramento): backing N→NW→W→SW→S; barometro in rialzo; swell residuo 24–72h; seiche in porti esposti.
-
-REGOLA S→N/N→S:
-- S→W→N (via Ovest) = IL CASO PIÙ CRITICO: linea di groppo, raffiche, rotazione rapida. Post-fronte: aria fredda + MARE ANCORA FORMATO = finestra più pericolosa.
-- N→E→S (rimonta) = miglioramento reale ma swell residuo.
-- ECCEZIONE: N→S non sempre = miglioramento (se fronte caldo in avvicinamento → peggioramento graduale).
-
-SOGLIE OPERATIVE:
-- Calo >2hPa/h → 70–90% prob. peggioramento entro 1–3h
-- Calo >4hPa/3h → 85–95% prob. fronte in arrivo
-- Virata >30° in <30min + raffiche >30% → frontogenesi/squall
-- Swell lungo da direzione diversa dal vento → cambio vento imminente
-- Cb con anvil + eco >40dBZ → temporale >60% entro 0–2h
-
-SEGNALI FORTI (alta confidenza): calo barico rapido + shelf cloud + virata con raffiche; eco >40dBZ + Cb anvil; swell da nuova direzione + vento che ruota; sequenza Ci→Cs→As→Ns con calo costante.
-SEGNALI DEBOLI (bassa confidenza): velature + lieve calo; Ac isolati senza calo; leggera variazione vento senza barometro.
-
-POSIZIONE: ${state.locationName} (${state.lat?.toFixed(3)}°N, ${state.lon?.toFixed(3)}°E)
-ORA: ${new Date().toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}
-ORIZZONTE: ${state.horizon} ore
-
-DATI OPEN-METEO (previsione):
-${JSON.stringify(hours, null, 2)}
-
-DATI STORMGLASS (mare reale):
-${sgSummary}
-
-OSSERVAZIONI VISIVE DI BORDO:
-Nuvole osservate: ${nuvoleSel}
-${JSON.stringify(obs, null, 2)}
-
-Incrocia tendenza barometrica + nuvole osservate + dati previsionali per identificare il pattern sinottico.
-
-Briefing strutturato:
-RISCHIO: [BASSO / MEDIO / ALTO]
-PATTERN: sequenza nuvolosa identificata e relativo scenario sinottico
-CONDIZIONI: sintesi attuale in 2 righe
-EVOLUZIONE: cosa cambia nelle prossime ${state.horizon} ore con tempistica precisa
-VENTI LOCALI: Libeccio, Maestrale, Tramontana, Grecale, effetti isole/canali
-MARE: swell, correnti, rischio mare incrociato
-CONSIGLIO OPERATIVO: vai / aspetta / rientra — con orario e motivazione
-
-Max 220 parole. Sii diretto e operativo — il navigatore deve decidere.`;
-
-  try {
+    try {
     // Chiave letta dal Worker Cloudflare — nessuna chiave nel codice pubblico
     const res = await fetch('https://nautilus-red.vercel.app/api/briefing', {
       method: 'POST',

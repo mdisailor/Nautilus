@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v4.5.0 — 2026-03-20 -->
+<!-- NAUTILUS v4.5.1 — 2026-03-20 -->
 
 <html lang="it">
 <head>
@@ -391,6 +391,33 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 .history-rotation.backing { background:rgba(100,100,255,0.08); border:1px solid rgba(100,100,255,0.3); color:#aaaaff; }
 .history-rotation.stable { background:rgba(34,221,136,0.08); border:1px solid rgba(34,221,136,0.3); color:var(--safe); }
 .history-rotation.insufficient_data { background:rgba(58,96,128,0.08); border:1px solid rgba(58,96,128,0.3); color:var(--muted); }
+.engine-summary { margin:12px 20px 0; display:flex; flex-direction:column; gap:6px; }
+.summary-card { display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--card); border:1px solid var(--border); border-radius:12px; cursor:pointer; transition:all 0.2s; }
+.summary-card:active { opacity:0.8; }
+.summary-card.danger { border-color:rgba(255,68,68,0.5); background:rgba(255,68,68,0.05); }
+.summary-card.warn { border-color:rgba(255,170,0,0.4); background:rgba(255,170,0,0.04); }
+.summary-card.safe { border-color:rgba(34,221,136,0.3); background:rgba(34,221,136,0.03); }
+.summary-dot { width:12px; height:12px; min-width:12px; border-radius:50%; flex-shrink:0; }
+.summary-dot.danger { background:var(--danger); box-shadow:0 0 8px var(--danger); }
+.summary-dot.warn { background:var(--warn); box-shadow:0 0 6px var(--warn); }
+.summary-dot.safe { background:var(--safe); box-shadow:0 0 6px var(--safe); }
+.summary-main { flex:1; min-width:0; }
+.summary-name { font-family:DM Mono,monospace; font-size:0.62rem; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.summary-desc { font-size:0.58rem; color:var(--muted); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.summary-data { display:flex; flex-direction:column; align-items:flex-end; gap:1px; flex-shrink:0; }
+.summary-wind { font-family:Bebas Neue,sans-serif; font-size:1.2rem; line-height:1; }
+.summary-wind.danger { color:var(--danger); }
+.summary-wind.warn { color:var(--warn); }
+.summary-wind.safe { color:var(--safe); }
+.summary-wave { font-family:DM Mono,monospace; font-size:0.5rem; color:var(--muted); }
+.summary-window { font-family:DM Mono,monospace; font-size:0.48rem; padding:2px 6px; border-radius:4px; margin-top:2px; }
+.summary-window.open { background:rgba(34,221,136,0.15); color:var(--safe); }
+.summary-window.closing { background:rgba(255,170,0,0.15); color:var(--warn); }
+.summary-window.closed { background:rgba(255,68,68,0.15); color:var(--danger); }
+.summary-window.opening { background:rgba(255,170,0,0.15); color:var(--warn); }
+.summary-window.limited { background:rgba(240,180,41,0.15); color:var(--gold); }
+.summary-chevron { font-size:0.7rem; color:var(--muted); flex-shrink:0; }
+.summary-divider { margin:4px 20px 0; border:none; border-top:1px solid var(--border); }
 .btn-history { padding:5px 12px; background:transparent; border:1px solid var(--muted); border-radius:8px; color:var(--muted); font-family:DM Mono,monospace; font-size:0.55rem; cursor:pointer; margin-top:8px; }
 .btn-history:hover { border-color:var(--accent); color:var(--accent); }
 .engine-briefing { margin-top:10px; padding:12px; background:var(--surface); border:1px solid var(--border); border-radius:10px; font-size:0.68rem; color:var(--text); line-height:1.7; white-space:pre-line; }
@@ -420,7 +447,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.5.0 · by mdisailor engine</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.5.1 · by mdisailor engine</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1352,6 +1379,8 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <span class="engine-updated" id="engine-updated">Non aggiornato</span>
 </div>
 
+<div id="engine-summary" style="display:none"></div>
+<hr class="summary-divider" id="summary-divider" style="display:none">
 <div id="engine-content">
   <div class="engine-empty">Premi AVVIA ANALISI per calcolare<br>diagnosi sinottica e previsioni operative</div>
 </div>
@@ -2361,7 +2390,7 @@ function renderZone(z) {
     statsHtml += '</table>';
   }
 
-  return '<div class="zone-card">' +
+  return '<div class="zone-card" id="zone-detail-' + z.zone + '">' +
     '<div class="zone-card-header">' +
       '<div class="zone-card-title">📍 ' + z.name + '</div>' +
       '<div class="zone-card-updated">' + new Date(z.updated).toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'}) + '</div>' +
@@ -2423,16 +2452,68 @@ async function runEngine() {
 
 function renderEngineResults() {
   const cont = document.getElementById('engine-content');
-  let html = '';
+  const sumEl = document.getElementById('engine-summary');
+  const divEl = document.getElementById('summary-divider');
+
+  let summaryHtml = '';
+  let detailHtml = '';
+
   for (const zk of Object.keys(engineResults)) {
     const z = engineResults[zk];
     if (z.error) {
-      html += '<div class="zone-card"><div class="zone-body"><p style="color:var(--danger);font-size:0.7rem">Errore ' + zk + ': ' + z.error + '</p></div></div>';
+      detailHtml += '<div class="zone-card"><div class="zone-body"><p style="color:var(--danger);font-size:0.7rem">Errore ' + zk + ': ' + z.error + '</p></div></div>';
       continue;
     }
-    html += renderZone(z);
+    summaryHtml += renderZoneSummary(z);
+    detailHtml += renderZone(z);
   }
-  cont.innerHTML = html || '<div class="engine-empty">Nessun dato disponibile</div>';
+
+  // Show summary
+  sumEl.innerHTML = '<div class="engine-summary">' + summaryHtml + '</div>';
+  sumEl.style.display = summaryHtml ? 'block' : 'none';
+  divEl.style.display = summaryHtml ? 'block' : 'none';
+
+  cont.innerHTML = detailHtml || '<div class="engine-empty">Nessun dato disponibile</div>';
+}
+
+function renderZoneSummary(z) {
+  const d = z.diagnosis;
+  const win = z.window;
+  const wind = z.raw ? z.raw.wind_speed : 0;
+  const wave = z.raw ? z.raw.wave_height : 0;
+  const gust = z.raw ? z.raw.wind_gust : 0;
+
+  // Severity color
+  const hasHighAlert = z.alerts && z.alerts.some(function(a) { return a.severity === 'high'; });
+  const hasMedAlert = z.alerts && z.alerts.some(function(a) { return a.severity === 'medium'; });
+  const severity = hasHighAlert ? 'danger' : hasMedAlert ? 'warn' : 'safe';
+
+  // Wind description
+  const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+  const dirName = z.raw && z.raw.wind_dir !== undefined ? dirs[Math.round(z.raw.wind_dir / 22.5) % 16] : '';
+  const windDesc = Math.round(wind) + 'kn da ' + dirName + (gust > wind * 1.2 ? ' (raffica ' + Math.round(gust) + 'kn)' : '');
+  const waveDesc = wave > 0.1 ? 'Onda ' + wave.toFixed(1) + 'm' : 'Mare calmo';
+  const caseLabel = 'Caso ' + d.case.toUpperCase() + ' ' + d.confidence + '%';
+  const winLabel = (win.status || 'unknown').toUpperCase();
+
+  return '<div class="summary-card ' + severity + '" onclick="scrollToZone(this.dataset.zone)" data-zone="' + z.zone + '">' +
+    '<div class="summary-dot ' + severity + '"></div>' +
+    '<div class="summary-main">' +
+      '<div class="summary-name">' + z.name + '</div>' +
+      '<div class="summary-desc">' + caseLabel + ' - ' + waveDesc + '</div>' +
+    '</div>' +
+    '<div class="summary-data">' +
+      '<div class="summary-wind ' + severity + '">' + Math.round(wind) + '<span style="font-family:DM Mono,monospace;font-size:0.5rem">kn</span></div>' +
+      '<div class="summary-wave">' + windDesc.split(' ').slice(2).join(' ') + '</div>' +
+      '<div class="summary-window ' + (win.status || 'limited') + '">' + winLabel + '</div>' +
+    '</div>' +
+    '<div class="summary-chevron">›</div>' +
+  '</div>';
+}
+
+function scrollToZone(zoneKey) {
+  var el = document.getElementById('zone-detail-' + zoneKey);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // -- HISTORY -----------------------------------------------------------------

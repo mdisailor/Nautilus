@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.5.2 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.6.0 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -517,11 +517,20 @@ var alerts = [];
 if (pressure_trend_3h <= -4.0) alerts.push({ type: 'pressure_critical', severity: 'high', msg: '[ROSSO] Calo pressione ' + sf(pressure_trend_3h,1) + ' hPa/3h - fronte IMMINENTE entro 3-6h' });
 else if (pressure_trend_3h <= -2.0) alerts.push({ type: 'pressure_drop', severity: 'medium', msg: '[ATTENZIONE] Calo pressione ' + sf(pressure_trend_3h,1) + ' hPa/3h - peggioramento entro 6-12h' });
 
-if (wind_speed >= 28) alerts.push({ type: 'wind_high', severity: 'high', msg: '[ROSSO] Vento ' + sf(wind_speed,0) + 'kn - Forza 7+. Navigazione sconsigliata' });
-else if (wind_speed >= 20) alerts.push({ type: 'wind_medium', severity: 'medium', msg: '[ATTENZIONE] Vento ' + sf(wind_speed,0) + 'kn - Forza 5-6. Cautela per piccole imbarcazioni' });
+var wind_gust = sn(data.wind_gust);
+// Raffiche - threshold indipendente dal vento medio
+if (wind_gust >= 35) alerts.push({ type: 'gust_critical', severity: 'high', msg: '[ROSSO] Raffiche ' + sf(wind_gust,0) + 'kn - Forza 8+. Pericolo immediato' });
+else if (wind_gust >= 28) alerts.push({ type: 'gust_high', severity: 'high', msg: '[ROSSO] Raffiche ' + sf(wind_gust,0) + 'kn - Forza 7. Navigazione sconsigliata' });
+else if (wind_gust >= 22) alerts.push({ type: 'gust_medium', severity: 'medium', msg: '[ATTENZIONE] Raffiche ' + sf(wind_gust,0) + 'kn - Rischio sbandamento improvviso' });
+// Vento medio
+if (wind_speed >= 28) alerts.push({ type: 'wind_high', severity: 'high', msg: '[ROSSO] Vento medio ' + sf(wind_speed,0) + 'kn - Forza 7+. Navigazione sconsigliata' });
+else if (wind_speed >= 22) alerts.push({ type: 'wind_medium', severity: 'medium', msg: '[ATTENZIONE] Vento medio ' + sf(wind_speed,0) + 'kn - Forza 6. Cautela' });
+else if (wind_speed >= 17) alerts.push({ type: 'wind_low', severity: 'low', msg: '[INFO] Vento medio ' + sf(wind_speed,0) + 'kn - Forza 5. Condizioni impegnative per piccole imbarcazioni' });
 
-if (wave_height >= 2.5) alerts.push({ type: 'wave_high', severity: 'high', msg: '[ROSSO] Altezza onda ' + sf(wave_height,1) + 'm - Mare agitato' });
-else if (wave_height >= 1.5) alerts.push({ type: 'wave_medium', severity: 'medium', msg: '[ATTENZIONE] Altezza onda ' + sf(wave_height,1) + 'm - Mare mosso' });
+if (wave_height >= 3.0) alerts.push({ type: 'wave_critical', severity: 'high', msg: '[ROSSO] Onda ' + sf(wave_height,1) + 'm - Mare molto agitato. Navigazione pericolosa' });
+else if (wave_height >= 2.0) alerts.push({ type: 'wave_high', severity: 'high', msg: '[ROSSO] Onda ' + sf(wave_height,1) + 'm - Mare agitato. Sconsigliato per imbarcazioni sotto 10m' });
+else if (wave_height >= 1.2) alerts.push({ type: 'wave_medium', severity: 'medium', msg: '[ATTENZIONE] Onda ' + sf(wave_height,1) + 'm - Mare mosso' });
+else if (wave_height >= 0.8) alerts.push({ type: 'wave_low', severity: 'low', msg: '[INFO] Onda ' + sf(wave_height,1) + 'm - Mare poco mosso' });
 
 if (swell_period >= 10 && swell_height >= 0.8) alerts.push({ type: 'early_swell', severity: 'medium', msg: '[ATTENZIONE] Swell lungo ' + sf(swell_period,0) + 's - sistema perturbato in avvicinamento' });
 
@@ -545,6 +554,57 @@ if (diagnosis.case === 'C') alerts.push({ type: 'cyclogenesis', severity: 'high'
 var order = { high: 0, medium: 1, low: 2 };
 alerts.sort(function(a, b) { return order[a.severity] - order[b.severity]; });
 return alerts;
+}
+
+//- RISCHIO COMPLESSIVO -
+
+function calcOverallRisk(data, alerts, localEffects) {
+var wind_speed = sn(data.wind_speed);
+var wind_gust = sn(data.wind_gust);
+var wave_height = sn(data.wave_height);
+var pressure_trend_3h = sn(data.pressure_trend_3h);
+
+// Start from alerts
+var hasHigh = alerts.some(function(a) { return a.severity === 'high'; });
+var hasMedium = alerts.some(function(a) { return a.severity === 'medium'; });
+
+var level = hasHigh ? 3 : hasMedium ? 2 : 1;
+var reasons = [];
+
+// Hard thresholds that ALWAYS override - raffiche prima di tutto
+if (wind_gust >= 28) { level = Math.max(level, 3); reasons.push('raffiche ' + Math.round(wind_gust) + 'kn'); }
+else if (wind_gust >= 22) { level = Math.max(level, 2); reasons.push('raffiche ' + Math.round(wind_gust) + 'kn'); }
+
+if (wind_speed >= 22) { level = Math.max(level, 3); reasons.push('vento ' + Math.round(wind_speed) + 'kn'); }
+else if (wind_speed >= 17) { level = Math.max(level, 2); reasons.push('vento ' + Math.round(wind_speed) + 'kn'); }
+
+if (wave_height >= 2.0) { level = Math.max(level, 3); reasons.push('onda ' + wave_height.toFixed(1) + 'm'); }
+else if (wave_height >= 1.2) { level = Math.max(level, 2); reasons.push('onda ' + wave_height.toFixed(1) + 'm'); }
+
+if (pressure_trend_3h <= -4.0) { level = Math.max(level, 3); reasons.push('calo pressione rapido'); }
+else if (pressure_trend_3h <= -2.0) { level = Math.max(level, 2); reasons.push('calo pressione'); }
+
+// Active local effects with amplification
+for (var key in localEffects) {
+var ef = localEffects[key];
+if (ef.active && ef.amplified_speed) {
+if (ef.amplified_speed >= 28) { level = Math.max(level, 3); reasons.push(ef.desc + ' ' + ef.amplified_speed + 'kn stimati'); }
+else if (ef.amplified_speed >= 22) { level = Math.max(level, 2); reasons.push(ef.desc); }
+}
+}
+
+var labels = { 1: 'BASSO', 2: 'MEDIO', 3: 'ALTO' };
+var colors = { 1: 'safe', 2: 'warn', 3: 'danger' };
+
+return {
+level: level,
+label: labels[level],
+color: colors[level],
+reasons: reasons,
+summary: level === 1 ? 'Condizioni nella norma' :
+level === 2 ? 'Cautela: ' + reasons.join(', ') :
+'PERICOLO: ' + reasons.join(', ')
+};
 }
 
 //- AFFIDABILITA -
@@ -1002,12 +1062,15 @@ try {
 if (kvUrl && kvToken && useHistory) stats = await getZoneStats(zoneKey, kvUrl, kvToken);
 } catch(e) {}
 
+var overallRisk = calcOverallRisk(currentData, alerts, localEffects);
+
 return {
 zone: zoneKey,
 name: zone.name,
 updated: new Date().toISOString(),
 raw: currentData,
 diagnosis: diagnosis,
+risk: overallRisk,
 reliability: reliability,
 reliability_note: buildReliabilityNote(hasStormglass, rotationAnalysis, bias),
 rotation_history: rotationAnalysis,

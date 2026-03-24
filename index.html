@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v4.6.3 — 2026-03-24 -->
+<!-- NAUTILUS v4.7.2 — 2026-03-24 -->
 
 <html lang="it">
 <head>
@@ -434,6 +434,26 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 .summary-window.limited { background:rgba(240,180,41,0.15); color:var(--gold); }
 .summary-chevron { font-size:0.7rem; color:var(--muted); flex-shrink:0; }
 .summary-divider { margin:4px 20px 0; border:none; border-top:1px solid var(--border); }
+.briefing-history-panel { position:fixed; bottom:0; left:0; right:0; max-height:75vh; background:var(--surface); border-top:2px solid var(--accent); border-radius:18px 18px 0 0; z-index:200; transform:translateY(100%); transition:transform 0.3s ease; overflow:hidden; display:flex; flex-direction:column; }
+.briefing-history-panel.open { transform:translateY(0); }
+.bhp-header { display:flex; align-items:center; justify-content:space-between; padding:14px 20px 10px; border-bottom:1px solid var(--border); flex-shrink:0; }
+.bhp-title { font-family:Bebas Neue,sans-serif; font-size:1.2rem; letter-spacing:0.1em; color:var(--white); }
+.bhp-close { padding:6px 14px; background:transparent; border:1px solid var(--muted); border-radius:8px; color:var(--muted); font-family:DM Mono,monospace; font-size:0.6rem; cursor:pointer; }
+.bhp-close:hover { border-color:var(--accent); color:var(--accent); }
+.bhp-list { overflow-y:auto; flex:1; padding:10px 0 20px; }
+.bhp-item { padding:10px 20px; border-bottom:1px solid rgba(58,96,128,0.2); cursor:pointer; }
+.bhp-item:hover { background:rgba(0,240,255,0.04); }
+.bhp-item-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }
+.bhp-item-time { font-family:DM Mono,monospace; font-size:0.55rem; color:var(--accent); }
+.bhp-item-zones { font-family:DM Mono,monospace; font-size:0.5rem; color:var(--muted); }
+.bhp-item-risk { font-family:DM Mono,monospace; font-size:0.55rem; padding:2px 8px; border-radius:4px; }
+.bhp-item-risk.danger { background:rgba(255,68,68,0.15); color:var(--danger); }
+.bhp-item-risk.warn { background:rgba(255,170,0,0.15); color:var(--warn); }
+.bhp-item-risk.safe { background:rgba(34,221,136,0.15); color:var(--safe); }
+.bhp-item-preview { font-size:0.62rem; color:var(--muted); line-height:1.4; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.bhp-item-body { font-size:0.65rem; color:var(--text); line-height:1.7; margin-top:8px; white-space:pre-line; display:none; }
+.bhp-empty { padding:30px 20px; text-align:center; font-family:DM Mono,monospace; font-size:0.62rem; color:var(--muted); }
+.bhp-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:199; display:none; }
 .btn-history { padding:5px 12px; background:transparent; border:1px solid var(--muted); border-radius:8px; color:var(--muted); font-family:DM Mono,monospace; font-size:0.55rem; cursor:pointer; margin-top:8px; }
 .btn-history:hover { border-color:var(--accent); color:var(--accent); }
 .engine-briefing { margin-top:10px; padding:12px; background:var(--surface); border:1px solid var(--border); border-radius:10px; font-size:0.68rem; color:var(--text); line-height:1.7; white-space:pre-line; }
@@ -463,7 +483,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.6.3 · by mdisailor engine</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.7.2 · by mdisailor engine</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1407,7 +1427,9 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 <div id="engine-briefing-section" style="display:none;margin:12px 20px 0">
   <div style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;opacity:0.8;margin-bottom:8px">Briefing AI</div>
   <div id="engine-briefing-hint" style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--muted);margin-bottom:6px;display:none">Avvia prima l analisi Engine per abilitare il briefing</div>
-  <button id="btn-engine-briefing" onclick="requestEngineBriefing()" style="width:100%;padding:11px;background:rgba(0,240,255,0.08);border:1px solid rgba(0,240,255,0.3);border-radius:10px;color:var(--accent);font-family:DM Mono,monospace;font-size:0.65rem;letter-spacing:0.08em;cursor:pointer;margin-bottom:8px" disabled>Genera Briefing</button>
+  <button id="btn-engine-briefing" onclick="requestEngineBriefing()" style="flex:1;padding:11px;background:rgba(0,240,255,0.08);border:1px solid rgba(0,240,255,0.3);border-radius:10px;color:var(--accent);font-family:DM Mono,monospace;font-size:0.65rem;letter-spacing:0.08em;cursor:pointer" disabled>Genera Briefing</button>
+    <button onclick="openBriefingHistory()" style="padding:11px 14px;background:rgba(58,96,128,0.15);border:1px solid var(--border);border-radius:10px;color:var(--muted);font-family:DM Mono,monospace;font-size:0.65rem;cursor:pointer" title="Storico briefing">📋</button>
+  </div>
   <div id="engine-briefing-text" style="font-size:0.68rem;color:var(--text);line-height:1.7;padding:12px;background:var(--card);border:1px solid var(--border);border-radius:10px;white-space:pre-line;display:none"></div>
   <div id="engine-briefing-history" style="margin-top:10px"></div>
 </div>
@@ -1437,6 +1459,7 @@ const state = {
   horizon: 3,
   weatherData: null,
   stormglassData: null,
+  stormglassTs: null,
   selectedClouds: [],
 };
 
@@ -1518,7 +1541,19 @@ async function fetchWeather() {
 // ── STORMGLASS (via Cloudflare Worker proxy) ─────────────────
 const STORMGLASS_PROXY = 'https://nautilus-red.vercel.app/api';
 
-async function fetchStormglass() {
+async function fetchStormglass(force) {
+  // Cache: skip if data is fresh < 30 min (saves quota)
+  if (!force && state.stormglassData && state.stormglassTs) {
+    var ageMins = (Date.now() - state.stormglassTs) / 60000;
+    if (ageMins < 30) {
+      renderStormglass();
+      var cachedMin = Math.round(ageMins);
+      document.getElementById('src-stormglass').className = 'src-badge ok';
+      document.getElementById('src-stormglass').textContent = '✓ Stormglass (cache ' + cachedMin + 'min)';
+      return;
+    }
+  }
+
   document.getElementById('src-stormglass').className = 'src-badge loading';
   document.getElementById('src-stormglass').textContent = '⟳ Stormglass';
   document.getElementById('stat-sg').textContent = 'SG...';
@@ -1530,6 +1565,7 @@ async function fetchStormglass() {
     const data = await r.json();
     if (data.error) throw new Error(data.error);
     state.stormglassData = data;
+    state.stormglassTs = Date.now();
     document.getElementById('src-stormglass').className = 'src-badge ok';
     document.getElementById('src-stormglass').textContent = '✓ Stormglass';
     document.getElementById('dot-sg').classList.add('ok');
@@ -1541,6 +1577,40 @@ async function fetchStormglass() {
     document.getElementById('src-stormglass').textContent = '✗ Stormglass';
     document.getElementById('dot-sg').classList.add('err');
     document.getElementById('stat-sg').textContent = 'SG ERR';
+    // Show error in Mare tab with quota info
+    var marineGrid = document.getElementById('marine-grid');
+    if (marineGrid) {
+      marineGrid.innerHTML = '<div style="grid-column:1/-1;padding:16px;font-family:DM Mono,monospace;font-size:0.62rem;color:var(--warn);line-height:1.7">' +
+        '⚠ Stormglass non disponibile<br>' +
+        '<span style="color:var(--muted)">Possibile causa: limite 10 req/giorno raggiunto.<br>' +
+        'I dati mare tornano disponibili alla mezzanotte UTC.<br>' +
+        'Errore: ' + (err.message || err) + '</span>' +
+        '</div>';
+    }
+    // Try to show Open-Meteo wave data as fallback
+    renderMareFallback();
+  }
+}
+
+function renderMareFallback() {
+  if (!state.weatherData || !state.weatherData.hourly) return;
+  var idx = getCurrentIdx();
+  var h = state.weatherData.hourly;
+  var waveH = h.wave_height && h.wave_height[idx];
+  var waveP = h.wave_period && h.wave_period[idx];
+  var waveD = h.wave_direction && h.wave_direction[idx];
+  if (!waveH) return;
+  var fallbackEl = document.getElementById('sg-update');
+  if (fallbackEl) fallbackEl.textContent = 'Fallback Open-Meteo';
+  var set = function(id, val, suffix) {
+    var el = document.getElementById(id);
+    if (el && val !== null && val !== undefined) el.textContent = parseFloat(val).toFixed(1) + (suffix || '');
+  };
+  set('sg-waveheight', waveH, 'm');
+  set('sg-waveperiod', waveP, 's');
+  if (waveD !== null && waveD !== undefined) {
+    var el = document.getElementById('sg-wavedir');
+    if (el) el.textContent = degToDir(waveD);
   }
 }
 
@@ -2725,6 +2795,7 @@ async function requestEngineBriefing() {
   promptParts.push('');
   promptParts.push('CASI OPERATIVI: A=fronte freddo PERICOLOSO, B=fronte caldo graduale, C=ciclogenesi IMPREVEDIBILE, D=miglioramento.');
   promptParts.push('SOGLIE: Raffica >=28kn=ROSSO, >=22kn=ATTENZIONE. Vento >=22kn=ATTENZIONE. Onda >=2m=ROSSO, >=1.2m=ATTENZIONE.');
+  promptParts.push('REGOLA VALORI: cita SEMPRE il valore numerico attuale e la soglia. Es: "vento 18kn (soglia ATTENZIONE 22kn)" non solo "entro soglia". Es: "onda 0.8m (soglia ROSSO 2.0m)". Mai usare "entro soglia" o "sotto limite" senza specificare entrambi i valori.');
   promptParts.push('');
   if (prevContext) { promptParts.push(prevContext); }
   promptParts.push('DIAGNOSI MOTORE (ora ' + new Date().toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'}) + '):');
@@ -2827,14 +2898,27 @@ async function analyzeCloudPhoto(input) {
   var reader = new FileReader();
 
   reader.onload = async function(e) {
-    img.src = e.target.result;
-    preview.style.display = 'block';
-    resultEl.style.display = 'block';
-    resultEl.innerHTML = '<div style="font-family:DM Mono,monospace;font-size:0.6rem;color:var(--muted)"><div class="loading" style="display:inline-flex;margin-right:6px"><div class="spinner"></div></div>Analisi nuvole in corso...</div>';
+    // Convert to JPEG canvas to handle HEIC and normalize format
+    var imgEl = new Image();
+    imgEl.onload = async function() {
+      var canvas = document.createElement('canvas');
+      var maxSize = 1024;
+      var w = imgEl.width, h = imgEl.height;
+      if (w > maxSize || h > maxSize) {
+        if (w > h) { h = Math.round(h * maxSize / w); w = maxSize; }
+        else { w = Math.round(w * maxSize / h); h = maxSize; }
+      }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(imgEl, 0, 0, w, h);
+      var jpegData = canvas.toDataURL('image/jpeg', 0.85);
 
-    // Extract base64
-    var base64 = e.target.result.split(',')[1];
-    var mediaType = file.type || 'image/jpeg';
+      img.src = jpegData;
+      preview.style.display = 'block';
+      resultEl.style.display = 'block';
+      resultEl.innerHTML = '<div style="font-family:DM Mono,monospace;font-size:0.6rem;color:var(--muted)"><div class="loading" style="display:inline-flex;margin-right:6px"><div class="spinner"></div></div>Analisi nuvole in corso...</div>';
+
+      var base64 = jpegData.split(',')[1];
+      var mediaType = 'image/jpeg';
 
     try {
       var res = await fetch('https://nautilus-red.vercel.app/api/vision', {
@@ -2855,7 +2939,8 @@ async function analyzeCloudPhoto(input) {
     } catch(err) {
       resultEl.innerHTML = '<div style="font-size:0.65rem;color:var(--danger)">Errore: ' + err.message + '</div>';
     }
-  };
+    };  // end imgEl.onload
+  };   // end reader.onload
   reader.readAsDataURL(file);
 }
 
@@ -2933,8 +3018,75 @@ function applyCameraResult() {
   }
 }
 
+// -- BRIEFING HISTORY PANEL -------------------------------------------------
+
+function openBriefingHistory() {
+  renderBriefingHistoryPanel();
+  document.getElementById('briefing-history-panel').classList.add('open');
+  document.getElementById('bhp-overlay').style.display = 'block';
+}
+
+function closeBriefingHistory() {
+  document.getElementById('briefing-history-panel').classList.remove('open');
+  document.getElementById('bhp-overlay').style.display = 'none';
+}
+
+function renderBriefingHistoryPanel() {
+  var list = document.getElementById('bhp-list');
+  if (!briefingHistory || briefingHistory.length === 0) {
+    list.innerHTML = '<div class="bhp-empty">Nessun briefing ancora generato</div>';
+    return;
+  }
+  var html = '';
+  // Show most recent first
+  var sorted = briefingHistory.slice().reverse();
+  sorted.forEach(function(b, idx) {
+    var riskClass = 'safe', riskLabel = 'BASSO';
+    if (/RISCHIO:\s*ALTO/i.test(b.text)) { riskClass = 'danger'; riskLabel = 'ALTO'; }
+    else if (/RISCHIO:\s*MEDIO/i.test(b.text)) { riskClass = 'warn'; riskLabel = 'MEDIO'; }
+
+    // Extract first meaningful line as preview
+    var preview = b.text.replace(/<[^>]+>/g, '').split('\n').filter(function(l) { return l.trim().length > 10; })[0] || '';
+
+    var itemId = 'bhp-item-body-' + idx;
+    html += '<div class="bhp-item" onclick="toggleBhpItem(' + idx + ')">' +
+      '<div class="bhp-item-header">' +
+        '<div>' +
+          '<span class="bhp-item-time">' + b.date + ' ' + b.time + '</span>' +
+          ' &nbsp; <span class="bhp-item-zones">' + (b.zones || '—') + '</span>' +
+        '</div>' +
+        '<span class="bhp-item-risk ' + riskClass + '">Rischio ' + riskLabel + '</span>' +
+      '</div>' +
+      '<div class="bhp-item-preview" id="bhp-prev-' + idx + '">' + preview + '</div>' +
+      '<div class="bhp-item-body" id="' + itemId + '">' +
+        b.text.replace(/<[^>]+>/g, '').trim() +
+      '</div>' +
+    '</div>';
+  });
+  list.innerHTML = html;
+}
+
+function toggleBhpItem(idx) {
+  var body = document.getElementById('bhp-item-body-' + idx);
+  var prev = document.getElementById('bhp-prev-' + idx);
+  if (!body) return;
+  var isOpen = body.style.display === 'block';
+  body.style.display = isOpen ? 'none' : 'block';
+  if (prev) prev.style.display = isOpen ? 'block' : 'none';
+}
+
 // Fine codice
 </script>
 
+  <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>
+  <div class="briefing-history-panel" id="briefing-history-panel">
+    <div class="bhp-header">
+      <div class="bhp-title">Storico Briefing</div>
+      <button class="bhp-close" onclick="closeBriefingHistory()">Chiudi</button>
+    </div>
+    <div class="bhp-list" id="bhp-list">
+      <div class="bhp-empty">Nessun briefing ancora generato</div>
+    </div>
+  </div>
 </body>
 </html>

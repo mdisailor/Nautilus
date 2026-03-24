@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v4.7.2 — 2026-03-24 -->
+<!-- NAUTILUS v4.7.3 — 2026-03-24 -->
 
 <html lang="it">
 <head>
@@ -483,7 +483,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.7.2 · by mdisailor engine</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.7.3 · by mdisailor engine</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -560,8 +560,8 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 <div class="source-row">
   <span class="src-badge" id="src-openmeteo">⟳ Open-Meteo</span>
   <span class="src-badge" id="src-stormglass">⟳ Stormglass</span>
-  <div id="meteo-src-ts" class="src-ts" style="display:block;margin-top:6px;margin-left:0">In attesa di dati</div>
 </div>
+<div id="meteo-src-ts" class="src-ts" style="display:none;margin:4px 20px 0">In attesa di dati</div>
 
 <div class="metrics-row">
   <div class="metric-card">
@@ -1525,7 +1525,7 @@ async function fetchWeather() {
     var _ts = new Date().toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
     document.getElementById('src-openmeteo').textContent = '✓ Open-Meteo';
     var _tsEl = document.getElementById('meteo-src-ts');
-    if (_tsEl) _tsEl.textContent = 'Fonte: Open-Meteo best_match · Aggiornato ' + _ts;
+    if (_tsEl) { _tsEl.textContent = 'Fonte: Open-Meteo best_match · Aggiornato ' + _ts; _tsEl.style.display = 'block'; }
     document.getElementById('dot-meteo').classList.add('ok');
     document.getElementById('stat-meteo').textContent = 'METEO OK';
     renderWeather(); renderTimeline(); renderBaroHistory(); renderTempHistory();
@@ -1582,20 +1582,27 @@ async function fetchStormglass(force) {
     if (marineGrid) {
       marineGrid.innerHTML = '<div style="grid-column:1/-1;padding:16px;font-family:DM Mono,monospace;font-size:0.62rem;color:var(--warn);line-height:1.7">' +
         '⚠ Stormglass non disponibile<br>' +
-        '<span style="color:var(--muted)">Possibile causa: limite 10 req/giorno raggiunto.<br>' +
-        'I dati mare tornano disponibili alla mezzanotte UTC.<br>' +
+        '<span style="color:var(--muted)">Possibile causa: limite 10 req/giorno raggiunto (reset mezzanotte UTC).<br>' +
         'Errore: ' + (err.message || err) + '</span>' +
         '</div>';
     }
-    // Try to show Open-Meteo wave data as fallback
+    // Show fallback wave data from Open-Meteo in swell card
+    var swellCard = document.querySelector('.swell-card');
+    if (swellCard) {
+      var fallbackNote = document.createElement('div');
+      fallbackNote.style.cssText = 'padding:10px 12px;background:rgba(0,0,0,0.2);border-radius:8px;font-family:DM Mono,monospace;font-size:0.58rem;color:var(--muted);margin-top:8px';
+      fallbackNote.textContent = 'Stormglass non disponibile — dati onda da Open-Meteo:';
+      swellCard.appendChild(fallbackNote);
+    }
     renderMareFallback();
   }
 }
 
 function renderMareFallback() {
   if (!state.weatherData || !state.weatherData.hourly) return;
-  var idx = getCurrentIdx();
   var h = state.weatherData.hourly;
+  var idx = 0;
+  try { idx = getCurrentIdx(); } catch(e) { idx = 0; }
   var waveH = h.wave_height && h.wave_height[idx];
   var waveP = h.wave_period && h.wave_period[idx];
   var waveD = h.wave_direction && h.wave_direction[idx];
@@ -2898,27 +2905,19 @@ async function analyzeCloudPhoto(input) {
   var reader = new FileReader();
 
   reader.onload = async function(e) {
-    // Convert to JPEG canvas to handle HEIC and normalize format
-    var imgEl = new Image();
-    imgEl.onload = async function() {
-      var canvas = document.createElement('canvas');
-      var maxSize = 1024;
-      var w = imgEl.width, h = imgEl.height;
-      if (w > maxSize || h > maxSize) {
-        if (w > h) { h = Math.round(h * maxSize / w); w = maxSize; }
-        else { w = Math.round(w * maxSize / h); h = maxSize; }
-      }
-      canvas.width = w; canvas.height = h;
-      canvas.getContext('2d').drawImage(imgEl, 0, 0, w, h);
-      var jpegData = canvas.toDataURL('image/jpeg', 0.85);
+    // Show preview directly with raw data
+    img.src = e.target.result;
+    preview.style.display = 'block';
+    resultEl.style.display = 'block';
+    resultEl.innerHTML = '<div style="font-family:DM Mono,monospace;font-size:0.6rem;color:var(--muted)"><div class="loading" style="display:inline-flex;margin-right:6px"><div class="spinner"></div></div>Analisi nuvole in corso...</div>';
 
-      img.src = jpegData;
-      preview.style.display = 'block';
-      resultEl.style.display = 'block';
-      resultEl.innerHTML = '<div style="font-family:DM Mono,monospace;font-size:0.6rem;color:var(--muted)"><div class="loading" style="display:inline-flex;margin-right:6px"><div class="spinner"></div></div>Analisi nuvole in corso...</div>';
-
-      var base64 = jpegData.split(',')[1];
-      var mediaType = 'image/jpeg';
+    // Send raw base64 - let Claude Vision handle any format
+    var rawData = e.target.result;
+    var commaIdx = rawData.indexOf(',');
+    var base64 = commaIdx >= 0 ? rawData.slice(commaIdx + 1) : rawData;
+    // Normalize media type - default to jpeg
+    var mediaType = file.type && file.type.startsWith('image/') ? file.type : 'image/jpeg';
+    if (mediaType === 'image/heic' || mediaType === 'image/heif') mediaType = 'image/jpeg';
 
     try {
       var res = await fetch('https://nautilus-red.vercel.app/api/vision', {
@@ -2939,8 +2938,7 @@ async function analyzeCloudPhoto(input) {
     } catch(err) {
       resultEl.innerHTML = '<div style="font-size:0.65rem;color:var(--danger)">Errore: ' + err.message + '</div>';
     }
-    };  // end imgEl.onload
-  };   // end reader.onload
+  };
   reader.readAsDataURL(file);
 }
 

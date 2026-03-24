@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v4.5.3 — 2026-03-23 -->
+<!-- NAUTILUS v4.6.3 — 2026-03-24 -->
 
 <html lang="it">
 <head>
@@ -74,6 +74,9 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 .src-badge.ok { border-color: rgba(34,221,136,0.4); color: var(–safe); background: rgba(34,221,136,0.07); }
 .src-badge.err { border-color: rgba(255,68,68,0.4); color: var(–danger); background: rgba(255,68,68,0.07); }
 .src-badge.loading { border-color: rgba(0,240,255,0.3); color: var(–accent); background: rgba(0,240,255,0.05); animation: blink 1.5s infinite; }
+.src-ts { display:inline-block; margin-left:6px; padding:3px 8px; border-radius:6px; font-family:DM Mono,monospace; font-size:0.5rem; background:rgba(255,170,0,0.12); border:1px solid rgba(255,170,0,0.4); color:var(–gold); letter-spacing:0.06em; }
+.src-ts-engine { display:inline-block; margin-top:6px; padding:4px 10px; border-radius:8px; font-family:DM Mono,monospace; font-size:0.52rem; background:rgba(0,240,255,0.07); border:1px solid rgba(0,240,255,0.25); color:var(–accent); letter-spacing:0.06em; }
+.src-ts-warn { background:rgba(255,170,0,0.1); border-color:rgba(255,170,0,0.4); color:var(–gold); }
 
 /* METRICS */
 .metrics-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin: 12px 20px 0; }
@@ -171,6 +174,19 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 .obs-section { margin: 12px 20px 0; }
 .obs-title { font-family: ‘DM Mono’, monospace; font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: #9ac0d8; margin-bottom: 10px; }
 .obs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.camera-section { margin:12px 20px 0; }
+.camera-btn { width:100%; padding:12px; background:rgba(0,240,255,0.08); border:1px solid rgba(0,240,255,0.3); border-radius:12px; color:var(–accent); font-family:DM Mono,monospace; font-size:0.65rem; letter-spacing:0.08em; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; }
+.camera-btn:active { background:rgba(0,240,255,0.15); }
+.camera-preview { margin-top:10px; border-radius:10px; overflow:hidden; position:relative; display:none; }
+.camera-preview img { width:100%; border-radius:10px; }
+.camera-result { margin-top:10px; padding:12px; background:var(–card); border:1px solid var(–border); border-radius:10px; display:none; }
+.camera-result-clouds { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+.camera-cloud-badge { padding:4px 10px; border-radius:6px; font-family:DM Mono,monospace; font-size:0.6rem; background:rgba(0,240,255,0.1); border:1px solid rgba(0,240,255,0.3); color:var(–accent); }
+.camera-cloud-badge.primary { background:rgba(0,240,255,0.2); border-color:var(–accent); font-weight:600; }
+.camera-scenario { font-size:0.65rem; color:var(–text); margin-bottom:6px; }
+.camera-implication { font-size:0.65rem; color:var(–muted); line-height:1.5; }
+.camera-confidence { font-family:DM Mono,monospace; font-size:0.55rem; color:var(–muted); margin-top:6px; }
+.camera-apply-btn { margin-top:8px; padding:6px 14px; background:rgba(34,221,136,0.1); border:1px solid rgba(34,221,136,0.3); border-radius:8px; color:var(–safe); font-family:DM Mono,monospace; font-size:0.58rem; cursor:pointer; }
 .obs-card { background: var(–card); border: 1px solid var(–border); border-radius: 12px; padding: 12px; cursor: pointer; transition: all 0.2s; position: relative; }
 .obs-card.selected { border-color: var(–accent); background: rgba(0,240,255,0.07); }
 .obs-card-icon { font-size: 1.5rem; margin-bottom: 5px; }
@@ -447,7 +463,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.5.3 · by mdisailor engine</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.6.3 · by mdisailor engine</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -524,6 +540,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 <div class="source-row">
   <span class="src-badge" id="src-openmeteo">⟳ Open-Meteo</span>
   <span class="src-badge" id="src-stormglass">⟳ Stormglass</span>
+  <div id="meteo-src-ts" class="src-ts" style="display:block;margin-top:6px;margin-left:0">In attesa di dati</div>
 </div>
 
 <div class="metrics-row">
@@ -651,21 +668,9 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
     <div class="loading"><div class="spinner"></div> Caricamento...</div>
   </div>
 </div>
-
-<div class="briefing-card">
-  <div class="briefing-header">
-    <div class="briefing-title">
-      <div class="ai-dot"></div>
-      <span class="briefing-label">Briefing AI Nautico</span>
-    </div>
-    <button id="btn-briefing" onclick="requestBriefing()">Genera Briefing</button>
-    <button id="btn-ping" onclick="testWorker()" style="padding:7px 10px;background:rgba(255,200,0,0.1);border:1px solid var(--gold);border-radius:8px;color:var(--gold);font-family:'DM Mono',monospace;font-size:0.55rem;cursor:pointer;margin-left:6px">🔧 Test</button>
-  </div>
-  <div id="briefing-text" style="color:var(--muted);font-size:0.72rem;font-family:'DM Mono',monospace;">
-    Carica dati e osservazioni, poi genera il briefing per un'analisi completa.
-  </div>
-</div>
 ```
+
+<!-- briefing moved to Engine tab -->
 
   </div><!-- /meteo -->
 
@@ -726,6 +731,20 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
     </div>
 
 ```
+<div class="camera-section">
+  <div style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;opacity:0.8;margin-bottom:8px">Riconoscimento automatico nuvole</div>
+  <button class="camera-btn" onclick="openCamera()">
+    <span style="font-size:1.2rem">📷</span>
+    <span>Fotografa il cielo</span>
+  </button>
+  <input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none" onchange="analyzeCloudPhoto(this)">
+  <div class="camera-preview" id="camera-preview">
+    <img id="camera-img" src="" alt="foto cielo">
+    <div style="position:absolute;top:8px;right:8px;padding:3px 8px;background:rgba(0,0,0,0.6);border-radius:6px;font-family:DM Mono,monospace;font-size:0.5rem;color:#fff" id="camera-analyzing" style="display:none">Analisi...</div>
+  </div>
+  <div class="camera-result" id="camera-result"></div>
+</div>
+
 <div class="obs-section">
   <div class="obs-title">☁️ Nuvole osservate (seleziona tutto quello che vedi)</div>
   <div class="obs-grid" id="cloud-selector">
@@ -1384,6 +1403,14 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 <div id="engine-content">
   <div class="engine-empty">Premi AVVIA ANALISI per calcolare<br>diagnosi sinottica e previsioni operative</div>
 </div>
+
+<div id="engine-briefing-section" style="display:none;margin:12px 20px 0">
+  <div style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;opacity:0.8;margin-bottom:8px">Briefing AI</div>
+  <div id="engine-briefing-hint" style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--muted);margin-bottom:6px;display:none">Avvia prima l analisi Engine per abilitare il briefing</div>
+  <button id="btn-engine-briefing" onclick="requestEngineBriefing()" style="width:100%;padding:11px;background:rgba(0,240,255,0.08);border:1px solid rgba(0,240,255,0.3);border-radius:10px;color:var(--accent);font-family:DM Mono,monospace;font-size:0.65rem;letter-spacing:0.08em;cursor:pointer;margin-bottom:8px" disabled>Genera Briefing</button>
+  <div id="engine-briefing-text" style="font-size:0.68rem;color:var(--text);line-height:1.7;padding:12px;background:var(--card);border:1px solid var(--border);border-radius:10px;white-space:pre-line;display:none"></div>
+  <div id="engine-briefing-history" style="margin-top:10px"></div>
+</div>
 ```
 
   </div><!-- /engine -->
@@ -1472,7 +1499,10 @@ async function fetchWeather() {
     const r = await fetch(url);
     state.weatherData = await r.json();
     document.getElementById('src-openmeteo').className = 'src-badge ok';
+    var _ts = new Date().toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
     document.getElementById('src-openmeteo').textContent = '✓ Open-Meteo';
+    var _tsEl = document.getElementById('meteo-src-ts');
+    if (_tsEl) _tsEl.textContent = 'Fonte: Open-Meteo best_match · Aggiornato ' + _ts;
     document.getElementById('dot-meteo').classList.add('ok');
     document.getElementById('stat-meteo').textContent = 'METEO OK';
     renderWeather(); renderTimeline(); renderBaroHistory(); renderTempHistory();
@@ -2342,7 +2372,10 @@ function renderZone(z) {
   const dirName = function(d) {
     return ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'][Math.round(d/22.5)%16];
   };
-  let rawHtml = '<div class="engine-section-title">📡 Dati correnti</div>' +
+  var _engTs = new Date(z.updated).toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
+  var _engSrc = z.reliability_note || 'Open-Meteo best_match';
+  var _srcBadge = '<div class="src-ts-engine">Fonte: ' + _engSrc + ' · Letti alle ' + _engTs + ' · Coordinate fisse zona</div>';
+  let rawHtml = '<div class="engine-section-title">📡 Dati correnti</div>' + _srcBadge + '<br>' +
     '<table class="cloud-table">' +
     '<tr><td>🌡️ Pressione</td><td>' + (r.pressure ? r.pressure.toFixed(0) : '--') + ' hPa (' + (r.pressure_trend_3h >= 0 ? '+' : '') + (r.pressure_trend_3h ? r.pressure_trend_3h.toFixed(1) : '0') + '/3h)</td></tr>' +
     '<tr><td>💨 Vento</td><td>' + (r.wind_speed ? r.wind_speed.toFixed(0) : '--') + 'kn da ' + (r.wind_dir ? dirName(r.wind_dir) : '--') + ' · Raffica ' + (r.wind_gust ? r.wind_gust.toFixed(0) : '--') + 'kn</td></tr>' +
@@ -2466,6 +2499,17 @@ function renderEngineResults() {
   divEl.style.display = summaryHtml ? 'block' : 'none';
 
   cont.innerHTML = detailHtml || '<div class="engine-empty">Nessun dato disponibile</div>';
+
+  // Show briefing section and enable button
+  var bsec = document.getElementById('engine-briefing-section');
+  if (bsec) bsec.style.display = 'block';
+  var bbtn = document.getElementById('btn-engine-briefing');
+  if (bbtn) bbtn.disabled = false;
+  var bhint = document.getElementById('engine-briefing-hint');
+  if (bhint) bhint.style.display = 'none';
+
+  // Refresh briefing history
+  displayBriefingHistory();
 }
 
 function renderZoneSummary(z) {
@@ -2576,6 +2620,12 @@ function renderHistoryBars(snaps, type, color, getValue, decimals) {
   var maxV = Math.max.apply(null, vals);
   var range = Math.max(maxV - minV, 1);
   var MAX_H = 50, MIN_H = 4;
+  var n = snaps.length;
+
+  // Smart label positions: always show first, last, and evenly spaced in between
+  var labelSet = new Set([0, n - 1]);
+  if (n > 4) { labelSet.add(Math.floor(n / 3)); labelSet.add(Math.floor(2 * n / 3)); }
+  else if (n > 2) { labelSet.add(Math.floor(n / 2)); }
 
   var html = '<div class="history-bars">';
   snaps.forEach(function(s, i) {
@@ -2583,12 +2633,17 @@ function renderHistoryBars(snaps, type, color, getValue, decimals) {
     if (v === null || v === undefined) return;
     var pct = (v - minV) / range;
     var h = Math.round(MIN_H + pct * (MAX_H - MIN_H));
-    var isLast = i === snaps.length - 1;
+    var isLast = i === n - 1;
+    var showLabel = labelSet.has(i);
     var time = s.ts ? new Date(s.ts).toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'}) : '';
     html += '<div class="history-bar-wrap">' +
-      '<div class="history-bar-val">' + (isLast ? Number(v).toFixed(decimals) : '') + '</div>' +
-      '<div class="history-bar" style="height:' + h + 'px;background:' + (isLast ? color : color.replace(')', ',0.6)').replace('var(', 'var(')) + ';' + (isLast ? 'box-shadow:0 0 6px ' + color + ';' : '') + '"></div>' +
-      '<div class="history-bar-label">' + (i % 4 === 0 || isLast ? time.slice(0,2) : '') + '</div>' +
+      '<div class="history-bar-val" style="color:' + (isLast ? '#ffffff' : '#8ab8d0') + ';font-weight:' + (isLast ? '600' : '400') + '">' +
+        (showLabel ? Number(v).toFixed(decimals) : '') +
+      '</div>' +
+      '<div class="history-bar" style="height:' + h + 'px;background:' + color + ';opacity:' + (isLast ? 1 : 0.55) + ';' + (isLast ? 'box-shadow:0 0 6px ' + color + ';' : '') + '"></div>' +
+      '<div class="history-bar-label" style="color:' + (isLast ? '#cce8ff' : '#6a9ab8') + '">' +
+        (showLabel ? time : '') +
+      '</div>' +
       '</div>';
   });
   html += '</div>';
@@ -2597,23 +2652,285 @@ function renderHistoryBars(snaps, type, color, getValue, decimals) {
 
 function renderDirBars(snaps) {
   var dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+  var n = snaps.length;
+  var labelSet = new Set([0, n - 1]);
+  if (n > 4) { labelSet.add(Math.floor(n / 3)); labelSet.add(Math.floor(2 * n / 3)); }
+  else if (n > 2) { labelSet.add(Math.floor(n / 2)); }
+
   var html = '<div class="history-bars">';
   snaps.forEach(function(s, i) {
     var d = s.wind_dir;
     if (d === null || d === undefined) return;
     var dirName = dirs[Math.round(d / 22.5) % 16];
-    var isLast = i === snaps.length - 1;
-    // Color by quadrant
-    var col = d < 90 ? '#90caf9' : d < 180 ? 'var(--gold)' : d < 270 ? 'var(--warn)' : 'var(--accent)';
+    var isLast = i === n - 1;
+    var showLabel = labelSet.has(i);
+    var col = d < 90 ? '#90caf9' : d < 180 ? '#f0b429' : d < 270 ? '#ffaa00' : '#0af0ff';
     var time = s.ts ? new Date(s.ts).toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'}) : '';
     html += '<div class="history-bar-wrap">' +
-      '<div class="history-bar-val">' + (isLast ? dirName : '') + '</div>' +
-      '<div class="history-bar" style="height:30px;background:' + col + ';opacity:' + (isLast ? 1 : 0.6) + '"></div>' +
-      '<div class="history-bar-label">' + (i % 4 === 0 || isLast ? time.slice(0,2) : '') + '</div>' +
+      '<div class="history-bar-val" style="color:' + (isLast ? '#ffffff' : '#8ab8d0') + ';font-weight:' + (isLast ? '600' : '400') + '">' +
+        (showLabel ? dirName : '') +
+      '</div>' +
+      '<div class="history-bar" style="height:30px;background:' + col + ';opacity:' + (isLast ? 1 : 0.55) + '"></div>' +
+      '<div class="history-bar-label" style="color:' + (isLast ? '#cce8ff' : '#6a9ab8') + '">' +
+        (showLabel ? time : '') +
+      '</div>' +
       '</div>';
   });
   html += '</div>';
   return html;
+}
+
+// -- ENGINE BRIEFING WITH HISTORY -------------------------------------------
+
+var briefingHistory = [];
+
+async function requestEngineBriefing() {
+  var btn = document.getElementById('btn-engine-briefing');
+  var txtEl = document.getElementById('engine-briefing-text');
+  btn.disabled = true;
+  btn.textContent = '...';
+  txtEl.style.display = 'block';
+  txtEl.textContent = 'Analisi in corso...';
+
+  // Build context from engine results
+  var ezLines = [];
+  if (engineResults) {
+    for (var ezk in engineResults) {
+      var ez = engineResults[ezk];
+      if (ez && ez.diagnosis && !ez.error) {
+        var ezLine = 'Zona ' + ez.name + ': CASO ' + ez.diagnosis.case.toUpperCase() + ' (' + ez.diagnosis.confidence + '%)';
+        if (ez.risk) ezLine += ' - Rischio ' + ez.risk.label;
+        var ezHigh = ez.alerts ? ez.alerts.filter(function(a){return a.severity==='high';}).map(function(a){return a.msg;}) : [];
+        if (ezHigh.length > 0) ezLine += ' - ALLERTE: ' + ezHigh.join('; ');
+        var ezAct = ez.local_effects ? Object.values(ez.local_effects).filter(function(e){return e.active;}).map(function(e){return e.desc;}) : [];
+        if (ezAct.length > 0) ezLine += ' - Effetti: ' + ezAct.join(', ');
+        if (ez.window) ezLine += ' - Finestra: ' + ez.window.status.toUpperCase();
+        ezLines.push(ezLine);
+      }
+    }
+  }
+
+  // Include last 3 briefings as context
+  var prevContext = '';
+  if (briefingHistory.length > 0) {
+    var recent = briefingHistory.slice(-3);
+    prevContext = 'STORICO BRIEFING RECENTI (ultimi ' + recent.length + '):\n';
+    recent.forEach(function(b) {
+      prevContext += '[' + b.time + '] ' + b.zones + ':\n' + b.text.slice(0, 300) + '\n---\n';
+    });
+  }
+
+  var promptParts = [];
+  promptParts.push('Sei un esperto meteorologo marino e skipper con 30 anni di esperienza nel Mar Tirreno settentrionale.');
+  promptParts.push('');
+  promptParts.push('CASI OPERATIVI: A=fronte freddo PERICOLOSO, B=fronte caldo graduale, C=ciclogenesi IMPREVEDIBILE, D=miglioramento.');
+  promptParts.push('SOGLIE: Raffica >=28kn=ROSSO, >=22kn=ATTENZIONE. Vento >=22kn=ATTENZIONE. Onda >=2m=ROSSO, >=1.2m=ATTENZIONE.');
+  promptParts.push('');
+  if (prevContext) { promptParts.push(prevContext); }
+  promptParts.push('DIAGNOSI MOTORE (ora ' + new Date().toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'}) + '):');
+  if (ezLines.length > 0) {
+    ezLines.forEach(function(l) { promptParts.push(l); });
+  } else {
+    promptParts.push('Nessuna zona analizzata. Avvia prima l analisi.');
+  }
+  promptParts.push('');
+  if (prevContext) {
+    promptParts.push('Confronta con i briefing precedenti: cosa e cambiato? Le previsioni precedenti si sono avverate?');
+  }
+  promptParts.push('Briefing strutturato:');
+  promptParts.push('RISCHIO: [BASSO / MEDIO / ALTO]');
+  promptParts.push('SITUAZIONE: sintesi condizioni attuali per le zone analizzate');
+  promptParts.push('EVOLUZIONE: cosa cambia nelle prossime 6-12-24h');
+  promptParts.push('CONSIGLIO OPERATIVO: vai / aspetta / rientra con orario e motivazione');
+  if (prevContext) promptParts.push('CONFRONTO: differenze rispetto al briefing precedente');
+  promptParts.push('Max 250 parole. Diretto e operativo.');
+  var enginePrompt = promptParts.join('\n');
+
+  try {
+    var res = await fetch('https://nautilus-red.vercel.app/api/briefing', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: enginePrompt })
+    });
+    var data = await res.json();
+    var text = '';
+    if (data.content && Array.isArray(data.content)) {
+      text = data.content.map(function(c) { return c.text || ''; }).join('');
+    } else if (data.text) { text = data.text; }
+    if (!text) text = 'Nessuna risposta.';
+
+    // Save to local history
+    var zones = Object.keys(engineResults || {}).join(', ');
+    var entry = {
+      time: new Date().toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'}),
+      date: new Date().toLocaleDateString('it-IT'),
+      zones: zones,
+      text: text,
+      ts: Date.now()
+    };
+    briefingHistory.push(entry);
+    if (briefingHistory.length > 20) briefingHistory.shift();
+
+    // Color risk badge
+    var rc = 'safe', rl = 'RISCHIO BASSO';
+    if (/RISCHIO:\s*ALTO/i.test(text)) { rc = 'danger'; rl = 'RISCHIO ALTO'; }
+    else if (/RISCHIO:\s*MEDIO/i.test(text)) { rc = 'warn'; rl = 'RISCHIO MEDIO'; }
+
+    txtEl.innerHTML = '<div style="display:inline-block;padding:4px 12px;border-radius:8px;font-family:DM Mono,monospace;font-size:0.6rem;font-weight:600;background:var(--' + rc + ');color:#000;margin-bottom:8px">' + rl + '</div>\n' +
+      text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+    displayBriefingHistory();
+
+  } catch(err) {
+    txtEl.textContent = 'Errore: ' + err.message;
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Aggiorna Briefing';
+}
+
+function displayBriefingHistory() {
+  var histEl = document.getElementById('engine-briefing-history');
+  if (!histEl || briefingHistory.length < 2) return;
+  var html = '<div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">Storico briefing (' + briefingHistory.length + ')</div>';
+  // Show all except last (which is displayed above)
+  var older = briefingHistory.slice(0, -1).reverse();
+  older.forEach(function(b) {
+    html += '<details style="margin-bottom:6px">' +
+      '<summary style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--muted);cursor:pointer;padding:6px 0">' +
+        b.date + ' ' + b.time + ' - ' + b.zones +
+      '</summary>' +
+      '<div style="font-size:0.65rem;color:var(--text);line-height:1.6;padding:8px;background:var(--surface);border-radius:8px;margin-top:4px;white-space:pre-line">' +
+        b.text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') +
+      '</div>' +
+      '</details>';
+  });
+  histEl.innerHTML = html;
+}
+
+// -- RICONOSCIMENTO NUVOLE FOTOCAMERA ---------------------------------------
+
+var cameraAnalysisResult = null;
+
+function openCamera() {
+  document.getElementById('camera-input').click();
+}
+
+async function analyzeCloudPhoto(input) {
+  if (!input.files || !input.files[0]) return;
+  var file = input.files[0];
+
+  // Show preview
+  var preview = document.getElementById('camera-preview');
+  var img = document.getElementById('camera-img');
+  var resultEl = document.getElementById('camera-result');
+  var reader = new FileReader();
+
+  reader.onload = async function(e) {
+    img.src = e.target.result;
+    preview.style.display = 'block';
+    resultEl.style.display = 'block';
+    resultEl.innerHTML = '<div style="font-family:DM Mono,monospace;font-size:0.6rem;color:var(--muted)"><div class="loading" style="display:inline-flex;margin-right:6px"><div class="spinner"></div></div>Analisi nuvole in corso...</div>';
+
+    // Extract base64
+    var base64 = e.target.result.split(',')[1];
+    var mediaType = file.type || 'image/jpeg';
+
+    try {
+      var res = await fetch('https://nautilus-red.vercel.app/api/vision', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: base64, mediaType: mediaType })
+      });
+      var data = await res.json();
+
+      if (data.error) {
+        resultEl.innerHTML = '<div style="font-size:0.65rem;color:var(--danger)">' + data.error + '</div>';
+        return;
+      }
+
+      cameraAnalysisResult = data;
+      renderCameraResult(data, resultEl);
+
+    } catch(err) {
+      resultEl.innerHTML = '<div style="font-size:0.65rem;color:var(--danger)">Errore: ' + err.message + '</div>';
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function renderCameraResult(data, el) {
+  var scenarioColors = { A: 'danger', B: 'warn', C: 'danger', D: 'safe', stable: 'safe' };
+  var sc = data.scenario || 'stable';
+  var scColor = scenarioColors[sc] || 'safe';
+
+  var cloudsHtml = '';
+  if (data.clouds && data.clouds.length > 0) {
+    data.clouds.forEach(function(c) {
+      var isPrimary = c === data.primary;
+      cloudsHtml += '<span class="camera-cloud-badge' + (isPrimary ? ' primary' : '') + '">' + c + '</span>';
+    });
+  }
+
+  var html = '<div class="camera-result-clouds">' + cloudsHtml + '</div>';
+
+  if (data.sequence) {
+    html += '<div class="camera-scenario"><strong>Sequenza:</strong> ' + data.sequence + '</div>';
+  }
+  if (data.scenario_desc) {
+    html += '<div class="camera-scenario" style="color:var(--' + scColor + ')"><strong>Scenario ' + sc.toUpperCase() + ':</strong> ' + data.scenario_desc + '</div>';
+  }
+  if (data.implication) {
+    html += '<div class="camera-implication">' + data.implication + '</div>';
+  }
+  if (data.confidence) {
+    html += '<div class="camera-confidence">Confidenza: ' + data.confidence + '%</div>';
+  }
+
+  html += '<button class="camera-apply-btn" onclick="applyCameraResult()">Applica alle osservazioni</button>';
+
+  el.innerHTML = html;
+}
+
+function applyCameraResult() {
+  if (!cameraAnalysisResult) return;
+  var data = cameraAnalysisResult;
+
+  // Map WMO codes to Italian names used in cloud selector
+  var wmoToItalian = {
+    'Ci': 'Cirri', 'Cs': 'Cirrostrati', 'Cc': 'Cirrocumuli',
+    'As': 'Altostrati', 'Ac': 'Altocumuli', 'Ns': 'Nembostrati',
+    'Sc': 'Stratocumuli', 'St': 'Strati', 'Cu': 'Cumuli', 'Cb': 'Cumulonembi'
+  };
+
+  // Clear current selection
+  document.querySelectorAll('.obs-card.selected').forEach(function(el) {
+    el.classList.remove('selected');
+  });
+  state.selectedClouds = [];
+
+  // Apply detected clouds
+  if (data.clouds && data.clouds.length > 0) {
+    data.clouds.forEach(function(code) {
+      var italian = wmoToItalian[code];
+      if (!italian) return;
+      var card = document.querySelector('.obs-card[data-cloud="' + italian + '"]');
+      if (card) {
+        card.classList.add('selected');
+        state.selectedClouds.push(italian);
+      }
+    });
+  }
+
+  // Show confirmation
+  var resultEl = document.getElementById('camera-result');
+  var applyBtn = resultEl.querySelector('.camera-apply-btn');
+  if (applyBtn) {
+    applyBtn.textContent = 'Applicato!';
+    applyBtn.style.color = 'var(--safe)';
+    applyBtn.style.borderColor = 'rgba(34,221,136,0.5)';
+    applyBtn.disabled = true;
+  }
 }
 
 // Fine codice

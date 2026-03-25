@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v4.7.6 — 2026-03-25 -->
+<!-- NAUTILUS v4.7.7 — 2026-03-25 -->
 
 <html lang="it">
 <head>
@@ -393,11 +393,11 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 .engine-zone-checkbox-sub { font-size:0.52rem; color:var(--muted); }
 .engine-zone-select { flex:1; padding:10px 14px; background:var(--card); border:1px solid var(--border); border-radius:10px; color:var(--text); font-family:'DM Mono',monospace; font-size:0.65rem; -webkit-appearance:none; }
 .history-chart { margin-top:8px; }
-.history-bars { display:flex; align-items:flex-end; gap:2px; height:60px; }
-.history-bar-wrap { flex:1; display:flex; flex-direction:column; align-items:center; gap:1px; }
+.history-bars { display:flex; align-items:flex-end; gap:2px; height:70px; }
+.history-bar-wrap { flex:1; display:flex; flex-direction:column; align-items:center; gap:0; }
+.history-bar-val { font-family:DM Mono,monospace; font-size:0.38rem; text-align:center; height:12px; line-height:12px; }
 .history-bar { width:100%; border-radius:2px 2px 0 0; min-height:2px; transition:height 0.3s; }
-.history-bar-label { font-family:DM Mono,monospace; font-size:0.38rem; color:var(--muted); text-align:center; white-space:nowrap; }
-.history-bar-val { font-family:DM Mono,monospace; font-size:0.38rem; color:var(--muted); text-align:center; }
+.history-bar-label { font-family:DM Mono,monospace; font-size:0.38rem; text-align:center; white-space:nowrap; height:12px; line-height:12px; }
 .history-legend { display:flex; gap:10px; margin-top:6px; flex-wrap:wrap; }
 .history-legend-item { font-family:DM Mono,monospace; font-size:0.5rem; color:var(--muted); display:flex; align-items:center; gap:4px; }
 .history-legend-dot { width:8px; height:8px; border-radius:2px; flex-shrink:0; }
@@ -483,7 +483,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.7.6 · by mdisailor engine</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.7.7 · by mdisailor engine</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1408,7 +1408,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica · Previsione operativ4.7.6 · by mdisailor engine</div>
+  <div class="engine-sub">Diagnostica sinottica · Previsione operativ4.7.7 · by mdisailor engine</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -2527,7 +2527,7 @@ function renderZone(z) {
       effectsHtml +
       briefingHtml +
       statsHtml +
-      '<div class="engine-section-title">Storico 24h</div>' +
+      '<div class="engine-section-title" style="margin-top:12px">Storico 24h</div>' +
       '<div id="hist-' + z.zone + '" class="history-chart"><div class="history-empty">Carica storico per vedere evoluzione pressione e vento</div></div>' +
       '<button class="btn-history" onclick="loadHistory(this.dataset.zone)" data-zone="' + z.zone + '">Carica storico 24h</button>' +
     '</div>' +
@@ -2714,10 +2714,10 @@ function renderHistoryBars(snaps, type, color, getValue, decimals) {
   var minV = Math.min.apply(null, vals);
   var maxV = Math.max.apply(null, vals);
   var range = Math.max(maxV - minV, 1);
-  var MAX_H = 50, MIN_H = 4;
+  var MAX_H = 46, MIN_H = 4;
   var n = snaps.length;
 
-  // Smart label positions: always show first, last, and evenly spaced in between
+  // Show label on first, last and evenly spaced
   var labelSet = new Set([0, n - 1]);
   if (n > 4) { labelSet.add(Math.floor(n / 3)); labelSet.add(Math.floor(2 * n / 3)); }
   else if (n > 2) { labelSet.add(Math.floor(n / 2)); }
@@ -2733,13 +2733,13 @@ function renderHistoryBars(snaps, type, color, getValue, decimals) {
     var time = s.ts ? new Date(s.ts).toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'}) : '';
     html += '<div class="history-bar-wrap">' +
       '<div class="history-bar-val" style="color:' + (isLast ? '#ffffff' : '#8ab8d0') + ';font-weight:' + (isLast ? '600' : '400') + '">' +
-        (showLabel ? Number(v).toFixed(decimals) : '') +
+        (showLabel ? Number(v).toFixed(decimals) : '&nbsp;') +
       '</div>' +
       '<div class="history-bar" style="height:' + h + 'px;background:' + color + ';opacity:' + (isLast ? 1 : 0.55) + ';' + (isLast ? 'box-shadow:0 0 6px ' + color + ';' : '') + '"></div>' +
       '<div class="history-bar-label" style="color:' + (isLast ? '#cce8ff' : '#6a9ab8') + '">' +
-        (showLabel ? time : '') +
+        (showLabel ? time : '&nbsp;') +
       '</div>' +
-      '</div>';
+    '</div>';
   });
   html += '</div>';
   return html;
@@ -2763,13 +2763,13 @@ function renderDirBars(snaps) {
     var time = s.ts ? new Date(s.ts).toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'}) : '';
     html += '<div class="history-bar-wrap">' +
       '<div class="history-bar-val" style="color:' + (isLast ? '#ffffff' : '#8ab8d0') + ';font-weight:' + (isLast ? '600' : '400') + '">' +
-        (showLabel ? dirName : '') +
+        (showLabel ? dirName : '&nbsp;') +
       '</div>' +
       '<div class="history-bar" style="height:30px;background:' + col + ';opacity:' + (isLast ? 1 : 0.55) + '"></div>' +
       '<div class="history-bar-label" style="color:' + (isLast ? '#cce8ff' : '#6a9ab8') + '">' +
-        (showLabel ? time : '') +
+        (showLabel ? time : '&nbsp;') +
       '</div>' +
-      '</div>';
+    '</div>';
   });
   html += '</div>';
   return html;
@@ -2972,50 +2972,47 @@ function analyzeCloudPhoto(input) {
 }
 
 function renderCameraResult(data, el) {
-  // Clear loading text first
   el.innerHTML = '';
-  var scenarioColors = { A: 'danger', B: 'warn', C: 'danger', D: 'safe', stable: 'safe' };
-  var sc = data.scenario || 'stable';
-  var scColor = scenarioColors[sc] || 'safe';
-
   var wmoNames = {
     'Ci': 'Cirri', 'Cs': 'Cirrostrati', 'Cc': 'Cirrocumuli',
     'As': 'Altostrati', 'Ac': 'Altocumuli', 'Ns': 'Nembostrati',
     'Sc': 'Stratocumuli', 'St': 'Strati', 'Cu': 'Cumuli', 'Cb': 'Cumulonembi'
   };
-  var scenarioItalian = {
-    'A': 'Fronte freddo — PERICOLOSO',
-    'B': 'Fronte caldo — deterioramento graduale',
-    'C': 'Ciclogenesi — IMPREVEDIBILE',
-    'D': 'Miglioramento post-perturbato',
-    'stable': 'Situazione stabile'
+  var wmoDesc = {
+    'Ci': 'Filamenti bianchi ad alta quota',
+    'Cs': 'Velo uniforme, alone solare possibile',
+    'Cc': 'Piccoli fiocchi bianchi in file',
+    'As': 'Velo grigio uniforme, sole velato',
+    'Ac': 'Banchi grigi a media quota',
+    'Ns': 'Strato grigio scuro, pioggia continua',
+    'Sc': 'Strato basso ondulato grigio',
+    'St': 'Strato basso uniforme, nebbia alta',
+    'Cu': 'Cumuli a cavolfiore, base piatta',
+    'Cb': 'Cumulonembo con incudine, temporale'
   };
+
   var cloudsHtml = '';
   if (data.clouds && data.clouds.length > 0) {
     data.clouds.forEach(function(c) {
       var isPrimary = c === data.primary;
       var name = wmoNames[c] || c;
-      cloudsHtml += '<span class="camera-cloud-badge' + (isPrimary ? ' primary' : '') + '">' + c + ' · ' + name + '</span>';
+      var desc = wmoDesc[c] || '';
+      cloudsHtml += '<div style="margin-bottom:8px">' +
+        '<span class="camera-cloud-badge' + (isPrimary ? ' primary' : '') + '">' + c + ' · ' + name + '</span>' +
+        (desc ? '<div style="font-size:0.58rem;color:var(--muted);margin-top:3px;margin-left:2px">' + desc + '</div>' : '') +
+        '</div>';
     });
+  } else {
+    cloudsHtml = '<div style="font-size:0.62rem;color:var(--muted)">Nessuna nuvola identificata</div>';
   }
 
-  var html = '<div class="camera-result-clouds">' + cloudsHtml + '</div>';
+  var html = '<div class="camera-result-clouds" style="display:block">' + cloudsHtml + '</div>';
 
-  if (data.sequence) {
-    html += '<div class="camera-scenario"><strong>Sequenza:</strong> ' + data.sequence + '</div>';
-  }
-  if (data.scenario_desc) {
-    var scItalian = scenarioItalian[sc] || ('Scenario ' + sc.toUpperCase());
-    html += '<div class="camera-scenario" style="color:var(--' + scColor + ')"><strong>' + scItalian + '</strong></div>';
-    html += '<div class="camera-scenario" style="font-size:0.6rem;color:var(--muted)">' + data.scenario_desc + '</div>';
-  }
-  if (data.implication) {
-    html += '<div class="camera-implication">' + data.implication + '</div>';
-  }
   if (data.confidence) {
     html += '<div class="camera-confidence">Confidenza: ' + data.confidence + '%</div>';
   }
 
+  html += '<div style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--muted);margin:8px 0 4px">Premi Applica per usare nel briefing Engine</div>';
   html += '<div style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--safe);margin-bottom:6px">✓ Analisi completata</div>';
   html += '<button class="camera-apply-btn" onclick="applyCameraResult()">Applica alle osservazioni</button>';
 
@@ -3120,7 +3117,7 @@ function toggleBhpItem(idx) {
   if (prev) prev.style.display = isOpen ? 'block' : 'none';
 }
 
-// Fine codice
+// Fine codice - NAUTILUS v4.7.7
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>
@@ -3133,5 +3130,6 @@ function toggleBhpItem(idx) {
       <div class="bhp-empty">Nessun briefing ancora generato</div>
     </div>
   </div>
+
 </body>
 </html>

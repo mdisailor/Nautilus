@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.6.1 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.6.0 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -993,10 +993,14 @@ var zone = ZONES[zoneKey];
 var omData = await fetchOpenMeteo(zone.lat, zone.lon);
 
 var sgData = null;
-// Stormglass rimosso dal motore - usa quota separata nel tab Mare
-// Il motore usa solo Open-Meteo per diagnosi sinottica (vento, pressione)
 var hasStormglass = false;
-var sgData = null;
+if (sgKey) {
+try {
+var sgRaw = await fetchStormglass(zone.lat, zone.lon, sgKey);
+sgData = extractStormglassData(sgRaw);
+hasStormglass = sgData !== null;
+} catch(e) { hasStormglass = false; }
+}
 
 var currentData = extractCurrentData(omData, sgData);
 
@@ -1121,7 +1125,7 @@ return res.status(401).json({ error: 'Unauthorized' });
 }
 var cronResults = {};
 var cronPromises = Object.keys(ZONES).map(function(zk) {
-return calcZone(zk, null, kvUrl, kvToken, { query: { history: '1' } })
+return calcZone(zk, sgKey, kvUrl, kvToken, { query: { history: '1' } })
 .then(function(r) { cronResults[zk] = { ok: true, case: r.diagnosis.case, alerts: r.alerts.length }; })
 .catch(function(e) { cronResults[zk] = { ok: false, error: e.message }; });
 });
@@ -1182,6 +1186,47 @@ return res.status(500).json({ error: e.message });
 }
 }
 
+// /api/engine?action=verify&zone=xxx - get forecast verification records
+if (action === 'verify') {
+if (!zoneKey || !ZONES[zoneKey]) {
+return res.status(404).json({ error: 'Zona non trovata' });
+}
+try {
+var bias = await getBias(zoneKey, kvUrl, kvToken);
+// Read last 7 days of verification records (h6 horizon)
+var verRecords = [];
+var now2 = new Date();
+var verPromises = [];
+for (var d2 = 0; d2 < 7; d2 = d2 + 1) {
+for (var h2 = 0; h2 < 24; h2 = h2 + 1) {
+(function(dd, hh) {
+var t = new Date(now2.getTime() - dd * 86400000 - hh * 3600000);
+var ts = t.toISOString().slice(0, 13);
+var key = 'verify:' + zoneKey + ':' + ts + ':h6';
+verPromises.push(kvGet(key, kvUrl, kvToken).then(function(v) {
+return v ? v : null;
+}));
+})(d2, h2);
+}
+}
+var allVer = await Promise.all(verPromises);
+verRecords = allVer.filter(function(v) { return v !== null; });
+// Sort by forecast_time descending
+verRecords.sort(function(a, b) {
+return new Date(b.forecast_time) - new Date(a.forecast_time);
+});
+return res.status(200).json({
+zone: zoneKey,
+name: ZONES[zoneKey].name,
+bias: bias,
+records: verRecords.slice(0, 50),
+total: verRecords.length
+});
+} catch(e) {
+return res.status(500).json({ error: e.message });
+}
+}
+
 // /api/engine?action=history&zone=xxx&hours=24 - get zone history
 if (action === 'history') {
 if (!zoneKey || !ZONES[zoneKey]) {
@@ -1218,7 +1263,7 @@ if (!zoneKey || !ZONES[zoneKey]) {
 return res.status(404).json({ error: 'Zona non trovata', available: Object.keys(ZONES) });
 }
 try {
-var result = await calcZone(zoneKey, null, kvUrl, kvToken, req);
+var result = await calcZone(zoneKey, sgKey, kvUrl, kvToken, req);
 return res.status(200).json(result);
 } catch (err) {
 return res.status(500).json({ error: err.message, zone: zoneKey });

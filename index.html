@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v4.7.9 — 2026-03-25 -->
+<!-- NAUTILUS v4.8.0 — 2026-03-25 -->
 
 <html lang="it">
 <head>
@@ -504,7 +504,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.7.9 · by mdisailor engine</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.8.0 · by mdisailor engine</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1429,7 +1429,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica · Previsione operativ4.7.9 · by mdisailor engine</div>
+  <div class="engine-sub">Diagnostica sinottica · Previsione operativ4.8.0 · by mdisailor engine</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -3256,11 +3256,13 @@ function renderVerifyContent(data, el) {
       var dt = r.forecast_time ? new Date(r.forecast_time).toLocaleString('it-IT', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
       var err = r.wind_error || 0;
       var errClass = Math.abs(err) < 3 ? 'verify-err-ok' : err > 0 ? 'verify-err-pos' : 'verify-err-neg';
+      var prevWind = r.predicted_wind !== null && r.predicted_wind !== undefined ? parseFloat(r.predicted_wind).toFixed(1) + 'kn' : '—';
+      var realWind = r.actual_wind !== null && r.actual_wind !== undefined ? parseFloat(r.actual_wind).toFixed(1) + 'kn' : '—';
       html += '<tr>' +
         '<td>' + dt + '</td>' +
-        '<td>' + (r.predicted_wind || '—').toFixed ? (r.predicted_wind || 0).toFixed(1) + 'kn' : '—' + '</td>' +
-        '<td>' + (r.actual_wind || '—').toFixed ? (r.actual_wind || 0).toFixed(1) + 'kn' : '—' + '</td>' +
-        '<td class="' + errClass + '">' + (err >= 0 ? '+' : '') + err.toFixed(1) + 'kn</td>' +
+        '<td>' + prevWind + '</td>' +
+        '<td>' + realWind + '</td>' +
+        '<td class="' + errClass + '">' + (err >= 0 ? '+' : '') + parseFloat(err).toFixed(1) + 'kn</td>' +
       '</tr>';
     });
     html += '</table>';
@@ -3271,7 +3273,7 @@ function renderVerifyContent(data, el) {
   el.innerHTML = html;
 }
 
-// Fine codice - NAUTILUS v4.7.9
+// Fine codice - NAUTILUS v4.8.0
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v4.7.8 — 2026-03-25 -->
+<!-- NAUTILUS v4.7.9 — 2026-03-25 -->
 
 <html lang="it">
 <head>
@@ -454,6 +454,27 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 .bhp-item-body { font-size:0.65rem; color:var(--text); line-height:1.7; margin-top:8px; white-space:pre-line; display:none; }
 .bhp-empty { padding:30px 20px; text-align:center; font-family:DM Mono,monospace; font-size:0.62rem; color:var(--muted); }
 .bhp-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:199; display:none; }
+.verify-section { margin:12px 20px 0; }
+.verify-zone-select { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+.verify-zone-btn { padding:5px 12px; background:transparent; border:1px solid var(--border); border-radius:8px; color:var(--muted); font-family:DM Mono,monospace; font-size:0.55rem; cursor:pointer; }
+.verify-zone-btn.active { border-color:var(--accent); color:var(--accent); background:rgba(0,240,255,0.07); }
+.verify-summary { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px; }
+.verify-card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:10px 12px; }
+.verify-card-label { font-family:DM Mono,monospace; font-size:0.5rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:4px; }
+.verify-card-val { font-family:Bebas Neue,sans-serif; font-size:1.6rem; line-height:1; }
+.verify-card-sub { font-family:DM Mono,monospace; font-size:0.5rem; color:var(--muted); margin-top:2px; }
+.verify-card.good .verify-card-val { color:var(--safe); }
+.verify-card.warn .verify-card-val { color:var(--warn); }
+.verify-card.bad .verify-card-val { color:var(--danger); }
+.verify-chart-title { font-family:DM Mono,monospace; font-size:0.5rem; color:var(--accent); text-transform:uppercase; letter-spacing:0.12em; opacity:0.8; margin:10px 0 4px; }
+.verify-table { width:100%; border-collapse:collapse; font-family:DM Mono,monospace; font-size:0.55rem; margin-top:8px; }
+.verify-table th { color:var(--muted); font-size:0.48rem; text-transform:uppercase; letter-spacing:0.08em; padding:4px 6px; border-bottom:1px solid var(--border); text-align:left; }
+.verify-table td { padding:5px 6px; border-bottom:1px solid rgba(58,96,128,0.15); color:var(--text); }
+.verify-table tr:last-child td { border-bottom:none; }
+.verify-err-pos { color:var(--warn); }
+.verify-err-neg { color:var(--accent); }
+.verify-err-ok { color:var(--safe); }
+.verify-empty { padding:20px; text-align:center; font-family:DM Mono,monospace; font-size:0.62rem; color:var(--muted); line-height:1.7; }
 .btn-history { padding:5px 12px; background:transparent; border:1px solid var(--muted); border-radius:8px; color:var(--muted); font-family:DM Mono,monospace; font-size:0.55rem; cursor:pointer; margin-top:8px; }
 .btn-history:hover { border-color:var(--accent); color:var(--accent); }
 .engine-briefing { margin-top:10px; padding:12px; background:var(--surface); border:1px solid var(--border); border-radius:10px; font-size:0.68rem; color:var(--text); line-height:1.7; white-space:pre-line; }
@@ -483,7 +504,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.7.8 · by mdisailor engine</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.7.9 · by mdisailor engine</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1408,7 +1429,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica · Previsione operativ4.7.8 · by mdisailor engine</div>
+  <div class="engine-sub">Diagnostica sinottica · Previsione operativ4.7.9 · by mdisailor engine</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -1432,6 +1453,14 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   </div>
   <div id="engine-briefing-text" style="font-size:0.68rem;color:var(--text);line-height:1.7;padding:12px;background:var(--card);border:1px solid var(--border);border-radius:10px;white-space:pre-line;display:none"></div>
   <div id="engine-briefing-history" style="margin-top:10px"></div>
+</div>
+
+<div class="verify-section" id="verify-section" style="display:none">
+  <div style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;opacity:0.8;margin-bottom:8px">Verifica previsioni</div>
+  <div class="verify-zone-select" id="verify-zone-select"></div>
+  <div id="verify-content">
+    <div class="verify-empty">Seleziona una zona per vedere la verifica previsioni</div>
+  </div>
 </div>
 ```
 
@@ -2609,6 +2638,9 @@ function renderEngineResults() {
   // Show briefing section and enable button
   var bsec = document.getElementById('engine-briefing-section');
   if (bsec) bsec.style.display = 'block';
+  // Show verify section and populate zone buttons
+  var vsec = document.getElementById('verify-section');
+  if (vsec) { vsec.style.display = 'block'; renderVerifyZoneButtons(); }
   var bbtn = document.getElementById('btn-engine-briefing');
   if (bbtn) bbtn.disabled = false;
   var bhint = document.getElementById('engine-briefing-hint');
@@ -3128,7 +3160,118 @@ function toggleBhpItem(idx) {
   if (prev) prev.style.display = isOpen ? 'block' : 'none';
 }
 
-// Fine codice - NAUTILUS v4.7.8
+// -- VERIFICA PREVISIONI -------------------------------------------------------
+
+var verifyCurrentZone = null;
+
+function renderVerifyZoneButtons() {
+  var container = document.getElementById('verify-zone-select');
+  if (!container || !engineResults) return;
+  var html = '';
+  Object.keys(engineResults).forEach(function(zk) {
+    var z = engineResults[zk];
+    if (z && !z.error) {
+      var isActive = zk === verifyCurrentZone;
+      html += '<button class="verify-zone-btn' + (isActive ? ' active' : '') + '" onclick="loadVerify(this.dataset.zone)" data-zone="' + zk + '">' +
+        (z.name || zk).split(' ')[0] +
+      '</button>';
+    }
+  });
+  container.innerHTML = html || '<div style="font-size:0.6rem;color:var(--muted)">Nessuna zona disponibile</div>';
+}
+
+async function loadVerify(zoneKey) {
+  verifyCurrentZone = zoneKey;
+  renderVerifyZoneButtons();
+
+  var content = document.getElementById('verify-content');
+  content.innerHTML = '<div class="verify-empty"><div class="loading" style="display:inline-flex;margin-right:6px"><div class="spinner"></div></div>Carico dati verifica...</div>';
+
+  try {
+    var res = await fetch(ENGINE_URL + '?action=verify&zone=' + zoneKey);
+    var data = await res.json();
+
+    if (data.error) {
+      content.innerHTML = '<div class="verify-empty" style="color:var(--danger)">' + data.error + '</div>';
+      return;
+    }
+
+    renderVerifyContent(data, content);
+
+  } catch(err) {
+    content.innerHTML = '<div class="verify-empty" style="color:var(--danger)">Errore: ' + err.message + '</div>';
+  }
+}
+
+function renderVerifyContent(data, el) {
+  var bias = data.bias;
+  var records = data.records || [];
+
+  // Se non ci sono dati ancora
+  if (!bias || bias.samples < 1) {
+    el.innerHTML = '<div class="verify-empty">' +
+      'Nessun dato di verifica disponibile per ' + data.name + '<br>' +
+      '<span style="color:var(--muted);font-size:0.58rem">Il sistema confronta previsioni e dati reali automaticamente.<br>' +
+      'I primi risultati appariranno dopo 6+ ore di accumulo.</span>' +
+      '</div>';
+    return;
+  }
+
+  var html = '';
+
+  // Summary cards
+  var windMae = bias.wind_mae || 0;
+  var waveMae = bias.wave_mae || 0;
+  var windClass = windMae < 3 ? 'good' : windMae < 6 ? 'warn' : 'bad';
+  var waveClass = waveMae < 0.3 ? 'good' : waveMae < 0.6 ? 'warn' : 'bad';
+
+  html += '<div class="verify-summary">';
+  html += '<div class="verify-card ' + windClass + '">' +
+    '<div class="verify-card-label">Errore medio vento</div>' +
+    '<div class="verify-card-val">' + windMae.toFixed(1) + '<span style="font-family:DM Mono,monospace;font-size:0.7rem">kn</span></div>' +
+    '<div class="verify-card-sub">bias ' + (bias.wind_bias >= 0 ? '+' : '') + (bias.wind_bias || 0).toFixed(1) + 'kn · ' + bias.samples + ' campioni</div>' +
+    '</div>';
+  html += '<div class="verify-card ' + waveClass + '">' +
+    '<div class="verify-card-label">Errore medio onda</div>' +
+    '<div class="verify-card-val">' + waveMae.toFixed(2) + '<span style="font-family:DM Mono,monospace;font-size:0.7rem">m</span></div>' +
+    '<div class="verify-card-sub">bias ' + (bias.wave_bias >= 0 ? '+' : '') + (bias.wave_bias || 0).toFixed(2) + 'm · h6</div>' +
+    '</div>';
+  html += '</div>';
+
+  // Bias interpretation
+  var biasNote = '';
+  if (Math.abs(bias.wind_bias || 0) > 2) {
+    biasNote = bias.wind_bias > 0
+      ? 'Il modello sottostima il vento reale di ' + Math.abs(bias.wind_bias).toFixed(1) + 'kn in media'
+      : 'Il modello sovrastima il vento reale di ' + Math.abs(bias.wind_bias).toFixed(1) + 'kn in media';
+    html += '<div style="padding:8px 10px;background:rgba(255,170,0,0.07);border:1px solid rgba(255,170,0,0.2);border-radius:8px;font-family:DM Mono,monospace;font-size:0.58rem;color:var(--gold);margin-bottom:10px">' + biasNote + '</div>';
+  }
+
+  // Records table
+  if (records.length > 0) {
+    html += '<div class="verify-chart-title">Ultime verifiche (previsione h6)</div>';
+    html += '<table class="verify-table">' +
+      '<tr><th>Data/ora</th><th>Prev.</th><th>Reale</th><th>Errore</th></tr>';
+    records.slice(0, 15).forEach(function(r) {
+      var dt = r.forecast_time ? new Date(r.forecast_time).toLocaleString('it-IT', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
+      var err = r.wind_error || 0;
+      var errClass = Math.abs(err) < 3 ? 'verify-err-ok' : err > 0 ? 'verify-err-pos' : 'verify-err-neg';
+      html += '<tr>' +
+        '<td>' + dt + '</td>' +
+        '<td>' + (r.predicted_wind || '—').toFixed ? (r.predicted_wind || 0).toFixed(1) + 'kn' : '—' + '</td>' +
+        '<td>' + (r.actual_wind || '—').toFixed ? (r.actual_wind || 0).toFixed(1) + 'kn' : '—' + '</td>' +
+        '<td class="' + errClass + '">' + (err >= 0 ? '+' : '') + err.toFixed(1) + 'kn</td>' +
+      '</tr>';
+    });
+    html += '</table>';
+  } else {
+    html += '<div class="verify-empty" style="padding:10px 0">Nessuna verifica completata ancora — le prime arriveranno dopo 6h dal primo snapshot.</div>';
+  }
+
+  el.innerHTML = html;
+}
+
+// Fine codice - NAUTILUS v4.7.9
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

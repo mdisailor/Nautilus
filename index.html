@@ -1559,7 +1559,6 @@ async function fetchStormglass(force) {
   if (!force && state.stormglassData && state.stormglassTs) {
     var ageMins = (Date.now() - state.stormglassTs) / 60000;
     if (ageMins < 30) {
-      console.log('Stormglass: using cache (' + Math.round(ageMins) + 'min old)');
       renderStormglass();
       var cachedMin = Math.round(ageMins);
       document.getElementById('src-stormglass').className = 'src-badge ok';
@@ -1578,7 +1577,11 @@ async function fetchStormglass(force) {
     const r = await fetch(url);
     const data = await r.json();
     if (data.error) throw new Error(data.error);
-    console.log('Stormglass data received:', JSON.stringify(data).slice(0, 200));
+    // Check for Stormglass API error response
+    if (data.errors || !data.hours) {
+      var sgErr = data.errors ? JSON.stringify(data.errors).slice(0, 100) : 'Risposta senza dati orari';
+      throw new Error('Stormglass: ' + sgErr);
+    }
     state.stormglassData = data;
     state.stormglassTs = Date.now();
     document.getElementById('src-stormglass').className = 'src-badge ok';
@@ -1645,10 +1648,7 @@ function sgVal(hours, param) {
 
 function renderStormglass() {
   const d = state.stormglassData;
-  console.log('renderStormglass called, data:', d ? ('hours:' + (d.hours ? d.hours.length : 'NO_HOURS') + ' keys:' + Object.keys(d).join(',')) : 'NULL');
-  if (!d) { document.getElementById('sg-update').textContent = 'Errore: dati nulli'; return; }
-  if (!d.hours) { document.getElementById('sg-update').textContent = 'Errore: struttura dati errata - ' + Object.keys(d).join(','); return; }
-  if (d.hours.length === 0) { document.getElementById('sg-update').textContent = 'Errore: nessun dato orario'; return; }
+  if (!d || !d.hours || d.hours.length === 0) return;
   const h = d.hours;
 
   const set = (id, val, suffix='') => {
@@ -2916,48 +2916,51 @@ async function analyzeCloudPhoto(input) {
   if (!input.files || !input.files[0]) return;
   var file = input.files[0];
 
-  // Show preview
   var preview = document.getElementById('camera-preview');
   var img = document.getElementById('camera-img');
   var resultEl = document.getElementById('camera-result');
-  var reader = new FileReader();
 
-  reader.onload = async function(e) {
-    // Show preview directly with raw data
-    img.src = e.target.result;
-    preview.style.display = 'block';
-    resultEl.style.display = 'block';
-    resultEl.innerHTML = '<div style="font-family:DM Mono,monospace;font-size:0.6rem;color:var(--muted)"><div class="loading" style="display:inline-flex;margin-right:6px"><div class="spinner"></div></div>Analisi nuvole in corso...</div>';
+  preview.style.display = 'block';
+  resultEl.style.display = 'block';
+  resultEl.innerHTML = '<div style="font-family:DM Mono,monospace;font-size:0.6rem;color:var(--muted)"><div class="loading" style="display:inline-flex;margin-right:6px"><div class="spinner"></div></div>Analisi nuvole in corso...</div>';
 
-    // Send raw base64 - let Claude Vision handle any format
-    var rawData = e.target.result;
-    var commaIdx = rawData.indexOf(',');
-    var base64 = commaIdx >= 0 ? rawData.slice(commaIdx + 1) : rawData;
-    // Normalize media type - default to jpeg
+  try {
+    // Use arrayBuffer for better iOS compatibility - avoids FileReader pattern error
+    var buffer = await file.arrayBuffer();
+    var bytes = new Uint8Array(buffer);
+    var binary = '';
+    for (var i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    var base64 = btoa(binary);
+
+    // Show preview using object URL (works on all iOS versions)
+    var objectUrl = URL.createObjectURL(file);
+    img.src = objectUrl;
+    img.onload = function() { URL.revokeObjectURL(objectUrl); };
+
+    // Normalize media type
     var mediaType = file.type && file.type.startsWith('image/') ? file.type : 'image/jpeg';
     if (mediaType === 'image/heic' || mediaType === 'image/heif') mediaType = 'image/jpeg';
 
-    try {
-      var res = await fetch('https://nautilus-red.vercel.app/api/vision', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: base64, mediaType: mediaType })
-      });
-      var data = await res.json();
+    var res = await fetch('https://nautilus-red.vercel.app/api/vision', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: base64, mediaType: mediaType })
+    });
+    var data = await res.json();
 
-      if (data.error) {
-        resultEl.innerHTML = '<div style="font-size:0.65rem;color:var(--danger)">' + data.error + '</div>';
-        return;
-      }
-
-      cameraAnalysisResult = data;
-      renderCameraResult(data, resultEl);
-
-    } catch(err) {
-      resultEl.innerHTML = '<div style="font-size:0.65rem;color:var(--danger)">Errore: ' + err.message + '</div>';
+    if (data.error) {
+      resultEl.innerHTML = '<div style="font-size:0.65rem;color:var(--danger)">' + data.error + '</div>';
+      return;
     }
-  };
-  reader.readAsDataURL(file);
+
+    cameraAnalysisResult = data;
+    renderCameraResult(data, resultEl);
+
+  } catch(err) {
+    resultEl.innerHTML = '<div style="font-size:0.65rem;color:var(--danger)">Errore: ' + err.message + '</div>';
+  }
 }
 
 function renderCameraResult(data, el) {

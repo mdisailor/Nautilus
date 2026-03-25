@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.6.0 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.6.1 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -993,14 +993,10 @@ var zone = ZONES[zoneKey];
 var omData = await fetchOpenMeteo(zone.lat, zone.lon);
 
 var sgData = null;
+// Stormglass rimosso dal motore - usa quota separata nel tab Mare
+// Il motore usa solo Open-Meteo per diagnosi sinottica (vento, pressione)
 var hasStormglass = false;
-if (sgKey) {
-try {
-var sgRaw = await fetchStormglass(zone.lat, zone.lon, sgKey);
-sgData = extractStormglassData(sgRaw);
-hasStormglass = sgData !== null;
-} catch(e) { hasStormglass = false; }
-}
+var sgData = null;
 
 var currentData = extractCurrentData(omData, sgData);
 
@@ -1125,7 +1121,7 @@ return res.status(401).json({ error: 'Unauthorized' });
 }
 var cronResults = {};
 var cronPromises = Object.keys(ZONES).map(function(zk) {
-return calcZone(zk, sgKey, kvUrl, kvToken, { query: { history: '1' } })
+return calcZone(zk, null, kvUrl, kvToken, { query: { history: '1' } })
 .then(function(r) { cronResults[zk] = { ok: true, case: r.diagnosis.case, alerts: r.alerts.length }; })
 .catch(function(e) { cronResults[zk] = { ok: false, error: e.message }; });
 });
@@ -1222,7 +1218,7 @@ if (!zoneKey || !ZONES[zoneKey]) {
 return res.status(404).json({ error: 'Zona non trovata', available: Object.keys(ZONES) });
 }
 try {
-var result = await calcZone(zoneKey, sgKey, kvUrl, kvToken, req);
+var result = await calcZone(zoneKey, null, kvUrl, kvToken, req);
 return res.status(200).json(result);
 } catch (err) {
 return res.status(500).json({ error: err.message, zone: zoneKey });

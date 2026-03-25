@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v4.7.3 — 2026-03-24 -->
+<!-- NAUTILUS v4.7.5-diag — 2026-03-24 -->
 
 <html lang="it">
 <head>
@@ -483,7 +483,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.7.3 · by mdisailor engine</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.7.5-diag · by mdisailor engine</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1520,7 +1520,12 @@ async function fetchWeather() {
     '&wind_speed_unit=kn&timezone=Europe/Rome&forecast_days=2&models=best_match';
   try {
     const r = await fetch(url);
-    state.weatherData = await r.json();
+    var _json = await r.json();
+    // Check for API error in response
+    if (_json.error || !_json.hourly || !_json.hourly.windspeed_10m) {
+      throw new Error(_json.reason || _json.error || 'Risposta Open-Meteo non valida');
+    }
+    state.weatherData = _json;
     document.getElementById('src-openmeteo').className = 'src-badge ok';
     var _ts = new Date().toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
     document.getElementById('src-openmeteo').textContent = '✓ Open-Meteo';
@@ -1535,6 +1540,14 @@ async function fetchWeather() {
     document.getElementById('dot-meteo').classList.add('err');
     document.getElementById('stat-meteo').textContent = 'METEO ERR';
     console.error('fetchWeather error:', err);
+    // Show visible error in meteo tab
+    var metricsRow = document.getElementById('metrics-row') || document.querySelector('.metrics-row');
+    if (metricsRow) {
+      metricsRow.innerHTML = '<div style="padding:16px;font-family:DM Mono,monospace;font-size:0.62rem;color:var(--danger);line-height:1.7">' +
+        '⚠ Dati meteo non disponibili<br>' +
+        '<span style="color:var(--muted)">Errore: ' + (err.message || err) + '<br>Controlla la connessione e riprova con ↻</span>' +
+        '</div>';
+    }
   }
 }
 
@@ -1546,6 +1559,7 @@ async function fetchStormglass(force) {
   if (!force && state.stormglassData && state.stormglassTs) {
     var ageMins = (Date.now() - state.stormglassTs) / 60000;
     if (ageMins < 30) {
+      console.log('Stormglass: using cache (' + Math.round(ageMins) + 'min old)');
       renderStormglass();
       var cachedMin = Math.round(ageMins);
       document.getElementById('src-stormglass').className = 'src-badge ok';
@@ -1564,6 +1578,7 @@ async function fetchStormglass(force) {
     const r = await fetch(url);
     const data = await r.json();
     if (data.error) throw new Error(data.error);
+    console.log('Stormglass data received:', JSON.stringify(data).slice(0, 200));
     state.stormglassData = data;
     state.stormglassTs = Date.now();
     document.getElementById('src-stormglass').className = 'src-badge ok';
@@ -1630,7 +1645,10 @@ function sgVal(hours, param) {
 
 function renderStormglass() {
   const d = state.stormglassData;
-  if (!d || !d.hours || d.hours.length === 0) return;
+  console.log('renderStormglass called, data:', d ? ('hours:' + (d.hours ? d.hours.length : 'NO_HOURS') + ' keys:' + Object.keys(d).join(',')) : 'NULL');
+  if (!d) { document.getElementById('sg-update').textContent = 'Errore: dati nulli'; return; }
+  if (!d.hours) { document.getElementById('sg-update').textContent = 'Errore: struttura dati errata - ' + Object.keys(d).join(','); return; }
+  if (d.hours.length === 0) { document.getElementById('sg-update').textContent = 'Errore: nessun dato orario'; return; }
   const h = d.hours;
 
   const set = (id, val, suffix='') => {
@@ -2943,15 +2961,30 @@ async function analyzeCloudPhoto(input) {
 }
 
 function renderCameraResult(data, el) {
+  // Clear loading text first
+  el.innerHTML = '';
   var scenarioColors = { A: 'danger', B: 'warn', C: 'danger', D: 'safe', stable: 'safe' };
   var sc = data.scenario || 'stable';
   var scColor = scenarioColors[sc] || 'safe';
 
+  var wmoNames = {
+    'Ci': 'Cirri', 'Cs': 'Cirrostrati', 'Cc': 'Cirrocumuli',
+    'As': 'Altostrati', 'Ac': 'Altocumuli', 'Ns': 'Nembostrati',
+    'Sc': 'Stratocumuli', 'St': 'Strati', 'Cu': 'Cumuli', 'Cb': 'Cumulonembi'
+  };
+  var scenarioItalian = {
+    'A': 'Fronte freddo — PERICOLOSO',
+    'B': 'Fronte caldo — deterioramento graduale',
+    'C': 'Ciclogenesi — IMPREVEDIBILE',
+    'D': 'Miglioramento post-perturbato',
+    'stable': 'Situazione stabile'
+  };
   var cloudsHtml = '';
   if (data.clouds && data.clouds.length > 0) {
     data.clouds.forEach(function(c) {
       var isPrimary = c === data.primary;
-      cloudsHtml += '<span class="camera-cloud-badge' + (isPrimary ? ' primary' : '') + '">' + c + '</span>';
+      var name = wmoNames[c] || c;
+      cloudsHtml += '<span class="camera-cloud-badge' + (isPrimary ? ' primary' : '') + '">' + c + ' · ' + name + '</span>';
     });
   }
 
@@ -2961,7 +2994,9 @@ function renderCameraResult(data, el) {
     html += '<div class="camera-scenario"><strong>Sequenza:</strong> ' + data.sequence + '</div>';
   }
   if (data.scenario_desc) {
-    html += '<div class="camera-scenario" style="color:var(--' + scColor + ')"><strong>Scenario ' + sc.toUpperCase() + ':</strong> ' + data.scenario_desc + '</div>';
+    var scItalian = scenarioItalian[sc] || ('Scenario ' + sc.toUpperCase());
+    html += '<div class="camera-scenario" style="color:var(--' + scColor + ')"><strong>' + scItalian + '</strong></div>';
+    html += '<div class="camera-scenario" style="font-size:0.6rem;color:var(--muted)">' + data.scenario_desc + '</div>';
   }
   if (data.implication) {
     html += '<div class="camera-implication">' + data.implication + '</div>';
@@ -2970,6 +3005,7 @@ function renderCameraResult(data, el) {
     html += '<div class="camera-confidence">Confidenza: ' + data.confidence + '%</div>';
   }
 
+  html += '<div style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--safe);margin-bottom:6px">✓ Analisi completata</div>';
   html += '<button class="camera-apply-btn" onclick="applyCameraResult()">Applica alle osservazioni</button>';
 
   el.innerHTML = html;

@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v4.7.7 — 2026-03-25 -->
+<!-- NAUTILUS v4.7.8 — 2026-03-25 -->
 
 <html lang="it">
 <head>
@@ -468,7 +468,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 
   <div class="nav-tabs">
     <div class="nav-tab active" onclick="showPage('meteo',this)">⛵ Meteo</div>
-    <div class="nav-tab" onclick="showPage('mare',this)">🌊 Mare</div>
+    <div class="nav-tab" id="nav-tab-mare" onclick="showPage('mare',this)">🌊 Mare</div>
     <div class="nav-tab" onclick="showPage('osservazioni',this)">👁 Osservazioni</div>
     <div class="nav-tab" onclick="showPage('nuvole',this)">☁️ Nuvole</div>
     <div class="nav-tab" onclick="showPage('engine',this);loadEngine()">🧭 Engine</div>
@@ -483,7 +483,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.7.7 · by mdisailor engine</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.7.8 · by mdisailor engine</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1408,7 +1408,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica · Previsione operativ4.7.7 · by mdisailor engine</div>
+  <div class="engine-sub">Diagnostica sinottica · Previsione operativ4.7.8 · by mdisailor engine</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -1460,6 +1460,7 @@ const state = {
   weatherData: null,
   stormglassData: null,
   stormglassTs: null,
+  isAdmin: (new URLSearchParams(window.location.search).get('k') === 'mdi'),
   selectedClouds: [],
 };
 
@@ -1507,7 +1508,17 @@ function requestGPS() {
   }, { enableHighAccuracy: true, timeout: 10000 });
 }
 
-function fetchAll() { fetchWeather(); fetchStormglass(); }
+function fetchAll() {
+  fetchWeather();
+  if (state.isAdmin) {
+    fetchStormglass();
+    var tabMare = document.getElementById('nav-tab-mare');
+    if (tabMare) tabMare.style.display = 'flex';
+  } else {
+    var tabMare = document.getElementById('nav-tab-mare');
+    if (tabMare) tabMare.style.display = 'none';
+  }
+}
 
 // ── OPEN-METEO ───────────────────────────────────────────────
 async function fetchWeather() {
@@ -3117,7 +3128,7 @@ function toggleBhpItem(idx) {
   if (prev) prev.style.display = isOpen ? 'block' : 'none';
 }
 
-// Fine codice - NAUTILUS v4.7.7
+// Fine codice - NAUTILUS v4.7.8
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

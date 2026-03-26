@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v4.8.2 — 2026-03-25 -->
+<!-- NAUTILUS v4.8.3 — 2026-03-26 -->
 
 <html lang="it">
 <head>
@@ -509,7 +509,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.8.2 · by mdisailor engine</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.8.3 · by mdisailor engine</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1434,7 +1434,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica · Previsione operativ4.8.2 · by mdisailor engine</div>
+  <div class="engine-sub">Diagnostica sinottica · Previsione operativ4.8.3 · by mdisailor engine</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -2799,10 +2799,16 @@ function renderWindDirTimeline(snaps) {
   // Color by quadrant
   var dirColor = function(d) {
     if (d === null || d === undefined) return '#4a7090';
-    if (d < 45 || d >= 315) return '#0af0ff';   // N - cyan
-    if (d < 135) return '#90caf9';               // E - light blue
-    if (d < 225) return '#f0b429';               // S - gold
-    return '#22dd88';                            // O - green
+    // N=blue, E=green, S=red, O=brown with smooth gradations
+    // 0=N, 90=E, 180=S, 270=O
+    if (d >= 337.5 || d < 22.5)  return '#1a8cff'; // N - blue
+    if (d < 67.5)   return '#00cc88';               // NE - blue-green
+    if (d < 112.5)  return '#22dd44';               // E - green
+    if (d < 157.5)  return '#88cc00';               // SE - yellow-green
+    if (d < 202.5)  return '#ff4444';               // S - red
+    if (d < 247.5)  return '#cc6600';               // SO - orange-brown
+    if (d < 292.5)  return '#996633';               // O - brown
+    return '#6699cc';                               // NO - blue-grey
   };
 
   var n = snaps.length;
@@ -2851,7 +2857,7 @@ function renderWindDirTimeline(snaps) {
 
   // Legend
   html += '<div style="display:flex;gap:10px;margin-top:6px;flex-wrap:wrap">';
-  [{l:'Nord',c:'#0af0ff'},{l:'Est',c:'#90caf9'},{l:'Sud',c:'#f0b429'},{l:'Ovest',c:'#22dd88'}].forEach(function(x) {
+  [{l:'Nord',c:'#1a8cff'},{l:'Est',c:'#22dd44'},{l:'Sud',c:'#ff4444'},{l:'Ovest',c:'#996633'}].forEach(function(x) {
     html += '<div style="display:flex;align-items:center;gap:3px;font-family:DM Mono,monospace;font-size:0.45rem;color:var(--muted)">' +
       '<div style="width:8px;height:8px;border-radius:50%;background:' + x.c + '"></div>' + x.l +
     '</div>';
@@ -2866,7 +2872,13 @@ function renderWindDirTimeline(snaps) {
 // -- ENGINE BRIEFING WITH HISTORY
 // -- ENGINE BRIEFING WITH HISTORY -------------------------------------------
 
-var briefingHistory = [];
+// Load briefing history from localStorage on startup
+var briefingHistory = (function() {
+  try {
+    var saved = localStorage.getItem('nautilus_briefing_history');
+    return saved ? JSON.parse(saved) : [];
+  } catch(e) { return []; }
+})();
 
 async function requestEngineBriefing() {
   var btn = document.getElementById('btn-engine-briefing');
@@ -2955,6 +2967,7 @@ async function requestEngineBriefing() {
     };
     briefingHistory.push(entry);
     if (briefingHistory.length > 20) briefingHistory.shift();
+    try { localStorage.setItem('nautilus_briefing_history', JSON.stringify(briefingHistory)); } catch(e) {}
 
     // Color risk badge
     var rc = 'safe', rl = 'RISCHIO BASSO';
@@ -3324,7 +3337,7 @@ function renderVerifyContent(data, el) {
   el.innerHTML = html;
 }
 
-// Fine codice - NAUTILUS v4.8.2
+// Fine codice - NAUTILUS v4.8.3
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

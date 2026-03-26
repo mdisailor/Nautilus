@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.6.0 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.6.4 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -387,12 +387,13 @@ var expAngle = expAngles[port.exposure] || 0;
 if (port.exposure !== 'ALL') {
   var swellAngleDiff = Math.abs(((swell_dir - expAngle) + 360) % 360);
   var isExposed = Math.min(swellAngleDiff, 360 - swellAngleDiff) < 60;
-  if (isExposed && swell_height > 0.6) {
+  if (isExposed && swell_height > 0.8) {
     if (risk === 'low') risk = 'medium';
     notes.push('Esposizione diretta swell da ' + sf(swell_dir,0) + ' gradi');
   }
 } else {
-  if (risk === 'low') risk = 'medium';
+  // ALL exposure - only escalate if wave is significant
+  if (effectiveWave > 0.8 && risk === 'low') risk = 'medium';
 }
 
 if (wind_speed > 25) {
@@ -919,8 +920,10 @@ var verRecord = {
 forecast_time: pastTime.toISOString(),
 horizon_h: h,
 predicted_wind: forecast['h' + h + '_wind'],
+predicted_wind_dir: forecast['h' + h + '_wind_dir'] || null,
 predicted_wave: forecast['h' + h + '_wave'],
 actual_wind: currentData.wind_speed,
+actual_wind_dir: currentData.wind_dir || null,
 actual_wave: currentData.wave_height,
 wind_error: parseFloat(windError.toFixed(1)),
 wave_error: parseFloat(waveError.toFixed(2))

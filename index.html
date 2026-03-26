@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v4.8.1 — 2026-03-25 -->
+<!-- NAUTILUS v4.8.2 — 2026-03-25 -->
 
 <html lang="it">
 <head>
@@ -509,7 +509,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.8.1 · by mdisailor engine</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.8.2 · by mdisailor engine</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1434,7 +1434,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica · Previsione operativ4.8.1 · by mdisailor engine</div>
+  <div class="engine-sub">Diagnostica sinottica · Previsione operativ4.8.2 · by mdisailor engine</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -2724,9 +2724,9 @@ async function loadHistory(zoneKey) {
     html += '<div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);margin-top:10px;text-transform:uppercase;letter-spacing:0.1em">Vento kn</div>';
     html += renderHistoryBars(snaps, 'wind', 'var(--gold)', function(s) { return s.wind_speed; }, 0);
 
-    // Wind rose
-    html += '<div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);margin-top:10px;text-transform:uppercase;letter-spacing:0.1em">Rosa dei venti 24h</div>';
-    html += renderWindRose(snaps);
+    // Wind direction over time with arrows
+    html += '<div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);margin-top:10px;text-transform:uppercase;letter-spacing:0.1em">Direzione vento nel tempo</div>';
+    html += renderWindDirTimeline(snaps);
 
     // Rotation analysis
     if (data.rotation && data.rotation.trend !== 'insufficient_data') {
@@ -2793,107 +2793,77 @@ function renderHistoryBars(snaps, type, color, getValue, decimals) {
   return html;
 }
 
-function renderWindRose(snaps) {
+function renderWindDirTimeline(snaps) {
   if (!snaps || snaps.length === 0) return '<div class="history-empty">Nessun dato direzione</div>';
-
-  // 16 sectors, count occurrences weighted by wind speed
-  var sectors = new Array(16).fill(0);
-  var total = 0;
-  snaps.forEach(function(s) {
-    if (s.wind_dir === null || s.wind_dir === undefined) return;
-    var idx = Math.round(s.wind_dir / 22.5) % 16;
-    var weight = s.wind_speed ? Math.max(1, s.wind_speed) : 1;
-    sectors[idx] += weight;
-    total += weight;
-  });
-
   var dirs16 = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
-  // Colors by cardinal quadrant
-  var sectorColors = [
-    '#0af0ff','#3ad4f0','#60b8e0','#7aa8d0', // N NNE NE ENE - blue/cyan
-    '#90caf9','#a0b8e8','#b0a8d8','#c098c8', // E ESE SE SSE - purple
-    '#d08888','#e09060','#f0a840','#f0b429', // S SSO SO OSO - warm
-    '#ffaa00','#e8b820','#d0c840','#b8d860'  // O ONO NO NNO - yellow/green
-  ];
+  // Color by quadrant
+  var dirColor = function(d) {
+    if (d === null || d === undefined) return '#4a7090';
+    if (d < 45 || d >= 315) return '#0af0ff';   // N - cyan
+    if (d < 135) return '#90caf9';               // E - light blue
+    if (d < 225) return '#f0b429';               // S - gold
+    return '#22dd88';                            // O - green
+  };
 
-  var cx = 70, cy = 70, R = 58, r0 = 8;
-  var maxSector = Math.max.apply(null, sectors);
+  var n = snaps.length;
+  var labelSet = new Set([0, n - 1]);
+  if (n > 4) { labelSet.add(Math.floor(n / 3)); labelSet.add(Math.floor(2 * n / 3)); }
+  else if (n > 2) { labelSet.add(Math.floor(n / 2)); }
 
-  var svg = '<svg class="wind-rose-svg" width="140" height="140" viewBox="0 0 140 140">';
-  // Background circle
-  svg += '<circle cx="' + cx + '" cy="' + cy + '" r="' + R + '" fill="rgba(0,0,0,0.2)" stroke="rgba(58,96,128,0.3)" stroke-width="1"/>';
-  // Reference rings
-  [0.33, 0.66, 1.0].forEach(function(f) {
-    svg += '<circle cx="' + cx + '" cy="' + cy + '" r="' + (r0 + f * (R - r0)).toFixed(1) + '" fill="none" stroke="rgba(58,96,128,0.2)" stroke-width="0.5"/>';
+  // Container with fixed height for arrow + name + time
+  var html = '<div style="display:flex;gap:2px;align-items:flex-end;padding-top:4px">';
+  snaps.forEach(function(s, i) {
+    var d = s.wind_dir;
+    var spd = s.wind_speed || 0;
+    var isLast = i === n - 1;
+    var showLabel = labelSet.has(i);
+    var col = dirColor(d);
+    var dirName = (d !== null && d !== undefined) ? dirs16[Math.round(d / 22.5) % 16] : '—';
+    var time = s.ts ? new Date(s.ts).toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'}) : '';
+    // Arrow rotation: wind direction = where wind COMES FROM, arrow points toward destination
+    var arrowRot = (d !== null && d !== undefined) ? (d + 180) % 360 : 0;
+    // Bar height based on wind speed
+    var barH = Math.max(4, Math.min(40, Math.round(4 + spd * 1.5)));
+
+    html += '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px">' +
+      // Direction name top
+      '<div style="font-family:DM Mono,monospace;font-size:0.38rem;color:' + (isLast ? '#fff' : '#6a9ab8') + ';height:12px;line-height:12px;font-weight:' + (isLast ? '600' : '400') + '">' +
+        (showLabel ? dirName : '&nbsp;') +
+      '</div>' +
+      // Arrow SVG
+      (d !== null && d !== undefined ?
+        '<svg width="14" height="14" viewBox="0 0 14 14" style="flex-shrink:0">' +
+          '<line x1="7" y1="11" x2="7" y2="3" stroke="' + col + '" stroke-width="' + (isLast ? 1.8 : 1.2) + '" opacity="' + (isLast ? 1 : 0.6) + '" ' +
+            'transform="rotate(' + arrowRot + ',7,7)"/>' +
+          '<polygon points="7,1 5,5 9,5" fill="' + col + '" opacity="' + (isLast ? 1 : 0.6) + '" ' +
+            'transform="rotate(' + arrowRot + ',7,7)"/>' +
+        '</svg>'
+      : '<div style="width:14px;height:14px"></div>') +
+      // Wind speed bar
+      '<div style="width:100%;height:' + barH + 'px;background:' + col + ';opacity:' + (isLast ? 1 : 0.5) + ';border-radius:2px 2px 0 0;' + (isLast ? 'box-shadow:0 0 4px ' + col + ';' : '') + '"></div>' +
+      // Time bottom
+      '<div style="font-family:DM Mono,monospace;font-size:0.38rem;color:' + (isLast ? '#cce8ff' : '#6a9ab8') + ';height:12px;line-height:12px">' +
+        (showLabel ? time : '&nbsp;') +
+      '</div>' +
+    '</div>';
   });
-  // Axis lines
-  [0,45,90,135].forEach(function(angle) {
-    var rad = angle * Math.PI / 180;
-    svg += '<line x1="' + (cx - R * Math.sin(rad)).toFixed(1) + '" y1="' + (cy - R * Math.cos(rad)).toFixed(1) +
-      '" x2="' + (cx + R * Math.sin(rad)).toFixed(1) + '" y2="' + (cy + R * Math.cos(rad)).toFixed(1) +
-      '" stroke="rgba(58,96,128,0.25)" stroke-width="0.5"/>';
+  html += '</div>';
+
+  // Legend
+  html += '<div style="display:flex;gap:10px;margin-top:6px;flex-wrap:wrap">';
+  [{l:'Nord',c:'#0af0ff'},{l:'Est',c:'#90caf9'},{l:'Sud',c:'#f0b429'},{l:'Ovest',c:'#22dd88'}].forEach(function(x) {
+    html += '<div style="display:flex;align-items:center;gap:3px;font-family:DM Mono,monospace;font-size:0.45rem;color:var(--muted)">' +
+      '<div style="width:8px;height:8px;border-radius:50%;background:' + x.c + '"></div>' + x.l +
+    '</div>';
   });
+  html += '</div>';
+  html += '<div style="font-family:DM Mono,monospace;font-size:0.45rem;color:var(--muted);margin-top:3px">↑ freccia = direzione verso cui soffia · altezza barra = intensità</div>';
 
-  // Draw sectors as pie-like petals
-  sectors.forEach(function(val, i) {
-    if (val === 0) return;
-    var len = maxSector > 0 ? r0 + (val / maxSector) * (R - r0) : r0;
-    var angleStart = (i - 0.4) * 22.5 * Math.PI / 180;
-    var angleEnd = (i + 0.4) * 22.5 * Math.PI / 180;
-    var x1 = cx + len * Math.sin(angleStart);
-    var y1 = cy - len * Math.cos(angleStart);
-    var x2 = cx + len * Math.sin(angleEnd);
-    var y2 = cy - len * Math.cos(angleEnd);
-    var xi1 = cx + r0 * Math.sin(angleStart);
-    var yi1 = cy - r0 * Math.cos(angleStart);
-    var xi2 = cx + r0 * Math.sin(angleEnd);
-    var yi2 = cy - r0 * Math.cos(angleEnd);
-    svg += '<path d="M ' + xi1.toFixed(1) + ' ' + yi1.toFixed(1) +
-      ' L ' + x1.toFixed(1) + ' ' + y1.toFixed(1) +
-      ' A ' + len.toFixed(1) + ' ' + len.toFixed(1) + ' 0 0 1 ' + x2.toFixed(1) + ' ' + y2.toFixed(1) +
-      ' L ' + xi2.toFixed(1) + ' ' + yi2.toFixed(1) +
-      ' A ' + r0 + ' ' + r0 + ' 0 0 0 ' + xi1.toFixed(1) + ' ' + yi1.toFixed(1) + ' Z"' +
-      ' fill="' + sectorColors[i] + '" opacity="0.85"/>';
-  });
-
-  // Cardinal labels
-  var cardinals = [{l:'N',a:0},{l:'E',a:90},{l:'S',a:180},{l:'O',a:270}];
-  cardinals.forEach(function(c) {
-    var rad = c.a * Math.PI / 180;
-    var lx = (cx + (R + 8) * Math.sin(rad)).toFixed(1);
-    var ly = (cy - (R + 8) * Math.cos(rad) + 3.5).toFixed(1);
-    svg += '<text x="' + lx + '" y="' + ly + '" text-anchor="middle" font-family="DM Mono,monospace" font-size="9" fill="#8ab8d0">' + c.l + '</text>';
-  });
-
-  // Center dot
-  svg += '<circle cx="' + cx + '" cy="' + cy + '" r="3" fill="rgba(0,240,255,0.6)"/>';
-  svg += '</svg>';
-
-  // Find dominant direction
-  var maxIdx = sectors.indexOf(maxSector);
-  var dominantDir = dirs16[maxIdx];
-  var dominantPct = total > 0 ? Math.round(sectors[maxIdx] / total * 100) : 0;
-
-  // Legend: show top 4 sectors
-  var ranked = sectors.map(function(v, i) { return {v:v, i:i}; })
-    .filter(function(x) { return x.v > 0; })
-    .sort(function(a, b) { return b.v - a.v; })
-    .slice(0, 6);
-
-  var legendHtml = '<div class="wind-rose-legend">';
-  ranked.forEach(function(x) {
-    var pct = total > 0 ? Math.round(x.v / total * 100) : 0;
-    legendHtml += '<div class="wind-rose-legend-item">' +
-      '<div class="wind-rose-legend-dot" style="background:' + sectorColors[x.i] + '"></div>' +
-      dirs16[x.i] + ' ' + pct + '%' +
-      '</div>';
-  });
-  legendHtml += '</div>';
-
-  return '<div class="wind-rose-wrap">' + svg + legendHtml + '</div>' +
-    '<div style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--muted);margin-top:4px">Predominante: <span style="color:#fff">' + dominantDir + '</span> (' + dominantPct + '% peso vento)</div>';
+  return html;
 }
 
+
+// -- ENGINE BRIEFING WITH HISTORY
 // -- ENGINE BRIEFING WITH HISTORY -------------------------------------------
 
 var briefingHistory = [];
@@ -3354,7 +3324,7 @@ function renderVerifyContent(data, el) {
   el.innerHTML = html;
 }
 
-// Fine codice - NAUTILUS v4.8.1
+// Fine codice - NAUTILUS v4.8.2
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

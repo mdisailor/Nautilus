@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v4.8.0 — 2026-03-25 -->
+<!-- NAUTILUS v4.8.1 — 2026-03-25 -->
 
 <html lang="it">
 <head>
@@ -454,6 +454,11 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 .bhp-item-body { font-size:0.65rem; color:var(--text); line-height:1.7; margin-top:8px; white-space:pre-line; display:none; }
 .bhp-empty { padding:30px 20px; text-align:center; font-family:DM Mono,monospace; font-size:0.62rem; color:var(--muted); }
 .bhp-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:199; display:none; }
+.wind-rose-wrap { margin-top:8px; display:flex; align-items:center; gap:14px; }
+.wind-rose-svg { flex-shrink:0; }
+.wind-rose-legend { display:grid; grid-template-columns:1fr 1fr; gap:2px 10px; }
+.wind-rose-legend-item { display:flex; align-items:center; gap:4px; font-family:DM Mono,monospace; font-size:0.45rem; color:var(--muted); }
+.wind-rose-legend-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
 .verify-section { margin:12px 20px 0; }
 .verify-zone-select { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
 .verify-zone-btn { padding:5px 12px; background:transparent; border:1px solid var(--border); border-radius:8px; color:var(--muted); font-family:DM Mono,monospace; font-size:0.55rem; cursor:pointer; }
@@ -504,7 +509,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.8.0 · by mdisailor engine</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.8.1 · by mdisailor engine</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1429,7 +1434,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica · Previsione operativ4.8.0 · by mdisailor engine</div>
+  <div class="engine-sub">Diagnostica sinottica · Previsione operativ4.8.1 · by mdisailor engine</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -2719,9 +2724,9 @@ async function loadHistory(zoneKey) {
     html += '<div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);margin-top:10px;text-transform:uppercase;letter-spacing:0.1em">Vento kn</div>';
     html += renderHistoryBars(snaps, 'wind', 'var(--gold)', function(s) { return s.wind_speed; }, 0);
 
-    // Wind direction chart
-    html += '<div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);margin-top:10px;text-transform:uppercase;letter-spacing:0.1em">Direzione vento</div>';
-    html += renderDirBars(snaps);
+    // Wind rose
+    html += '<div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);margin-top:10px;text-transform:uppercase;letter-spacing:0.1em">Rosa dei venti 24h</div>';
+    html += renderWindRose(snaps);
 
     // Rotation analysis
     if (data.rotation && data.rotation.trend !== 'insufficient_data') {
@@ -2788,34 +2793,105 @@ function renderHistoryBars(snaps, type, color, getValue, decimals) {
   return html;
 }
 
-function renderDirBars(snaps) {
-  var dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
-  var n = snaps.length;
-  var labelSet = new Set([0, n - 1]);
-  if (n > 4) { labelSet.add(Math.floor(n / 3)); labelSet.add(Math.floor(2 * n / 3)); }
-  else if (n > 2) { labelSet.add(Math.floor(n / 2)); }
+function renderWindRose(snaps) {
+  if (!snaps || snaps.length === 0) return '<div class="history-empty">Nessun dato direzione</div>';
 
-  var html = '<div class="history-bars">';
-  snaps.forEach(function(s, i) {
-    var d = s.wind_dir;
-    if (d === null || d === undefined) return;
-    var dirName = dirs[Math.round(d / 22.5) % 16];
-    var isLast = i === n - 1;
-    var showLabel = labelSet.has(i);
-    var col = d < 90 ? '#90caf9' : d < 180 ? '#f0b429' : d < 270 ? '#ffaa00' : '#0af0ff';
-    var time = s.ts ? new Date(s.ts).toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'}) : '';
-    html += '<div class="history-bar-wrap">' +
-      '<div class="history-bar-val" style="color:' + (isLast ? '#ffffff' : '#8ab8d0') + ';font-weight:' + (isLast ? '600' : '400') + '">' +
-        (showLabel ? dirName : '&nbsp;') +
-      '</div>' +
-      '<div class="history-bar" style="height:30px;background:' + col + ';opacity:' + (isLast ? 1 : 0.55) + '"></div>' +
-      '<div class="history-bar-label" style="color:' + (isLast ? '#cce8ff' : '#6a9ab8') + '">' +
-        (showLabel ? time : '&nbsp;') +
-      '</div>' +
-    '</div>';
+  // 16 sectors, count occurrences weighted by wind speed
+  var sectors = new Array(16).fill(0);
+  var total = 0;
+  snaps.forEach(function(s) {
+    if (s.wind_dir === null || s.wind_dir === undefined) return;
+    var idx = Math.round(s.wind_dir / 22.5) % 16;
+    var weight = s.wind_speed ? Math.max(1, s.wind_speed) : 1;
+    sectors[idx] += weight;
+    total += weight;
   });
-  html += '</div>';
-  return html;
+
+  var dirs16 = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+  // Colors by cardinal quadrant
+  var sectorColors = [
+    '#0af0ff','#3ad4f0','#60b8e0','#7aa8d0', // N NNE NE ENE - blue/cyan
+    '#90caf9','#a0b8e8','#b0a8d8','#c098c8', // E ESE SE SSE - purple
+    '#d08888','#e09060','#f0a840','#f0b429', // S SSO SO OSO - warm
+    '#ffaa00','#e8b820','#d0c840','#b8d860'  // O ONO NO NNO - yellow/green
+  ];
+
+  var cx = 70, cy = 70, R = 58, r0 = 8;
+  var maxSector = Math.max.apply(null, sectors);
+
+  var svg = '<svg class="wind-rose-svg" width="140" height="140" viewBox="0 0 140 140">';
+  // Background circle
+  svg += '<circle cx="' + cx + '" cy="' + cy + '" r="' + R + '" fill="rgba(0,0,0,0.2)" stroke="rgba(58,96,128,0.3)" stroke-width="1"/>';
+  // Reference rings
+  [0.33, 0.66, 1.0].forEach(function(f) {
+    svg += '<circle cx="' + cx + '" cy="' + cy + '" r="' + (r0 + f * (R - r0)).toFixed(1) + '" fill="none" stroke="rgba(58,96,128,0.2)" stroke-width="0.5"/>';
+  });
+  // Axis lines
+  [0,45,90,135].forEach(function(angle) {
+    var rad = angle * Math.PI / 180;
+    svg += '<line x1="' + (cx - R * Math.sin(rad)).toFixed(1) + '" y1="' + (cy - R * Math.cos(rad)).toFixed(1) +
+      '" x2="' + (cx + R * Math.sin(rad)).toFixed(1) + '" y2="' + (cy + R * Math.cos(rad)).toFixed(1) +
+      '" stroke="rgba(58,96,128,0.25)" stroke-width="0.5"/>';
+  });
+
+  // Draw sectors as pie-like petals
+  sectors.forEach(function(val, i) {
+    if (val === 0) return;
+    var len = maxSector > 0 ? r0 + (val / maxSector) * (R - r0) : r0;
+    var angleStart = (i - 0.4) * 22.5 * Math.PI / 180;
+    var angleEnd = (i + 0.4) * 22.5 * Math.PI / 180;
+    var x1 = cx + len * Math.sin(angleStart);
+    var y1 = cy - len * Math.cos(angleStart);
+    var x2 = cx + len * Math.sin(angleEnd);
+    var y2 = cy - len * Math.cos(angleEnd);
+    var xi1 = cx + r0 * Math.sin(angleStart);
+    var yi1 = cy - r0 * Math.cos(angleStart);
+    var xi2 = cx + r0 * Math.sin(angleEnd);
+    var yi2 = cy - r0 * Math.cos(angleEnd);
+    svg += '<path d="M ' + xi1.toFixed(1) + ' ' + yi1.toFixed(1) +
+      ' L ' + x1.toFixed(1) + ' ' + y1.toFixed(1) +
+      ' A ' + len.toFixed(1) + ' ' + len.toFixed(1) + ' 0 0 1 ' + x2.toFixed(1) + ' ' + y2.toFixed(1) +
+      ' L ' + xi2.toFixed(1) + ' ' + yi2.toFixed(1) +
+      ' A ' + r0 + ' ' + r0 + ' 0 0 0 ' + xi1.toFixed(1) + ' ' + yi1.toFixed(1) + ' Z"' +
+      ' fill="' + sectorColors[i] + '" opacity="0.85"/>';
+  });
+
+  // Cardinal labels
+  var cardinals = [{l:'N',a:0},{l:'E',a:90},{l:'S',a:180},{l:'O',a:270}];
+  cardinals.forEach(function(c) {
+    var rad = c.a * Math.PI / 180;
+    var lx = (cx + (R + 8) * Math.sin(rad)).toFixed(1);
+    var ly = (cy - (R + 8) * Math.cos(rad) + 3.5).toFixed(1);
+    svg += '<text x="' + lx + '" y="' + ly + '" text-anchor="middle" font-family="DM Mono,monospace" font-size="9" fill="#8ab8d0">' + c.l + '</text>';
+  });
+
+  // Center dot
+  svg += '<circle cx="' + cx + '" cy="' + cy + '" r="3" fill="rgba(0,240,255,0.6)"/>';
+  svg += '</svg>';
+
+  // Find dominant direction
+  var maxIdx = sectors.indexOf(maxSector);
+  var dominantDir = dirs16[maxIdx];
+  var dominantPct = total > 0 ? Math.round(sectors[maxIdx] / total * 100) : 0;
+
+  // Legend: show top 4 sectors
+  var ranked = sectors.map(function(v, i) { return {v:v, i:i}; })
+    .filter(function(x) { return x.v > 0; })
+    .sort(function(a, b) { return b.v - a.v; })
+    .slice(0, 6);
+
+  var legendHtml = '<div class="wind-rose-legend">';
+  ranked.forEach(function(x) {
+    var pct = total > 0 ? Math.round(x.v / total * 100) : 0;
+    legendHtml += '<div class="wind-rose-legend-item">' +
+      '<div class="wind-rose-legend-dot" style="background:' + sectorColors[x.i] + '"></div>' +
+      dirs16[x.i] + ' ' + pct + '%' +
+      '</div>';
+  });
+  legendHtml += '</div>';
+
+  return '<div class="wind-rose-wrap">' + svg + legendHtml + '</div>' +
+    '<div style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--muted);margin-top:4px">Predominante: <span style="color:#fff">' + dominantDir + '</span> (' + dominantPct + '% peso vento)</div>';
 }
 
 // -- ENGINE BRIEFING WITH HISTORY -------------------------------------------
@@ -3251,18 +3327,23 @@ function renderVerifyContent(data, el) {
   if (records.length > 0) {
     html += '<div class="verify-chart-title">Ultime verifiche (previsione h6)</div>';
     html += '<table class="verify-table">' +
-      '<tr><th>Data/ora</th><th>Prev.</th><th>Reale</th><th>Errore</th></tr>';
+      '<tr><th>Data/ora</th><th>Prev. vento</th><th>Reale</th><th>Errore</th><th>Dir. prev.</th><th>Dir. reale</th></tr>';
     records.slice(0, 15).forEach(function(r) {
       var dt = r.forecast_time ? new Date(r.forecast_time).toLocaleString('it-IT', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
       var err = r.wind_error || 0;
       var errClass = Math.abs(err) < 3 ? 'verify-err-ok' : err > 0 ? 'verify-err-pos' : 'verify-err-neg';
       var prevWind = r.predicted_wind !== null && r.predicted_wind !== undefined ? parseFloat(r.predicted_wind).toFixed(1) + 'kn' : '—';
       var realWind = r.actual_wind !== null && r.actual_wind !== undefined ? parseFloat(r.actual_wind).toFixed(1) + 'kn' : '—';
+      var dirs16v = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+      var prevDir = r.predicted_wind_dir !== null && r.predicted_wind_dir !== undefined ? dirs16v[Math.round(r.predicted_wind_dir / 22.5) % 16] : '—';
+      var realDir = r.actual_wind_dir !== null && r.actual_wind_dir !== undefined ? dirs16v[Math.round(r.actual_wind_dir / 22.5) % 16] : '—';
       html += '<tr>' +
         '<td>' + dt + '</td>' +
         '<td>' + prevWind + '</td>' +
         '<td>' + realWind + '</td>' +
         '<td class="' + errClass + '">' + (err >= 0 ? '+' : '') + parseFloat(err).toFixed(1) + 'kn</td>' +
+        '<td>' + prevDir + '</td>' +
+        '<td>' + realDir + '</td>' +
       '</tr>';
     });
     html += '</table>';
@@ -3273,7 +3354,7 @@ function renderVerifyContent(data, el) {
   el.innerHTML = html;
 }
 
-// Fine codice - NAUTILUS v4.8.0
+// Fine codice - NAUTILUS v4.8.1
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

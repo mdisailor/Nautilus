@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v4.8.3 — 2026-03-26 -->
+<!-- NAUTILUS v4.8.5 — 2026-03-26 -->
 
 <html lang="it">
 <head>
@@ -509,7 +509,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.8.3 · by mdisailor engine</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.8.5 · by mdisailor engine</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1434,7 +1434,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica · Previsione operativ4.8.3 · by mdisailor engine</div>
+  <div class="engine-sub">Diagnostica sinottica · Previsione operativ4.8.5 · by mdisailor engine</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -1454,7 +1454,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;opacity:0.8;margin-bottom:8px">Briefing AI</div>
   <div id="engine-briefing-hint" style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--muted);margin-bottom:6px;display:none">Avvia prima l analisi Engine per abilitare il briefing</div>
   <button id="btn-engine-briefing" onclick="requestEngineBriefing()" style="flex:1;padding:11px;background:rgba(0,240,255,0.08);border:1px solid rgba(0,240,255,0.3);border-radius:10px;color:var(--accent);font-family:DM Mono,monospace;font-size:0.65rem;letter-spacing:0.08em;cursor:pointer" disabled>Genera Briefing</button>
-    <button onclick="openBriefingHistory()" style="padding:11px 14px;background:rgba(58,96,128,0.15);border:1px solid var(--border);border-radius:10px;color:var(--muted);font-family:DM Mono,monospace;font-size:0.65rem;cursor:pointer" title="Storico briefing">📋</button>
+    <button id="btn-briefing-history" onclick="openBriefingHistory()" style="padding:11px 14px;background:rgba(58,96,128,0.15);border:1px solid var(--border);border-radius:10px;color:var(--muted);font-family:DM Mono,monospace;font-size:0.65rem;cursor:pointer" title="Storico briefing">📋 <span id="briefing-count" style="font-size:0.5rem"></span></button>
   </div>
   <div id="engine-briefing-text" style="font-size:0.68rem;color:var(--text);line-height:1.7;padding:12px;background:var(--card);border:1px solid var(--border);border-radius:10px;white-space:pre-line;display:none"></div>
   <div id="engine-briefing-history" style="margin-top:10px"></div>
@@ -1543,6 +1543,8 @@ function requestGPS() {
 }
 
 function fetchAll() {
+  // Update briefing count badge on load
+  updateBriefingBadge();
   fetchWeather();
   if (state.isAdmin) {
     fetchStormglass();
@@ -2896,11 +2898,28 @@ async function requestEngineBriefing() {
       if (ez && ez.diagnosis && !ez.error) {
         var ezLine = 'Zona ' + ez.name + ': CASO ' + ez.diagnosis.case.toUpperCase() + ' (' + ez.diagnosis.confidence + '%)';
         if (ez.risk) ezLine += ' - Rischio ' + ez.risk.label;
+        // Add actual numeric values so AI uses them correctly
+        if (ez.raw) {
+          var r = ez.raw;
+          var updTime = new Date(ez.updated).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+          ezLine += ' | Dati ' + updTime + ':';
+          ezLine += ' Vento ' + (r.wind_speed ? r.wind_speed.toFixed(1) : '--') + 'kn da ' + (r.wind_dir !== undefined ? degToDir(r.wind_dir) : '--');
+          ezLine += ' Raffica ' + (r.wind_gust ? r.wind_gust.toFixed(1) : '--') + 'kn';
+          ezLine += ' Pressione ' + (r.pressure ? r.pressure.toFixed(1) : '--') + 'hPa trend3h:' + (r.pressure_trend_3h ? (r.pressure_trend_3h > 0 ? '+' : '') + r.pressure_trend_3h.toFixed(1) : '0') + 'hPa';
+          ezLine += ' Onda ' + (r.wave_height ? r.wave_height.toFixed(2) : '--') + 'm/' + (r.wave_period ? r.wave_period.toFixed(0) : '--') + 's';
+          if (r.swell_height > 0.1) ezLine += ' Swell ' + r.swell_height.toFixed(2) + 'm';
+        }
+        if (ez.forecast) {
+          var fc = ez.forecast;
+          ezLine += ' | Prev: h6=' + (fc.h6 ? fc.h6.wind_max.toFixed(0) + 'kn' : '--');
+          ezLine += ' h12=' + (fc.h12 ? fc.h12.wind_max.toFixed(0) + 'kn' : '--');
+          ezLine += ' h24=' + (fc.h24 ? fc.h24.wind_max.toFixed(0) + 'kn' : '--');
+        }
         var ezHigh = ez.alerts ? ez.alerts.filter(function(a){return a.severity==='high';}).map(function(a){return a.msg;}) : [];
-        if (ezHigh.length > 0) ezLine += ' - ALLERTE: ' + ezHigh.join('; ');
+        if (ezHigh.length > 0) ezLine += ' | ALLERTE: ' + ezHigh.join('; ');
         var ezAct = ez.local_effects ? Object.values(ez.local_effects).filter(function(e){return e.active;}).map(function(e){return e.desc;}) : [];
-        if (ezAct.length > 0) ezLine += ' - Effetti: ' + ezAct.join(', ');
-        if (ez.window) ezLine += ' - Finestra: ' + ez.window.status.toUpperCase();
+        if (ezAct.length > 0) ezLine += ' | Effetti: ' + ezAct.join(', ');
+        if (ez.window) ezLine += ' | Finestra: ' + ez.window.status.toUpperCase() + ' - ' + ez.window.reason;
         ezLines.push(ezLine);
       }
     }
@@ -2936,7 +2955,7 @@ async function requestEngineBriefing() {
   }
   promptParts.push('Briefing strutturato:');
   promptParts.push('RISCHIO: [BASSO / MEDIO / ALTO]');
-  promptParts.push('SITUAZIONE: sintesi condizioni attuali per le zone analizzate');
+  promptParts.push('SITUAZIONE: usa SOLO i valori numerici forniti sopra dalla DIAGNOSI MOTORE. Non inventare valori diversi.');
   promptParts.push('EVOLUZIONE: cosa cambia nelle prossime 6-12-24h');
   promptParts.push('CONSIGLIO OPERATIVO: vai / aspetta / rientra con orario e motivazione');
   if (prevContext) promptParts.push('CONFRONTO: differenze rispetto al briefing precedente');
@@ -2968,6 +2987,7 @@ async function requestEngineBriefing() {
     briefingHistory.push(entry);
     if (briefingHistory.length > 20) briefingHistory.shift();
     try { localStorage.setItem('nautilus_briefing_history', JSON.stringify(briefingHistory)); } catch(e) {}
+    updateBriefingBadge();
 
     // Color risk badge
     var rc = 'safe', rl = 'RISCHIO BASSO';
@@ -3164,6 +3184,13 @@ function applyCameraResult() {
 
 // -- BRIEFING HISTORY PANEL -------------------------------------------------
 
+function updateBriefingBadge() {
+  var badge = document.getElementById('briefing-count');
+  if (badge) {
+    badge.textContent = briefingHistory.length > 0 ? '(' + briefingHistory.length + ')' : '';
+  }
+}
+
 function openBriefingHistory() {
   renderBriefingHistoryPanel();
   document.getElementById('briefing-history-panel').classList.add('open');
@@ -3337,7 +3364,7 @@ function renderVerifyContent(data, el) {
   el.innerHTML = html;
 }
 
-// Fine codice - NAUTILUS v4.8.3
+// Fine codice - NAUTILUS v4.8.5
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

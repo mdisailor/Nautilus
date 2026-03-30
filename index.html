@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v4.8.6 — 2026-03-26 -->
+<!-- NAUTILUS v4.8.7 — 2026-03-26 -->
 
 <html lang="it">
 <head>
@@ -509,7 +509,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.8.6 · by mdisailor engine</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.8.7 · by mdisailor engine</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1434,7 +1434,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica · Previsione operativ4.8.6 · by mdisailor engine</div>
+  <div class="engine-sub">Diagnostica sinottica · Previsione operativ4.8.7 · by mdisailor engine</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -2902,9 +2902,15 @@ async function requestEngineBriefing() {
         if (ez.raw) {
           var r = ez.raw;
           var updTime = new Date(ez.updated).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
-          ezLine += ' | Dati ' + updTime + ':';
+          ezLine += ' | Modello ' + updTime + ':';
           ezLine += ' Vento ' + (r.wind_speed ? r.wind_speed.toFixed(1) : '--') + 'kn da ' + (r.wind_dir !== undefined ? degToDir(r.wind_dir) : '--');
           ezLine += ' Raffica ' + (r.wind_gust ? r.wind_gust.toFixed(1) : '--') + 'kn';
+          // Add observed wind if available
+          if (ez.observed && ez.observed.wind_speed_obs !== null) {
+            ezLine += ' | OSSERVATO OWM (' + (ez.observed.station || 'stazione') + '): Vento ' + ez.observed.wind_speed_obs.toFixed(1) + 'kn da ' + degToDir(ez.observed.wind_dir_obs || 0);
+            if (ez.observed.wind_gust_obs) ezLine += ' Raffica ' + ez.observed.wind_gust_obs.toFixed(1) + 'kn';
+            ezLine += ' (usa questo come valore reale corrente)';
+          }
           ezLine += ' Pressione ' + (r.pressure ? r.pressure.toFixed(1) : '--') + 'hPa trend3h:' + (r.pressure_trend_3h ? (r.pressure_trend_3h > 0 ? '+' : '') + r.pressure_trend_3h.toFixed(1) : '0') + 'hPa';
           ezLine += ' Onda ' + (r.wave_height ? r.wave_height.toFixed(2) : '--') + 'm/' + (r.wave_period ? r.wave_period.toFixed(0) : '--') + 's';
           if (r.swell_height > 0.1) ezLine += ' Swell ' + r.swell_height.toFixed(2) + 'm';
@@ -3368,7 +3374,7 @@ function renderVerifyContent(data, el) {
   el.innerHTML = html;
 }
 
-// Fine codice - NAUTILUS v4.8.6
+// Fine codice - NAUTILUS v4.8.7
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

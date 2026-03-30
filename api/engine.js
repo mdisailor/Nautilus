@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v9.9.9 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.7.2 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -759,10 +759,7 @@ if (sgData.swell_dir)    base.swell_dir = sgData.swell_dir;
 if (sgData.temp_water)   base.temp_water = sgData.temp_water;
 if (sgData.current_speed)base.current_speed = sgData.current_speed;
 if (sgData.current_dir)  base.current_dir = sgData.current_dir;
-if (sgData.wind_speed_sg > 0) {
-base.wind_speed = (base.wind_speed + sgData.wind_speed_sg) / 2;
-base.sources.wind = 'open-meteo+stormglass';
-}
+// Stormglass wind excluded - Open-Meteo only for wind direction/speed
 }
 return base;
 }
@@ -820,7 +817,14 @@ wave_height: data.wave_height,
 swell_height: data.swell_height,
 swell_dir: data.swell_dir,
 temp_air: data.temp_air,
-humidity: data.humidity
+humidity: data.humidity,
+// OWM observed data if present
+wind_speed_obs: data.wind_speed_obs || null,
+wind_dir_obs: data.wind_dir_obs || null,
+wind_gust_obs: data.wind_gust_obs || null,
+pressure_obs: data.pressure_obs || null,
+obs_source: data.obs_source || null,
+obs_station: data.obs_station || null
 };
 await kvSet(key, snapshot, 259200, restUrl, restToken);
 }
@@ -927,8 +931,10 @@ horizon_h: h,
 predicted_wind: forecast['h' + h + '_wind'],
 predicted_wind_dir: forecast['h' + h + '_wind_dir'] || null,
 predicted_wave: forecast['h' + h + '_wave'],
-actual_wind: currentData.wind_speed,
-actual_wind_dir: currentData.wind_dir || null,
+// Use OWM observed wind as truth if available, otherwise model
+actual_wind: (owmData && owmData.wind_speed_obs !== null) ? owmData.wind_speed_obs : currentData.wind_speed,
+actual_wind_dir: (owmData && owmData.wind_dir_obs !== null) ? owmData.wind_dir_obs : (currentData.wind_dir || null),
+actual_wind_source: (owmData && owmData.wind_speed_obs !== null) ? 'owm_observed' : 'open-meteo',
 actual_wave: currentData.wave_height,
 wind_error: parseFloat(windError.toFixed(1)),
 wave_error: parseFloat(waveError.toFixed(2))
@@ -1156,7 +1162,7 @@ var kvUrl = process.env.UPSTASH_REDIS_REST_URL || null;
 var kvToken = process.env.UPSTASH_REDIS_REST_TOKEN || null;
 
 if (action === 'ping') {
-return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.7.1', zones: Object.keys(ZONES).length, ts: Date.now() });
+return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.7.2', zones: Object.keys(ZONES).length, ts: Date.now() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones

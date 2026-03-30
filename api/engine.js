@@ -1,5 +1,5 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.6.5 - by mdisailor engine
-// Motore diagnostico meteo-marino - 12 zone puntuali 
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.7.1 - by mdisailor engine
+// Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
 
@@ -807,7 +807,9 @@ return res.ok;
 async function saveZoneSnapshot(zoneKey, data, restUrl, restToken) {
 if (!restUrl || !restToken) return;
 var now = new Date();
-var hourKey = now.toISOString().slice(0, 13);
+// Round to nearest 30 min for key
+var mins = now.getMinutes() < 30 ? '00' : '30';
+var hourKey = now.toISOString().slice(0, 13) + '-' + mins;
 var key = 'snap:' + zoneKey + ':' + hourKey;
 var snapshot = {
 ts: now.toISOString(),
@@ -826,7 +828,8 @@ await kvSet(key, snapshot, 259200, restUrl, restToken);
 async function saveForecast(zoneKey, forecast, data, restUrl, restToken) {
 if (!restUrl || !restToken) return;
 var now = new Date();
-var key = 'forecast:' + zoneKey + ':' + now.toISOString().slice(0, 13);
+var mins = now.getMinutes() < 30 ? '00' : '30';
+var key = 'forecast:' + zoneKey + ':' + now.toISOString().slice(0, 13) + '-' + mins;
 var record = {
 made_at: now.toISOString(),
 actual_wind: data.wind_speed,
@@ -847,17 +850,19 @@ if (!restUrl || !restToken) return [];
 if (!hours) hours = 24;
 var now = new Date();
 var snapshots = [];
-// Fetch in parallel for speed
 var promises = [];
-for (var h = hours - 1; h >= 0; h = h - 1) {
-(function(hh) {
-var d = new Date(now.getTime() - hh * 3600000);
-var hourKey = d.toISOString().slice(0, 13);
-var key = 'snap:' + zoneKey + ':' + hourKey;
+// Fetch every 30 min slots (2x per hour)
+var slots = hours * 2;
+for (var s = slots - 1; s >= 0; s = s - 1) {
+(function(ss) {
+var d = new Date(now.getTime() - ss * 1800000);
+var mins = d.getMinutes() < 30 ? '00' : '30';
+var slotKey = d.toISOString().slice(0, 13) + '-' + mins;
+var key = 'snap:' + zoneKey + ':' + slotKey;
 promises.push(kvGet(key, restUrl, restToken).then(function(snap) {
-return snap ? { h: hh, snap: snap } : null;
+return snap ? { h: ss / 2, snap: snap } : null;
 }));
-})(h);
+})(s);
 }
 var results = await Promise.all(promises);
 // Sort by time ascending
@@ -991,9 +996,43 @@ var snapCount = counts.reduce(function(a, b) { return a + b; }, 0);
 return { zone: zoneKey, snapshots_72h: snapCount, bias: bias };
 }
 
+async function fetchOWM(lat, lon, owmKey) {
+if (!owmKey) return null;
+var url = 'https://api.openweathermap.org/data/2.5/weather?lat=' + lat +
+'&lon=' + lon + '&appid=' + owmKey + '&units=metric';
+try {
+var res = await fetch(url);
+if (!res.ok) return null;
+var d = await res.json();
+if (!d.wind) return null;
+// wind.speed is m/s, convert to knots
+var speedKn = d.wind.speed ? d.wind.speed * 1.94384 : null;
+var gustKn = d.wind.gust ? d.wind.gust * 1.94384 : null;
+return {
+wind_speed_obs: speedKn ? parseFloat(speedKn.toFixed(1)) : null,
+wind_dir_obs: d.wind.deg !== undefined ? d.wind.deg : null,
+wind_gust_obs: gustKn ? parseFloat(gustKn.toFixed(1)) : null,
+temp_obs: d.main ? d.main.temp : null,
+pressure_obs: d.main ? d.main.pressure : null,
+humidity_obs: d.main ? d.main.humidity : null,
+station: d.name || null,
+obs_time: d.dt ? new Date(d.dt * 1000).toISOString() : null,
+source: 'openweathermap'
+};
+} catch(e) { return null; }
+}
+
 async function calcZone(zoneKey, sgKey, kvUrl, kvToken, req) {
 var zone = ZONES[zoneKey];
-var omData = await fetchOpenMeteo(zone.lat, zone.lon);
+
+// Fetch Open-Meteo + OWM observed in parallel
+var owmKey = process.env.OWM_KEY || null;
+var parallel = await Promise.all([
+fetchOpenMeteo(zone.lat, zone.lon),
+fetchOWM(zone.lat, zone.lon, owmKey)
+]);
+var omData = parallel[0];
+var owmData = parallel[1];
 
 var sgData = null;
 var hasStormglass = false;
@@ -1072,6 +1111,7 @@ zone: zoneKey,
 name: zone.name,
 updated: new Date().toISOString(),
 raw: currentData,
+observed: owmData,
 diagnosis: diagnosis,
 risk: overallRisk,
 reliability: reliability,
@@ -1116,7 +1156,7 @@ var kvUrl = process.env.UPSTASH_REDIS_REST_URL || null;
 var kvToken = process.env.UPSTASH_REDIS_REST_TOKEN || null;
 
 if (action === 'ping') {
-return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.3.0', zones: Object.keys(ZONES).length, ts: Date.now() });
+return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.6.5', zones: Object.keys(ZONES).length, ts: Date.now() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones

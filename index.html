@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v4.8.5 — 2026-03-26 -->
+<!-- NAUTILUS v4.8.6 — 2026-03-26 -->
 
 <html lang="it">
 <head>
@@ -509,7 +509,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.8.5 · by mdisailor engine</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.8.6 · by mdisailor engine</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1434,7 +1434,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica · Previsione operativ4.8.5 · by mdisailor engine</div>
+  <div class="engine-sub">Diagnostica sinottica · Previsione operativ4.8.6 · by mdisailor engine</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -2940,7 +2940,8 @@ async function requestEngineBriefing() {
   promptParts.push('');
   promptParts.push('CASI OPERATIVI: A=fronte freddo PERICOLOSO, B=fronte caldo graduale, C=ciclogenesi IMPREVEDIBILE, D=miglioramento.');
   promptParts.push('SOGLIE: Raffica >=28kn=ROSSO, >=22kn=ATTENZIONE. Vento >=22kn=ATTENZIONE. Onda >=2m=ROSSO, >=1.2m=ATTENZIONE.');
-  promptParts.push('REGOLA VALORI: cita SEMPRE il valore numerico attuale e la soglia. Es: "vento 18kn (soglia ATTENZIONE 22kn)" non solo "entro soglia". Es: "onda 0.8m (soglia ROSSO 2.0m)". Mai usare "entro soglia" o "sotto limite" senza specificare entrambi i valori.');
+  promptParts.push('REGOLA VALORI: cita SEMPRE il valore numerico attuale e la soglia. Es: "vento 18kn (soglia ATTENZIONE 22kn)". Mai usare "entro soglia" senza specificare entrambi i valori.');
+  promptParts.push('REGOLA RISCHIO: RISCHIO deve riflettere i valori numerici reali. Se vento < 22kn e onda < 1.2m e pressione stabile = RISCHIO BASSO. Non alzare il rischio solo per il caso sinottico teorico.');
   promptParts.push('');
   if (prevContext) { promptParts.push(prevContext); }
   promptParts.push('DIAGNOSI MOTORE (ora ' + new Date().toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'}) + '):');
@@ -2991,8 +2992,11 @@ async function requestEngineBriefing() {
 
     // Color risk badge
     var rc = 'safe', rl = 'RISCHIO BASSO';
-    if (/RISCHIO:\s*ALTO/i.test(text)) { rc = 'danger'; rl = 'RISCHIO ALTO'; }
-    else if (/RISCHIO:\s*MEDIO/i.test(text)) { rc = 'warn'; rl = 'RISCHIO MEDIO'; }
+    // Check last occurrence of RISCHIO to handle AI inconsistencies
+    var riskMatches = text.match(/RISCHIO:\s*(ALTO|MEDIO|BASSO)/gi) || [];
+    var lastRisk = riskMatches.length > 0 ? riskMatches[riskMatches.length-1].toUpperCase() : '';
+    if (/ALTO/.test(lastRisk)) { rc = 'danger'; rl = 'RISCHIO ALTO'; }
+    else if (/MEDIO/.test(lastRisk)) { rc = 'warn'; rl = 'RISCHIO MEDIO'; }
 
     txtEl.innerHTML = '<div style="display:inline-block;padding:4px 12px;border-radius:8px;font-family:DM Mono,monospace;font-size:0.6rem;font-weight:600;background:var(--' + rc + ');color:#000;margin-bottom:8px">' + rl + '</div>\n' +
       text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
@@ -3364,7 +3368,7 @@ function renderVerifyContent(data, el) {
   el.innerHTML = html;
 }
 
-// Fine codice - NAUTILUS v4.8.5
+// Fine codice - NAUTILUS v4.8.6
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

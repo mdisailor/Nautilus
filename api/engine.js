@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.7.2 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.7.3 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -715,7 +715,7 @@ wind_speed_sg: pick('windSpeed'), wind_gust_sg: pick('gust'),
 };
 }
 
-function extractCurrentData(omData, sgData) {
+function extractCurrentData(omData, sgData, owmData) {
 var h = omData.hourly;
 var now = new Date();
 var currentHour = now.toISOString().slice(0, 13) + ':00';
@@ -761,6 +761,15 @@ if (sgData.current_speed)base.current_speed = sgData.current_speed;
 if (sgData.current_dir)  base.current_dir = sgData.current_dir;
 // Stormglass wind excluded - Open-Meteo only for wind direction/speed
 }
+
+// OWM observed wind overrides model - more accurate for current conditions
+if (owmData && owmData.wind_speed_obs !== null && owmData.wind_speed_obs !== undefined) {
+base.wind_speed = owmData.wind_speed_obs;
+base.wind_dir = owmData.wind_dir_obs !== null ? owmData.wind_dir_obs : base.wind_dir;
+base.wind_gust = owmData.wind_gust_obs !== null ? owmData.wind_gust_obs : base.wind_gust;
+base.sources.wind = 'owm_observed';
+}
+
 return base;
 }
 
@@ -1028,17 +1037,24 @@ source: 'openweathermap'
 } catch(e) { return null; }
 }
 
-async function calcZone(zoneKey, sgKey, kvUrl, kvToken, req) {
+async function calcZone(zoneKey, sgKey, kvUrl, kvToken, req, clientWeatherData) {
 var zone = ZONES[zoneKey];
 
-// Fetch Open-Meteo + OWM observed in parallel
+// Use client-provided weatherData if available (ensures data consistency with Meteo tab)
+// Otherwise fetch fresh from Open-Meteo (cron mode)
 var owmKey = process.env.OWM_KEY || null;
+var omData, owmData;
+if (clientWeatherData) {
+omData = clientWeatherData;
+owmData = await fetchOWM(zone.lat, zone.lon, owmKey);
+} else {
 var parallel = await Promise.all([
 fetchOpenMeteo(zone.lat, zone.lon),
 fetchOWM(zone.lat, zone.lon, owmKey)
 ]);
-var omData = parallel[0];
-var owmData = parallel[1];
+omData = parallel[0];
+owmData = parallel[1];
+}
 
 var sgData = null;
 var hasStormglass = false;
@@ -1050,7 +1066,7 @@ hasStormglass = sgData !== null;
 } catch(e) { hasStormglass = false; }
 }
 
-var currentData = extractCurrentData(omData, sgData);
+var currentData = extractCurrentData(omData, sgData, owmData);
 
 // Rotation analysis from KV history - read only if explicitly requested
 var rotationAnalysis = { trend: 'insufficient_data', hours: 0, rotation: null, consistent: false };
@@ -1162,7 +1178,7 @@ var kvUrl = process.env.UPSTASH_REDIS_REST_URL || null;
 var kvToken = process.env.UPSTASH_REDIS_REST_TOKEN || null;
 
 if (action === 'ping') {
-return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.7.2', zones: Object.keys(ZONES).length, ts: Date.now() });
+return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.7.3', zones: Object.keys(ZONES).length, ts: Date.now() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -1312,7 +1328,12 @@ if (!zoneKey || !ZONES[zoneKey]) {
 return res.status(404).json({ error: 'Zona non trovata', available: Object.keys(ZONES) });
 }
 try {
-var result = await calcZone(zoneKey, null, kvUrl, kvToken, req);
+// Accept client-side weatherData from POST body for data consistency
+var clientWeatherData = null;
+if (req.method === 'POST' && req.body && req.body.weatherData) {
+clientWeatherData = req.body.weatherData;
+}
+var result = await calcZone(zoneKey, null, kvUrl, kvToken, req, clientWeatherData);
 return res.status(200).json(result);
 } catch (err) {
 return res.status(500).json({ error: err.message, zone: zoneKey });

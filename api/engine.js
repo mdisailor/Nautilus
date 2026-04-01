@@ -373,59 +373,57 @@ var risk = 'low';
 var accessible = true;
 var notes = [];
 
-
 if (effectiveWave > port.swell_threshold * 1.5) {
-  risk = 'high'; accessible = false;
-  notes.push('Onda ' + sf(effectiveWave,1) + 'm supera soglia (' + port.swell_threshold + 'm)');
+risk = 'high'; accessible = false;
+notes.push('Onda ' + sf(effectiveWave,1) + 'm supera soglia (' + port.swell_threshold + 'm)');
 } else if (effectiveWave > port.swell_threshold) {
-  risk = 'medium';
-  notes.push('Onda ' + sf(effectiveWave,1) + 'm vicina alla soglia');
+risk = 'medium';
+notes.push('Onda ' + sf(effectiveWave,1) + 'm vicina alla soglia');
 }
 
 var expAngles = { 'N':0,'NE':45,'E':90,'SE':135,'S':180,'SW':225,'W':270,'NW':315,'ALL':0 };
 var expAngle = expAngles[port.exposure] || 0;
 if (port.exposure !== 'ALL') {
-  var swellAngleDiff = Math.abs(((swell_dir - expAngle) + 360) % 360);
-  var isExposed = Math.min(swellAngleDiff, 360 - swellAngleDiff) < 60;
-  if (isExposed && swell_height > 0.8) {
-    if (risk === 'low') risk = 'medium';
-    notes.push('Esposizione diretta swell da ' + sf(swell_dir,0) + ' gradi');
-  }
+var swellAngleDiff = Math.abs(((swell_dir - expAngle) + 360) % 360);
+var isExposed = Math.min(swellAngleDiff, 360 - swellAngleDiff) < 60;
+if (isExposed && swell_height > 0.8) {
+if (risk === 'low') risk = 'medium';
+notes.push('Esposizione diretta swell da ' + sf(swell_dir,0) + ' gradi');
+}
 } else {
-  // ALL exposure - only escalate if wave is significant
-  if (effectiveWave > 0.8 && risk === 'low') risk = 'medium';
+// ALL exposure - only escalate if wave is significant
+if (effectiveWave > 0.8 && risk === 'low') risk = 'medium';
 }
 
 if (wind_speed > 25) {
-  risk = 'high'; accessible = false;
-  notes.push('Vento ' + sf(wind_speed,0) + 'kn - manovra difficile');
+risk = 'high'; accessible = false;
+notes.push('Vento ' + sf(wind_speed,0) + 'kn - manovra difficile');
 } else if (wind_speed > 18) {
-  if (risk === 'low') risk = 'medium';
-  notes.push('Vento sostenuto ' + sf(wind_speed,0) + 'kn');
+if (risk === 'low') risk = 'medium';
+notes.push('Vento sostenuto ' + sf(wind_speed,0) + 'kn');
 }
 
 if (visibility < 1.0) {
-  if (risk === 'low') risk = 'medium';
-  notes.push('Visibilita ridotta ' + sf(visibility * 1000, 0) + 'm');
+if (risk === 'low') risk = 'medium';
+notes.push('Visibilita ridotta ' + sf(visibility * 1000, 0) + 'm');
 }
 
 // Effetti locali specifici
 if (localEffects.venturi_piombino && localEffects.venturi_piombino.active && portKey === 'piombino') {
-  risk = risk === 'low' ? 'medium' : 'high';
-  notes.push('Venturi attivo nel canale');
+risk = risk === 'low' ? 'medium' : 'high';
+notes.push('Venturi attivo nel canale');
 }
 if (localEffects.rotore_capraia && localEffects.rotore_capraia.active) {
-  if (risk === 'low') risk = 'medium';
-  notes.push('Rotore sottovento attivo');
+if (risk === 'low') risk = 'medium';
+notes.push('Rotore sottovento attivo');
 }
 
 ports[portKey] = {
-  name: port.name,
-  risk: risk,
-  accessible: accessible,
-  note: notes.join(' - ') || 'Condizioni nella norma'
+name: port.name,
+risk: risk,
+accessible: accessible,
+note: notes.join(' - ') || 'Condizioni nella norma'
 };
-
 
 }
 return ports;
@@ -715,7 +713,7 @@ wind_speed_sg: pick('windSpeed'), wind_gust_sg: pick('gust'),
 };
 }
 
-function extractCurrentData(omData, sgData, owmData) {
+function extractCurrentData(omData, sgData) {
 var h = omData.hourly;
 var now = new Date();
 var currentHour = now.toISOString().slice(0, 13) + ':00';
@@ -761,15 +759,6 @@ if (sgData.current_speed)base.current_speed = sgData.current_speed;
 if (sgData.current_dir)  base.current_dir = sgData.current_dir;
 // Stormglass wind excluded - Open-Meteo only for wind direction/speed
 }
-
-// OWM observed wind overrides model - more accurate for current conditions
-if (owmData && owmData.wind_speed_obs !== null && owmData.wind_speed_obs !== undefined) {
-base.wind_speed = owmData.wind_speed_obs;
-base.wind_dir = owmData.wind_dir_obs !== null ? owmData.wind_dir_obs : base.wind_dir;
-base.wind_gust = owmData.wind_gust_obs !== null ? owmData.wind_gust_obs : base.wind_gust;
-base.sources.wind = 'owm_observed';
-}
-
 return base;
 }
 
@@ -1037,17 +1026,19 @@ source: 'openweathermap'
 } catch(e) { return null; }
 }
 
-async function calcZone(zoneKey, sgKey, kvUrl, kvToken, req, clientWeatherData) {
+async function calcZone(zoneKey, sgKey, kvUrl, kvToken, req) {
 var zone = ZONES[zoneKey];
 
-// Use client-provided weatherData if available (ensures data consistency with Meteo tab)
-// Otherwise fetch fresh from Open-Meteo (cron mode)
+// Use OM data provided by frontend if available (dati omogenei), otherwise fetch autonomously
 var owmKey = process.env.OWM_KEY || null;
+var providedOM = req && req.body && req.body.omData && req.body.omData[zoneKey] ? req.body.omData[zoneKey] : null;
 var omData, owmData;
-if (clientWeatherData) {
-omData = clientWeatherData;
+if (providedOM) {
+// Frontend already fetched OM for this zone — skip fetch, only call OWM
+omData = providedOM;
 owmData = await fetchOWM(zone.lat, zone.lon, owmKey);
 } else {
+// Autonomous fetch (cron or fallback)
 var parallel = await Promise.all([
 fetchOpenMeteo(zone.lat, zone.lon),
 fetchOWM(zone.lat, zone.lon, owmKey)
@@ -1066,7 +1057,7 @@ hasStormglass = sgData !== null;
 } catch(e) { hasStormglass = false; }
 }
 
-var currentData = extractCurrentData(omData, sgData, owmData);
+var currentData = extractCurrentData(omData, sgData);
 
 // Rotation analysis from KV history - read only if explicitly requested
 var rotationAnalysis = { trend: 'insufficient_data', hours: 0, rotation: null, consistent: false };
@@ -1167,7 +1158,7 @@ return sources;
 
 module.exports = async function handler(req, res) {
 res.setHeader('Access-Control-Allow-Origin', '*');
-res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
 res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 if (req.method === 'OPTIONS') return res.status(204).end();
 
@@ -1178,7 +1169,7 @@ var kvUrl = process.env.UPSTASH_REDIS_REST_URL || null;
 var kvToken = process.env.UPSTASH_REDIS_REST_TOKEN || null;
 
 if (action === 'ping') {
-return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.7.3', zones: Object.keys(ZONES).length, ts: Date.now() });
+return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.7.2', zones: Object.keys(ZONES).length, ts: Date.now() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -1328,12 +1319,7 @@ if (!zoneKey || !ZONES[zoneKey]) {
 return res.status(404).json({ error: 'Zona non trovata', available: Object.keys(ZONES) });
 }
 try {
-// Accept client-side weatherData from POST body for data consistency
-var clientWeatherData = null;
-if (req.method === 'POST' && req.body && req.body.weatherData) {
-clientWeatherData = req.body.weatherData;
-}
-var result = await calcZone(zoneKey, null, kvUrl, kvToken, req, clientWeatherData);
+var result = await calcZone(zoneKey, null, kvUrl, kvToken, req);
 return res.status(200).json(result);
 } catch (err) {
 return res.status(500).json({ error: err.message, zone: zoneKey });

@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v4.9.0 — 2026-03-30 -->
+<!-- NAUTILUS v4.9.1 — 2026-04-01 -->
 
 <html lang="it">
 <head>
@@ -460,6 +460,20 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 .wind-rose-legend-item { display:flex; align-items:center; gap:4px; font-family:DM Mono,monospace; font-size:0.45rem; color:var(--muted); }
 .wind-rose-legend-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
 .verify-section { margin:12px 20px 0; }
+.compare-section { margin:12px 20px 0; }
+.compare-table-wrap { overflow-x:auto; margin-top:8px; }
+.compare-table { width:100%; border-collapse:collapse; font-family:DM Mono,monospace; font-size:0.52rem; }
+.compare-table th { color:var(--accent); font-size:0.46rem; text-transform:uppercase; letter-spacing:0.08em; padding:5px 8px; border-bottom:1px solid var(--border); text-align:center; white-space:nowrap; }
+.compare-table th.col-time { text-align:left; color:var(--muted); }
+.compare-table td { padding:4px 8px; border-bottom:1px solid rgba(58,96,128,0.12); text-align:center; white-space:nowrap; }
+.compare-table td.col-time { text-align:left; color:var(--muted); font-size:0.48rem; }
+.compare-table tr:last-child td { border-bottom:none; }
+.compare-table tr.compare-latest td { background:rgba(0,240,255,0.04); }
+.compare-val-om { color:#90caf9; }
+.compare-val-owm { color:var(--safe); }
+.compare-diff-ok { color:var(--safe); }
+.compare-diff-warn { color:var(--warn); }
+.compare-diff-bad { color:var(--danger); }
 .verify-zone-select { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
 .verify-zone-btn { padding:5px 12px; background:transparent; border:1px solid var(--border); border-radius:8px; color:var(--muted); font-family:DM Mono,monospace; font-size:0.55rem; cursor:pointer; }
 .verify-zone-btn.active { border-color:var(--accent); color:var(--accent); background:rgba(0,240,255,0.07); }
@@ -509,7 +523,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.9.0 · by mdisailor engine</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.9.1 · by mdisailor engine</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1434,7 +1448,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica · Previsione operativ4.9.0 · by mdisailor engine</div>
+  <div class="engine-sub">Diagnostica sinottica · Previsione operativ4.9.1 · by mdisailor engine</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -1460,7 +1474,16 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div id="engine-briefing-history" style="margin-top:10px"></div>
 </div>
 
-<div class="verify-section" id="verify-section" style="display:none">
+<div class="compare-section" id="compare-section" style="display:none">
+      <div style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;opacity:0.8;margin-bottom:8px">Confronto Fonti — Storico 24h</div>
+      <div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);margin-bottom:8px">Vento Open-Meteo vs OWM Osservato per zona selezionata</div>
+      <div class="verify-zone-select" id="compare-zone-select"></div>
+      <div id="compare-content">
+        <div class="verify-empty">Seleziona una zona per vedere il confronto</div>
+      </div>
+    </div>
+
+    <div class="verify-section" id="verify-section" style="display:none">
   <div style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;opacity:0.8;margin-bottom:8px">Verifica previsioni</div>
   <div class="verify-zone-select" id="verify-zone-select"></div>
   <div id="verify-content">
@@ -2656,6 +2679,8 @@ function renderEngineResults() {
   // Show verify section and populate zone buttons
   var vsec = document.getElementById('verify-section');
   if (vsec) { vsec.style.display = 'block'; renderVerifyZoneButtons(); }
+  var csec = document.getElementById('compare-section');
+  if (csec) { csec.style.display = 'block'; renderCompareZoneButtons(); }
   var bbtn = document.getElementById('btn-engine-briefing');
   if (bbtn) bbtn.disabled = false;
   var bhint = document.getElementById('engine-briefing-hint');
@@ -3382,7 +3407,142 @@ function renderVerifyContent(data, el) {
   el.innerHTML = html;
 }
 
-// Fine codice - NAUTILUS v4.9.0
+// -- CONFRONTO FONTI -------------------------------------------------------
+
+var compareCurrentZone = null;
+
+function renderCompareZoneButtons() {
+  var container = document.getElementById('compare-zone-select');
+  if (!container || !engineResults) return;
+  var html = '';
+  Object.keys(engineResults).forEach(function(zk) {
+    var z = engineResults[zk];
+    if (z && !z.error) {
+      var isActive = zk === compareCurrentZone;
+      html += '<button class="verify-zone-btn' + (isActive ? ' active' : '') + '" onclick="loadCompare(this.dataset.zone)" data-zone="' + zk + '">' +
+        (z.name || zk).split(' ')[0] +
+      '</button>';
+    }
+  });
+  container.innerHTML = html || '<div style="font-size:0.6rem;color:var(--muted)">Nessuna zona disponibile</div>';
+}
+
+async function loadCompare(zoneKey) {
+  compareCurrentZone = zoneKey;
+  renderCompareZoneButtons();
+
+  var el = document.getElementById('compare-content');
+  el.innerHTML = '<div class="verify-empty"><div class="loading" style="display:inline-flex;margin-right:6px"><div class="spinner"></div></div>Carico dati...</div>';
+
+  try {
+    var res = await fetch(ENGINE_URL + '?action=history&zone=' + zoneKey + '&hours=24');
+    var data = await res.json();
+
+    if (data.error) {
+      el.innerHTML = '<div class="verify-empty" style="color:var(--danger)">' + data.error + '</div>';
+      return;
+    }
+
+    renderCompareTable(data, zoneKey, el);
+  } catch(err) {
+    el.innerHTML = '<div class="verify-empty" style="color:var(--danger)">Errore: ' + err.message + '</div>';
+  }
+}
+
+function renderCompareTable(data, zoneKey, el) {
+  var snaps = data.snapshots || [];
+  var dirs16 = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+  var dirName = function(d) {
+    if (d === null || d === undefined) return '—';
+    return dirs16[Math.round(d / 22.5) % 16];
+  };
+
+  if (snaps.length === 0) {
+    el.innerHTML = '<div class="verify-empty">Nessun dato disponibile per ' + zoneKey + '<br><span style="font-size:0.55rem;color:var(--muted)">I dati appaiono dopo il primo ciclo del cron con OWM attivo.</span></div>';
+    return;
+  }
+
+  // Check how many have OWM data
+  var owmCount = snaps.filter(function(s) { return s.wind_speed_obs !== null && s.wind_speed_obs !== undefined; }).length;
+
+  var html = '';
+
+  // Summary header
+  html += '<div style="display:flex;gap:16px;margin-bottom:10px;flex-wrap:wrap">';
+  html += '<div style="font-family:DM Mono,monospace;font-size:0.52rem;color:var(--muted)">' +
+    '<span style="color:#90caf9">■</span> Open-Meteo (modello)</div>';
+  html += '<div style="font-family:DM Mono,monospace;font-size:0.52rem;color:var(--muted)">' +
+    '<span style="color:var(--safe)">■</span> OWM (osservato)</div>';
+  html += '<div style="font-family:DM Mono,monospace;font-size:0.52rem;color:var(--muted)">' +
+    owmCount + '/' + snaps.length + ' snapshot con OWM</div>';
+  html += '</div>';
+
+  html += '<div class="compare-table-wrap"><table class="compare-table">';
+  html += '<tr>' +
+    '<th class="col-time">Ora</th>' +
+    '<th>OM kn</th>' +
+    '<th>OM dir</th>' +
+    '<th>OWM kn</th>' +
+    '<th>OWM dir</th>' +
+    '<th>Δ kn</th>' +
+    '</tr>';
+
+  // Show most recent first, max 24
+  var rows = snaps.slice().reverse().slice(0, 24);
+  rows.forEach(function(s, i) {
+    var time = s.ts ? new Date(s.ts).toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'}) : '—';
+    var date = s.ts ? new Date(s.ts).toLocaleDateString('it-IT', {day:'2-digit', month:'2-digit'}) : '';
+    var omSpeed = s.wind_speed !== null && s.wind_speed !== undefined ? parseFloat(s.wind_speed).toFixed(1) : '—';
+    var omDir = dirName(s.wind_dir);
+    var owmSpeed = s.wind_speed_obs !== null && s.wind_speed_obs !== undefined ? parseFloat(s.wind_speed_obs).toFixed(1) : '—';
+    var owmDir = s.wind_dir_obs !== null && s.wind_dir_obs !== undefined ? dirName(s.wind_dir_obs) : '—';
+
+    // Delta
+    var deltaHtml = '—';
+    if (omSpeed !== '—' && owmSpeed !== '—') {
+      var delta = parseFloat(owmSpeed) - parseFloat(omSpeed);
+      var deltaClass = Math.abs(delta) < 3 ? 'compare-diff-ok' : Math.abs(delta) < 6 ? 'compare-diff-warn' : 'compare-diff-bad';
+      deltaHtml = '<span class="' + deltaClass + '">' + (delta >= 0 ? '+' : '') + delta.toFixed(1) + '</span>';
+    }
+
+    var isLatest = i === 0;
+    html += '<tr' + (isLatest ? ' class="compare-latest"' : '') + '>' +
+      '<td class="col-time">' + (isLatest ? '▶ ' : '') + date + ' ' + time + '</td>' +
+      '<td class="compare-val-om">' + omSpeed + (omSpeed !== '—' ? 'kn' : '') + '</td>' +
+      '<td class="compare-val-om">' + omDir + '</td>' +
+      '<td class="compare-val-owm">' + owmSpeed + (owmSpeed !== '—' ? 'kn' : '') + '</td>' +
+      '<td class="compare-val-owm">' + owmDir + '</td>' +
+      '<td>' + deltaHtml + '</td>' +
+    '</tr>';
+  });
+
+  html += '</table></div>';
+
+  // Stats if enough data
+  var validDeltas = snaps.filter(function(s) {
+    return s.wind_speed !== null && s.wind_speed !== undefined &&
+           s.wind_speed_obs !== null && s.wind_speed_obs !== undefined;
+  });
+  if (validDeltas.length >= 3) {
+    var avgDelta = validDeltas.reduce(function(sum, s) {
+      return sum + (parseFloat(s.wind_speed_obs) - parseFloat(s.wind_speed));
+    }, 0) / validDeltas.length;
+    var mae = validDeltas.reduce(function(sum, s) {
+      return sum + Math.abs(parseFloat(s.wind_speed_obs) - parseFloat(s.wind_speed));
+    }, 0) / validDeltas.length;
+    var biasNote = avgDelta > 0.5 ? 'Open-Meteo sottostima di ' + avgDelta.toFixed(1) + 'kn in media' :
+                   avgDelta < -0.5 ? 'Open-Meteo sovrastima di ' + Math.abs(avgDelta).toFixed(1) + 'kn in media' :
+                   'Open-Meteo allineato a OWM';
+    html += '<div style="margin-top:8px;padding:8px 10px;background:rgba(0,240,255,0.05);border:1px solid rgba(0,240,255,0.15);border-radius:8px;font-family:DM Mono,monospace;font-size:0.52rem;color:var(--muted)">' +
+      '<span style="color:#fff">' + validDeltas.length + ' confronti</span> · ' + biasNote +
+      ' · MAE ' + mae.toFixed(1) + 'kn' +
+    '</div>';
+  }
+
+  el.innerHTML = html;
+}
+
+// Fine codice - NAUTILUS v4.9.1
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

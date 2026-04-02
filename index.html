@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v4.8.8 — 2026-03-30 -->
+<!-- NAUTILUS v4.9.0 — 2026-03-30 -->
 
 <html lang="it">
 <head>
@@ -509,7 +509,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.8.8 · by mdisailor engine</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.9.0 · by mdisailor engine</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1434,7 +1434,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica · Previsione operativ4.8.8 · by mdisailor engine</div>
+  <div class="engine-sub">Diagnostica sinottica · Previsione operativ4.9.0 · by mdisailor engine</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -2601,7 +2601,15 @@ async function runEngine() {
 
   try {
     const promises = selectedZones.map(function(zk) {
-      return fetch(ENGINE_URL + '?action=zone&zone=' + zk)
+      var fetchOpts = { method: 'GET' };
+      if (state.weatherData) {
+        fetchOpts = {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ weatherData: state.weatherData })
+        };
+      }
+      return fetch(ENGINE_URL + '?action=zone&zone=' + zk, fetchOpts)
         .then(function(r) { return r.json(); })
         .then(function(d) { engineResults[zk] = d; })
         .catch(function(e) { engineResults[zk] = { error: e.message, zone: zk }; });
@@ -3374,7 +3382,7 @@ function renderVerifyContent(data, el) {
   el.innerHTML = html;
 }
 
-// Fine codice - NAUTILUS v4.8.8
+// Fine codice - NAUTILUS v4.9.0
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

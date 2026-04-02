@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v4.9.3 — 2026-04-01 -->
+<!-- NAUTILUS v4.9.4 — 2026-04-01 -->
 
 <html lang="it">
 <head>
@@ -523,7 +523,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.9.3 · by mdisailor engine</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.9.4 · by mdisailor engine</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -930,9 +930,19 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
     <div id="camera-result" style="margin-top:8px;display:none"></div>
   </div>
 
-  <!-- Osservazione manuale -->
+  <!-- Link guida completa -->
+  <a href="nuvole.html" style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;background:rgba(0,240,255,0.05);border:1px solid rgba(0,240,255,0.2);border-radius:14px;padding:16px;text-decoration:none">
+    <div>
+      <div style="font-family:DM Mono,monospace;font-size:0.62rem;color:var(--accent)">📖 Guida Completa Nuvole WMO</div>
+      <div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);margin-top:3px">Schede dettagliate · Checklist · Impatto sulla navigazione</div>
+    </div>
+    <span style="color:var(--accent);font-size:1.2rem">→</span>
+  </a>
+
+  <!-- Selezione manuale per briefing -->
   <div style="margin-top:12px;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px">
-    <div style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:10px">Osservazione manuale</div>
+    <div style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:8px">Seleziona per briefing Engine</div>
+    <div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);margin-bottom:10px">Tocca le nuvole che vedi ora — verranno usate nel briefing</div>
     <div class="cloud-select" id="cloud-select-main">
       <span class="cloud-tag" onclick="toggleCloud(this,'Ci')">Ci · Cirri</span>
       <span class="cloud-tag" onclick="toggleCloud(this,'Cs')">Cs · Cirrostrati</span>
@@ -946,25 +956,19 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
       <span class="cloud-tag" onclick="toggleCloud(this,'Cb')">Cb · Cumulonembi</span>
     </div>
   </div>
-
-  <!-- Link guida completa -->
-  <a href="nuvole.html" style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;background:rgba(0,240,255,0.05);border:1px solid rgba(0,240,255,0.2);border-radius:14px;padding:16px;text-decoration:none">
-    <div>
-      <div style="font-family:DM Mono,monospace;font-size:0.62rem;color:var(--accent)">📖 Guida Completa Nuvole WMO</div>
-      <div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);margin-top:3px">Schede dettagliate · Checklist · Impatto navigazione</div>
-    </div>
-    <span style="color:var(--accent);font-size:1.2rem">→</span>
-  </a>
 </div>
 ```
 
   </div>
-  <div id="page-engine" class="page">
+
+```
+<div id="page-engine" class="page">
+```
 
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica · Previsione operativ4.9.3 · by mdisailor engine</div>
+  <div class="engine-sub">Diagnostica sinottica · Previsione operativ4.9.4 · by mdisailor engine</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -1025,6 +1029,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 <script>
 // ── CHIAVI API ── sostituisci con le tue ──────────────────────
 const ANTHROPIC_KEY = 'LA_TUA_CHIAVE_ANTHROPIC';
+const ENGINE_URL = 'https://nautilus-red.vercel.app/api/engine';
 
 // ── STATE ────────────────────────────────────────────────────
 const state = {
@@ -2902,7 +2907,7 @@ function renderCompareTable(data, zoneKey, el) {
   el.innerHTML = html;
 }
 
-// Fine codice - NAUTILUS v4.9.3
+// Fine codice - NAUTILUS v4.9.4
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

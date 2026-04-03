@@ -26,7 +26,7 @@ headers: {
 'anthropic-version': '2023-06-01',
 },
 body: JSON.stringify({
-model: 'claude-haiku-4-5-20251001',
+model: 'claude-sonnet-4-5-20251001',
 max_tokens: 512,
 messages: [{
 role: 'user',
@@ -53,7 +53,7 @@ const text = data.content && data.content[0] ? data.content[0].text : '';
 
 // Parse JSON from response
 try {
-  const clean = text.replace(/```json|```/g, '').trim();
+  var fence = String.fromCharCode(96,96,96); var clean = text.replace(new RegExp(fence+'json|'+fence,'g'), '').trim();
   const parsed = JSON.parse(clean);
   return res.status(200).json(parsed);
 } catch(e) {

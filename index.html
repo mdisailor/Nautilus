@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v4.9.9 — 2026-04-03 -->
+<!-- NAUTILUS v5.0.1 — 2026-04-03 -->
 
 <html lang="it">
 <head>
@@ -523,7 +523,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.9.9 · by mdisailor engine</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.0.1 · by mdisailor engine</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1448,7 +1448,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica · Previsione operativ4.9.9 · by mdisailor engine</div>
+  <div class="engine-sub">Diagnostica sinottica · Previsione operativ5.0.1 · by mdisailor engine</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -1473,6 +1473,15 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div id="engine-briefing-text" style="font-size:0.68rem;color:var(--text);line-height:1.7;padding:12px;background:var(--card);border:1px solid var(--border);border-radius:10px;white-space:pre-line;display:none"></div>
   <div id="engine-briefing-history" style="margin-top:10px"></div>
 </div>
+
+<div class="compare-section" id="compare-section" style="display:none">
+      <div style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;opacity:0.8;margin-bottom:8px">Confronto Fonti — Storico 24h</div>
+      <div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);margin-bottom:8px">Vento Open-Meteo vs OWM Osservato per zona selezionata</div>
+      <div class="verify-zone-select" id="compare-zone-select"></div>
+      <div id="compare-content">
+        <div class="verify-empty">Seleziona una zona per vedere il confronto</div>
+      </div>
+    </div>
 
 <div class="compare-section" id="compare-section" style="display:none">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -1600,7 +1609,6 @@ async function fetchWeather() {
     if (_json.error || !_json.hourly || !_json.hourly.windspeed_10m) {
       throw new Error(_json.reason || _json.error || 'Risposta Open-Meteo non valida');
     }
-    // Merge marine data
     if (marineRes.ok) {
       var _marine = await marineRes.json();
       if (_marine.hourly) {
@@ -2114,7 +2122,8 @@ async function requestBriefing() {
     for (var ezk in engineResults) {
       var ez = engineResults[ezk];
       if (ez && ez.diagnosis && !ez.error) {
-        var ezLine = 'Zona ' + ez.name + ': CASO ' + ez.diagnosis.case.toUpperCase() + ' (' + ez.diagnosis.confidence + '%)';
+        var caseDesc = {'a':'Fronte freddo PERICOLOSO','b':'Fronte caldo graduale','c':'Ciclogenesi IMPREVEDIBILE','d':'Miglioramento','stable':'Stabile'};
+        var ezLine = 'Zona ' + ez.name + ': CASO ' + ez.diagnosis.case.toUpperCase() + ' - ' + (caseDesc[ez.diagnosis.case] || ez.diagnosis.case) + ' (' + ez.diagnosis.confidence + '%)';
         if (ez.risk) ezLine += ' - Rischio ' + ez.risk.label;
         var ezHigh = ez.alerts ? ez.alerts.filter(function(a){return a.severity==='high';}).map(function(a){return a.msg;}) : [];
         if (ezHigh.length > 0) ezLine += ' - ALLERTE: ' + ezHigh.join('; ');
@@ -2703,6 +2712,8 @@ function renderEngineResults() {
     var refreshBtn = document.getElementById('btn-compare-refresh');
     if (refreshBtn && state.isAdmin) refreshBtn.style.display = 'block';
   }
+  var csec = document.getElementById('compare-section');
+  if (csec) { csec.style.display = 'block'; renderCompareZoneButtons(); }
   var bbtn = document.getElementById('btn-engine-briefing');
   if (bbtn) bbtn.disabled = false;
   var bhint = document.getElementById('engine-briefing-hint');
@@ -2951,7 +2962,8 @@ async function requestEngineBriefing() {
     for (var ezk in engineResults) {
       var ez = engineResults[ezk];
       if (ez && ez.diagnosis && !ez.error) {
-        var ezLine = 'Zona ' + ez.name + ': CASO ' + ez.diagnosis.case.toUpperCase() + ' (' + ez.diagnosis.confidence + '%)';
+        var caseDesc = {'a':'Fronte freddo PERICOLOSO','b':'Fronte caldo graduale','c':'Ciclogenesi IMPREVEDIBILE','d':'Miglioramento','stable':'Stabile'};
+        var ezLine = 'Zona ' + ez.name + ': CASO ' + ez.diagnosis.case.toUpperCase() + ' - ' + (caseDesc[ez.diagnosis.case] || ez.diagnosis.case) + ' (' + ez.diagnosis.confidence + '%)';
         if (ez.risk) ezLine += ' - Rischio ' + ez.risk.label;
         // Add actual numeric values so AI uses them correctly
         if (ez.raw) {
@@ -2999,7 +3011,7 @@ async function requestEngineBriefing() {
   var promptParts = [];
   promptParts.push('Sei un esperto meteorologo marino e skipper con 30 anni di esperienza nel Mar Tirreno settentrionale.');
   promptParts.push('');
-  promptParts.push('CASI OPERATIVI: A=fronte freddo PERICOLOSO, B=fronte caldo graduale, C=ciclogenesi IMPREVEDIBILE, D=miglioramento.');
+  promptParts.push('CASI OPERATIVI: A=Rotazione oraria S->N FRONTE FREDDO PERICOLOSO vento in aumento rapido, B=Rotazione oraria N->S FRONTE CALDO deterioramento graduale pioggia, C=Rotazione antioraria S->N CICLOGENESI IMPREVEDIBILE massima attenzione, D=Rotazione antioraria N->S MIGLIORAMENTO swell residuo.');
   promptParts.push('SOGLIE: Raffica >=28kn=ROSSO, >=22kn=ATTENZIONE. Vento >=22kn=ATTENZIONE. Onda >=2m=ROSSO, >=1.2m=ATTENZIONE.');
   promptParts.push('REGOLA VALORI: cita SEMPRE il valore numerico attuale e la soglia. Es: "vento 18kn (soglia ATTENZIONE 22kn)". Mai usare "entro soglia" senza specificare entrambi i valori.');
   promptParts.push('REGOLA RISCHIO: RISCHIO deve riflettere i valori numerici reali. Se vento < 22kn e onda < 1.2m e pressione stabile = RISCHIO BASSO. Non alzare il rischio solo per il caso sinottico teorico.');
@@ -3433,12 +3445,6 @@ function renderVerifyContent(data, el) {
 
 var compareCurrentZone = null;
 
-function refreshCompare() {
-  if (compareCurrentZone) {
-    loadCompare(compareCurrentZone);
-  }
-}
-
 function renderCompareZoneButtons() {
   var container = document.getElementById('compare-zone-select');
   if (!container || !engineResults) return;
@@ -3570,6 +3576,7 @@ function renderCompareTable(data, zoneKey, el) {
   el.innerHTML = html;
 }
 
+
 // -- EXPORT DATI ANALISI ---------------------------------------------------
 
 async function exportData() {
@@ -3580,36 +3587,28 @@ async function exportData() {
     var res = await fetch(ENGINE_URL + '?action=export');
     var data = await res.json();
     if (data.error) throw new Error(data.error);
-
-    // Build CSV
-    var rows = ['Zona,Ora,OM_vento_kn,OM_dir,OWM_vento_kn,OWM_dir,Pressione,Onda_m,Swell_m,Bias_MAE'];
+    var rows = ['Zona,Ora,OM_vento_kn,OM_dir,OWM_vento_kn,OWM_dir,Pressione,Onda_m,Swell_m'];
     Object.keys(data.zones).forEach(function(zk) {
       var z = data.zones[zk];
+      var dirs16 = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
       (z.snapshots || []).forEach(function(s) {
-        var dirs16 = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
         var omDir = s.wind_dir !== null && s.wind_dir !== undefined ? dirs16[Math.round(s.wind_dir/22.5)%16] : '';
         var owmDir = s.wind_dir_obs !== null && s.wind_dir_obs !== undefined ? dirs16[Math.round(s.wind_dir_obs/22.5)%16] : '';
-        rows.push([
-          z.name,
-          s.ts ? new Date(s.ts).toLocaleString('it-IT') : '',
-          s.wind_speed !== null ? s.wind_speed.toFixed(1) : '',
-          omDir,
-          s.wind_speed_obs !== null && s.wind_speed_obs !== undefined ? s.wind_speed_obs.toFixed(1) : '',
-          owmDir,
-          s.pressure !== null ? s.pressure.toFixed(1) : '',
-          s.wave_height !== null ? s.wave_height.toFixed(2) : '',
-          s.swell_height !== null ? s.swell_height.toFixed(2) : '',
-          z.bias ? z.bias.wind_mae.toFixed(2) : ''
+        rows.push([z.name, s.ts ? new Date(s.ts).toLocaleString('it-IT') : '',
+          s.wind_speed !== null ? parseFloat(s.wind_speed).toFixed(1) : '', omDir,
+          s.wind_speed_obs !== null && s.wind_speed_obs !== undefined ? parseFloat(s.wind_speed_obs).toFixed(1) : '', owmDir,
+          s.pressure !== null ? parseFloat(s.pressure).toFixed(1) : '',
+          s.wave_height !== null ? parseFloat(s.wave_height).toFixed(2) : '',
+          s.swell_height !== null ? parseFloat(s.swell_height).toFixed(2) : ''
         ].join(','));
       });
     });
-
     var csv = rows.join(String.fromCharCode(10));
     var blob = new Blob([csv], { type: 'text/csv' });
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
     a.href = url;
-    a.download = 'nautilus_export_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.download = 'nautilus_' + new Date().toISOString().slice(0,10) + '.csv';
     a.click();
     URL.revokeObjectURL(url);
     btn.textContent = '✓ Export';
@@ -3621,19 +3620,4 @@ async function exportData() {
   }
 }
 
-// Fine codice - NAUTILUS v4.9.9
-</script>
-
-  <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>
-  <div class="briefing-history-panel" id="briefing-history-panel">
-    <div class="bhp-header">
-      <div class="bhp-title">Storico Briefing</div>
-      <button class="bhp-close" onclick="closeBriefingHistory()">Chiudi</button>
-    </div>
-    <div class="bhp-list" id="bhp-list">
-      <div class="bhp-empty">Nessun briefing ancora generato</div>
-    </div>
-  </div>
-
-</body>
-</html>
+// Fine codice - NAUTILUS v5.0.1

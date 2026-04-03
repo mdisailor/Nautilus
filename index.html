@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.0.0 — 2026-04-03 -->
+<!-- NAUTILUS v5.0.1 — 2026-04-03 -->
 
 <html lang="it">
 <head>
@@ -523,7 +523,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.0.0 · by mdisailor engine</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.0.1 · by mdisailor engine</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -684,6 +684,15 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
     </g>
   </svg>
   <div class="wind-details">
+    <div style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border)">
+      <div style="font-family:DM Mono,monospace;font-size:0.45rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:2px">Adesso</div>
+      <div style="display:flex;align-items:baseline;gap:6px">
+        <span id="wd-now-speed" style="font-family:Bebas Neue,sans-serif;font-size:2rem;line-height:1;color:var(--accent)">--</span>
+        <span style="font-family:DM Mono,monospace;font-size:0.6rem;color:var(--muted)">kn</span>
+        <span id="wd-now-dir" style="font-family:DM Mono,monospace;font-size:0.9rem;color:var(--text);margin-left:4px">--</span>
+      </div>
+      <div id="wd-now-gust" style="font-family:DM Mono,monospace;font-size:0.52rem;color:var(--muted);margin-top:2px">raffica --kn</div>
+    </div>
     <div class="wind-detail-row"><span class="wd-label">DIREZIONE</span><span class="wd-value" id="wd-dir">—</span></div>
     <div class="wind-detail-row"><span class="wd-label">GRADI</span><span class="wd-value" id="wd-deg">—</span></div>
     <div class="wind-detail-row"><span class="wd-label">PERIODO ONDE</span><span class="wd-value" id="wd-period">—</span></div>
@@ -1448,13 +1457,14 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica · Previsione operativ5.0.0 · by mdisailor engine</div>
+  <div class="engine-sub">Diagnostica sinottica · Previsione operativ5.0.1 · by mdisailor engine</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
 <div id="engine-zone-list" style="margin:8px 20px 0;display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 14px"></div>
 <div class="engine-controls" style="margin-top:10px">
   <button id="btn-engine-run" onclick="runEngine()">▶ AVVIA ANALISI</button>
+  <button id="btn-export" onclick="exportData()" style="padding:10px 14px;background:rgba(240,180,41,0.1);border:1px solid rgba(240,180,41,0.3);border-radius:10px;color:var(--gold);font-family:DM Mono,monospace;font-size:0.6rem;cursor:pointer">📊 CSV</button>
   <span class="engine-updated" id="engine-updated">Non aggiornato</span>
 </div>
 
@@ -1836,6 +1846,22 @@ function renderWeather() {
   };
 
   document.getElementById('m-wind').textContent = maxW;
+  // Current wind (idx = current hour)
+  var nowSpeed = d.hourly.windspeed_10m[idx];
+  var nowGust = d.hourly.windgusts_10m[idx];
+  var nowDir = d.hourly.winddirection_10m[idx];
+  var dirs16 = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+  var nowDirName = nowDir !== undefined ? dirs16[Math.round(nowDir/22.5)%16] : '--';
+  var nowSpeedEl = document.getElementById('wd-now-speed');
+  var nowDirEl = document.getElementById('wd-now-dir');
+  var nowGustEl = document.getElementById('wd-now-gust');
+  if (nowSpeedEl) nowSpeedEl.textContent = nowSpeed ? nowSpeed.toFixed(0) : '--';
+  if (nowDirEl) nowDirEl.textContent = nowDirName;
+  if (nowGustEl) nowGustEl.textContent = 'raffica ' + (nowGust ? nowGust.toFixed(0) : '--') + 'kn';
+  // Color current speed
+  if (nowSpeedEl && nowSpeed) {
+    nowSpeedEl.style.color = nowSpeed >= 22 ? 'var(--danger)' : nowSpeed >= 11 ? 'var(--warn)' : nowSpeed >= 7 ? 'var(--gold)' : 'var(--accent)';
+  }
   const mwa = document.getElementById('m-wind-avg'); if(mwa) mwa.textContent = 'media ' + avgW + 'kn';
   col('m-wind', parseFloat(maxW), [7,11,22]);
   document.getElementById('m-wave').textContent = maxWv;
@@ -3623,7 +3649,7 @@ async function exportData() {
   }
 }
 
-// Fine codice - NAUTILUS v5.0.0
+// Fine codice - NAUTILUS v5.0.1
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

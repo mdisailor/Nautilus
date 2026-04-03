@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.8.0 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.7.9 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -733,19 +733,9 @@ wind_speed_sg: pick( 'windSpeed '), wind_gust_sg: pick( 'gust '),
 function extractCurrentData(omData, sgData, owmData) {
 var h = omData.hourly;
 var now = new Date();
-// Match current time to hourly array - try both UTC and local timezone offsets
 var currentHour = now.toISOString().slice(0, 13) +  ':00 ';
 var idx = h.time.findIndex(function(t) { return t === currentHour; });
-if (idx === -1) {
-// Try finding closest time entry (handles timezone differences)
-var nowMs = now.getTime();
-var minDiff = Infinity;
-h.time.forEach(function(t, i) {
-var diff = Math.abs(new Date(t).getTime() - nowMs);
-if (diff < minDiff) { minDiff = diff; idx = i; }
-});
 if (idx === -1) idx = 0;
-}
 var prev = Math.max(0, idx - 3);
 
 var base = {
@@ -1218,7 +1208,7 @@ var kvToken = process.env.UPSTASH_REDIS_REST_TOKEN || null;
 
 if (action ===  'ping ') {
 var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled !== false; }).length;
-return res.status(200).json({ ok: true, engine:  'nautilus-engine ', v:  '2.8.0 ', zones: activeZones, ts: Date.now() });
+return res.status(200).json({ ok: true, engine:  'nautilus-engine ', v:  '2.7.9 ', zones: activeZones, ts: Date.now() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -1430,4 +1420,4 @@ endpoints: [ '/api/engine?action=ping ',  '/api/engine?action=zones ',  '/api/en
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.8.0
+// Fine codice - NAUTILUS ENGINE v2.7.9

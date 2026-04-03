@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.7.6 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.7.8 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -23,7 +23,7 @@ cross_sea_canale: { desc: 'Mare incrociato nel canale', active_wind_dirs: [0, 36
 livorno: {
 enabled: true,
 name: 'Livorno',
-lat: 43.55, lon: 10.31,
+lat: 43.548, lon: 10.310,
 ports: {
 livorno:        { name: 'Livorno',        exposure: 'SW', shelter: 'high', swell_threshold: 2.0 },
 castiglioncello:{ name: 'Castiglioncello',exposure: 'W',  shelter: 'low',  swell_threshold: 0.9 },
@@ -774,7 +774,11 @@ if (sgData.current_dir)  base.current_dir = sgData.current_dir;
 // Stormglass wind excluded - Open-Meteo only for wind direction/speed
 }
 
-// OWM observed wind overrides model - more accurate for current conditions
+// Save original OM values before OWM override (needed for comparison)
+base.wind_speed_om = base.wind_speed;
+base.wind_dir_om = base.wind_dir;
+
+// OWM observed wind overrides model for diagnosis - more accurate for current conditions
 if (owmData && owmData.wind_speed_obs !== null && owmData.wind_speed_obs !== undefined) {
 base.wind_speed = owmData.wind_speed_obs;
 base.wind_dir = owmData.wind_dir_obs !== null ? owmData.wind_dir_obs : base.wind_dir;
@@ -831,8 +835,8 @@ var hourKey = now.toISOString().slice(0, 13) + '-' + mins;
 var key = 'snap:' + zoneKey + ':' + hourKey;
 var snapshot = {
 ts: now.toISOString(),
-wind_dir: data.wind_dir,
-wind_speed: data.wind_speed,
+wind_dir: data.wind_dir_om !== undefined ? data.wind_dir_om : data.wind_dir,
+wind_speed: data.wind_speed_om !== undefined ? data.wind_speed_om : data.wind_speed,
 pressure: data.pressure,
 wave_height: data.wave_height,
 swell_height: data.swell_height,
@@ -1201,7 +1205,7 @@ var kvToken = process.env.UPSTASH_REDIS_REST_TOKEN || null;
 
 if (action === 'ping') {
 var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled !== false; }).length;
-return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.7.6', zones: activeZones, ts: Date.now() });
+return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.7.8', zones: activeZones, ts: Date.now() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -1413,4 +1417,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.7.6
+// Fine codice - NAUTILUS ENGINE v2.7.8

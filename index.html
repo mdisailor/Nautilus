@@ -518,7 +518,6 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 
   <div id="page-meteo" class="page active">
 
-```
 <header>
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
@@ -728,7 +727,6 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
     <div class="loading"><div class="spinner"></div> Caricamento...</div>
   </div>
 </div>
-```
 
 <!-- briefing moved to Engine tab -->
 
@@ -742,7 +740,6 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
       <div style="font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.15em;text-transform:uppercase;margin-top:3px;">Fonte: Stormglass · Multi-modello in tempo reale</div>
     </div>
 
-```
 <div class="marine-card" style="margin-top:16px">
   <div class="marine-header">
     <span class="marine-title">🌊 Stato del Mare</span>
@@ -778,7 +775,6 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
     ⚡ Stormglass aggrega automaticamente ECMWF, NOAA, DWD, Met.no e altri modelli — seleziona la fonte migliore per la tua posizione.
   </div>
 </div>
-```
 
   </div><!-- /mare -->
 
@@ -790,7 +786,6 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
       <div style="font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.15em;text-transform:uppercase;margin-top:3px;">Dati visivi · usati nel briefing AI</div>
     </div>
 
-```
 <div class="camera-section">
   <div style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;opacity:0.8;margin-bottom:8px">Riconoscimento automatico nuvole</div>
   <button class="camera-btn" onclick="openCamera()">
@@ -902,7 +897,6 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div class="obs-title">📝 Note libere</div>
   <textarea class="obs-textarea" id="obs-notes" placeholder="Es: mulinelli verso Capraia, odore di pioggia, mare controvento..."></textarea>
 </div>
-```
 
   </div><!-- /osservazioni -->
 
@@ -914,7 +908,6 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
       <div style="font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.15em;text-transform:uppercase;margin-top:3px;">Riconosci · interpreta · decidi</div>
     </div>
 
-```
 <!-- CIRRI (CI) -->
 
 <div class="cloud-card-v2">
@@ -936,114 +929,116 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   </button>
   <div class="cloud-detail" id="detail-ci">
 
-    <div class="cloud-section">
-      <table class="cloud-table">
-        <tr><td>Categoria</td><td>Nubi alte</td></tr>
-        <tr><td>Altitudine</td><td>6.000–13.000 m</td></tr>
-        <tr><td>Composizione</td><td>Cristalli di ghiaccio</td></tr>
-        <tr><td>Aspetto</td><td>Filamenti bianchi sottili, spesso ad uncino (cirrus uncinus), aspetto setoso</td></tr>
-        <tr><td>Significato</td><td>Prime avvisaglie di fronte caldo — peggioramento entro 12–48 ore</td></tr>
-      </table>
-    </div>
+```
+<div class="cloud-section">
+  <table class="cloud-table">
+    <tr><td>Categoria</td><td>Nubi alte</td></tr>
+    <tr><td>Altitudine</td><td>6.000–13.000 m</td></tr>
+    <tr><td>Composizione</td><td>Cristalli di ghiaccio</td></tr>
+    <tr><td>Aspetto</td><td>Filamenti bianchi sottili, spesso ad uncino (cirrus uncinus), aspetto setoso</td></tr>
+    <tr><td>Significato</td><td>Prime avvisaglie di fronte caldo — peggioramento entro 12–48 ore</td></tr>
+  </table>
+</div>
 
-    <div class="cloud-section" style="padding:0">
-      <img src="data:image/jpeg;base64,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"
-           alt="Cirri — filamenti bianchi a piuma, alta quota"
-           style="width:100%;height:180px;object-fit:cover;display:block"
-           onerror="this.style.display='none'">
-      <div style="font-family:'DM Mono',monospace;font-size:0.5rem;color:var(--muted);padding:5px 14px">
-        📷 Cirri — filamenti bianchi a piuma, alta quota (WMO/Wikimedia Commons)
-      </div>
-    </div>
+<div class="cloud-section" style="padding:0">
+  <img src="data:image/jpeg;base64,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"
+       alt="Cirri — filamenti bianchi a piuma, alta quota"
+       style="width:100%;height:180px;object-fit:cover;display:block"
+       onerror="this.style.display='none'">
+  <div style="font-family:'DM Mono',monospace;font-size:0.5rem;color:var(--muted);padding:5px 14px">
+    📷 Cirri — filamenti bianchi a piuma, alta quota (WMO/Wikimedia Commons)
+  </div>
+</div>
 
-    <div class="cloud-section">
-      <div class="cloud-section-title">🔧 Meccanismo di formazione</div>
-      <ul class="cloud-list">
-        <li>Condensazione diretta del vapore acqueo in cristalli di ghiaccio (T &lt; −30 °C)</li>
-        <li>Tipici delle correnti a getto in quota e della parte anteriore di un fronte caldo</li>
-        <li>Possono derivare dalla sommità disgregata dei cumulonembi</li>
-        <li>Il vento modella i cristalli in strisce e uncini orientati secondo la direzione del flusso</li>
-      </ul>
-    </div>
+<div class="cloud-section">
+  <div class="cloud-section-title">🔧 Meccanismo di formazione</div>
+  <ul class="cloud-list">
+    <li>Condensazione diretta del vapore acqueo in cristalli di ghiaccio (T &lt; −30 °C)</li>
+    <li>Tipici delle correnti a getto in quota e della parte anteriore di un fronte caldo</li>
+    <li>Possono derivare dalla sommità disgregata dei cumulonembi</li>
+    <li>Il vento modella i cristalli in strisce e uncini orientati secondo la direzione del flusso</li>
+  </ul>
+</div>
 
-    <div class="cloud-section">
-      <div class="cloud-section-title">🔭 Osservabili dal mare</div>
-      <p class="cloud-text" style="color:#a8d0e8;margin-bottom:4px">Visivi:</p>
-      <ul class="cloud-list">
-        <li>Filamenti sottili bianchi visibili a grande distanza, colore bianco brillante</li>
-        <li>Uncini o curvature indicano forte vento in quota</li>
-        <li>Progressivo aumento di densità → avvicinamento fronte caldo</li>
-        <li>Nessuna ombra al suolo; sole ben definito, zero oscuramento significativo</li>
-      </ul>
-      <p class="cloud-text" style="color:#a8d0e8;margin:8px 0 4px">Strumentali:</p>
-      <ul class="cloud-list">
-        <li>🌡️ Barometro: pressione stabile o in leggera discesa</li>
-        <li>💨 Anemometro: venti deboli con lieve rinforzo nel tempo</li>
-        <li>💧 Igrometro: umidità relativa in aumento in quota</li>
-        <li>📡 Radar di bordo: non rilevabili (riflettività troppo bassa)</li>
-        <li>🛰️ Satellite: visibili in banda IR/visibile come filamenti bianchi sottili</li>
-      </ul>
-    </div>
+<div class="cloud-section">
+  <div class="cloud-section-title">🔭 Osservabili dal mare</div>
+  <p class="cloud-text" style="color:#a8d0e8;margin-bottom:4px">Visivi:</p>
+  <ul class="cloud-list">
+    <li>Filamenti sottili bianchi visibili a grande distanza, colore bianco brillante</li>
+    <li>Uncini o curvature indicano forte vento in quota</li>
+    <li>Progressivo aumento di densità → avvicinamento fronte caldo</li>
+    <li>Nessuna ombra al suolo; sole ben definito, zero oscuramento significativo</li>
+  </ul>
+  <p class="cloud-text" style="color:#a8d0e8;margin:8px 0 4px">Strumentali:</p>
+  <ul class="cloud-list">
+    <li>🌡️ Barometro: pressione stabile o in leggera discesa</li>
+    <li>💨 Anemometro: venti deboli con lieve rinforzo nel tempo</li>
+    <li>💧 Igrometro: umidità relativa in aumento in quota</li>
+    <li>📡 Radar di bordo: non rilevabili (riflettività troppo bassa)</li>
+    <li>🛰️ Satellite: visibili in banda IR/visibile come filamenti bianchi sottili</li>
+  </ul>
+</div>
 
-    <div class="cloud-section">
-      <div class="cloud-section-title">🌊 Evoluzione del moto ondoso e correnti</div>
-      <ul class="cloud-list">
-        <li>Nelle prime ore: nessuna variazione del mare</li>
-        <li>Dopo 12–24 h: possibile arrivo di mare lungo da settori lontani</li>
-        <li>Se segue fronte caldo: onde e swell in progressivo aumento</li>
-        <li>Correnti superficiali stabili; possibili deviazioni con rotazione del vento</li>
-      </ul>
-    </div>
+<div class="cloud-section">
+  <div class="cloud-section-title">🌊 Evoluzione del moto ondoso e correnti</div>
+  <ul class="cloud-list">
+    <li>Nelle prime ore: nessuna variazione del mare</li>
+    <li>Dopo 12–24 h: possibile arrivo di mare lungo da settori lontani</li>
+    <li>Se segue fronte caldo: onde e swell in progressivo aumento</li>
+    <li>Correnti superficiali stabili; possibili deviazioni con rotazione del vento</li>
+  </ul>
+</div>
 
-    <div class="cloud-section">
-      <div class="cloud-section-title">⛵ Impatto sulla navigazione</div>
-      <table class="cloud-table">
-        <tr><td>⛵ Navigazione</td><td>Nessun impatto immediato; segnale di allerta precoce</td></tr>
-        <tr><td>💨 Vento</td><td>Tendenza graduale ad aumentare e ruotare da E/SE</td></tr>
-        <tr><td>🌊 Mare</td><td>Mare lungo in formazione da settori lontani</td></tr>
-        <tr><td>👁️ Visibilità</td><td>Ottima; solo lieve velatura del sole</td></tr>
-        <tr><td>🌡️ Barometro</td><td>Prime oscillazioni discendenti; controllare ogni 2–3 ore</td></tr>
-      </table>
-    </div>
+<div class="cloud-section">
+  <div class="cloud-section-title">⛵ Impatto sulla navigazione</div>
+  <table class="cloud-table">
+    <tr><td>⛵ Navigazione</td><td>Nessun impatto immediato; segnale di allerta precoce</td></tr>
+    <tr><td>💨 Vento</td><td>Tendenza graduale ad aumentare e ruotare da E/SE</td></tr>
+    <tr><td>🌊 Mare</td><td>Mare lungo in formazione da settori lontani</td></tr>
+    <tr><td>👁️ Visibilità</td><td>Ottima; solo lieve velatura del sole</td></tr>
+    <tr><td>🌡️ Barometro</td><td>Prime oscillazioni discendenti; controllare ogni 2–3 ore</td></tr>
+  </table>
+</div>
 
-    <div class="cloud-section">
-      <div class="cloud-section-title">📋 Raccomandazioni operative</div>
-      <ul class="cloud-list">
-        <li>📌 Annotare ora, posizione e direzione dei filamenti</li>
-        <li>🌡️ Controllare il barometro ogni 2–3 ore</li>
-        <li>👥 Avvisare l'equipaggio: possibile peggioramento entro 24–48 h</li>
-        <li>🗺️ Se i cirri aumentano: consultare bollettini e aggiornare rotta</li>
-        <li>⚓ Evitare mare aperto in prossimità del fronte se la rotta coincide</li>
-      </ul>
-    </div>
+<div class="cloud-section">
+  <div class="cloud-section-title">📋 Raccomandazioni operative</div>
+  <ul class="cloud-list">
+    <li>📌 Annotare ora, posizione e direzione dei filamenti</li>
+    <li>🌡️ Controllare il barometro ogni 2–3 ore</li>
+    <li>👥 Avvisare l'equipaggio: possibile peggioramento entro 24–48 h</li>
+    <li>🗺️ Se i cirri aumentano: consultare bollettini e aggiornare rotta</li>
+    <li>⚓ Evitare mare aperto in prossimità del fronte se la rotta coincide</li>
+  </ul>
+</div>
 
-    <div class="cloud-section">
-      <div class="cloud-section-title">⏱️ Tempistica tipica</div>
-      <p class="cloud-text">Compaiono <strong>12–48 h prima del fronte caldo</strong>. Sequenza tipica: <strong>Ci → Cs → As → Ns</strong> (pioggia). Durata: da alcune ore fino a 1 giorno.</p>
-    </div>
+<div class="cloud-section">
+  <div class="cloud-section-title">⏱️ Tempistica tipica</div>
+  <p class="cloud-text">Compaiono <strong>12–48 h prima del fronte caldo</strong>. Sequenza tipica: <strong>Ci → Cs → As → Ns</strong> (pioggia). Durata: da alcune ore fino a 1 giorno.</p>
+</div>
 
-    <div class="cloud-section">
-      <div class="cloud-section-title">🔍 Checklist 1 — Identificazione rapida</div>
-      <div class="cloud-checklist" id="check-ci-id"></div>
-      <div class="cloud-score" id="score-ci-id">0 / 8 — spunta le osservazioni</div>
-    </div>
+<div class="cloud-section">
+  <div class="cloud-section-title">🔍 Checklist 1 — Identificazione rapida</div>
+  <div class="cloud-checklist" id="check-ci-id"></div>
+  <div class="cloud-score" id="score-ci-id">0 / 8 — spunta le osservazioni</div>
+</div>
 
-    <div class="cloud-section">
-      <div class="cloud-section-title">📈 Checklist 2 — Evolutiva</div>
-      <div class="cloud-checklist" id="check-ci-evo"></div>
-    </div>
+<div class="cloud-section">
+  <div class="cloud-section-title">📈 Checklist 2 — Evolutiva</div>
+  <div class="cloud-checklist" id="check-ci-evo"></div>
+</div>
 
-    <div class="cloud-section">
-      <div class="cloud-section-title">🛡️ Checklist 3 — Sicurezza operativa</div>
-      <div class="cloud-checklist" id="check-ci-sic"></div>
-    </div>
+<div class="cloud-section">
+  <div class="cloud-section-title">🛡️ Checklist 3 — Sicurezza operativa</div>
+  <div class="cloud-checklist" id="check-ci-sic"></div>
+</div>
 
-    <div class="cloud-section">
-      <div class="action-box" style="background:rgba(0,200,120,0.1);border:1px solid rgba(0,200,120,0.3);color:#e8f4ff">
-        📌 <strong>NESSUN RISCHIO IMMEDIATO – Preparazione strategica.</strong><br>
-        Cirri in aumento + barometro in discesa → peggioramento quasi certo entro 24–48 h. Monitorare, informare l'equipaggio e pianificare rotte alternative.
-      </div>
-    </div>
+<div class="cloud-section">
+  <div class="action-box" style="background:rgba(0,200,120,0.1);border:1px solid rgba(0,200,120,0.3);color:#e8f4ff">
+    📌 <strong>NESSUN RISCHIO IMMEDIATO – Preparazione strategica.</strong><br>
+    Cirri in aumento + barometro in discesa → peggioramento quasi certo entro 24–48 h. Monitorare, informare l'equipaggio e pianificare rotte alternative.
+  </div>
+</div>
+```
 
   </div>
 </div>
@@ -1229,6 +1224,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 </div>
 
 <!-- ROTAZIONI DEL VENTO — CAPITOLO 11 -->
+
 <div class="cloud-card-v2">
   <button class="cloud-toggle" onclick="toggleCloud2('rot')" type="button">
     <div class="cloud-toggle-header">
@@ -1248,204 +1244,204 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   </button>
   <div class="cloud-detail" id="detail-rot">
 
-    <div class="cloud-section">
-      <div class="cloud-section-title">🧭 Le 6 leve diagnostiche</div>
-      <p class="cloud-text">Valutata una rotazione del vento, incrociare SEMPRE queste 6 leve per interpretarne l'origine:</p>
-      <table class="cloud-table">
-        <tr><td>🌡️ 1 — Barometro</td><td>Calo rapido &gt;2 hPa/h → fronte freddo · Calo lento → fronte caldo · Rialzo → rimonta anticiclonica</td></tr>
-        <tr><td>☁️ 2 — Nuvole</td><td>Cu→Cb = fronte freddo (BRUSCO) · Ci→As→Ns = fronte caldo (GRADUALE) · Dissoluzione da N/W = MIGLIORAMENTO</td></tr>
-        <tr><td>💨 3 — Vento</td><td>Aumento brusco + raffiche + veering rapido = fronte freddo (PERICOLOSO) · Rinforzo lento morbido = fronte caldo</td></tr>
-        <tr><td>🌊 4 — Mare</td><td>Swell lungo prima del vento = fronte caldo a distanza · Onde corte + corrente contraria = passaggio frontale</td></tr>
-        <tr><td>♨️ 5 — Massa d'aria</td><td>Aria fredda/secca post-scatto = post-fronte freddo · Aria calda/umida + nebbie = fronte caldo</td></tr>
-        <tr><td>🗺️ 6 — Geografia</td><td>Effetti Venturi nei canali, risacca su imboccature, correnti di marea · Attenzione a Capraia, Elba, Piombino</td></tr>
-      </table>
-    </div>
+```
+<div class="cloud-section">
+  <div class="cloud-section-title">🧭 Le 6 leve diagnostiche</div>
+  <p class="cloud-text">Valutata una rotazione del vento, incrociare SEMPRE queste 6 leve per interpretarne l'origine:</p>
+  <table class="cloud-table">
+    <tr><td>🌡️ 1 — Barometro</td><td>Calo rapido &gt;2 hPa/h → fronte freddo · Calo lento → fronte caldo · Rialzo → rimonta anticiclonica</td></tr>
+    <tr><td>☁️ 2 — Nuvole</td><td>Cu→Cb = fronte freddo (BRUSCO) · Ci→As→Ns = fronte caldo (GRADUALE) · Dissoluzione da N/W = MIGLIORAMENTO</td></tr>
+    <tr><td>💨 3 — Vento</td><td>Aumento brusco + raffiche + veering rapido = fronte freddo (PERICOLOSO) · Rinforzo lento morbido = fronte caldo</td></tr>
+    <tr><td>🌊 4 — Mare</td><td>Swell lungo prima del vento = fronte caldo a distanza · Onde corte + corrente contraria = passaggio frontale</td></tr>
+    <tr><td>♨️ 5 — Massa d'aria</td><td>Aria fredda/secca post-scatto = post-fronte freddo · Aria calda/umida + nebbie = fronte caldo</td></tr>
+    <tr><td>🗺️ 6 — Geografia</td><td>Effetti Venturi nei canali, risacca su imboccature, correnti di marea · Attenzione a Capraia, Elba, Piombino</td></tr>
+  </table>
+</div>
 
-    <div class="cloud-section">
-      <div class="cloud-section-title">⚖️ La regola "S→N = brutto / N→S = migliora"</div>
-      <table class="cloud-table">
-        <tr><td>🔴 S→W→N (via Ovest)</td><td><strong>IL CASO PIÙ CRITICO.</strong> Linea di groppo, raffiche, rotazione rapida a W–NW–N. Dopo il fronte: aria fredda/instabile + MARE ANCORA FORMATO → finestra più pericolosa</td></tr>
-        <tr><td>🟢 N→E→S (rimonta)</td><td>MIGLIORAMENTO reale. Gradiente si allenta, vento cala, mare vivo decresce (resta lo swell). Più prevedibile.</td></tr>
-        <tr><td>⚠️ Eccezione N→S</td><td>NON sempre = miglioramento: se avvicinamento fronte caldo → peggioramento graduale (nebbia, swell lungo, pioviggine)</td></tr>
-        <tr><td>⚠️ Eccezione S→N</td><td>NON sempre = tempesta: a volte semplice assestamento post-perturbato se gradiente è debole</td></tr>
-      </table>
-      <div class="action-box" style="background:rgba(255,200,0,0.1);border:1px solid rgba(255,200,0,0.3);color:#e8f4ff;margin-top:8px">
-        ⚠️ Verificare SEMPRE: trend barometrico · sequenza nuvolosa · radar/nowcasting · curva Hs/Tp · rapporto vento-corrente locale
-      </div>
-    </div>
+<div class="cloud-section">
+  <div class="cloud-section-title">⚖️ La regola "S→N = brutto / N→S = migliora"</div>
+  <table class="cloud-table">
+    <tr><td>🔴 S→W→N (via Ovest)</td><td><strong>IL CASO PIÙ CRITICO.</strong> Linea di groppo, raffiche, rotazione rapida a W–NW–N. Dopo il fronte: aria fredda/instabile + MARE ANCORA FORMATO → finestra più pericolosa</td></tr>
+    <tr><td>🟢 N→E→S (rimonta)</td><td>MIGLIORAMENTO reale. Gradiente si allenta, vento cala, mare vivo decresce (resta lo swell). Più prevedibile.</td></tr>
+    <tr><td>⚠️ Eccezione N→S</td><td>NON sempre = miglioramento: se avvicinamento fronte caldo → peggioramento graduale (nebbia, swell lungo, pioviggine)</td></tr>
+    <tr><td>⚠️ Eccezione S→N</td><td>NON sempre = tempesta: a volte semplice assestamento post-perturbato se gradiente è debole</td></tr>
+  </table>
+  <div class="action-box" style="background:rgba(255,200,0,0.1);border:1px solid rgba(255,200,0,0.3);color:#e8f4ff;margin-top:8px">
+    ⚠️ Verificare SEMPRE: trend barometrico · sequenza nuvolosa · radar/nowcasting · curva Hs/Tp · rapporto vento-corrente locale
+  </div>
+</div>
 
-    <div class="cloud-section">
-      <div class="cloud-section-title">🔴 Caso A — Rotazione ORARIA: Sud → Nord (Fronte freddo attivo)</div>
-      <p class="cloud-text" style="color:#a8d0e8;margin-bottom:4px">Meccanismo fisico:</p>
-      <ul class="cloud-list">
-        <li>Aria fredda avanza e sottoscorre aria più calda: sollevamento forzato e convezione profonda</li>
-        <li>Veering orario rapido: S → SW → W → NW → N in minuti-ore</li>
-        <li>Linea di groppo/squall line con wind shear marcato; intrusione secca in quota</li>
-        <li>Isobare si addensano al passaggio: massima accelerazione in prossimità del fronte</li>
-      </ul>
-      <p class="cloud-text" style="color:#a8d0e8;margin:8px 0 4px">Osservabili dal mare:</p>
-      <ul class="cloud-list">
-        <li>🌡️ Barometro: caduta rapida (&gt;1 hPa/ora; spesso &gt;2 hPa/ora) poi risalita brusca post-fronte</li>
-        <li>💨 Anemometro: aumento medio e raffiche; rotazione in minuti-ore</li>
-        <li>📡 Radar: eco a banda continua, echi convettivi intensi; cell tracking consigliato</li>
-        <li>🌊 Visivo: shelf cloud, base scura, virga, fulmini; whitecaps in rapido aumento</li>
-        <li>🌡️ Termometro: calo T aria post-fronte, UR in diminuzione; dew point spread aumenta</li>
-      </ul>
-      <p class="cloud-text" style="color:#a8d0e8;margin:8px 0 4px">Moto ondoso:</p>
-      <ul class="cloud-list">
-        <li>Crescita rapida di Hs con periodo che si accorcia (onde corte e ripide)</li>
-        <li>Cross-sea: swell da settore precedente + nuovo mare da W-NW</li>
-        <li>Con corrente contraria: frangenti su secche e imboccature; effetto Venturi nei canali</li>
-        <li>Dopo 6–12 h post-fronte: swell più lungo da W-NW; mare vivo in lento decadimento</li>
-      </ul>
-      <table class="cloud-table" style="margin-top:6px">
-        <tr><td>⛵ Vela</td><td>Reef anticipato; evitare andature portanti in raffiche convettive; valutare heave-to</td></tr>
-        <tr><td>🚢 Motore</td><td>Slamming di prua; ridurre velocità; cercare angolo d'onda 30–45°</td></tr>
-        <tr><td>⚓ Ormeggio</td><td>Aumentare scope (5:1 → 7:1); predisporre doppie cime; allineare prua al mare</td></tr>
-      </table>
-      <div class="action-box" style="background:rgba(220,30,30,0.12);border:1px solid rgba(220,30,30,0.35);color:#e8f4ff;margin-top:8px">
-        ⏱️ Segnali pre-frontali 1–3 h prima · Passaggio in minuti · Condizioni ventose 6–12 h post-fronte · Normalizzazione in 24–36 h
-      </div>
-    </div>
+<div class="cloud-section">
+  <div class="cloud-section-title">🔴 Caso A — Rotazione ORARIA: Sud → Nord (Fronte freddo attivo)</div>
+  <p class="cloud-text" style="color:#a8d0e8;margin-bottom:4px">Meccanismo fisico:</p>
+  <ul class="cloud-list">
+    <li>Aria fredda avanza e sottoscorre aria più calda: sollevamento forzato e convezione profonda</li>
+    <li>Veering orario rapido: S → SW → W → NW → N in minuti-ore</li>
+    <li>Linea di groppo/squall line con wind shear marcato; intrusione secca in quota</li>
+    <li>Isobare si addensano al passaggio: massima accelerazione in prossimità del fronte</li>
+  </ul>
+  <p class="cloud-text" style="color:#a8d0e8;margin:8px 0 4px">Osservabili dal mare:</p>
+  <ul class="cloud-list">
+    <li>🌡️ Barometro: caduta rapida (&gt;1 hPa/ora; spesso &gt;2 hPa/ora) poi risalita brusca post-fronte</li>
+    <li>💨 Anemometro: aumento medio e raffiche; rotazione in minuti-ore</li>
+    <li>📡 Radar: eco a banda continua, echi convettivi intensi; cell tracking consigliato</li>
+    <li>🌊 Visivo: shelf cloud, base scura, virga, fulmini; whitecaps in rapido aumento</li>
+    <li>🌡️ Termometro: calo T aria post-fronte, UR in diminuzione; dew point spread aumenta</li>
+  </ul>
+  <p class="cloud-text" style="color:#a8d0e8;margin:8px 0 4px">Moto ondoso:</p>
+  <ul class="cloud-list">
+    <li>Crescita rapida di Hs con periodo che si accorcia (onde corte e ripide)</li>
+    <li>Cross-sea: swell da settore precedente + nuovo mare da W-NW</li>
+    <li>Con corrente contraria: frangenti su secche e imboccature; effetto Venturi nei canali</li>
+    <li>Dopo 6–12 h post-fronte: swell più lungo da W-NW; mare vivo in lento decadimento</li>
+  </ul>
+  <table class="cloud-table" style="margin-top:6px">
+    <tr><td>⛵ Vela</td><td>Reef anticipato; evitare andature portanti in raffiche convettive; valutare heave-to</td></tr>
+    <tr><td>🚢 Motore</td><td>Slamming di prua; ridurre velocità; cercare angolo d'onda 30–45°</td></tr>
+    <tr><td>⚓ Ormeggio</td><td>Aumentare scope (5:1 → 7:1); predisporre doppie cime; allineare prua al mare</td></tr>
+  </table>
+  <div class="action-box" style="background:rgba(220,30,30,0.12);border:1px solid rgba(220,30,30,0.35);color:#e8f4ff;margin-top:8px">
+    ⏱️ Segnali pre-frontali 1–3 h prima · Passaggio in minuti · Condizioni ventose 6–12 h post-fronte · Normalizzazione in 24–36 h
+  </div>
+</div>
 
-    <div class="cloud-section">
-      <div class="cloud-section-title">🟡 Caso B — Rotazione ORARIA: Nord → Sud (Fronte caldo / Warm advection)</div>
-      <p class="cloud-text" style="color:#a8d0e8;margin-bottom:4px">Meccanismo fisico:</p>
-      <ul class="cloud-list">
-        <li>Aria calda scivola sopra aria fredda (overrunning) con sollevamento isentropico</li>
-        <li>Veering orario lento: N → NE → E → SE → S per riorganizzazione isobarica</li>
-        <li>Nubi stratiformi estese, precipitazione debole ma persistente; gradiente barico moderato</li>
-        <li>Possibile formazione di nebbia da avvezione su mare freddo</li>
-      </ul>
-      <p class="cloud-text" style="color:#a8d0e8;margin:8px 0 4px">Osservabili dal mare:</p>
-      <ul class="cloud-list">
-        <li>🌡️ Barometro: calo lento e regolare (più hPa nell'arco di 12–24 h)</li>
-        <li>💨 Anemometro: aumento progressivo del vento, rotazione lenta; gust spread contenuto</li>
-        <li>📡 Radar: eco stratiformi continue; usare guard zone</li>
-        <li>👁️ Sequenza nuvolosa: Ci → As → Ns; visibilità che degrada gradualmente</li>
-        <li>🌡️ Termometro: T aria e dew point in aumento; SST &lt; T aria → rischio nebbia da avvezione</li>
-      </ul>
-      <p class="cloud-text" style="color:#a8d0e8;margin:8px 0 4px">Moto ondoso:</p>
-      <ul class="cloud-list">
-        <li>Swell lungo in arrivo ORE PRIMA che il vento rinforzi — segnale precoce fondamentale</li>
-        <li>Aumento Hs graduale; periodo lungo → rollio pronunciato su rotte trasversali</li>
-        <li>Correnti costiere si riallineano lentamente; possibili set trasversali in imboccature</li>
-      </ul>
-      <table class="cloud-table" style="margin-top:6px">
-        <tr><td>🌫️ Nebbia</td><td>Segnalazioni foniche, riduzione velocità, guardia potenziata</td></tr>
-        <tr><td>📡 Radar/AIS</td><td>CPA/TCPA, MARPA attivo; tenere tracce e registri</td></tr>
-        <tr><td>🌊 Rotta</td><td>Angolo d'onda favorevole per limitare rollio e consumo</td></tr>
-      </table>
-      <div class="action-box" style="background:rgba(255,160,0,0.12);border:1px solid rgba(255,160,0,0.35);color:#e8f4ff;margin-top:8px">
-        ⏱️ Deterioramento lento 12–36 h · Piogge leggere/moderate per molte ore · Miglioramento solo dopo completo passaggio del warm sector
-      </div>
-    </div>
+<div class="cloud-section">
+  <div class="cloud-section-title">🟡 Caso B — Rotazione ORARIA: Nord → Sud (Fronte caldo / Warm advection)</div>
+  <p class="cloud-text" style="color:#a8d0e8;margin-bottom:4px">Meccanismo fisico:</p>
+  <ul class="cloud-list">
+    <li>Aria calda scivola sopra aria fredda (overrunning) con sollevamento isentropico</li>
+    <li>Veering orario lento: N → NE → E → SE → S per riorganizzazione isobarica</li>
+    <li>Nubi stratiformi estese, precipitazione debole ma persistente; gradiente barico moderato</li>
+    <li>Possibile formazione di nebbia da avvezione su mare freddo</li>
+  </ul>
+  <p class="cloud-text" style="color:#a8d0e8;margin:8px 0 4px">Osservabili dal mare:</p>
+  <ul class="cloud-list">
+    <li>🌡️ Barometro: calo lento e regolare (più hPa nell'arco di 12–24 h)</li>
+    <li>💨 Anemometro: aumento progressivo del vento, rotazione lenta; gust spread contenuto</li>
+    <li>📡 Radar: eco stratiformi continue; usare guard zone</li>
+    <li>👁️ Sequenza nuvolosa: Ci → As → Ns; visibilità che degrada gradualmente</li>
+    <li>🌡️ Termometro: T aria e dew point in aumento; SST &lt; T aria → rischio nebbia da avvezione</li>
+  </ul>
+  <p class="cloud-text" style="color:#a8d0e8;margin:8px 0 4px">Moto ondoso:</p>
+  <ul class="cloud-list">
+    <li>Swell lungo in arrivo ORE PRIMA che il vento rinforzi — segnale precoce fondamentale</li>
+    <li>Aumento Hs graduale; periodo lungo → rollio pronunciato su rotte trasversali</li>
+    <li>Correnti costiere si riallineano lentamente; possibili set trasversali in imboccature</li>
+  </ul>
+  <table class="cloud-table" style="margin-top:6px">
+    <tr><td>🌫️ Nebbia</td><td>Segnalazioni foniche, riduzione velocità, guardia potenziata</td></tr>
+    <tr><td>📡 Radar/AIS</td><td>CPA/TCPA, MARPA attivo; tenere tracce e registri</td></tr>
+    <tr><td>🌊 Rotta</td><td>Angolo d'onda favorevole per limitare rollio e consumo</td></tr>
+  </table>
+  <div class="action-box" style="background:rgba(255,160,0,0.12);border:1px solid rgba(255,160,0,0.35);color:#e8f4ff;margin-top:8px">
+    ⏱️ Deterioramento lento 12–36 h · Piogge leggere/moderate per molte ore · Miglioramento solo dopo completo passaggio del warm sector
+  </div>
+</div>
 
-    <div class="cloud-section">
-      <div class="cloud-section-title">🔵 Caso C — Rotazione ANTIORARIA: Sud → Nord (Ciclogenesi / Stallo)</div>
-      <p class="cloud-text" style="color:#a8d0e8;margin-bottom:4px">Meccanismo fisico:</p>
-      <ul class="cloud-list">
-        <li>Backing antiorario: S → SE → E → NE → N; indica riorganizzazione del minimo</li>
-        <li>Possibile ciclogenesi o movimento retrogrado del minimo → vento non stazionario</li>
-        <li>Banda calda deformata, TROWAL/occlusione; baroclinità elevata; gradienti locali</li>
-      </ul>
-      <p class="cloud-text" style="color:#a8d0e8;margin:8px 0 4px">Osservabili dal mare:</p>
-      <ul class="cloud-list">
-        <li>🌡️ Barometro: caduta continua, a tratti accelerata (&gt;3–4 hPa/3h)</li>
-        <li>💨 Anemometro: direzione instabile, raffiche intermittenti; backing nel tempo</li>
-        <li>📡 Radar: bande di pioggia alternate a celle convettive; traiettorie irregolari</li>
-        <li>🌊 Mare: molto confuso per onde da direzioni diverse; frangenti su corrente contraria</li>
-      </ul>
-      <table class="cloud-table" style="margin-top:6px">
-        <tr><td>⛵ Tattica</td><td>Heavy-weather: heave-to, paracadute di prua, drogue; cercare ridosso</td></tr>
-        <tr><td>📡 Comunicazioni</td><td>Report regolari di posizione; coordinarsi con Autorità Marittime</td></tr>
-      </table>
-      <div class="action-box" style="background:rgba(50,100,220,0.12);border:1px solid rgba(50,100,220,0.35);color:#e8f4ff;margin-top:8px">
-        ⏱️ Peggioramento prolungato e irregolare (ore → giorni) · Rapido peggioramento se il minimo si approfondisce
-      </div>
-    </div>
+<div class="cloud-section">
+  <div class="cloud-section-title">🔵 Caso C — Rotazione ANTIORARIA: Sud → Nord (Ciclogenesi / Stallo)</div>
+  <p class="cloud-text" style="color:#a8d0e8;margin-bottom:4px">Meccanismo fisico:</p>
+  <ul class="cloud-list">
+    <li>Backing antiorario: S → SE → E → NE → N; indica riorganizzazione del minimo</li>
+    <li>Possibile ciclogenesi o movimento retrogrado del minimo → vento non stazionario</li>
+    <li>Banda calda deformata, TROWAL/occlusione; baroclinità elevata; gradienti locali</li>
+  </ul>
+  <p class="cloud-text" style="color:#a8d0e8;margin:8px 0 4px">Osservabili dal mare:</p>
+  <ul class="cloud-list">
+    <li>🌡️ Barometro: caduta continua, a tratti accelerata (&gt;3–4 hPa/3h)</li>
+    <li>💨 Anemometro: direzione instabile, raffiche intermittenti; backing nel tempo</li>
+    <li>📡 Radar: bande di pioggia alternate a celle convettive; traiettorie irregolari</li>
+    <li>🌊 Mare: molto confuso per onde da direzioni diverse; frangenti su corrente contraria</li>
+  </ul>
+  <table class="cloud-table" style="margin-top:6px">
+    <tr><td>⛵ Tattica</td><td>Heavy-weather: heave-to, paracadute di prua, drogue; cercare ridosso</td></tr>
+    <tr><td>📡 Comunicazioni</td><td>Report regolari di posizione; coordinarsi con Autorità Marittime</td></tr>
+  </table>
+  <div class="action-box" style="background:rgba(50,100,220,0.12);border:1px solid rgba(50,100,220,0.35);color:#e8f4ff;margin-top:8px">
+    ⏱️ Peggioramento prolungato e irregolare (ore → giorni) · Rapido peggioramento se il minimo si approfondisce
+  </div>
+</div>
 
-    <div class="cloud-section">
-      <div class="cloud-section-title">🟢 Caso D — Rotazione ANTIORARIA: Nord → Sud (Miglioramento post-perturbato)</div>
-      <p class="cloud-text" style="color:#a8d0e8;margin-bottom:4px">Meccanismo fisico:</p>
-      <ul class="cloud-list">
-        <li>Backing: N → NW → W → SW → S; ricostruzione del campo anticiclonico</li>
-        <li>Graduale indebolimento del gradiente barico; turbolenza e shear in calo</li>
-      </ul>
-      <p class="cloud-text" style="color:#a8d0e8;margin:8px 0 4px">Osservabili dal mare:</p>
-      <ul class="cloud-list">
-        <li>🌡️ Barometro: tendenza al rialzo costante (hPa/12h positivo)</li>
-        <li>💨 Anemometro: attenuazione raffiche; direzione stabilizza verso W–S</li>
-        <li>👁️ Visivo: nubi in dissoluzione e schiarite da Nord; foschia residua possibile</li>
-        <li>🌊 Mare: decadimento mare di vento; swell lungo residuo (24–72 h) che entra in porto</li>
-        <li>⚓ Seiche e risacca residua in porti esposti alla direzione del swell</li>
-      </ul>
-      <table class="cloud-table" style="margin-top:6px">
-        <tr><td>⚓ Porto</td><td>Attendere finestre di minima risacca; coordinarsi con ormeggiatori</td></tr>
-        <tr><td>🔧 Post-burrasca</td><td>Verificare ormeggi/ancore, carichi, lashing e sistemi di drenaggio</td></tr>
-      </table>
-      <div class="action-box" style="background:rgba(0,180,100,0.12);border:1px solid rgba(0,180,100,0.35);color:#e8f4ff;margin-top:8px">
-        ⏱️ Schiarite e calo vento in poche ore · Swell residuo e risacca 24–72 h secondo fetch e batimetria
-      </div>
-    </div>
+<div class="cloud-section">
+  <div class="cloud-section-title">🟢 Caso D — Rotazione ANTIORARIA: Nord → Sud (Miglioramento post-perturbato)</div>
+  <p class="cloud-text" style="color:#a8d0e8;margin-bottom:4px">Meccanismo fisico:</p>
+  <ul class="cloud-list">
+    <li>Backing: N → NW → W → SW → S; ricostruzione del campo anticiclonico</li>
+    <li>Graduale indebolimento del gradiente barico; turbolenza e shear in calo</li>
+  </ul>
+  <p class="cloud-text" style="color:#a8d0e8;margin:8px 0 4px">Osservabili dal mare:</p>
+  <ul class="cloud-list">
+    <li>🌡️ Barometro: tendenza al rialzo costante (hPa/12h positivo)</li>
+    <li>💨 Anemometro: attenuazione raffiche; direzione stabilizza verso W–S</li>
+    <li>👁️ Visivo: nubi in dissoluzione e schiarite da Nord; foschia residua possibile</li>
+    <li>🌊 Mare: decadimento mare di vento; swell lungo residuo (24–72 h) che entra in porto</li>
+    <li>⚓ Seiche e risacca residua in porti esposti alla direzione del swell</li>
+  </ul>
+  <table class="cloud-table" style="margin-top:6px">
+    <tr><td>⚓ Porto</td><td>Attendere finestre di minima risacca; coordinarsi con ormeggiatori</td></tr>
+    <tr><td>🔧 Post-burrasca</td><td>Verificare ormeggi/ancore, carichi, lashing e sistemi di drenaggio</td></tr>
+  </table>
+  <div class="action-box" style="background:rgba(0,180,100,0.12);border:1px solid rgba(0,180,100,0.35);color:#e8f4ff;margin-top:8px">
+    ⏱️ Schiarite e calo vento in poche ore · Swell residuo e risacca 24–72 h secondo fetch e batimetria
+  </div>
+</div>
 
-    <div class="cloud-section">
-      <div class="cloud-section-title">🔍 Tabella diagnosi rapida</div>
-      <table class="cloud-table">
-        <tr><td><strong>Osservazione combinata</strong></td><td><strong>Diagnosi / Azione</strong></td></tr>
-        <tr><td>S→W→N + calo barico rapido + cumuli in crescita</td><td>⛈️ FRONTE FREDDO: peggioramento brusco, finestra critica al passaggio, mare contro corrente</td></tr>
-        <tr><td>N→E→S + barometro in aumento + schiarite</td><td>☀️ RIMONTA: miglioramento reale, ma attenzione a swell residuo e risacca in porti esposti</td></tr>
-        <tr><td>N→S + calo barico lento + velature/strati in aumento</td><td>🌧️ FRONTE CALDO: peggioramento GRADUALE — visibilità, umidità, mare lungo prima del vento</td></tr>
-      </table>
-    </div>
+<div class="cloud-section">
+  <div class="cloud-section-title">🔍 Tabella diagnosi rapida</div>
+  <table class="cloud-table">
+    <tr><td><strong>Osservazione combinata</strong></td><td><strong>Diagnosi / Azione</strong></td></tr>
+    <tr><td>S→W→N + calo barico rapido + cumuli in crescita</td><td>⛈️ FRONTE FREDDO: peggioramento brusco, finestra critica al passaggio, mare contro corrente</td></tr>
+    <tr><td>N→E→S + barometro in aumento + schiarite</td><td>☀️ RIMONTA: miglioramento reale, ma attenzione a swell residuo e risacca in porti esposti</td></tr>
+    <tr><td>N→S + calo barico lento + velature/strati in aumento</td><td>🌧️ FRONTE CALDO: peggioramento GRADUALE — visibilità, umidità, mare lungo prima del vento</td></tr>
+  </table>
+</div>
 
-    <div class="cloud-section">
-      <div class="cloud-section-title">📏 Soglie pratiche operative</div>
-      <table class="cloud-table">
-        <tr><td>🌡️ Soglia osservata</td><td>📊 Probabilità / Azione</td></tr>
-        <tr><td>Caduta pressione &gt;2 hPa/ora</td><td>Alta probabilità (70–90%) di peggioramento nelle 1–3 h</td></tr>
-        <tr><td>Caduta pressione &gt;4 hPa/3h</td><td>Molto alta probabilità (85–95%) di fronte in arrivo</td></tr>
-        <tr><td>Virata vento &gt;30° in &lt;30 min + raffiche &gt;30%</td><td>Forte segnale frontogenesi o squall: nowcast di severità elevata</td></tr>
-        <tr><td>Swell lungo da direzione diversa dal vento</td><td>Attendersi cambiamento del vento nelle prossime ore</td></tr>
-        <tr><td>Cb con anvil + eco radar &gt;40 dBZ</td><td>Rischio temporale convettivo &gt;60% entro 0–2 h</td></tr>
-      </table>
-    </div>
+<div class="cloud-section">
+  <div class="cloud-section-title">📏 Soglie pratiche operative</div>
+  <table class="cloud-table">
+    <tr><td>🌡️ Soglia osservata</td><td>📊 Probabilità / Azione</td></tr>
+    <tr><td>Caduta pressione &gt;2 hPa/ora</td><td>Alta probabilità (70–90%) di peggioramento nelle 1–3 h</td></tr>
+    <tr><td>Caduta pressione &gt;4 hPa/3h</td><td>Molto alta probabilità (85–95%) di fronte in arrivo</td></tr>
+    <tr><td>Virata vento &gt;30° in &lt;30 min + raffiche &gt;30%</td><td>Forte segnale frontogenesi o squall: nowcast di severità elevata</td></tr>
+    <tr><td>Swell lungo da direzione diversa dal vento</td><td>Attendersi cambiamento del vento nelle prossime ore</td></tr>
+    <tr><td>Cb con anvil + eco radar &gt;40 dBZ</td><td>Rischio temporale convettivo &gt;60% entro 0–2 h</td></tr>
+  </table>
+</div>
 
-    <div class="cloud-section">
-      <div class="cloud-section-title">📶 Segnali forti vs segnali deboli</div>
-      <table class="cloud-table">
-        <tr><td>💪 FORTE (alta confidenza)</td><td>🔅 DEBOLE (bassa confidenza)</td></tr>
-        <tr><td>Calo barico &gt;2 hPa/ora + shelf cloud + virata con raffiche</td><td>Velature in aumento + lieve calo pressione</td></tr>
-        <tr><td>Eco radar &gt;40 dBZ + Cb con anvil visibile</td><td>Altocumuli isolati senza calo barico</td></tr>
-        <tr><td>Swell lungo da nuova direzione + vento che ruota</td><td>Leggera variazione di vento senza conferme barometriche</td></tr>
-        <tr><td>Sequenza Ci→Cs→As→Ns con calo barico costante</td><td>Cirri isolati senza progressione verso velature</td></tr>
-      </table>
-    </div>
+<div class="cloud-section">
+  <div class="cloud-section-title">📶 Segnali forti vs segnali deboli</div>
+  <table class="cloud-table">
+    <tr><td>💪 FORTE (alta confidenza)</td><td>🔅 DEBOLE (bassa confidenza)</td></tr>
+    <tr><td>Calo barico &gt;2 hPa/ora + shelf cloud + virata con raffiche</td><td>Velature in aumento + lieve calo pressione</td></tr>
+    <tr><td>Eco radar &gt;40 dBZ + Cb con anvil visibile</td><td>Altocumuli isolati senza calo barico</td></tr>
+    <tr><td>Swell lungo da nuova direzione + vento che ruota</td><td>Leggera variazione di vento senza conferme barometriche</td></tr>
+    <tr><td>Sequenza Ci→Cs→As→Ns con calo barico costante</td><td>Cirri isolati senza progressione verso velature</td></tr>
+  </table>
+</div>
 
-    <div class="cloud-section">
-      <div class="cloud-section-title">⚠️ Fonti d'errore principali</div>
-      <ul class="cloud-list">
-        <li>🗺️ Segnali locali non misurati: microfronti, canalizzazioni o convergenze costiere</li>
-        <li>🔧 Sensori guasti o mal tarati → letture fuorvianti</li>
-        <li>🛰️ Scarsa osservazione in quota: dinamiche del jet non visibili in superficie</li>
-        <li>⛈️ Eventi convettivi rapidi: formazione in 30–60 min — imprescindibile avere radar/nowcast</li>
-      </ul>
-      <div class="action-box" style="background:rgba(0,180,255,0.1);border:1px solid rgba(0,180,255,0.3);color:#e8f4ff;margin-top:8px">
-        🧭 <strong>Conclusione operativa:</strong> Più della rotazione in sé, è fondamentale capire quale STRUTTURA SINOTTICA la guida. La chiave è sempre l'incrocio di più indicatori — mai una sola variabile.
-      </div>
-    </div>
+<div class="cloud-section">
+  <div class="cloud-section-title">⚠️ Fonti d'errore principali</div>
+  <ul class="cloud-list">
+    <li>🗺️ Segnali locali non misurati: microfronti, canalizzazioni o convergenze costiere</li>
+    <li>🔧 Sensori guasti o mal tarati → letture fuorvianti</li>
+    <li>🛰️ Scarsa osservazione in quota: dinamiche del jet non visibili in superficie</li>
+    <li>⛈️ Eventi convettivi rapidi: formazione in 30–60 min — imprescindibile avere radar/nowcast</li>
+  </ul>
+  <div class="action-box" style="background:rgba(0,180,255,0.1);border:1px solid rgba(0,180,255,0.3);color:#e8f4ff;margin-top:8px">
+    🧭 <strong>Conclusione operativa:</strong> Più della rotazione in sé, è fondamentale capire quale STRUTTURA SINOTTICA la guida. La chiave è sempre l'incrocio di più indicatori — mai una sola variabile.
+  </div>
+</div>
+```
 
   </div>
 </div>
 
 </div><!-- /nuvole -->
-```
 
   <!-- ── ENGINE PAGE ──────────────────────────────────────── -->
 
   <div id="page-engine" class="page">
 
-```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
   <div class="engine-sub">Diagnostica sinottica · Previsione operativ5.0.1 · by mdisailor engine</div>
@@ -1495,14 +1491,16 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
       </div>
     </div>
 
-    <div class="verify-section" id="verify-section" style="display:none">
+```
+<div class="verify-section" id="verify-section" style="display:none">
+```
+
   <div style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;opacity:0.8;margin-bottom:8px">Verifica previsioni</div>
   <div class="verify-zone-select" id="verify-zone-select"></div>
   <div id="verify-content">
     <div class="verify-empty">Seleziona una zona per vedere la verifica previsioni</div>
   </div>
 </div>
-```
 
   </div><!-- /engine -->
 

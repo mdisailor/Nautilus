@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v4.9.7 — 2026-04-02 -->
+<!-- NAUTILUS v4.9.8 — 2026-04-03 -->
 
 <html lang="it">
 <head>
@@ -24,7 +24,7 @@
   --safe:    #22dd88;
   --warn:    #ffaa00;
   --text:    #c8dff0;
-  --muted:   #6a90a8;
+  --muted:   #7aaac0;
   --white:   #eaf4ff;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -523,7 +523,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.9.7 · by mdisailor engine</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.9.8 · by mdisailor engine</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1448,7 +1448,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica · Previsione operativ4.9.7 · by mdisailor engine</div>
+  <div class="engine-sub">Diagnostica sinottica · Previsione operativ4.9.8 · by mdisailor engine</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -1587,16 +1587,30 @@ async function fetchWeather() {
   document.getElementById('src-openmeteo').className = 'src-badge loading';
   document.getElementById('src-openmeteo').textContent = '⟳ Open-Meteo';
   const lat = state.lat, lon = state.lon;
-  const url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon +
+  const atmUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon +
     '&hourly=temperature_2m,relativehumidity_2m,visibility,cloudcover,precipitation_probability,' +
-    'windspeed_10m,winddirection_10m,windgusts_10m,wave_height,wave_period,wave_direction,surface_pressure' +
+    'windspeed_10m,winddirection_10m,windgusts_10m,surface_pressure' +
     '&wind_speed_unit=kn&timezone=Europe/Rome&forecast_days=2&models=best_match';
+  const marineUrl = 'https://marine-api.open-meteo.com/v1/marine?latitude=' + lat + '&longitude=' + lon +
+    '&hourly=wave_height,wave_period,wave_direction,swell_wave_height,swell_wave_period,swell_wave_direction' +
+    '&length_unit=metric&timezone=Europe/Rome&forecast_days=2';
   try {
-    const r = await fetch(url);
-    var _json = await r.json();
-    // Check for API error in response
+    const [atmRes, marineRes] = await Promise.all([fetch(atmUrl), fetch(marineUrl)]);
+    var _json = await atmRes.json();
     if (_json.error || !_json.hourly || !_json.hourly.windspeed_10m) {
       throw new Error(_json.reason || _json.error || 'Risposta Open-Meteo non valida');
+    }
+    // Merge marine data
+    if (marineRes.ok) {
+      var _marine = await marineRes.json();
+      if (_marine.hourly) {
+        _json.hourly.wave_height = _marine.hourly.wave_height;
+        _json.hourly.wave_period = _marine.hourly.wave_period;
+        _json.hourly.wave_direction = _marine.hourly.wave_direction;
+        _json.hourly.swell_wave_height = _marine.hourly.swell_wave_height;
+        _json.hourly.swell_wave_period = _marine.hourly.swell_wave_period;
+        _json.hourly.swell_wave_direction = _marine.hourly.swell_wave_direction;
+      }
     }
     state.weatherData = _json;
     document.getElementById('src-openmeteo').className = 'src-badge ok';
@@ -3607,7 +3621,7 @@ async function exportData() {
   }
 }
 
-// Fine codice - NAUTILUS v4.9.7
+// Fine codice - NAUTILUS v4.9.8
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

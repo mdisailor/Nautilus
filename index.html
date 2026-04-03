@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v4.9.1 — 2026-04-01 -->
+<!-- NAUTILUS v4.9.7 — 2026-04-02 -->
 
 <html lang="it">
 <head>
@@ -24,7 +24,7 @@
   --safe:    #22dd88;
   --warn:    #ffaa00;
   --text:    #c8dff0;
-  --muted:   #3a6080;
+  --muted:   #6a90a8;
   --white:   #eaf4ff;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -523,7 +523,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.9.1 · by mdisailor engine</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v4.9.7 · by mdisailor engine</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1448,7 +1448,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica · Previsione operativ4.9.1 · by mdisailor engine</div>
+  <div class="engine-sub">Diagnostica sinottica · Previsione operativ4.9.7 · by mdisailor engine</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -1475,7 +1475,10 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 </div>
 
 <div class="compare-section" id="compare-section" style="display:none">
-      <div style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;opacity:0.8;margin-bottom:8px">Confronto Fonti — Storico 24h</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;opacity:0.8">Confronto Fonti — Storico 24h</div>
+        <button id="btn-compare-refresh" onclick="refreshCompare()" style="display:none;padding:4px 10px;background:rgba(0,240,255,0.08);border:1px solid rgba(0,240,255,0.25);border-radius:8px;color:var(--accent);font-family:DM Mono,monospace;font-size:0.5rem;cursor:pointer">🔄 Aggiorna</button>
+      </div>
       <div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);margin-bottom:8px">Vento Open-Meteo vs OWM Osservato per zona selezionata</div>
       <div class="verify-zone-select" id="compare-zone-select"></div>
       <div id="compare-content">
@@ -2543,7 +2546,7 @@ function renderZone(z) {
   let rawHtml = '<div class="engine-section-title">📡 Dati correnti</div>' + _srcBadge + '<br>' +
     '<table class="cloud-table">' +
     '<tr><td>🌡️ Pressione</td><td>' + (r.pressure ? r.pressure.toFixed(0) : '--') + ' hPa (' + (r.pressure_trend_3h >= 0 ? '+' : '') + (r.pressure_trend_3h ? r.pressure_trend_3h.toFixed(1) : '0') + '/3h)</td></tr>' +
-    '<tr><td>💨 Vento</td><td>' + (r.wind_speed ? r.wind_speed.toFixed(0) : '--') + 'kn da ' + (r.wind_dir ? dirName(r.wind_dir) : '--') + ' · Raffica ' + (r.wind_gust ? r.wind_gust.toFixed(0) : '--') + 'kn</td></tr>' +
+    '<tr><td>💨 Vento</td><td><span style="color:#8ab8d0;font-size:0.85em">[OM]</span> ' + (r.wind_speed ? r.wind_speed.toFixed(0) : '--') + 'kn ' + (r.wind_dir ? dirName(r.wind_dir) : '--') + ' · Raffica ' + (r.wind_gust ? r.wind_gust.toFixed(0) : '--') + 'kn' + (z.observed && z.observed.wind_speed_obs !== null ? ' <span style="color:var(--safe);font-size:0.85em">[OWM] ' + z.observed.wind_speed_obs.toFixed(0) + 'kn ' + dirName(z.observed.wind_dir_obs || 0) + '</span>' : '') + '</td></tr>' +
     '<tr><td>🌊 Onda</td><td>' + (r.wave_height ? r.wave_height.toFixed(1) : '--') + 'm / ' + (r.wave_period ? r.wave_period.toFixed(0) : '--') + 's</td></tr>' +
     '<tr><td>🌊 Swell</td><td>' + (r.swell_height ? r.swell_height.toFixed(1) : '--') + 'm / ' + (r.swell_period ? r.swell_period.toFixed(0) : '--') + 's da ' + (r.swell_dir ? dirName(r.swell_dir) : '--') + '</td></tr>' +
     '<tr><td>🌡️ T aria/acqua</td><td>' + (r.temp_air ? r.temp_air.toFixed(1) : '--') + '°C / ' + (r.temp_water ? r.temp_water.toFixed(1) : '--') + '°C</td></tr>' +
@@ -2680,7 +2683,12 @@ function renderEngineResults() {
   var vsec = document.getElementById('verify-section');
   if (vsec) { vsec.style.display = 'block'; renderVerifyZoneButtons(); }
   var csec = document.getElementById('compare-section');
-  if (csec) { csec.style.display = 'block'; renderCompareZoneButtons(); }
+  if (csec) {
+    csec.style.display = 'block';
+    renderCompareZoneButtons();
+    var refreshBtn = document.getElementById('btn-compare-refresh');
+    if (refreshBtn && state.isAdmin) refreshBtn.style.display = 'block';
+  }
   var bbtn = document.getElementById('btn-engine-briefing');
   if (bbtn) bbtn.disabled = false;
   var bhint = document.getElementById('engine-briefing-hint');
@@ -3411,6 +3419,12 @@ function renderVerifyContent(data, el) {
 
 var compareCurrentZone = null;
 
+function refreshCompare() {
+  if (compareCurrentZone) {
+    loadCompare(compareCurrentZone);
+  }
+}
+
 function renderCompareZoneButtons() {
   var container = document.getElementById('compare-zone-select');
   if (!container || !engineResults) return;
@@ -3542,7 +3556,58 @@ function renderCompareTable(data, zoneKey, el) {
   el.innerHTML = html;
 }
 
-// Fine codice - NAUTILUS v4.9.1
+// -- EXPORT DATI ANALISI ---------------------------------------------------
+
+async function exportData() {
+  var btn = document.getElementById('btn-export');
+  btn.textContent = '⏳ Export...';
+  btn.disabled = true;
+  try {
+    var res = await fetch(ENGINE_URL + '?action=export');
+    var data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    // Build CSV
+    var rows = ['Zona,Ora,OM_vento_kn,OM_dir,OWM_vento_kn,OWM_dir,Pressione,Onda_m,Swell_m,Bias_MAE'];
+    Object.keys(data.zones).forEach(function(zk) {
+      var z = data.zones[zk];
+      (z.snapshots || []).forEach(function(s) {
+        var dirs16 = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+        var omDir = s.wind_dir !== null && s.wind_dir !== undefined ? dirs16[Math.round(s.wind_dir/22.5)%16] : '';
+        var owmDir = s.wind_dir_obs !== null && s.wind_dir_obs !== undefined ? dirs16[Math.round(s.wind_dir_obs/22.5)%16] : '';
+        rows.push([
+          z.name,
+          s.ts ? new Date(s.ts).toLocaleString('it-IT') : '',
+          s.wind_speed !== null ? s.wind_speed.toFixed(1) : '',
+          omDir,
+          s.wind_speed_obs !== null && s.wind_speed_obs !== undefined ? s.wind_speed_obs.toFixed(1) : '',
+          owmDir,
+          s.pressure !== null ? s.pressure.toFixed(1) : '',
+          s.wave_height !== null ? s.wave_height.toFixed(2) : '',
+          s.swell_height !== null ? s.swell_height.toFixed(2) : '',
+          z.bias ? z.bias.wind_mae.toFixed(2) : ''
+        ].join(','));
+      });
+    });
+
+    var csv = rows.join(String.fromCharCode(10));
+    var blob = new Blob([csv], { type: 'text/csv' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'nautilus_export_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+    btn.textContent = '✓ Export';
+    setTimeout(function() { btn.textContent = '📊 Export'; btn.disabled = false; }, 2000);
+  } catch(err) {
+    btn.textContent = '✗ Errore';
+    btn.disabled = false;
+    setTimeout(function() { btn.textContent = '📊 Export'; }, 2000);
+  }
+}
+
+// Fine codice - NAUTILUS v4.9.7
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

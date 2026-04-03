@@ -1,4 +1,4 @@
-// NAUTILUS - Vercel API - briefing.js - v1.1.0 - by mdisailor engine
+// NAUTILUS - Vercel API - briefing.js - v1.2.0 - by mdisailor engine
 // Proxy per briefing AI Anthropic
 // Endpoint: /api/briefing (POST)
 
@@ -38,7 +38,7 @@ headers: {
 'anthropic-version': '2023-06-01',
 },
 body: JSON.stringify({
-model: 'claude-sonnet-4-5-20251001',
+model: 'claude-sonnet-4-6',
 max_tokens: 1500,
 messages: [{ role: 'user', content: prompt.slice(0, 20000) }]
 })

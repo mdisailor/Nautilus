@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.0.2 — 2026-04-03 -->
+<!-- NAUTILUS v5.0.2-diag — 2026-04-03 -->
 
 <html lang="it">
 <head>
@@ -523,7 +523,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.0.2 · by mdisailor engine</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.0.2-diag · by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1457,7 +1457,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica · Previsione operativ5.0.2 · by mdisailor engine</div>
+  <div class="engine-sub">Diagnostica sinottica · Previsione operativ5.0.2-diag · by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -2696,7 +2696,7 @@ async function runEngine() {
           fetchOpts = {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ weatherData: slimData })
+            body: (function() { try { return JSON.stringify({ weatherData: slimData }); } catch(je) { console.error('stringify error:', je); return null; } })()
           };
         } catch(e) {
           fetchOpts = { method: 'GET' };
@@ -2705,7 +2705,10 @@ async function runEngine() {
       return fetch(ENGINE_URL + '?action=zone&zone=' + zk, fetchOpts)
         .then(function(r) { return r.json(); })
         .then(function(d) { engineResults[zk] = d; })
-        .catch(function(e) { engineResults[zk] = { error: e.message, zone: zk }; });
+        .catch(function(e) {
+          console.error('Engine fetch error for ' + zk + ':', e.name, e.message, e.stack);
+          engineResults[zk] = { error: e.name + ': ' + e.message, zone: zk };
+        });
     });
     await Promise.all(promises);
     renderEngineResults();

@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.0.7 — 2026-04-03 -->
+<!-- NAUTILUS v5.0.8 — 2026-04-03 -->
 
 <html lang="it">
 <head>
@@ -117,7 +117,7 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 .wind-card { margin: 8px 20px 0; background: var(–card); border: 1px solid var(–border); border-radius: 14px; padding: 16px; }
 .wind-card-top { display: flex; align-items: center; justify-content: center; gap: 20px; margin-bottom: 14px; }
 .wind-card-bottom { border-top: 1px solid var(–border); padding-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 2px 16px; }
-.wind-compass { width: 100px; height: 100px; flex-shrink: 0; }
+.wind-compass { width: 88px; height: 88px; flex-shrink: 0; }
 .wind-compass svg { width: 100%; height: 100%; }
 .wind-now { text-align: center; }
 .wind-details { flex: 1; }
@@ -526,7 +526,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.0.7 · by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.0.8 · by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -601,7 +601,8 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 <div id="meteo-src-ts" class="src-ts" style="display:none;margin:4px 20px 0">In attesa di dati</div>
 
 <div class="wind-card">
-  <div class="wind-card-top" style="display:flex;align-items:center;gap:16px;justify-content:center;">
+  <div class="wind-card-top" style="display:flex;justify-content:center;">
+  <div style="display:flex;align-items:center;gap:16px;">
   <svg class="wind-compass" viewBox="0 0 100 100">
     <defs>
       <filter id="glow"><feGaussianBlur stdDeviation="2.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
@@ -651,6 +652,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
       <span id="wd-now-dir" style="font-family:Bebas Neue,sans-serif;font-size:2.8rem;line-height:1;color:var(--text)">--</span>
     </div>
     <div id="wd-now-gust" style="font-family:DM Mono,monospace;font-size:0.48rem;color:var(--muted);margin-top:4px">raffica --kn</div>
+  </div>
   </div>
   </div><!-- wind-card-top -->
   <div class="wind-card-bottom">
@@ -1469,7 +1471,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica · Previsione operativ5.0.7 · by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica · Previsione operativ5.0.8 · by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -3697,7 +3699,7 @@ async function exportData() {
   }
 }
 
-// Fine codice - NAUTILUS v5.0.7
+// Fine codice - NAUTILUS v5.0.8
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.0.6 — 2026-04-03 -->
+<!-- NAUTILUS v5.0.7 — 2026-04-03 -->
 
 <html lang="it">
 <head>
@@ -526,7 +526,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.0.6 · by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.0.7 · by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -601,7 +601,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 <div id="meteo-src-ts" class="src-ts" style="display:none;margin:4px 20px 0">In attesa di dati</div>
 
 <div class="wind-card">
-  <div class="wind-card-top" style="display:flex;align-items:center;gap:16px;justify-content:flex-start;">
+  <div class="wind-card-top" style="display:flex;align-items:center;gap:16px;justify-content:center;">
   <svg class="wind-compass" viewBox="0 0 100 100">
     <defs>
       <filter id="glow"><feGaussianBlur stdDeviation="2.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
@@ -638,21 +638,19 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
       <circle cx="50" cy="50" r="5" fill="#020c18" stroke="#0af0ff" stroke-width="2.5"/>
     </g>
   </svg>
-  <div style="display:flex;flex:1;align-items:center;gap:12px">
-    <!-- Speed -->
-    <div style="text-align:center;min-width:60px">
-      <div style="font-family:DM Mono,monospace;font-size:0.4rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:2px">Velocità</div>
-      <div style="display:flex;align-items:baseline;justify-content:center;gap:2px">
-        <span id="wd-now-speed" style="font-family:Bebas Neue,sans-serif;font-size:2.8rem;line-height:1;color:var(--accent)">--</span>
-        <span style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--muted);align-self:flex-end;margin-bottom:3px">kn</span>
-      </div>
-      <div id="wd-now-gust" style="font-family:DM Mono,monospace;font-size:0.48rem;color:var(--muted);margin-top:2px">raffica --kn</div>
+  <div style="flex:1;text-align:center">
+    <!-- Labels row -->
+    <div style="display:flex;justify-content:center;gap:24px;margin-bottom:4px">
+      <span style="font-family:DM Mono,monospace;font-size:0.4rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em">Velocità</span>
+      <span style="font-family:DM Mono,monospace;font-size:0.4rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em">Direzione</span>
     </div>
-    <!-- Direction -->
-    <div style="text-align:center;min-width:50px">
-      <div style="font-family:DM Mono,monospace;font-size:0.4rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:2px">Direzione</div>
-      <div id="wd-now-dir" style="font-family:Bebas Neue,sans-serif;font-size:2.4rem;line-height:1;color:var(--text)">--</div>
+    <!-- Values row -->
+    <div style="display:flex;align-items:baseline;justify-content:center;gap:8px">
+      <span id="wd-now-speed" style="font-family:Bebas Neue,sans-serif;font-size:2.8rem;line-height:1;color:var(--accent)">--</span>
+      <span style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--muted);align-self:flex-end;margin-bottom:4px">kn</span>
+      <span id="wd-now-dir" style="font-family:Bebas Neue,sans-serif;font-size:2.8rem;line-height:1;color:var(--text)">--</span>
     </div>
+    <div id="wd-now-gust" style="font-family:DM Mono,monospace;font-size:0.48rem;color:var(--muted);margin-top:4px">raffica --kn</div>
   </div>
   </div><!-- wind-card-top -->
   <div class="wind-card-bottom">
@@ -1471,7 +1469,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica · Previsione operativ5.0.6 · by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica · Previsione operativ5.0.7 · by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -3699,7 +3697,7 @@ async function exportData() {
   }
 }
 
-// Fine codice - NAUTILUS v5.0.6
+// Fine codice - NAUTILUS v5.0.7
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

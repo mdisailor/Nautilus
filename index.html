@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.1.5 — 2026-04-04 -->
+<!-- NAUTILUS v5.1.6 — 2026-04-07 -->
 
 <html lang="it">
 <head>
@@ -526,7 +526,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.1.5 · by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.1.6 · by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1471,7 +1471,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica · Previsione operativ5.1.5 · by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica · Previsione operativ5.1.6 · by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -2531,7 +2531,7 @@ function getSelectedZones() {
 
 
 function renderZone(z) {
-  const d = z.diagnosis;
+  const d = z.diagnosis || { case: 'stable', confidence: 0, summary: 'Dati non disponibili' };
   const rel = z.reliability || 50;
   const relClass = rel >= 75 ? 'reliability-high' : rel >= 55 ? 'reliability-medium' : 'reliability-low';
   const relNote = z.reliability_note || 'Open-Meteo';
@@ -3671,7 +3671,7 @@ async function exportData() {
   }
 }
 
-// Fine codice - NAUTILUS v5.1.5
+// Fine codice - NAUTILUS v5.1.6
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

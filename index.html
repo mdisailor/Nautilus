@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.1.1 — 2026-04-04 -->
+<!-- NAUTILUS v5.0.8 — 2026-04-03 -->
 
 <html lang="it">
 <head>
@@ -526,7 +526,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.1.1 · by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.0.8 · by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1471,7 +1471,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica · Previsione operativ5.1.1 · by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica · Previsione operativ5.0.8 · by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -1618,15 +1618,30 @@ async function fetchWeather() {
   document.getElementById('src-openmeteo').className = 'src-badge loading';
   document.getElementById('src-openmeteo').textContent = '⟳ Open-Meteo';
   const lat = state.lat, lon = state.lon;
-  const url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon +
+  const atmUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon +
     '&hourly=temperature_2m,relativehumidity_2m,visibility,cloudcover,precipitation_probability,' +
-    'windspeed_10m,winddirection_10m,windgusts_10m,wave_height,wave_period,wave_direction,surface_pressure' +
+    'windspeed_10m,winddirection_10m,windgusts_10m,surface_pressure' +
     '&wind_speed_unit=kn&timezone=Europe/Rome&forecast_days=2&models=best_match';
+  const marineUrl = 'https://marine-api.open-meteo.com/v1/marine?latitude=' + lat + '&longitude=' + lon +
+    '&hourly=wave_height,wave_period,wave_direction,swell_wave_height,swell_wave_period,swell_wave_direction' +
+    '&length_unit=metric&timezone=Europe/Rome&forecast_days=2';
   try {
-    const r = await fetch(url);
-    var _json = await r.json();
+    const [atmRes, marineRes] = await Promise.all([fetch(atmUrl), fetch(marineUrl)]);
+    var _json = await atmRes.json();
     if (_json.error || !_json.hourly || !_json.hourly.windspeed_10m) {
       throw new Error(_json.reason || _json.error || 'Risposta Open-Meteo non valida');
+    }
+    // Merge marine data
+    if (marineRes.ok) {
+      var _marine = await marineRes.json();
+      if (_marine.hourly) {
+        _json.hourly.wave_height = _marine.hourly.wave_height;
+        _json.hourly.wave_period = _marine.hourly.wave_period;
+        _json.hourly.wave_direction = _marine.hourly.wave_direction;
+        _json.hourly.swell_wave_height = _marine.hourly.swell_wave_height;
+        _json.hourly.swell_wave_period = _marine.hourly.swell_wave_period;
+        _json.hourly.swell_wave_direction = _marine.hourly.swell_wave_direction;
+      }
     }
     state.weatherData = _json;
     document.getElementById('src-openmeteo').className = 'src-badge ok';
@@ -1838,13 +1853,13 @@ function renderWeather() {
   };
   const maxW = Math.max(...winds).toFixed(0);      // still show peak wind (safety)
   const maxG = Math.max(...gusts).toFixed(0);      // still show peak gust (safety)
-  const maxWv = waves.length ? Math.max(...waves).toFixed(1) : '--';
+  const maxWv = Math.max(...waves).toFixed(1);     // still show peak wave (safety)
   const avgW = wavg(winds).toFixed(0);
   const avgG = wavg(gusts).toFixed(0);
   const avgP = (press.reduce((a,b)=>a+b,0)/press.length).toFixed(0);
   const avgDir = Math.round(wdirs.reduce((a,b)=>a+b,0)/wdirs.length);
-  const avgPer = wpers.length ? (wpers.reduce((a,b)=>a+b,0)/wpers.length).toFixed(0) : '--';
-  const avgWD = waved.length ? Math.round(waved.reduce((a,b)=>a+b,0)/waved.length) : null;
+  const avgPer = (wpers.reduce((a,b)=>a+b,0)/wpers.length).toFixed(0);
+  const avgWD = Math.round(waved.reduce((a,b)=>a+b,0)/waved.length);
 
   const col = (id, v, t) => {
     const e = document.getElementById(id);
@@ -1871,7 +1886,7 @@ function renderWeather() {
   const mwa = document.getElementById('m-wind-avg'); if(mwa) mwa.textContent = 'media ' + avgW + 'kn';
   col('m-wind', parseFloat(maxW), [7,11,22]);
   document.getElementById('m-wave').textContent = maxWv;
-  if (maxWv !== '--') col('m-wave', parseFloat(maxWv), [0.5,1.0,1.5]);
+  col('m-wave', parseFloat(maxWv), [0.5,1.0,1.5]);
   document.getElementById('m-gust').textContent = maxG;
   const mga = document.getElementById('m-gust-avg'); if(mga) mga.textContent = 'media ' + avgG + 'kn';
   col('m-gust', parseFloat(maxG), [10,15,25]);
@@ -1883,7 +1898,7 @@ function renderWeather() {
   document.getElementById('wd-dir').textContent = degToDir(avgDir);
   document.getElementById('wd-deg').textContent = avgDir + '°';
   document.getElementById('wd-period').textContent = avgPer + ' sec';
-  document.getElementById('wd-wavedir').textContent = avgWD !== null ? degToDir(avgWD) : '—';
+  document.getElementById('wd-wavedir').textContent = degToDir(avgWD);
   document.getElementById('wd-precip').textContent = (Math.max(...preci) || 0) + '%';
 
   const p = parseFloat(avgP);
@@ -3684,7 +3699,7 @@ async function exportData() {
   }
 }
 
-// Fine codice - NAUTILUS v5.1.1
+// Fine codice - NAUTILUS v5.0.8
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

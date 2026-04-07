@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.8.2 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.8.3 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -729,18 +729,11 @@ wind_speed_sg: pick( 'windSpeed '), wind_gust_sg: pick( 'gust '),
 function extractCurrentData(omData, sgData, owmData) {
 var h = omData.hourly;
 var now = new Date();
-// OM uses Europe/Rome timezone - calculate offset from UTC
-var tzOffset = 1; // CET (winter)
-var janOffset = new Date(now.getFullYear(), 0, 1).getTimezoneOffset();
-var julOffset = new Date(now.getFullYear(), 6, 1).getTimezoneOffset();
-if (now.getTimezoneOffset() === Math.min(janOffset, julOffset)) tzOffset = 2; // CEST (summer)
-var romeHour = new Date(now.getTime() + tzOffset * 3600000);
-var currentHour = romeHour.toISOString().slice(0, 13) +  ':00 ';
+var romeOffset = (now.getTimezoneOffset() === -120 || new Date(now.getFullYear(),6,1).getTimezoneOffset() === -120) ? 2 : 1;
+var romeTs = new Date(now.getTime() + romeOffset * 3600000);
+var currentHour = romeTs.toISOString().slice(0, 13) +  ':00 ';
 var idx = h.time.findIndex(function(t) { return t === currentHour; });
-if (idx === -1) {
-var utcHour = now.toISOString().slice(0, 13) +  ':00 ';
-idx = h.time.findIndex(function(t) { return t === utcHour; });
-}
+if (idx === -1) { currentHour = now.toISOString().slice(0, 13) +  ':00 '; idx = h.time.findIndex(function(t) { return t === currentHour; }); }
 if (idx === -1) idx = 0;
 var prev = Math.max(0, idx - 3);
 
@@ -1214,7 +1207,7 @@ var kvToken = process.env.UPSTASH_REDIS_REST_TOKEN || null;
 
 if (action ===  'ping ') {
 var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled !== false; }).length;
-return res.status(200).json({ ok: true, engine:  'nautilus-engine ', v:  '2.8.2 ', zones: activeZones, ts: Date.now() });
+return res.status(200).json({ ok: true, engine:  'nautilus-engine ', v:  '2.8.3 ', zones: activeZones, ts: Date.now() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones

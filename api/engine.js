@@ -1414,7 +1414,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine:  'nautilus-engine v2.0.0 - by mdisailor engine ',
+engine:  'nautilus-engine v2.8.3 - by mdisailor engine ',
 endpoints: [ '/api/engine?action=ping ',  '/api/engine?action=zones ',  '/api/engine?action=zone&zone={key} ']
 });
 };

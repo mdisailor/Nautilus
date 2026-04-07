@@ -114,12 +114,9 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 .swell-value { font-family: ‘DM Mono’, monospace; font-size: 0.72rem; color: var(–white); font-weight: 500; }
 
 /* WIND CARD */
-.wind-card { margin: 8px 20px 0; background: var(–card); border: 1px solid var(–border); border-radius: 14px; padding: 16px; }
-.wind-card-top { display: flex; align-items: center; justify-content: center; gap: 20px; margin-bottom: 14px; }
-.wind-card-bottom { border-top: 1px solid var(–border); padding-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 2px 16px; }
-.wind-compass { width: 88px; height: 88px; flex-shrink: 0; }
+.wind-card { margin: 8px 20px 0; background: var(–card); border: 1px solid var(–border); border-radius: 14px; padding: 16px; display: flex; align-items: center; gap: 16px; }
+.wind-compass { width: 105px; height: 105px; flex-shrink: 0; }
 .wind-compass svg { width: 100%; height: 100%; }
-.wind-now { text-align: center; }
 .wind-details { flex: 1; }
 .wind-detail-row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid var(–border); font-size: 0.68rem; }
 .wind-detail-row:last-child { border-bottom: none; }
@@ -526,7 +523,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.0.9 · by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.0.9 · by mdisailor engine</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -594,15 +591,62 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   </select>
 </div>
 
+<div class="horizon-tabs">
+  <div class="htab active" onclick="setHorizon(3,this)">3 ORE</div>
+  <div class="htab" onclick="setHorizon(6,this)">6 ORE</div>
+  <div class="htab" onclick="setHorizon(12,this)">12 ORE</div>
+</div>
+
 <div class="source-row">
   <span class="src-badge" id="src-openmeteo">⟳ Open-Meteo</span>
   <span class="src-badge" id="src-stormglass">⟳ Stormglass</span>
 </div>
 <div id="meteo-src-ts" class="src-ts" style="display:none;margin:4px 20px 0">In attesa di dati</div>
 
+<div class="metrics-row">
+  <div class="metric-card">
+    <div class="metric-label" id="lbl-wind">Vento · 3h</div>
+    <div class="metric-icon">💨</div>
+    <div class="metric-value" id="m-wind">--</div>
+    <div class="metric-unit" style="font-size:0.5rem">picco · nodi</div>
+    <div class="metric-source" id="m-wind-avg" style="color:#9ac0d8;font-size:0.55rem">media --kn</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-label" id="lbl-wave">Onda Max · 3h</div>
+    <div class="metric-icon">🌊</div>
+    <div class="metric-value" id="m-wave">--</div>
+    <div class="metric-unit">metri</div>
+    <div class="metric-source" id="wave-source">Open-Meteo</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-label" id="lbl-gust">Raffica · 3h</div>
+    <div class="metric-icon">⚡</div>
+    <div class="metric-value" id="m-gust">--</div>
+    <div class="metric-unit" style="font-size:0.5rem">picco · nodi</div>
+    <div class="metric-source" id="m-gust-avg" style="color:#9ac0d8;font-size:0.55rem">media --kn</div>
+  </div>
+</div>
+
+<div class="metrics-row-2">
+  <div class="metric-sm">
+    <div class="metric-sm-value" id="m-temp">--</div>
+    <div class="metric-sm-label">°C Aria</div>
+  </div>
+  <div class="metric-sm">
+    <div class="metric-sm-value" id="m-sst">--</div>
+    <div class="metric-sm-label">°C Mare</div>
+  </div>
+  <div class="metric-sm">
+    <div class="metric-sm-value" id="m-vis">--</div>
+    <div class="metric-sm-label">km Visib.</div>
+  </div>
+  <div class="metric-sm">
+    <div class="metric-sm-value" id="m-cloud">--</div>
+    <div class="metric-sm-label">% Nuvole</div>
+  </div>
+</div>
+
 <div class="wind-card">
-  <div class="wind-card-top" style="display:flex;justify-content:center;">
-  <div style="display:flex;align-items:center;gap:16px;">
   <svg class="wind-compass" viewBox="0 0 100 100">
     <defs>
       <filter id="glow"><feGaussianBlur stdDeviation="2.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
@@ -639,49 +683,12 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
       <circle cx="50" cy="50" r="5" fill="#020c18" stroke="#0af0ff" stroke-width="2.5"/>
     </g>
   </svg>
-  <div style="flex:1;text-align:center">
-    <!-- Labels row -->
-    <div style="display:flex;justify-content:center;gap:24px;margin-bottom:4px">
-      <span style="font-family:DM Mono,monospace;font-size:0.4rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em">Velocità</span>
-      <span style="font-family:DM Mono,monospace;font-size:0.4rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em">Direzione</span>
-    </div>
-    <!-- Values row -->
-    <div style="display:flex;align-items:baseline;justify-content:center;gap:8px">
-      <span id="wd-now-speed" style="font-family:Bebas Neue,sans-serif;font-size:2.8rem;line-height:1;color:var(--accent)">--</span>
-      <span style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--muted);align-self:flex-end;margin-bottom:4px">kn</span>
-      <span id="wd-now-dir" style="font-family:Bebas Neue,sans-serif;font-size:2.8rem;line-height:1;color:var(--text)">--</span>
-    </div>
-    <div id="wd-now-gust" style="font-family:DM Mono,monospace;font-size:0.48rem;color:var(--muted);margin-top:4px">raffica --kn</div>
-  </div>
-  </div>
-  </div><!-- wind-card-top -->
-  <div class="wind-card-bottom">
-    <div style="grid-column:1/-1;font-family:DM Mono,monospace;font-size:0.55rem;color:var(--text);padding-bottom:5px;margin-bottom:4px;border-bottom:1px solid rgba(58,96,128,0.2)">💨 Vento</div>
+  <div class="wind-details">
     <div class="wind-detail-row"><span class="wd-label">DIREZIONE</span><span class="wd-value" id="wd-dir">—</span></div>
     <div class="wind-detail-row"><span class="wd-label">GRADI</span><span class="wd-value" id="wd-deg">—</span></div>
+    <div class="wind-detail-row"><span class="wd-label">PERIODO ONDE</span><span class="wd-value" id="wd-period">—</span></div>
+    <div class="wind-detail-row"><span class="wd-label">DIR. ONDE</span><span class="wd-value" id="wd-wavedir">—</span></div>
     <div class="wind-detail-row"><span class="wd-label">PROB. PIOGGIA</span><span class="wd-value" id="wd-precip">—</span></div>
-    <div style="grid-column:1/-1;font-family:DM Mono,monospace;font-size:0.55rem;color:var(--text);padding-bottom:5px;margin:8px 0 4px;border-bottom:1px solid rgba(58,96,128,0.2)">🌊 Onde</div>
-    <div class="wind-detail-row"><span class="wd-label">PERIODO</span><span class="wd-value" id="wd-period">—</span></div>
-    <div class="wind-detail-row"><span class="wd-label">DIREZIONE</span><span class="wd-value" id="wd-wavedir">—</span></div>
-  </div>
-</div>
-
-<div class="metrics-row-2">
-  <div class="metric-sm">
-    <div class="metric-sm-value" id="m-temp">--</div>
-    <div class="metric-sm-label">°C Aria</div>
-  </div>
-  <div class="metric-sm">
-    <div class="metric-sm-value" id="m-sst">--</div>
-    <div class="metric-sm-label">°C Mare</div>
-  </div>
-  <div class="metric-sm">
-    <div class="metric-sm-value" id="m-vis">--</div>
-    <div class="metric-sm-label">km Visib.</div>
-  </div>
-  <div class="metric-sm">
-    <div class="metric-sm-value" id="m-cloud">--</div>
-    <div class="metric-sm-label">% Nuvole</div>
   </div>
 </div>
 
@@ -719,36 +726,6 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div class="section-title">⏱ Previsione Oraria</div>
   <div class="timeline-scroll" id="timeline-scroll">
     <div class="loading"><div class="spinner"></div> Caricamento...</div>
-  </div>
-</div>
-
-<div class="horizon-tabs">
-  <div class="htab active" onclick="setHorizon(3,this)">3 ORE</div>
-  <div class="htab" onclick="setHorizon(6,this)">6 ORE</div>
-  <div class="htab" onclick="setHorizon(12,this)">12 ORE</div>
-</div>
-<div style="font-family:DM Mono,monospace;font-size:0.42rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin:12px 20px 4px">Picco nel periodo selezionato</div>
-<div class="metrics-row">
-  <div class="metric-card">
-    <div class="metric-label" id="lbl-wind">Vento · 3h</div>
-    <div class="metric-icon">💨</div>
-    <div class="metric-value" id="m-wind">--</div>
-    <div class="metric-unit" style="font-size:0.5rem">picco · nodi</div>
-    <div class="metric-source" id="m-wind-avg" style="color:#9ac0d8;font-size:0.55rem">media --kn</div>
-  </div>
-  <div class="metric-card">
-    <div class="metric-label" id="lbl-wave">Onda Max · 3h</div>
-    <div class="metric-icon">🌊</div>
-    <div class="metric-value" id="m-wave">--</div>
-    <div class="metric-unit">metri</div>
-    <div class="metric-source" id="wave-source">Open-Meteo</div>
-  </div>
-  <div class="metric-card">
-    <div class="metric-label" id="lbl-gust">Raffica · 3h</div>
-    <div class="metric-icon">⚡</div>
-    <div class="metric-value" id="m-gust">--</div>
-    <div class="metric-unit" style="font-size:0.5rem">picco · nodi</div>
-    <div class="metric-source" id="m-gust-avg" style="color:#9ac0d8;font-size:0.55rem">media --kn</div>
   </div>
 </div>
 ```
@@ -1471,14 +1448,13 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica · Previsione operativ5.0.9 · by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica · Previsione operativ5.0.9 · by mdisailor engine</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
 <div id="engine-zone-list" style="margin:8px 20px 0;display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 14px"></div>
 <div class="engine-controls" style="margin-top:10px">
   <button id="btn-engine-run" onclick="runEngine()">▶ AVVIA ANALISI</button>
-  <button id="btn-export" onclick="exportData()" style="padding:10px 14px;background:rgba(240,180,41,0.1);border:1px solid rgba(240,180,41,0.3);border-radius:10px;color:var(--gold);font-family:DM Mono,monospace;font-size:0.6rem;cursor:pointer">📊 CSV</button>
   <span class="engine-updated" id="engine-updated">Non aggiornato</span>
 </div>
 
@@ -1554,7 +1530,12 @@ function showPage(id, el) {
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('page-' + id).classList.add('active');
   el.classList.add('active');
-  // Hide compare/verify sections when leaving Engine tab
+  if (id !== 'engine') {
+    var cs = document.getElementById('compare-section');
+    var vs = document.getElementById('verify-section');
+    if (cs) cs.style.display = 'none';
+    if (vs) vs.style.display = 'none';
+  }
   if (id !== 'engine') {
     var cs = document.getElementById('compare-section');
     var vs = document.getElementById('verify-section');
@@ -1853,7 +1834,7 @@ function renderWeather() {
   };
   const maxW = Math.max(...winds).toFixed(0);      // still show peak wind (safety)
   const maxG = Math.max(...gusts).toFixed(0);      // still show peak gust (safety)
-  const maxWv = waves.length ? Math.max(...waves).toFixed(1) : '--';     // still show peak wave (safety)
+  const maxWv = waves.length ? Math.max(...waves).toFixed(1) : '--';
   const avgW = wavg(winds).toFixed(0);
   const avgG = wavg(gusts).toFixed(0);
   const avgP = (press.reduce((a,b)=>a+b,0)/press.length).toFixed(0);
@@ -1867,22 +1848,6 @@ function renderWeather() {
   };
 
   document.getElementById('m-wind').textContent = maxW;
-  // Current wind (idx = current hour)
-  var nowSpeed = d.hourly.windspeed_10m[idx];
-  var nowGust = d.hourly.windgusts_10m[idx];
-  var nowDir = d.hourly.winddirection_10m[idx];
-  var dirs16 = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
-  var nowDirName = nowDir !== undefined ? dirs16[Math.round(nowDir/22.5)%16] : '--';
-  var nowSpeedEl = document.getElementById('wd-now-speed');
-  var nowDirEl = document.getElementById('wd-now-dir');
-  var nowGustEl = document.getElementById('wd-now-gust');
-  if (nowSpeedEl) nowSpeedEl.textContent = nowSpeed ? nowSpeed.toFixed(0) : '--';
-  if (nowDirEl) nowDirEl.textContent = nowDirName;
-  if (nowGustEl) nowGustEl.textContent = 'raffica ' + (nowGust ? nowGust.toFixed(0) : '--') + 'kn';
-  // Color current speed
-  if (nowSpeedEl && nowSpeed) {
-    nowSpeedEl.style.color = nowSpeed >= 22 ? 'var(--danger)' : nowSpeed >= 11 ? 'var(--warn)' : nowSpeed >= 7 ? 'var(--gold)' : 'var(--accent)';
-  }
   const mwa = document.getElementById('m-wind-avg'); if(mwa) mwa.textContent = 'media ' + avgW + 'kn';
   col('m-wind', parseFloat(maxW), [7,11,22]);
   document.getElementById('m-wave').textContent = maxWv;
@@ -2161,7 +2126,7 @@ async function requestBriefing() {
     for (var ezk in engineResults) {
       var ez = engineResults[ezk];
       if (ez && ez.diagnosis && !ez.error) {
-        var caseDesc = {'a':'Fronte freddo PERICOLOSO','b':'Fronte caldo graduale','c':'Ciclogenesi IMPREVEDIBILE','d':'Miglioramento','stable':'Stabile'};
+        var caseDesc = {'a':'Fronte freddo','b':'Fronte caldo','c':'Ciclogenesi','d':'Miglioramento','stable':'Stabile'};
         var ezLine = 'Zona ' + ez.name + ': CASO ' + ez.diagnosis.case.toUpperCase() + ' - ' + (caseDesc[ez.diagnosis.case] || '') + ' (' + ez.diagnosis.confidence + '%)';
         if (ez.risk) ezLine += ' - Rischio ' + ez.risk.label;
         var ezHigh = ez.alerts ? ez.alerts.filter(function(a){return a.severity==='high';}).map(function(a){return a.msg;}) : [];
@@ -2691,45 +2656,16 @@ async function runEngine() {
     const promises = selectedZones.map(function(zk) {
       var fetchOpts = { method: 'GET' };
       if (state.weatherData) {
-        try {
-          // Pass only essential hourly data to reduce payload size
-          var h = state.weatherData.hourly;
-          var slimData = {
-            hourly: {
-              time: h.time,
-              windspeed_10m: h.windspeed_10m,
-              winddirection_10m: h.winddirection_10m,
-              windgusts_10m: h.windgusts_10m,
-              surface_pressure: h.surface_pressure,
-              wave_height: h.wave_height || [],
-              wave_period: h.wave_period || [],
-              wave_direction: h.wave_direction || [],
-              swell_wave_height: h.swell_wave_height || [],
-              swell_wave_period: h.swell_wave_period || [],
-              swell_wave_direction: h.swell_wave_direction || [],
-              temperature_2m: h.temperature_2m,
-              relativehumidity_2m: h.relativehumidity_2m,
-              cloudcover: h.cloudcover,
-              precipitation_probability: h.precipitation_probability,
-              visibility: h.visibility
-            }
-          };
-          fetchOpts = {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: (function() { try { return JSON.stringify({ weatherData: slimData }); } catch(je) { console.error('stringify error:', je); return null; } })()
-          };
-        } catch(e) {
-          fetchOpts = { method: 'GET' };
-        }
+        fetchOpts = {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ weatherData: state.weatherData })
+        };
       }
       return fetch(ENGINE_URL + '?action=zone&zone=' + zk, fetchOpts)
         .then(function(r) { return r.json(); })
         .then(function(d) { engineResults[zk] = d; })
-        .catch(function(e) {
-          console.error('Engine fetch error for ' + zk + ':', e.name, e.message, e.stack);
-          engineResults[zk] = { error: e.name + ': ' + e.message, zone: zk };
-        });
+        .catch(function(e) { engineResults[zk] = { error: e.message, zone: zk }; });
     });
     await Promise.all(promises);
     renderEngineResults();
@@ -3028,7 +2964,7 @@ async function requestEngineBriefing() {
     for (var ezk in engineResults) {
       var ez = engineResults[ezk];
       if (ez && ez.diagnosis && !ez.error) {
-        var caseDesc = {'a':'Fronte freddo PERICOLOSO','b':'Fronte caldo graduale','c':'Ciclogenesi IMPREVEDIBILE','d':'Miglioramento','stable':'Stabile'};
+        var caseDesc = {'a':'Fronte freddo','b':'Fronte caldo','c':'Ciclogenesi','d':'Miglioramento','stable':'Stabile'};
         var ezLine = 'Zona ' + ez.name + ': CASO ' + ez.diagnosis.case.toUpperCase() + ' - ' + (caseDesc[ez.diagnosis.case] || '') + ' (' + ez.diagnosis.confidence + '%)';
         if (ez.risk) ezLine += ' - Rischio ' + ez.risk.label;
         // Add actual numeric values so AI uses them correctly

@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.8.1 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.8.0 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -729,9 +729,15 @@ wind_speed_sg: pick( 'windSpeed '), wind_gust_sg: pick( 'gust '),
 function extractCurrentData(omData, sgData, owmData) {
 var h = omData.hourly;
 var now = new Date();
+// Use client-provided index if available (fixes timezone mismatch)
+var idx;
+if (omData && omData.currentIdx !== undefined && omData.currentIdx >= 0) {
+idx = omData.currentIdx;
+} else {
 var currentHour = now.toISOString().slice(0, 13) +  ':00 ';
-var idx = h.time.findIndex(function(t) { return t === currentHour; });
+idx = h.time.findIndex(function(t) { return t === currentHour; });
 if (idx === -1) idx = 0;
+}
 var prev = Math.max(0, idx - 3);
 
 var base = {
@@ -875,7 +881,7 @@ await kvSet(key, record, 259200, restUrl, restToken);
 
 async function getWindHistory(zoneKey, restUrl, restToken, hours) {
 if (!restUrl || !restToken) return [];
-if (!hours) hours = 12;
+if (!hours) hours = 24;
 var now = new Date();
 var snapshots = [];
 var promises = [];
@@ -1204,7 +1210,7 @@ var kvToken = process.env.UPSTASH_REDIS_REST_TOKEN || null;
 
 if (action ===  'ping ') {
 var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled !== false; }).length;
-return res.status(200).json({ ok: true, engine:  'nautilus-engine ', v:  '2.8.1 ', zones: activeZones, ts: Date.now() });
+return res.status(200).json({ ok: true, engine:  'nautilus-engine ', v:  '2.8.0 ', zones: activeZones, ts: Date.now() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -1330,7 +1336,7 @@ var bias = await getBias(zoneKey, kvUrl, kvToken);
 var verRecords = [];
 var now2 = new Date();
 var verPromises = [];
-for (var d2 = 0; d2 < 3; d2 = d2 + 1) {
+for (var d2 = 0; d2 < 7; d2 = d2 + 1) {
 for (var h2 = 0; h2 < 24; h2 = h2 + 1) {
 (function(dd, hh) {
 var t = new Date(now2.getTime() - dd * 86400000 - hh * 3600000);
@@ -1366,7 +1372,7 @@ if (!zoneKey || !ZONES[zoneKey]) {
 return res.status(404).json({ error:  'Zona non trovata ' });
 }
 try {
-var hours = parseInt(req.query.hours) || 12;
+var hours = parseInt(req.query.hours) || 24;
 var snapshots = await getWindHistory(zoneKey, kvUrl, kvToken, hours);
 var bias = await getBias(zoneKey, kvUrl, kvToken);
 var rotation = analyzeWindRotation(snapshots);

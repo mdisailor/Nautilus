@@ -785,16 +785,6 @@ base.wind_gust = owmData.wind_gust_obs !== null ? owmData.wind_gust_obs : base.w
 base.sources.wind =  'owm_observed ';
 }
 
-// DEBUG
-base.debug = {
-now_utc: now.toISOString(),
-hour_searched: currentHour,
-idx: idx,
-time_at_idx: h.time[idx] || null,
-om_wind_speed: h.windspeed_10m[idx],
-om_wind_dir: h.winddirection_10m[idx],
-from_client: !!omData._from_client
-};
 return base;
 }
 
@@ -965,10 +955,9 @@ horizon_h: h,
 predicted_wind: forecast[ 'h ' + h +  '_wind '],
 predicted_wind_dir: forecast[ 'h ' + h +  '_wind_dir '] || null,
 predicted_wave: forecast[ 'h ' + h +  '_wave '],
-// Use OWM observed wind as truth if available, otherwise model
-actual_wind: (owmData && owmData.wind_speed_obs !== null) ? owmData.wind_speed_obs : currentData.wind_speed,
-actual_wind_dir: (owmData && owmData.wind_dir_obs !== null) ? owmData.wind_dir_obs : (currentData.wind_dir || null),
-actual_wind_source: (owmData && owmData.wind_speed_obs !== null) ?  'owm_observed ' :  'open-meteo ',
+actual_wind: currentData.wind_speed,
+actual_wind_dir: currentData.wind_dir || null,
+actual_wind_source: currentData.sources ? currentData.sources.wind :  'open-meteo ',
 actual_wave: currentData.wave_height,
 wind_error: parseFloat(windError.toFixed(1)),
 wave_error: parseFloat(waveError.toFixed(2))
@@ -1071,7 +1060,6 @@ var owmKey = process.env.OWM_KEY || null;
 var omData, owmData;
 if (clientWeatherData) {
 omData = clientWeatherData;
-omData._from_client = true;
 owmData = await fetchOWM(zone.lat, zone.lon, owmKey);
 } else {
 var parallel = await Promise.all([
@@ -1202,9 +1190,9 @@ return sources;
 //- VERCEL HANDLER -
 
 module.exports = async function handler(req, res) {
-res.setHeader( 'Access-Control-Allow-Origin',  '*');
-res.setHeader( 'Access-Control-Allow-Methods',  'GET, OPTIONS');
-res.setHeader( 'Access-Control-Allow-Headers',  'Content-Type');
+res.setHeader( 'Access-Control-Allow-Origin ',  '* ');
+res.setHeader( 'Access-Control-Allow-Methods ',  'GET, OPTIONS ');
+res.setHeader( 'Access-Control-Allow-Headers ',  'Content-Type ');
 if (req.method ===  'OPTIONS ') return res.status(204).end();
 
 var action = req.query.action ||  'zones ';

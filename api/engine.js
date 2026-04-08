@@ -785,6 +785,16 @@ base.wind_gust = owmData.wind_gust_obs !== null ? owmData.wind_gust_obs : base.w
 base.sources.wind =  'owm_observed ';
 }
 
+// DEBUG
+base.debug = {
+now_utc: now.toISOString(),
+hour_searched: currentHour,
+idx: idx,
+time_at_idx: h.time[idx] || null,
+om_wind_speed: h.windspeed_10m[idx],
+om_wind_dir: h.winddirection_10m[idx],
+from_client: !!omData._from_client
+};
 return base;
 }
 
@@ -1061,6 +1071,7 @@ var owmKey = process.env.OWM_KEY || null;
 var omData, owmData;
 if (clientWeatherData) {
 omData = clientWeatherData;
+omData._from_client = true;
 owmData = await fetchOWM(zone.lat, zone.lon, owmKey);
 } else {
 var parallel = await Promise.all([

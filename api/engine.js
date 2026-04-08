@@ -2,7 +2,9 @@
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
+
 //- ZONE PUNTUALI -
+
 var ZONES = {
 canale_piombino: {
 enabled: true,

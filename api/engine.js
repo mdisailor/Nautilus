@@ -955,9 +955,10 @@ horizon_h: h,
 predicted_wind: forecast[ 'h ' + h +  '_wind '],
 predicted_wind_dir: forecast[ 'h ' + h +  '_wind_dir '] || null,
 predicted_wave: forecast[ 'h ' + h +  '_wave '],
-actual_wind: currentData.wind_speed,
-actual_wind_dir: currentData.wind_dir || null,
-actual_wind_source: currentData.sources ? currentData.sources.wind :  'open-meteo ',
+// Use OWM observed wind as truth if available, otherwise model
+actual_wind: (owmData && owmData.wind_speed_obs !== null) ? owmData.wind_speed_obs : currentData.wind_speed,
+actual_wind_dir: (owmData && owmData.wind_dir_obs !== null) ? owmData.wind_dir_obs : (currentData.wind_dir || null),
+actual_wind_source: (owmData && owmData.wind_speed_obs !== null) ?  'owm_observed ' :  'open-meteo ',
 actual_wave: currentData.wave_height,
 wind_error: parseFloat(windError.toFixed(1)),
 wave_error: parseFloat(waveError.toFixed(2))

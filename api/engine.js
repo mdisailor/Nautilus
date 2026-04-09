@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.7.9 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.8.0 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -735,7 +735,16 @@ var h = omData.hourly;
 var now = new Date();
 var currentHour = now.toISOString().slice(0, 13) + ':00';
 var idx = h.time.findIndex(function(t) { return t === currentHour; });
-if (idx === -1) idx = 0;
+if (idx === -1) {
+  var nowMs = now.getTime();
+  var bestIdx = 0;
+  var bestDiff = Math.abs(new Date(h.time[0]).getTime() - nowMs);
+  for (var ti = 1; ti < h.time.length; ti++) {
+    var diff = Math.abs(new Date(h.time[ti]).getTime() - nowMs);
+    if (diff < bestDiff) { bestDiff = diff; bestIdx = ti; }
+  }
+  idx = bestIdx;
+}
 var prev = Math.max(0, idx - 3);
 
 var base = {
@@ -762,8 +771,7 @@ wind_dir_prev:     sn(h.winddirection_10m[prev]),
 pressure_trend_1h: sn(h.surface_pressure[idx], 1013) - sn(h.surface_pressure[Math.max(0,idx-1)], 1013),
 pressure_trend_3h: sn(h.surface_pressure[idx], 1013) - sn(h.surface_pressure[prev], 1013),
 sources: { wind: 'open-meteo', wave: 'open-meteo', pressure: 'open-meteo' },
-data_time: h.time[idx] || null,
-data_idx: idx
+    data_time: h.time[idx] || null
 };
 
 if (sgData) {
@@ -961,10 +969,9 @@ horizon_h: h,
 predicted_wind: forecast['h' + h + '_wind'],
 predicted_wind_dir: forecast['h' + h + '_wind_dir'] || null,
 predicted_wave: forecast['h' + h + '_wave'],
-// Use OWM observed wind as truth if available, otherwise model
-actual_wind: (owmData && owmData.wind_speed_obs !== null) ? owmData.wind_speed_obs : currentData.wind_speed,
-actual_wind_dir: (owmData && owmData.wind_dir_obs !== null) ? owmData.wind_dir_obs : (currentData.wind_dir || null),
-actual_wind_source: (owmData && owmData.wind_speed_obs !== null) ? 'owm_observed' : 'open-meteo',
+actual_wind: currentData.wind_speed,
+actual_wind_dir: currentData.wind_dir || null,
+actual_wind_source: currentData.sources ? currentData.sources.wind : 'open-meteo',
 actual_wave: currentData.wave_height,
 wind_error: parseFloat(windError.toFixed(1)),
 wave_error: parseFloat(waveError.toFixed(2))
@@ -1210,7 +1217,7 @@ var kvToken = process.env.UPSTASH_REDIS_REST_TOKEN || null;
 
 if (action === 'ping') {
 var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled !== false; }).length;
-return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.7.9', zones: activeZones, ts: Date.now() });
+return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.8.0', zones: activeZones, ts: Date.now() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -1422,4 +1429,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.7.9
+// Fine codice - NAUTILUS ENGINE v2.8.0

@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.8.0 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.8.2 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -733,18 +733,16 @@ wind_speed_sg: pick('windSpeed'), wind_gust_sg: pick('gust'),
 function extractCurrentData(omData, sgData, owmData) {
 var h = omData.hourly;
 var now = new Date();
-var currentHour = now.toISOString().slice(0, 13) + ':00';
-var idx = h.time.findIndex(function(t) { return t === currentHour; });
-if (idx === -1) {
-  var nowMs = now.getTime();
-  var bestIdx = 0;
-  var bestDiff = Math.abs(new Date(h.time[0]).getTime() - nowMs);
-  for (var ti = 1; ti < h.time.length; ti++) {
-    var diff = Math.abs(new Date(h.time[ti]).getTime() - nowMs);
-    if (diff < bestDiff) { bestDiff = diff; bestIdx = ti; }
-  }
-  idx = bestIdx;
-}
+// OM returns times in Europe/Rome - use Intl to get local Rome hour
+var romeParts = new Intl.DateTimeFormat('it-IT', {
+  timeZone: 'Europe/Rome',
+  year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit'
+}).formatToParts(now);
+var rp = {};
+romeParts.forEach(function(p) { rp[p.type] = p.value; });
+var romeHour = rp.year + '-' + rp.month + '-' + rp.day + 'T' + rp.hour + ':00';
+var idx = h.time.findIndex(function(t) { return t === romeHour; });
+if (idx === -1) idx = 0;
 var prev = Math.max(0, idx - 3);
 
 var base = {
@@ -1217,7 +1215,7 @@ var kvToken = process.env.UPSTASH_REDIS_REST_TOKEN || null;
 
 if (action === 'ping') {
 var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled !== false; }).length;
-return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.8.0', zones: activeZones, ts: Date.now() });
+return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.8.2', zones: activeZones, ts: Date.now() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -1429,4 +1427,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.8.0
+// Fine codice - NAUTILUS ENGINE v2.8.2

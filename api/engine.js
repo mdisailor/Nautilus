@@ -27,11 +27,13 @@ lat: 43.548, lon: 10.310,
 ports: {
 livorno:        { name: 'Livorno',        exposure: 'SW', shelter: 'high', swell_threshold: 2.0 },
 
+
 },
 local_effects: {
-fetch_sw: { desc: 'Fetch aperto SW', active_wind_dirs: [210, 270], note: 'Costa esposta - mare formato rapidamente con Libeccio' },
-gorgona_scia: { desc: 'Scia sottovento Gorgona', active_wind_dirs: [270, 360], note: 'Zona di calma relativa sottovento a Gorgona con vento da W-NW' },
+  fetch_sw: { desc: 'Fetch aperto SW', active_wind_dirs: [210, 270], note: 'Costa esposta - mare formato rapidamente con Libeccio' },
+  gorgona_scia: { desc: 'Scia sottovento Gorgona', active_wind_dirs: [270, 360], note: 'Zona di calma relativa sottovento a Gorgona con vento da W-NW' },
 }
+
 
 },
 viareggio: {
@@ -386,57 +388,59 @@ var risk = 'low';
 var accessible = true;
 var notes = [];
 
+
 if (effectiveWave > port.swell_threshold * 1.5) {
-risk = 'high'; accessible = false;
-notes.push('Onda ' + sf(effectiveWave,1) + 'm supera soglia (' + port.swell_threshold + 'm)');
+  risk = 'high'; accessible = false;
+  notes.push('Onda ' + sf(effectiveWave,1) + 'm supera soglia (' + port.swell_threshold + 'm)');
 } else if (effectiveWave > port.swell_threshold) {
-risk = 'medium';
-notes.push('Onda ' + sf(effectiveWave,1) + 'm vicina alla soglia');
+  risk = 'medium';
+  notes.push('Onda ' + sf(effectiveWave,1) + 'm vicina alla soglia');
 }
 
 var expAngles = { 'N':0,'NE':45,'E':90,'SE':135,'S':180,'SW':225,'W':270,'NW':315,'ALL':0 };
 var expAngle = expAngles[port.exposure] || 0;
 if (port.exposure !== 'ALL') {
-var swellAngleDiff = Math.abs(((swell_dir - expAngle) + 360) % 360);
-var isExposed = Math.min(swellAngleDiff, 360 - swellAngleDiff) < 60;
-if (isExposed && swell_height > 0.8) {
-if (risk === 'low') risk = 'medium';
-notes.push('Esposizione diretta swell da ' + sf(swell_dir,0) + ' gradi');
-}
+  var swellAngleDiff = Math.abs(((swell_dir - expAngle) + 360) % 360);
+  var isExposed = Math.min(swellAngleDiff, 360 - swellAngleDiff) < 60;
+  if (isExposed && swell_height > 0.8) {
+    if (risk === 'low') risk = 'medium';
+    notes.push('Esposizione diretta swell da ' + sf(swell_dir,0) + ' gradi');
+  }
 } else {
-// ALL exposure - only escalate if wave is significant
-if (effectiveWave > 0.8 && risk === 'low') risk = 'medium';
+  // ALL exposure - only escalate if wave is significant
+  if (effectiveWave > 0.8 && risk === 'low') risk = 'medium';
 }
 
 if (wind_speed > 25) {
-risk = 'high'; accessible = false;
-notes.push('Vento ' + sf(wind_speed,0) + 'kn - manovra difficile');
+  risk = 'high'; accessible = false;
+  notes.push('Vento ' + sf(wind_speed,0) + 'kn - manovra difficile');
 } else if (wind_speed > 18) {
-if (risk === 'low') risk = 'medium';
-notes.push('Vento sostenuto ' + sf(wind_speed,0) + 'kn');
+  if (risk === 'low') risk = 'medium';
+  notes.push('Vento sostenuto ' + sf(wind_speed,0) + 'kn');
 }
 
 if (visibility < 1.0) {
-if (risk === 'low') risk = 'medium';
-notes.push('Visibilita ridotta ' + sf(visibility * 1000, 0) + 'm');
+  if (risk === 'low') risk = 'medium';
+  notes.push('Visibilita ridotta ' + sf(visibility * 1000, 0) + 'm');
 }
 
 // Effetti locali specifici
 if (localEffects.venturi_piombino && localEffects.venturi_piombino.active && portKey === 'piombino') {
-risk = risk === 'low' ? 'medium' : 'high';
-notes.push('Venturi attivo nel canale');
+  risk = risk === 'low' ? 'medium' : 'high';
+  notes.push('Venturi attivo nel canale');
 }
 if (localEffects.rotore_capraia && localEffects.rotore_capraia.active) {
-if (risk === 'low') risk = 'medium';
-notes.push('Rotore sottovento attivo');
+  if (risk === 'low') risk = 'medium';
+  notes.push('Rotore sottovento attivo');
 }
 
 ports[portKey] = {
-name: port.name,
-risk: risk,
-accessible: accessible,
-note: notes.join(' - ') || 'Condizioni nella norma'
+  name: port.name,
+  risk: risk,
+  accessible: accessible,
+  note: notes.join(' - ') || 'Condizioni nella norma'
 };
+
 
 }
 return ports;
@@ -757,7 +761,9 @@ pressure_prev:     sn(h.surface_pressure[prev], 1013),
 wind_dir_prev:     sn(h.winddirection_10m[prev]),
 pressure_trend_1h: sn(h.surface_pressure[idx], 1013) - sn(h.surface_pressure[Math.max(0,idx-1)], 1013),
 pressure_trend_3h: sn(h.surface_pressure[idx], 1013) - sn(h.surface_pressure[prev], 1013),
-sources: { wind: 'open-meteo', wave: 'open-meteo', pressure: 'open-meteo' }
+sources: { wind: 'open-meteo', wave: 'open-meteo', pressure: 'open-meteo' },
+data_time: h.time[idx] || null,
+data_idx: idx
 };
 
 if (sgData) {
@@ -811,7 +817,7 @@ async function kvSet(key, value, ttlSeconds, restUrl, restToken) {
 if (!restUrl || !restToken) return false;
 try {
 // Upstash REST API: POST to base URL with command array
-// Format: [“SET”, “key”, “value”, “EX”, “ttl”]
+// Format: ["SET", "key", "value", "EX", "ttl"]
 var serialized = JSON.stringify(value);
 var cmd = ttlSeconds
 ? ['SET', key, serialized, 'EX', String(ttlSeconds)]

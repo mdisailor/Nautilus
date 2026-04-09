@@ -1628,7 +1628,7 @@ async function fetchWeather() {
     ~&hourly=wave_height,wave_period,wave_direction,swell_wave_height,swell_wave_period,swell_wave_direction~ +
     ~&length_unit=metric&timezone=Europe/Rome&forecast_days=2~;
   try {
-    const [atmRes, marineRes] = await Promise.all([fetch(atmUrl), fetch(marineUrl)]);
+    const [atmRes, marineRes] = await Promise.all([fetch(url), fetch(marineUrl)]);
     var _json = await atmRes.json();
     if (_json.error || !_json.hourly || !_json.hourly.windspeed_10m) {
       throw new Error(_json.reason || _json.error || ~Risposta Open-Meteo non valida~);

@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.8.9 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.0 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -209,20 +209,28 @@ caseScores.stable += 2;
 }
 
 // 2 - ROTAZIONE VENTO
+// Ignore rotation when wind is very light (< 5kn) - direction is unreliable
 var windRotation = calcWindRotation(wind_dir_prev, wind_dir);
-if (windRotation !== null) {
+var rotationMinWind = 5; // kn threshold
+if (windRotation !== null && wind_speed >= rotationMinWind) {
 var rotDeg = Math.abs(windRotation);
 var isVeering = windRotation > 0;
-if (rotDeg > 30) {
+// Require stronger signal for light winds (5-10kn needs 45deg, strong wind needs 30deg)
+var rotThreshold = wind_speed < 10 ? 45 : 30;
+if (rotDeg > rotThreshold) {
 if (isVeering) {
 var fromS = wind_dir_prev >= 150 && wind_dir_prev <= 240;
 var fromN = wind_dir_prev >= 330 || wind_dir_prev <= 30;
+var fromW = wind_dir_prev >= 240 && wind_dir_prev < 330;
 if (fromS) {
 signals.push({ type: 'wind_veering', strength: 'strong', msg: 'Rotazione oraria S->N ' + sf(rotDeg,0) + ' gradi - CASO A: fronte freddo' });
 caseScores.A += 4;
 } else if (fromN) {
 signals.push({ type: 'wind_veering', strength: 'strong', msg: 'Rotazione oraria N->S ' + sf(rotDeg,0) + ' gradi - CASO B: fronte caldo' });
 caseScores.B += 4;
+} else if (fromW) {
+signals.push({ type: 'wind_veering', strength: 'medium', msg: 'Rotazione oraria W->N ' + sf(rotDeg,0) + ' gradi - possibile miglioramento' });
+caseScores.D += 2;
 } else {
 signals.push({ type: 'wind_veering', strength: 'medium', msg: 'Rotazione oraria ' + sf(rotDeg,0) + ' gradi' });
 caseScores.A += 1; caseScores.B += 1;
@@ -230,18 +238,25 @@ caseScores.A += 1; caseScores.B += 1;
 } else {
 var fromS2 = wind_dir_prev >= 150 && wind_dir_prev <= 240;
 var fromN2 = wind_dir_prev >= 330 || wind_dir_prev <= 30;
+var fromE2 = wind_dir_prev >= 45 && wind_dir_prev < 150;
 if (fromS2) {
 signals.push({ type: 'wind_backing', strength: 'strong', msg: 'Rotazione antioraria S->N ' + sf(rotDeg,0) + ' gradi - CASO C: ciclogenesi' });
 caseScores.C += 4;
 } else if (fromN2) {
 signals.push({ type: 'wind_backing', strength: 'medium', msg: 'Rotazione antioraria N->S ' + sf(rotDeg,0) + ' gradi - CASO D: miglioramento' });
 caseScores.D += 3;
+} else if (fromE2) {
+signals.push({ type: 'wind_backing', strength: 'medium', msg: 'Rotazione antioraria E->N ' + sf(rotDeg,0) + ' gradi - CASO D: miglioramento' });
+caseScores.D += 2;
 } else {
 signals.push({ type: 'wind_backing', strength: 'medium', msg: 'Rotazione antioraria ' + sf(rotDeg,0) + ' gradi' });
 caseScores.C += 1; caseScores.D += 1;
 }
 }
 }
+} else if (wind_speed < rotationMinWind) {
+signals.push({ type: 'wind_light', strength: 'weak', msg: 'Vento leggero ' + sf(wind_speed,0) + 'kn - direzione inaffidabile per diagnosi' });
+caseScores.stable += 2;
 }
 
 // 3 - SWELL ANTICIPATO
@@ -304,6 +319,16 @@ maxConf = 68;
 confLabel = 'indicativo - dati insufficienti (' + rotationAnalysis.hours + 'h)';
 }
 
+// Use rotationAnalysis trend to ALSO influence scores, not just confidence
+if (rotationAnalysis.trend === 'veering' && rotationAnalysis.hours >= 6) {
+  caseScores.A += 2; caseScores.B += 1;
+}
+if (rotationAnalysis.trend === 'backing' && rotationAnalysis.hours >= 6) {
+  caseScores.C += 1; caseScores.D += 2;
+}
+if (rotationAnalysis.trend === 'stable' && rotationAnalysis.hours >= 6) {
+  caseScores.stable += 3;
+}
 // Boost confidence if rotation history confirms the diagnosed case
 if (rotationAnalysis.trend === 'veering' && (dominantCase === 'A' || dominantCase === 'B')) maxConf = Math.min(95, maxConf + 10);
 if (rotationAnalysis.trend === 'backing' && (dominantCase === 'C' || dominantCase === 'D')) maxConf = Math.min(95, maxConf + 10);
@@ -497,6 +522,10 @@ return { status: 'closing', best_start: 'Ora', best_end: Math.min(hour+2, 23).to
 return { status: 'closed', best_start: null, best_end: null, reason: 'Finestra chiusa - fronte freddo attivo. Attendere normalizzazione', next_window: 'Domani mattina - verificare condizioni', color: 'danger' };
 }
 if (synCase === 'B') {
+// If wind is actually light, don't close window just because of case B diagnosis
+if (wind_speed < 8 && wave_height < 0.8) {
+return { status: 'open', best_start: 'Ora', best_end: '18:00', reason: 'Condizioni attuali buone nonostante pattern B - monitorare deterioramento', next_window: null, color: 'warn' };
+}
 if (hour < 10 && currentlyOk) {
 return { status: 'open', best_start: 'Ora', best_end: Math.min(hour+3, 10).toString().padStart(2,'0') + ':00', reason: 'Finestra mattutina disponibile prima del peggioramento. Rientro anticipato consigliato', next_window: 'Dopo il passaggio del fronte - 24-36h', color: 'warn' };
 }
@@ -1512,4 +1541,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.8.9
+// Fine codice - NAUTILUS ENGINE v2.9.0

@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.2.2 — 2026-04-09 -->
+<!-- NAUTILUS v5.2.3 — 2026-04-09 -->
 
 <html lang="it">
 <head>
@@ -526,7 +526,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.2.2 · by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.2.3 · by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1471,7 +1471,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica · Previsione operativa · v5.2.2 · by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica · Previsione operativa · v5.2.3 · by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -1479,6 +1479,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 <div class="engine-controls" style="margin-top:10px">
   <button id="btn-engine-run" onclick="runEngine()">▶ AVVIA ANALISI</button>
   <button id="btn-export" onclick="exportData()" style="padding:10px 14px;background:rgba(240,180,41,0.1);border:1px solid rgba(240,180,41,0.3);border-radius:10px;color:var(--gold);font-family:DM Mono,monospace;font-size:0.6rem;cursor:pointer">📊 CSV</button>
+  <button id="btn-backfill" onclick="runBackfill()" style="display:none;padding:10px 14px;background:rgba(0,240,255,0.08);border:1px solid rgba(0,240,255,0.25);border-radius:10px;color:var(--accent);font-family:DM Mono,monospace;font-size:0.6rem;cursor:pointer">📥 30gg</button>
   <span class="engine-updated" id="engine-updated">Non aggiornato</span>
 </div>
 
@@ -3738,7 +3739,7 @@ async function runBackfill() {
   setTimeout(function() { btn.textContent = '📥 30gg'; }, 3000);
 }
 
-// Fine codice - NAUTILUS v5.2.2
+// Fine codice - NAUTILUS v5.2.3
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

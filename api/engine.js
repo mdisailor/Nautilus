@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.8.5 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.8.7 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -674,10 +674,11 @@ if (diff < -180) diff += 360;
 return diff;
 }
 
-async function fetchOpenMeteo(lat, lon) {
+async function fetchOpenMeteo(lat, lon, model) {
+var useModel = model || 'best_match';
 var atmParams = 'temperature_2m,relativehumidity_2m,surface_pressure,windspeed_10m,winddirection_10m,windgusts_10m,cloudcover,precipitation,visibility';
 var waveParams = 'wave_height,wave_period,wave_direction,swell_wave_height,swell_wave_period,swell_wave_direction';
-var atmUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&hourly=' + atmParams + '&wind_speed_unit=kn&timezone=Europe/Rome&forecast_days=2&models=best_match';
+var atmUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&hourly=' + atmParams + '&wind_speed_unit=kn&timezone=Europe/Rome&forecast_days=2&models=' + useModel;
 var waveUrl = 'https://marine-api.open-meteo.com/v1/marine?latitude=' + lat + '&longitude=' + lon + '&hourly=' + waveParams + '&length_unit=metric&timezone=Europe/Rome&forecast_days=2';
 
 var results = await Promise.all([fetch(atmUrl), fetch(waveUrl)]);
@@ -769,7 +770,10 @@ wind_dir_prev:     sn(h.winddirection_10m[prev]),
 pressure_trend_1h: sn(h.surface_pressure[idx], 1013) - sn(h.surface_pressure[Math.max(0,idx-1)], 1013),
 pressure_trend_3h: sn(h.surface_pressure[idx], 1013) - sn(h.surface_pressure[prev], 1013),
 sources: { wind: 'open-meteo', wave: 'open-meteo', pressure: 'open-meteo' },
-    data_time: h.time[idx] || null
+    data_time: h.time[idx] || null,
+    icon_wind_speed: omData._icon_wind_speed ? sn(omData._icon_wind_speed[idx]) : null,
+    icon_wind_dir: omData._icon_wind_dir ? sn(omData._icon_wind_dir[idx]) : null,
+    icon_wind_gust: omData._icon_wind_gust ? sn(omData._icon_wind_gust[idx]) : null
 };
 
 if (sgData) {
@@ -862,7 +866,7 @@ pressure_obs: data.pressure_obs || null,
 obs_source: data.obs_source || null,
 obs_station: data.obs_station || null
 };
-await kvSet(key, snapshot, 259200, restUrl, restToken);
+await kvSet(key, snapshot, 1209600, restUrl, restToken);
 }
 
 async function saveForecast(zoneKey, forecast, data, restUrl, restToken) {
@@ -882,7 +886,7 @@ h12_wave: forecast.h12.wave_max,
 h24_wind: forecast.h24.wind_max,
 h24_wave: forecast.h24.wave_max
 };
-await kvSet(key, record, 259200, restUrl, restToken);
+await kvSet(key, record, 1209600, restUrl, restToken);
 }
 
 async function getWindHistory(zoneKey, restUrl, restToken, hours) {
@@ -1075,11 +1079,18 @@ omData = clientWeatherData;
 owmData = await fetchOWM(zone.lat, zone.lon, owmKey);
 } else {
 var parallel = await Promise.all([
-fetchOpenMeteo(zone.lat, zone.lon),
+fetchOpenMeteo(zone.lat, zone.lon, 'best_match'),
+fetchOpenMeteo(zone.lat, zone.lon, 'icon_seamless'),
 fetchOWM(zone.lat, zone.lon, owmKey)
 ]);
 omData = parallel[0];
-owmData = parallel[1];
+var iconData = parallel[1];
+owmData = parallel[2];
+if (iconData && iconData.hourly) {
+  omData._icon_wind_speed = iconData.hourly.windspeed_10m;
+  omData._icon_wind_dir = iconData.hourly.winddirection_10m;
+  omData._icon_wind_gust = iconData.hourly.windgusts_10m;
+}
 }
 
 var sgData = null;
@@ -1497,4 +1508,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.8.5
+// Fine codice - NAUTILUS ENGINE v2.8.7

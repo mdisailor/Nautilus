@@ -1110,7 +1110,15 @@ var owmKey = process.env.OWM_KEY || null;
 var omData, owmData;
 if (clientWeatherData) {
 omData = clientWeatherData;
-owmData = await fetchOWM(zone.lat, zone.lon, owmKey);
+var clientParallel = await Promise.all([
+  fetchOWM(zone.lat, zone.lon, owmKey),
+  (async function() {
+    try { return await fetchOpenMeteo(zone.lat, zone.lon, 'icon_seamless'); }
+    catch(e) { return null; }
+  })()
+]);
+owmData = clientParallel[0];
+iconData = clientParallel[1];
 } else {
 var parallel = await Promise.all([
 fetchOpenMeteo(zone.lat, zone.lon, 'best_match'),
@@ -1262,7 +1270,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.8.4', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.0', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones

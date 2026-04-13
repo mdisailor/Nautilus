@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.0 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.4 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1272,10 +1272,16 @@ var expectedSecret = process.env.CRON_SECRET || '';
 if (expectedSecret && cronSecret !== expectedSecret) {
 return res.status(401).json({ error: 'Unauthorized' });
 }
+// Support ?zones=livorno,viareggio for split cron jobs (avoids timeout)
+var cronZones;
+if (req.query.zones) {
+  var requestedZones = req.query.zones.split(',').map(function(z) { return z.trim(); });
+  cronZones = requestedZones.filter(function(zk) { return ZONES[zk] && ZONES[zk].enabled !== false; });
+} else {
+  cronZones = Object.keys(ZONES).filter(function(zk) { return ZONES[zk].enabled !== false; });
+}
 var cronResults = {};
-var cronPromises = Object.keys(ZONES).filter(function(zk) {
-return ZONES[zk].enabled !== false;
-}).map(function(zk) {
+var cronPromises = cronZones.map(function(zk) {
 return calcZone(zk, null, kvUrl, kvToken, { query: { history: '1' } })
 .then(function(r) { cronResults[zk] = { ok: true, case: r.diagnosis.case, alerts: r.alerts.length }; })
 .catch(function(e) { cronResults[zk] = { ok: false, error: e.message }; });

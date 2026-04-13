@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.3 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.0 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -7,7 +7,7 @@
 
 var ZONES = {
 canale_piombino: {
-enabled: false, // temporaneamente disabilitata
+enabled: true,
 name: 'Canale di Piombino',
 lat: 42.92, lon: 10.50,
 ports: {
@@ -125,7 +125,7 @@ fetch_sw: { desc: 'Fetch aperto SW', active_wind_dirs: [210, 270], note: 'Costa 
 }
 },
 punta_ala: {
-enabled: false, // temporaneamente disabilitata
+enabled: true,
 name: 'Punta Ala - Follonica',
 lat: 42.93, lon: 10.74,
 ports: {
@@ -138,7 +138,7 @@ correnti_giglio: { desc: 'Correnti variabili zona Grosseto', active_wind_dirs: [
 }
 },
 la_spezia: {
-enabled: false, // temporaneamente disabilitata
+enabled: true,
 name: 'La Spezia - Lerici',
 lat: 44.10, lon: 9.82,
 ports: {
@@ -1108,31 +1108,9 @@ var zone = ZONES[zoneKey];
 // Otherwise fetch fresh from Open-Meteo (cron mode)
 var owmKey = process.env.OWM_KEY || null;
 var omData, owmData;
-var isCronMode = req && req.query && req.query.history === '1';
 if (clientWeatherData) {
 omData = clientWeatherData;
-var clientParallel = await Promise.all([
-  fetchOWM(zone.lat, zone.lon, owmKey),
-  (async function() {
-    try { return await fetchOpenMeteo(zone.lat, zone.lon, 'icon_seamless'); }
-    catch(e) { return null; }
-  })()
-]);
-owmData = clientParallel[0];
-iconData = clientParallel[1];
-} else if (isCronMode) {
-// Cron mode: fetch OM + OWM + ICON in parallel
-var parallel = await Promise.all([
-  fetchOpenMeteo(zone.lat, zone.lon, 'best_match'),
-  fetchOWM(zone.lat, zone.lon, owmKey),
-  (async function() {
-    try { return await fetchOpenMeteo(zone.lat, zone.lon, 'icon_seamless'); }
-    catch(e) { return null; }
-  })()
-]);
-omData = parallel[0];
-owmData = parallel[1];
-iconData = parallel[2];
+owmData = await fetchOWM(zone.lat, zone.lon, owmKey);
 } else {
 var parallel = await Promise.all([
 fetchOpenMeteo(zone.lat, zone.lon, 'best_match'),
@@ -1141,6 +1119,7 @@ fetchOWM(zone.lat, zone.lon, owmKey)
 omData = parallel[0];
 owmData = parallel[1];
 // Fetch ICON separately - display only, does not affect calculations
+var iconData = null;
 try {
   var iconRaw = await fetchOpenMeteo(zone.lat, zone.lon, 'icon_seamless');
   if (iconRaw && iconRaw.hourly) { iconData = iconRaw; }
@@ -1283,7 +1262,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.3', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.8.4', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -1294,16 +1273,14 @@ if (expectedSecret && cronSecret !== expectedSecret) {
 return res.status(401).json({ error: 'Unauthorized' });
 }
 var cronResults = {};
-var cronZones = Object.keys(ZONES).filter(function(zk) { return ZONES[zk].enabled !== false; });
-for (var czi = 0; czi < cronZones.length; czi++) {
-  var czk = cronZones[czi];
-  try {
-    var czResult = await calcZone(czk, null, kvUrl, kvToken, { query: { history: '1' } });
-    cronResults[czk] = { ok: true, case: czResult.diagnosis.case, alerts: czResult.alerts.length };
-  } catch(cze) {
-    cronResults[czk] = { ok: false, error: cze.message };
-  }
-}
+var cronPromises = Object.keys(ZONES).filter(function(zk) {
+return ZONES[zk].enabled !== false;
+}).map(function(zk) {
+return calcZone(zk, null, kvUrl, kvToken, { query: { history: '1' } })
+.then(function(r) { cronResults[zk] = { ok: true, case: r.diagnosis.case, alerts: r.alerts.length }; })
+.catch(function(e) { cronResults[zk] = { ok: false, error: e.message }; });
+});
+await Promise.all(cronPromises);
 return res.status(200).json({ ok: true, ts: new Date().toISOString(), zones: cronResults });
 }
 
@@ -1564,4 +1541,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.2
+// Fine codice - NAUTILUS ENGINE v2.9.0

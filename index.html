@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.3.7 — 2026-04-14 -->
+<!-- NAUTILUS v5.3.8 — 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -526,7 +526,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.3.7 · by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.3.8 · by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -602,10 +602,10 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 
 <div class="wind-card">
   <div class="wind-card-top" style="display:flex;justify-content:center;">
-  <div style="display:flex;align-items:flex-start;gap:16px;width:100%;justify-content:center">
+  <div style="display:flex;align-items:flex-start;gap:16px;width:100%;justify-content:center;padding:0 8px">
 
   <!-- OM compass -->
-  <div style="flex:1;display:flex;flex-direction:column;gap:4px">
+  <div style="display:flex;flex-direction:column;gap:4px">
     <div style="font-family:DM Mono,monospace;font-size:0.42rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.1em;text-align:center">OM</div>
     <div style="display:flex;align-items:center;gap:10px">
       <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
@@ -654,7 +654,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   </div>
 
   <!-- ICON compass -->
-  <div style="flex:1;display:flex;flex-direction:column;gap:4px">
+  <div style="display:flex;flex-direction:column;gap:4px">
     <div style="font-family:DM Mono,monospace;font-size:0.42rem;color:#90caf9;text-transform:uppercase;letter-spacing:0.1em;text-align:center">ICON</div>
     <div style="display:flex;align-items:center;gap:10px">
       <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
@@ -706,8 +706,8 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   </div><!-- wind-card-top -->
   <div class="wind-card-bottom">
     <div style="grid-column:1/-1;font-family:DM Mono,monospace;font-size:0.55rem;color:var(--text);padding-bottom:5px;margin-bottom:4px;border-bottom:1px solid rgba(58,96,128,0.2)">💨 Vento</div>
-    <div class="wind-detail-row"><span class="wd-label">DIREZIONE</span><span class="wd-value" id="wd-dir">—</span></div>
-    <div class="wind-detail-row"><span class="wd-label">GRADI</span><span class="wd-value" id="wd-deg">—</span></div>
+    <div class="wind-detail-row"><span class="wd-label">DIR. MEDIA ORE</span><span class="wd-value" id="wd-dir">—</span></div>
+    <div class="wind-detail-row"><span class="wd-label">GRADI MEDI</span><span class="wd-value" id="wd-deg">—</span></div>
     <div class="wind-detail-row"><span class="wd-label">PROB. PIOGGIA</span><span class="wd-value" id="wd-precip">—</span></div>
     <div style="grid-column:1/-1;font-family:DM Mono,monospace;font-size:0.55rem;color:var(--text);padding-bottom:5px;margin:8px 0 4px;border-bottom:1px solid rgba(58,96,128,0.2)">🌊 Onde</div>
     <div class="wind-detail-row"><span class="wd-label">PERIODO</span><span class="wd-value" id="wd-period">—</span></div>
@@ -1520,7 +1520,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica · Previsione operativa · v5.3.7 · by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica · Previsione operativa · v5.3.8 · by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -3861,7 +3861,7 @@ async function runBackfill() {
   setTimeout(function() { btn.textContent = '📥 14gg'; }, 3000);
 }
 
-// Fine codice - NAUTILUS v5.3.7
+// Fine codice - NAUTILUS v5.3.8
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

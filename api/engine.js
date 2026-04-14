@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.6 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.7 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1256,7 +1256,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.6', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.7', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -1440,6 +1440,148 @@ bias: bias
 } catch(e) {
 return res.status(500).json({ error: e.message });
 }
+}
+
+// /api/engine?action=predict&zone=xxx - AI local forecast based on historical data
+if (action === 'predict') {
+  if (!zoneKey || !ZONES[zoneKey]) {
+    return res.status(404).json({ error: 'Zona non trovata' });
+  }
+  try {
+    var anthropicKey = process.env.ANTHROPIC_KEY || null;
+    if (!anthropicKey) return res.status(500).json({ error: 'ANTHROPIC_KEY non configurata' });
+
+    // Get last 14 days of snapshots
+    var snapshots14 = await getWindHistory(zoneKey, kvUrl, kvToken, 336); // 14 days * 24h
+    var bias = await getBias(zoneKey, kvUrl, kvToken);
+    var rotation = analyzeWindRotation(snapshots14.slice(0, 24)); // rotation from last 24h
+
+    // Get current conditions
+    var currentSnap = snapshots14[snapshots14.length - 1] || null;
+
+    // Build statistical summary of historical data
+    var validSnaps = snapshots14.filter(function(s) {
+      return s.wind_speed !== null && s.pressure !== null;
+    });
+
+    // Pressure trend analysis
+    var pressureTrend = 'stabile';
+    if (validSnaps.length >= 3) {
+      var recentP = validSnaps.slice(-3).map(function(s) { return s.pressure; });
+      var pDelta = recentP[recentP.length-1] - recentP[0];
+      if (pDelta < -3) pressureTrend = 'in calo rapido';
+      else if (pDelta < -1) pressureTrend = 'in calo';
+      else if (pDelta > 3) pressureTrend = 'in rialzo rapido';
+      else if (pDelta > 1) pressureTrend = 'in rialzo';
+    }
+
+    // Wind statistics last 24h
+    var last24 = validSnaps.slice(-24);
+    var avgWind24 = last24.length > 0 ? (last24.reduce(function(a,s){return a+s.wind_speed;},0)/last24.length).toFixed(1) : '--';
+    var maxWind24 = last24.length > 0 ? Math.max.apply(null, last24.map(function(s){return s.wind_speed;})).toFixed(1) : '--';
+
+    // Find similar historical patterns (last 14 days, same pressure trend)
+    var similarCases = [];
+    for (var si = 24; si < validSnaps.length - 6; si++) {
+      var histP = validSnaps.slice(Math.max(0,si-3), si).map(function(s){return s.pressure;});
+      if (histP.length < 2) continue;
+      var histPDelta = histP[histP.length-1] - histP[0];
+      var histTrend = histPDelta < -1 ? 'calo' : histPDelta > 1 ? 'rialzo' : 'stabile';
+      var currTrend = pressureTrend.indexOf('calo') >= 0 ? 'calo' : pressureTrend.indexOf('rialzo') >= 0 ? 'rialzo' : 'stabile';
+      if (histTrend === currTrend) {
+        var futureSnaps = validSnaps.slice(si, si+6);
+        if (futureSnaps.length >= 6) {
+          similarCases.push({
+            at: validSnaps[si].ts,
+            wind_at: validSnaps[si].wind_speed,
+            wind_6h: futureSnaps[5].wind_speed,
+            pressure_at: validSnaps[si].pressure,
+            dir_at: validSnaps[si].wind_dir
+          });
+        }
+      }
+    }
+
+    // Build prompt for Claude Sonnet
+    var dirs16p = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+    var pLines = [];
+    pLines.push('Sei un meteorologo marino esperto del Tirreno settentrionale e Arcipelago Toscano.');
+    pLines.push('');
+    pLines.push('ZONA: ' + ZONES[zoneKey].name);
+    pLines.push('ORA: ' + new Date().toLocaleString('it-IT', {timeZone:'Europe/Rome'}));
+    pLines.push('');
+    pLines.push('SITUAZIONE ATTUALE:');
+    if (currentSnap) {
+      var dirNameP = currentSnap.wind_dir !== null ? dirs16p[Math.round(currentSnap.wind_dir/22.5)%16] : '--';
+      pLines.push('- Vento: ' + (currentSnap.wind_speed||'--') + 'kn da ' + dirNameP + ' (' + (currentSnap.wind_dir||'--') + 'deg)');
+      pLines.push('- Pressione: ' + (currentSnap.pressure||'--') + 'hPa - ' + pressureTrend);
+      pLines.push('- Onda: ' + (currentSnap.wave_height||'--') + 'm');
+      if (currentSnap.wind_speed_obs) {
+        pLines.push('- OWM osservato: ' + currentSnap.wind_speed_obs + 'kn da ' + dirs16p[Math.round((currentSnap.wind_dir_obs||0)/22.5)%16]);
+      }
+    }
+    pLines.push('');
+    pLines.push('STATISTICHE ULTIME 24H:');
+    pLines.push('- Vento medio: ' + avgWind24 + 'kn, max: ' + maxWind24 + 'kn');
+    pLines.push('- Rotazione vento: ' + rotation.trend + ' (' + (rotation.rotation ? rotation.rotation.toFixed(0) + ' gradi in ' + rotation.hours + 'h' : 'dati insufficienti') + ')');
+    pLines.push('');
+    pLines.push('BIAS MODELLO (errore storico Open-Meteo per questa zona):');
+    if (bias && bias.samples > 10) {
+      pLines.push('- Campioni: ' + bias.samples);
+      pLines.push('- Bias vento: ' + bias.wind_bias.toFixed(1) + 'kn');
+      pLines.push('- MAE vento: ' + bias.wind_mae.toFixed(1) + 'kn');
+    } else {
+      pLines.push('- Dati insufficienti per bias affidabile');
+    }
+    if (similarCases.length > 0) {
+      pLines.push('');
+      pLines.push('CASI STORICI SIMILI (stessa tendenza barica, ultimi 14 giorni):');
+      similarCases.slice(0, 5).forEach(function(c) {
+        var cDate = new Date(c.at).toLocaleString('it-IT',{timeZone:'Europe/Rome',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+        pLines.push('- ' + cDate + ': vento ' + c.wind_at + 'kn -> dopo 6h: ' + c.wind_6h + 'kn');
+      });
+    }
+    pLines.push('');
+    pLines.push('Basandoti su questi dati storici reali (non sul modello numerico), fornisci:');
+    pLines.push('PREVISIONE_LOCALE: evoluzione vento e mare per h3, h6, h12 con valori numerici');
+    pLines.push('CONFIDENZA: bassa/media/alta con motivazione');
+    pLines.push('PATTERN: pattern sinottico identificato dai dati storici');
+    pLines.push('CONSIGLIO: indicazione operativa per la navigazione in questa zona');
+    pLines.push('Max 200 parole. Basati SOLO sui dati forniti, non su conoscenza generica.');
+    var prompt = pLines.join('\n');
+
+        // Call Claude Sonnet
+    var aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': anthropicKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 600,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    var aiData = await aiRes.json();
+    var aiText = aiData.content && aiData.content[0] ? aiData.content[0].text : 'Errore risposta AI';
+
+    return res.status(200).json({
+      zone: zoneKey,
+      name: ZONES[zoneKey].name,
+      generated_at: new Date().toISOString(),
+      current: currentSnap,
+      bias: bias,
+      rotation: rotation,
+      similar_cases: similarCases.length,
+      prediction: aiText,
+      data_points: validSnaps.length
+    });
+
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
 }
 
   // /api/engine?action=backfill&zone=xxx&days=30&secret=xxx

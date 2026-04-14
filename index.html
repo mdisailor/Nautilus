@@ -117,7 +117,7 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 .wind-card { margin: 8px 20px 0; background: var(–card); border: 1px solid var(–border); border-radius: 14px; padding: 16px; }
 .wind-card-top { display: flex; align-items: center; justify-content: center; gap: 20px; margin-bottom: 14px; }
 .wind-card-bottom { border-top: 1px solid var(–border); padding-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 2px 16px; }
-.wind-compass { width: 88px; height: 88px; flex-shrink: 0; }
+.wind-compass { width: 110px; height: 110px; flex-shrink: 0; }
 .wind-compass svg { width: 100%; height: 100%; }
 .wind-now { text-align: center; }
 .wind-details { flex: 1; }
@@ -526,7 +526,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.3.5 · by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.3.7 · by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -602,7 +602,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 
 <div class="wind-card">
   <div class="wind-card-top" style="display:flex;justify-content:center;">
-  <div style="display:flex;align-items:flex-start;gap:12px;width:100%">
+  <div style="display:flex;align-items:flex-start;gap:16px;width:100%;justify-content:center">
 
   <!-- OM compass -->
   <div style="flex:1;display:flex;flex-direction:column;gap:4px">
@@ -1520,7 +1520,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica · Previsione operativa · v5.3.5 · by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica · Previsione operativa · v5.3.7 · by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -2716,7 +2716,7 @@ function renderZone(z) {
     '<table class="cloud-table">' +
     '<tr><td>🌡️ Pressione</td><td>' + (r.pressure ? r.pressure.toFixed(0) : '--') + ' hPa (' + (r.pressure_trend_3h >= 0 ? '+' : '') + (r.pressure_trend_3h ? r.pressure_trend_3h.toFixed(1) : '0') + '/3h)</td></tr>' +
     '<tr><td>💨 Vento</td><td><span style="color:#8ab8d0;font-size:0.85em">[OM]</span> ' + (r.wind_speed ? r.wind_speed.toFixed(0) : '--') + 'kn ' + (r.wind_dir ? dirName(r.wind_dir) : '--') + ' · Raffica ' + (r.wind_gust ? r.wind_gust.toFixed(0) : '--') + 'kn' + _dataTimeStr + (r.icon_wind_speed !== null && r.icon_wind_speed !== undefined ? ' <span style="color:#90caf9;font-size:0.85em">[ICON] ' + r.icon_wind_speed.toFixed(0) + 'kn ' + dirName(r.icon_wind_dir || 0) + '</span>' : '') + (z.observed && z.observed.wind_speed_obs !== null ? ' <span style="color:var(--safe);font-size:0.85em">[OWM] ' + z.observed.wind_speed_obs.toFixed(0) + 'kn ' + dirName(z.observed.wind_dir_obs || 0) + '</span>' : '') + '</td></tr>' +
-    '<tr><td>🌊 Onda</td><td>' + (r.wave_height ? r.wave_height.toFixed(1) : '--') + 'm / ' + (r.wave_period ? r.wave_period.toFixed(0) : '--') + 's</td></tr>' +
+    '<tr><td>🌊 Onda</td><td>' + (r.wave_height !== undefined && r.wave_height !== null ? r.wave_height.toFixed(1) : '--') + 'm / ' + (r.wave_period ? r.wave_period.toFixed(0) : '--') + 's da ' + (r.wave_dir !== undefined ? dirName(r.wave_dir) : '--') + '</td></tr>' +
     '<tr><td>🌊 Swell</td><td>' + (r.swell_height ? r.swell_height.toFixed(1) : '--') + 'm / ' + (r.swell_period ? r.swell_period.toFixed(0) : '--') + 's da ' + (r.swell_dir ? dirName(r.swell_dir) : '--') + '</td></tr>' +
     '<tr><td>🌡️ T aria/acqua</td><td>' + (r.temp_air ? r.temp_air.toFixed(1) : '--') + '°C / ' + (r.temp_water ? r.temp_water.toFixed(1) : '--') + '°C</td></tr>' +
     '<tr><td>💧 Umidità</td><td>' + (r.humidity ? r.humidity.toFixed(0) : '--') + '%</td></tr>' +

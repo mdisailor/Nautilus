@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.10 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.11 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1256,7 +1256,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.10', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.11', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -1614,21 +1614,22 @@ if (action === 'predict_history') {
   }
   try {
     var now4 = new Date();
+    // Read last 30 days - one key per hour (predictions generated once/day at 7:00)
+    // Max 30 keys to stay within timeout
     var predPromises = [];
-    // Read last 7 days of saved predictions (2 per hour = 336 slots)
-    for (var pd = 0; pd < 7; pd++) {
-      for (var ph = 0; ph < 24; ph++) {
-        for (var pm = 0; pm < 2; pm++) {
-          (function(dd, hh, mm) {
-            var t = new Date(now4.getTime() - dd*86400000 - hh*3600000 - mm*1800000);
-            var mins2 = t.getMinutes() < 30 ? '00' : '30';
-            var key = 'predict:' + zoneKey + ':' + t.toISOString().slice(0,13) + '-' + mins2;
-            predPromises.push(kvGet(key, kvUrl, kvToken).then(function(v) {
-              return v ? v : null;
-            }));
-          })(pd, ph, pm);
-        }
-      }
+    for (var pd = 0; pd < 30; pd++) {
+      (function(dd) {
+        var t = new Date(now4.getTime() - dd*86400000);
+        var key = 'predict:' + zoneKey + ':' + t.toISOString().slice(0,13) + '-00';
+        predPromises.push(kvGet(key, kvUrl, kvToken).then(function(v) {
+          return v ? v : null;
+        }));
+        // Also check :30 slot for manual predictions
+        var key2 = 'predict:' + zoneKey + ':' + t.toISOString().slice(0,13) + '-30';
+        predPromises.push(kvGet(key2, kvUrl, kvToken).then(function(v) {
+          return v ? v : null;
+        }));
+      })(pd);
     }
     var allPreds = await Promise.all(predPromises);
     var predictions = allPreds.filter(function(p) { return p !== null; });
@@ -1749,4 +1750,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.10
+// Fine codice - NAUTILUS ENGINE v2.9.11

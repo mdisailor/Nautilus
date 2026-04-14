@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.0 — 2026-04-14 -->
+<!-- NAUTILUS v5.6.1 — 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -463,6 +463,12 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 .wind-rose-legend-item { display:flex; align-items:center; gap:4px; font-family:DM Mono,monospace; font-size:0.45rem; color:var(--muted); }
 .wind-rose-legend-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
 .verify-section { margin:12px 20px 0; }
+.predict-section { margin:12px 20px 0; }
+.predict-output { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px 16px; font-family:DM Mono,monospace; font-size:0.62rem; line-height:1.8; color:var(--text); margin-top:10px; white-space:pre-line; }
+.predict-meta { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:8px; font-family:DM Mono,monospace; font-size:0.48rem; color:var(--muted); }
+.predict-meta-item { display:flex; gap:4px; align-items:center; }
+.btn-predict { padding:10px 16px; background:rgba(144,202,249,0.1); border:1px solid #90caf9; border-radius:10px; color:#90caf9; font-family:DM Mono,monospace; font-size:0.65rem; cursor:pointer; width:100%; letter-spacing:0.08em; }
+.btn-predict:disabled { opacity:0.4; cursor:default; }
 .compare-section { margin:12px 20px 0; }
 .compare-table-wrap { overflow-x:auto; margin-top:8px; }
 .compare-table { width:100%; border-collapse:collapse; font-family:DM Mono,monospace; font-size:0.52rem; }
@@ -526,7 +532,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.0 · by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.1 · by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1520,7 +1526,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica · Previsione operativa · v5.6.0 · by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica · Previsione operativa · v5.6.1 · by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -1557,6 +1563,14 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
       <div class="verify-zone-select" id="compare-zone-select"></div>
       <div id="compare-content">
         <div class="verify-empty">Seleziona una zona per vedere il confronto</div>
+      </div>
+    </div>
+
+    <div class="predict-section" id="predict-section" style="display:none">
+      <div style="font-family:DM Mono,monospace;font-size:0.55rem;color:#90caf9;letter-spacing:0.12em;text-transform:uppercase;opacity:0.8;margin-bottom:8px">⚡ Previsione Locale AI</div>
+      <div class="verify-zone-select" id="predict-zone-select"></div>
+      <div id="predict-content">
+        <div class="verify-empty">Seleziona una zona per la previsione locale basata su dati storici</div>
       </div>
     </div>
 
@@ -3870,7 +3884,71 @@ async function runBackfill() {
   setTimeout(function() { btn.textContent = '📥 14gg'; }, 3000);
 }
 
-// Fine codice - NAUTILUS v5.6.0
+// -- PREVISIONE LOCALE AI -------------------------------------------------------
+
+var predictCurrentZone = null;
+
+function renderPredictZoneButtons() {
+  var container = document.getElementById('predict-zone-select');
+  if (!container || !engineResults) return;
+  var html = '';
+  Object.keys(engineResults).forEach(function(zk) {
+    var z = engineResults[zk];
+    if (z && !z.error) {
+      var isActive = zk === predictCurrentZone;
+      html += '<button class="verify-zone-btn' + (isActive ? ' active' : '') + '" onclick="loadPredict(this.dataset.zone)" data-zone="' + zk + '">' +
+        (z.name || zk).split(' ')[0] +
+      '</button>';
+    }
+  });
+  container.innerHTML = html || '<div style="font-size:0.6rem;color:var(--muted)">Nessuna zona disponibile</div>';
+}
+
+async function loadPredict(zoneKey) {
+  predictCurrentZone = zoneKey;
+  renderPredictZoneButtons();
+  var el = document.getElementById('predict-content');
+  el.innerHTML = '<div class="verify-empty"><div class="loading" style="display:inline-flex;margin-right:6px"><div class="spinner"></div></div>Analisi dati storici e previsione AI in corso...</div>';
+  try {
+    var res = await fetch(ENGINE_URL + '?action=predict&zone=' + zoneKey);
+    var data = await res.json();
+    if (data.error) {
+      el.innerHTML = '<div class="verify-empty" style="color:var(--danger)">' + data.error + '</div>';
+      return;
+    }
+    renderPredictContent(data, el);
+  } catch(err) {
+    el.innerHTML = '<div class="verify-empty" style="color:var(--danger)">Errore: ' + err.message + '</div>';
+  }
+}
+
+function renderPredictContent(data, el) {
+  var html = '';
+
+  // Meta info
+  html += '<div class="predict-meta">';
+  html += '<div class="predict-meta-item"><span style="color:var(--accent)">▸</span> ' + data.data_points + ' campioni storici</div>';
+  html += '<div class="predict-meta-item"><span style="color:var(--accent)">▸</span> ' + data.similar_cases + ' casi simili trovati</div>';
+  if (data.bias && data.bias.samples > 5) {
+    html += '<div class="predict-meta-item"><span style="color:var(--accent)">▸</span> bias OM: ' + (data.bias.wind_bias >= 0 ? '+' : '') + data.bias.wind_bias.toFixed(1) + 'kn (' + data.bias.samples + ' camp.)</div>';
+  }
+  html += '<div class="predict-meta-item" style="margin-left:auto;color:var(--muted)">Generato: ' + new Date(data.generated_at).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'}) + '</div>';
+  html += '</div>';
+
+  // Prediction text
+  if (data.prediction) {
+    var formatted = data.prediction
+      .replace(/\*\*(.*?)\*\*/g, '<strong style="color:var(--accent)">$1</strong>');
+    html += '<div class="predict-output">' + formatted + '</div>';
+  }
+
+  // Refresh button
+  html += '<button class="btn-predict" style="margin-top:10px" onclick="loadPredict(this.dataset.zone)" data-zone="' + data.zone + '">↻ Aggiorna previsione</button>';
+
+  el.innerHTML = html;
+}
+
+// Fine codice - NAUTILUS v5.6.1
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

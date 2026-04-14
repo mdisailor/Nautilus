@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.3.5 — 2026-04-10 -->
+<!-- NAUTILUS v5.3.6 — 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -643,6 +643,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
         <span id="wd-now-dir" style="font-family:Bebas Neue,sans-serif;font-size:2rem;line-height:1;color:var(--text)">--</span>
       </div>
       <div id="wd-now-gust" style="font-family:DM Mono,monospace;font-size:0.45rem;color:var(--muted);margin-top:2px">raffica --kn</div>
+      <div id="wd-now-deg" style="font-family:DM Mono,monospace;font-size:0.45rem;color:var(--muted);margin-top:1px">--°</div>
     </div>
   </div>
 
@@ -685,6 +686,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
         <span id="wd-icon-dir" style="font-family:Bebas Neue,sans-serif;font-size:2rem;line-height:1;color:var(--text)">--</span>
       </div>
       <div id="wd-icon-gust" style="font-family:DM Mono,monospace;font-size:0.45rem;color:var(--muted);margin-top:2px">raffica --kn</div>
+      <div id="wd-icon-deg" style="font-family:DM Mono,monospace;font-size:0.45rem;color:var(--muted);margin-top:1px">--°</div>
     </div>
   </div>
 
@@ -1960,6 +1962,8 @@ function renderWeather() {
 
   document.getElementById('wind-needle').setAttribute('transform', `rotate(${avgDir},50,50)`);
   document.getElementById('wd-dir').textContent = degToDir(avgDir);
+  var nowDegEl = document.getElementById('wd-now-deg');
+  if (nowDegEl) nowDegEl.textContent = (nowDir !== undefined ? Math.round(nowDir) : '--') + '°';
   // ICON compass
   if (d._icon_wind_speed) {
     var iIdx = getCurrentIdx();
@@ -1974,6 +1978,8 @@ function renderWeather() {
     if (iconDirEl) iconDirEl.textContent = iDir !== null ? degToDir(iDir) : '--';
     if (iconGustEl) iconGustEl.textContent = 'raffica ' + (iGust ? iGust.toFixed(0) : '--') + 'kn';
     if (iconNeedle && iDir !== null) iconNeedle.setAttribute('transform', 'rotate(' + iDir + ',50,50)');
+    var iconDegEl = document.getElementById('wd-icon-deg');
+    if (iconDegEl) iconDegEl.textContent = (iDir !== null ? Math.round(iDir) : '--') + '°';
     if (iconSpdEl && iSpd) {
       iconSpdEl.style.color = iSpd >= 22 ? 'var(--danger)' : iSpd >= 11 ? 'var(--warn)' : iSpd >= 7 ? 'var(--gold)' : '#90caf9';
     }
@@ -2774,9 +2780,24 @@ async function runEngine() {
   const cont = document.getElementById('engine-content');
   btn.disabled = true;
   btn.textContent = '⏳ Analisi in corso...';
-  cont.innerHTML = '<div class="engine-empty">Calcolo diagnosi per ' + selectedZones.length + ' zona/e...<br><div class="loading" style="margin-top:16px"><div class="spinner"></div></div></div>';
+  cont.innerHTML = '<div class="engine-empty">Recupero dati aggiornati...<br><div class="loading" style="margin-top:16px"><div class="spinner"></div></div></div>';
 
   try {
+    // Fetch fresh Open-Meteo data before analysis to ensure consistency with Meteo tab
+    var engineLat = state.lat || 43.548;
+    var engineLon = state.lon || 10.310;
+    try {
+      var freshUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + engineLat + '&longitude=' + engineLon +
+        '&hourly=temperature_2m,relativehumidity_2m,surface_pressure,windspeed_10m,winddirection_10m,windgusts_10m,cloudcover,precipitation_probability,visibility,wave_height,wave_period,wave_direction,swell_wave_height,swell_wave_period,swell_wave_direction' +
+        '&wind_speed_unit=kn&timezone=Europe/Rome&forecast_days=2&models=best_match';
+      var freshRes = await fetch(freshUrl);
+      if (freshRes.ok) {
+        var freshData = await freshRes.json();
+        if (freshData.hourly) state.weatherData = freshData;
+      }
+    } catch(fe) {}
+    cont.innerHTML = '<div class="engine-empty">Calcolo diagnosi per ' + selectedZones.length + ' zona/e...<br><div class="loading" style="margin-top:16px"><div class="spinner"></div></div></div>';
+
     const promises = selectedZones.map(function(zk) {
       var fetchOpts = { method: 'GET' };
       if (state.weatherData) {
@@ -3826,7 +3847,7 @@ async function runBackfill() {
   setTimeout(function() { btn.textContent = '📥 14gg'; }, 3000);
 }
 
-// Fine codice - NAUTILUS v5.3.5
+// Fine codice - NAUTILUS v5.3.6
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

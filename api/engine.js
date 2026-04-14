@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.9 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.10 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1256,7 +1256,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.9', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.10', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -1547,7 +1547,9 @@ if (action === 'predict') {
     pLines.push('CONFIDENZA: bassa/media/alta con motivazione');
     pLines.push('PATTERN: pattern sinottico identificato dai dati storici');
     pLines.push('CONSIGLIO: indicazione operativa per la navigazione in questa zona');
-    pLines.push('Max 200 parole. Basati SOLO sui dati forniti, non su conoscenza generica.');
+    pLines.push(req.query.fast === '1'
+    ? 'Max 120 parole. Solo dati numerici essenziali: vento kn/direzione per H3 H6 H12, confidenza, consiglio 1 riga.'
+    : 'Max 200 parole. Basati SOLO sui dati forniti, non su conoscenza generica.');
     var prompt = pLines.join('\n');
 
         // Call Claude Sonnet
@@ -1560,7 +1562,7 @@ if (action === 'predict') {
       },
       body: JSON.stringify({
         model: req.query.fast === '1' ? 'claude-haiku-4-5-20251001' : 'claude-sonnet-4-20250514',
-        max_tokens: req.query.fast === '1' ? 400 : 600,
+        max_tokens: req.query.fast === '1' ? 300 : 600,
         messages: [{ role: 'user', content: prompt }]
       })
     });
@@ -1747,4 +1749,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.0
+// Fine codice - NAUTILUS ENGINE v2.9.10

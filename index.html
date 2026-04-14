@@ -4067,9 +4067,9 @@ function renderPredictHistory(data, el) {
       hour:'2-digit', minute:'2-digit'
     });
     var windDir = p.current_wind_dir !== null ? degToDir(p.current_wind_dir) : '--';
-    var h3 = extractWind(p.prediction_text, '3');
-    var h6 = extractWind(p.prediction_text, '6');
-    var h12 = extractWind(p.prediction_text, '12');
+    var h3 = p.forecast_h3 || extractWind(p.prediction_text, '3');
+    var h6 = p.forecast_h6 || extractWind(p.prediction_text, '6');
+    var h12 = p.forecast_h12 || extractWind(p.prediction_text, '12');
     var hasActual = item.actual_6h !== null || item.actual_12h !== null;
     var statusDot = hasActual ? '<span style="color:var(--safe)">●</span>' : '<span style="color:var(--muted)">○</span>';
 
@@ -4105,7 +4105,10 @@ function togglePredictItem(idx) {
   html += '</div>';
 
   [{h:'3',label:'H+3'},{h:'6',label:'H+6'},{h:'12',label:'H+12'}].forEach(function(hz) {
-    var predicted = extractWind(p.prediction_text, hz.h);
+    // Use pre-computed structured values if available, else parse text
+    var predicted = hz.h === '3' ? (p.forecast_h3 || extractWind(p.prediction_text, '3')) :
+                    hz.h === '6' ? (p.forecast_h6 || extractWind(p.prediction_text, '6')) :
+                                   (p.forecast_h12 || extractWind(p.prediction_text, '12'));
     var actual = hz.h === '6' ? item.actual_6h : (hz.h === '12' ? item.actual_12h : null);
     html += '<div class="predict-history-row">';
     html += '<span class="predict-history-label">' + hz.label + '</span>';

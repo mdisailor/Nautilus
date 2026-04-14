@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.12 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.13 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1256,7 +1256,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.12', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.13', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -1573,6 +1573,25 @@ if (action === 'predict') {
     var now3 = new Date();
     var predMins = now3.getMinutes() < 30 ? '00' : '30';
     var predKey = 'predict:' + zoneKey + ':' + now3.toISOString().slice(0, 13) + '-' + predMins;
+    // Extract structured wind values from AI text for easy comparison later
+    var extractWindVal = function(text, h) {
+      var patterns = [
+        new RegExp('H[+]?' + h + '[^:]*:\s*Vento[^0-9]*(\d+\.?\d*)-(\d+\.?\d*)\s*kn', 'i'),
+        new RegExp('H[+]?' + h + '[^:]*:\s*Vento[^0-9]*(\d+\.?\d*)\s*kn', 'i'),
+        new RegExp('\*\*H[+]?' + h + '[^*]*\*\*[^0-9]*(\d+\.?\d*)-(\d+\.?\d*)\s*kn', 'i'),
+        new RegExp('\*\*H[+]?' + h + '[^*]*\*\*[^0-9]*(\d+\.?\d*)\s*kn', 'i'),
+        new RegExp('H' + h + '\D{0,20}(\d+\.?\d*)-(\d+\.?\d?)\s*kn', 'i'),
+        new RegExp('H' + h + '\D{0,20}(\d+\.?\d?)\s*kn', 'i')
+      ];
+      for (var pi = 0; pi < patterns.length; pi++) {
+        var m = text.match(patterns[pi]);
+        if (m) {
+          if (m[2]) return parseFloat(((parseFloat(m[1])+parseFloat(m[2]))/2).toFixed(1));
+          return parseFloat(m[1]);
+        }
+      }
+      return null;
+    };
     var predRecord = {
       generated_at: now3.toISOString(),
       zone: zoneKey,
@@ -1582,7 +1601,10 @@ if (action === 'predict') {
       current_pressure: currentSnap ? currentSnap.pressure : null,
       current_wave: currentSnap ? currentSnap.wave_height : null,
       data_points: validSnaps.length,
-      similar_cases: similarCases.length
+      similar_cases: similarCases.length,
+      forecast_h3: extractWindVal(aiText, '3'),
+      forecast_h6: extractWindVal(aiText, '6'),
+      forecast_h12: extractWindVal(aiText, '12')
     };
     if (kvUrl && kvToken) {
       await kvSet(predKey, predRecord, 2592000, kvUrl, kvToken); // 30 days TTL
@@ -1616,17 +1638,20 @@ if (action === 'predict_history') {
     var now4 = new Date();
     // Search last 14 days, every hour = 336 slots but batch in groups
     // Use a smarter approach: check every hour for last 14 days
+    // Search last 7 days x 24 hours x 2 slots = 336 keys max
+    // Split into predict keys: check both :00 and :30 for each hour
     var predPromises = [];
-    for (var pd4 = 0; pd4 < 14; pd4++) {
+    for (var pd4 = 0; pd4 < 7; pd4++) {
       for (var ph4 = 0; ph4 < 24; ph4++) {
-        (function(dd, hh) {
-          var t = new Date(now4.getTime() - dd*86400000 - hh*3600000);
-          var mins4 = t.getMinutes() < 30 ? '00' : '30';
-          var key = 'predict:' + zoneKey + ':' + t.toISOString().slice(0,13) + '-' + mins4;
-          predPromises.push(kvGet(key, kvUrl, kvToken).then(function(v) {
-            return v ? v : null;
-          }));
-        })(pd4, ph4);
+        for (var pm4 = 0; pm4 < 2; pm4++) {
+          (function(dd, hh, mm) {
+            var t = new Date(now4.getTime() - dd*86400000 - hh*3600000 - mm*1800000);
+            var key = 'predict:' + zoneKey + ':' + t.toISOString().slice(0,13) + '-' + (mm === 0 ? '00' : '30');
+            predPromises.push(kvGet(key, kvUrl, kvToken).then(function(v) {
+              return v ? v : null;
+            }));
+          })(pd4, ph4, pm4);
+        }
       }
     }
     var allPreds4 = await Promise.all(predPromises);
@@ -1781,4 +1806,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.12
+// Fine codice - NAUTILUS ENGINE v2.9.13

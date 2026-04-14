@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.3.6 — 2026-04-14 -->
+<!-- NAUTILUS v5.3.7 — 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -605,88 +605,100 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div style="display:flex;align-items:flex-start;gap:12px;width:100%">
 
   <!-- OM compass -->
-  <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px">
-    <div style="font-family:DM Mono,monospace;font-size:0.42rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.1em">OM</div>
-    <svg class="wind-compass" viewBox="0 0 100 100">
-    <defs>
-      <filter id="glow"><feGaussianBlur stdDeviation="2.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-    </defs>
-    <circle cx="50" cy="50" r="47" fill="none" stroke="#0af0ff" stroke-width="2.5" opacity="0.6"/>
-    <circle cx="50" cy="50" r="44" fill="none" stroke="#0af0ff" stroke-width="0.8" opacity="0.25"/>
-    <circle cx="50" cy="50" r="43" fill="#030e1c"/>
-    <g stroke="#0af0ff" stroke-width="2" opacity="0.9">
-      <line x1="50" y1="3" x2="50" y2="12"/>
-      <line x1="50" y1="88" x2="50" y2="97"/>
-      <line x1="3"  y1="50" x2="12" y2="50"/>
-      <line x1="88" y1="50" x2="97" y2="50"/>
-    </g>
-    <g stroke="#4dd8e8" stroke-width="1.2" opacity="0.7">
-      <line x1="19" y1="19" x2="24" y2="24"/>
-      <line x1="81" y1="19" x2="76" y2="24"/>
-      <line x1="19" y1="81" x2="24" y2="76"/>
-      <line x1="81" y1="81" x2="76" y2="76"/>
-    </g>
-    <text x="50" y="16" text-anchor="middle" fill="#ffffff" font-size="12" font-family="DM Mono,monospace" font-weight="bold">N</text>
-    <text x="50" y="98" text-anchor="middle" fill="#a0d8f0" font-size="10" font-family="DM Mono,monospace" font-weight="bold">S</text>
-    <text x="7"  y="54" text-anchor="middle" fill="#a0d8f0" font-size="10" font-family="DM Mono,monospace" font-weight="bold">W</text>
-    <text x="93" y="54" text-anchor="middle" fill="#a0d8f0" font-size="10" font-family="DM Mono,monospace" font-weight="bold">E</text>
-    <g id="wind-needle" transform="rotate(0,50,50)">
-      <polygon points="50,14 45,53 50,49 55,53" fill="#0af0ff" filter="url(#glow)"/>
-      <polygon points="50,86 45,51 50,55 55,51" fill="#3a7090"/>
-      <circle cx="50" cy="50" r="5" fill="#020c18" stroke="#0af0ff" stroke-width="2.5"/>
-    </g>
-  </svg>
-    <div style="text-align:center">
-      <div style="display:flex;align-items:baseline;justify-content:center;gap:4px">
-        <span id="wd-now-speed" style="font-family:Bebas Neue,sans-serif;font-size:2rem;line-height:1;color:var(--accent)">--</span>
-        <span style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted)">kn</span>
-        <span id="wd-now-dir" style="font-family:Bebas Neue,sans-serif;font-size:2rem;line-height:1;color:var(--text)">--</span>
+  <div style="flex:1;display:flex;flex-direction:column;gap:4px">
+    <div style="font-family:DM Mono,monospace;font-size:0.42rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.1em;text-align:center">OM</div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+        <svg class="wind-compass" viewBox="0 0 100 100">
+        <defs>
+          <filter id="glow"><feGaussianBlur stdDeviation="2.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+        <circle cx="50" cy="50" r="47" fill="none" stroke="#0af0ff" stroke-width="2.5" opacity="0.6"/>
+        <circle cx="50" cy="50" r="44" fill="none" stroke="#0af0ff" stroke-width="0.8" opacity="0.25"/>
+        <circle cx="50" cy="50" r="43" fill="#030e1c"/>
+        <g stroke="#0af0ff" stroke-width="2" opacity="0.9">
+          <line x1="50" y1="3" x2="50" y2="12"/>
+          <line x1="50" y1="88" x2="50" y2="97"/>
+          <line x1="3"  y1="50" x2="12" y2="50"/>
+          <line x1="88" y1="50" x2="97" y2="50"/>
+        </g>
+        <g stroke="#4dd8e8" stroke-width="1.2" opacity="0.7">
+          <line x1="19" y1="19" x2="24" y2="24"/>
+          <line x1="81" y1="19" x2="76" y2="24"/>
+          <line x1="19" y1="81" x2="24" y2="76"/>
+          <line x1="81" y1="81" x2="76" y2="76"/>
+        </g>
+        <text x="50" y="16" text-anchor="middle" fill="#ffffff" font-size="12" font-family="DM Mono,monospace" font-weight="bold">N</text>
+        <text x="50" y="98" text-anchor="middle" fill="#a0d8f0" font-size="10" font-family="DM Mono,monospace" font-weight="bold">S</text>
+        <text x="7"  y="54" text-anchor="middle" fill="#a0d8f0" font-size="10" font-family="DM Mono,monospace" font-weight="bold">W</text>
+        <text x="93" y="54" text-anchor="middle" fill="#a0d8f0" font-size="10" font-family="DM Mono,monospace" font-weight="bold">E</text>
+        <g id="wind-needle" transform="rotate(0,50,50)">
+          <polygon points="50,14 45,53 50,49 55,53" fill="#0af0ff" filter="url(#glow)"/>
+          <polygon points="50,86 45,51 50,55 55,51" fill="#3a7090"/>
+          <circle cx="50" cy="50" r="5" fill="#020c18" stroke="#0af0ff" stroke-width="2.5"/>
+        </g>
+        </svg>
+        <div id="wd-now-deg" style="font-family:Bebas Neue,sans-serif;font-size:1rem;color:var(--muted);line-height:1">--°</div>
       </div>
-      <div id="wd-now-gust" style="font-family:DM Mono,monospace;font-size:0.45rem;color:var(--muted);margin-top:2px">raffica --kn</div>
-      <div id="wd-now-deg" style="font-family:DM Mono,monospace;font-size:0.45rem;color:var(--muted);margin-top:1px">--°</div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <div style="display:flex;align-items:baseline;gap:3px">
+          <span id="wd-now-speed" style="font-family:Bebas Neue,sans-serif;font-size:2rem;line-height:1;color:var(--accent)">--</span>
+          <span style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted)">kn</span>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:3px">
+          <span id="wd-now-dir" style="font-family:Bebas Neue,sans-serif;font-size:1.6rem;line-height:1;color:var(--text)">--</span>
+        </div>
+        <div id="wd-now-gust" style="font-family:DM Mono,monospace;font-size:0.45rem;color:var(--muted)">raffica --kn</div>
+      </div>
     </div>
   </div>
 
   <!-- ICON compass -->
-  <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px">
-    <div style="font-family:DM Mono,monospace;font-size:0.42rem;color:#90caf9;text-transform:uppercase;letter-spacing:0.1em">ICON</div>
-    <svg class="wind-compass" viewBox="0 0 100 100">
-    <defs>
-      <filter id="glow-icon"><feGaussianBlur stdDeviation="2.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-    </defs>
-    <circle cx="50" cy="50" r="47" fill="none" stroke="#90caf9" stroke-width="2.5" opacity="0.6"/>
-    <circle cx="50" cy="50" r="44" fill="none" stroke="#90caf9" stroke-width="0.8" opacity="0.25"/>
-    <circle cx="50" cy="50" r="43" fill="#030e1c"/>
-    <g stroke="#90caf9" stroke-width="2" opacity="0.9">
-      <line x1="50" y1="3" x2="50" y2="12"/>
-      <line x1="50" y1="88" x2="50" y2="97"/>
-      <line x1="3"  y1="50" x2="12" y2="50"/>
-      <line x1="88" y1="50" x2="97" y2="50"/>
-    </g>
-    <g stroke="#b0d4f0" stroke-width="1.2" opacity="0.7">
-      <line x1="19" y1="19" x2="24" y2="24"/>
-      <line x1="81" y1="19" x2="76" y2="24"/>
-      <line x1="19" y1="81" x2="24" y2="76"/>
-      <line x1="81" y1="81" x2="76" y2="76"/>
-    </g>
-    <text x="50" y="16" text-anchor="middle" fill="#ffffff" font-size="12" font-family="DM Mono,monospace" font-weight="bold">N</text>
-    <text x="50" y="98" text-anchor="middle" fill="#90caf9" font-size="10" font-family="DM Mono,monospace" font-weight="bold">S</text>
-    <text x="7"  y="54" text-anchor="middle" fill="#90caf9" font-size="10" font-family="DM Mono,monospace" font-weight="bold">W</text>
-    <text x="93" y="54" text-anchor="middle" fill="#90caf9" font-size="10" font-family="DM Mono,monospace" font-weight="bold">E</text>
-    <g id="icon-needle" transform="rotate(0,50,50)">
-      <polygon points="50,14 45,53 50,49 55,53" fill="#90caf9" filter="url(#glow-icon)"/>
-      <polygon points="50,86 45,51 50,55 55,51" fill="#2a5070"/>
-      <circle cx="50" cy="50" r="5" fill="#020c18" stroke="#90caf9" stroke-width="2.5"/>
-    </g>
-  </svg>
-    <div style="text-align:center">
-      <div style="display:flex;align-items:baseline;justify-content:center;gap:4px">
-        <span id="wd-icon-speed" style="font-family:Bebas Neue,sans-serif;font-size:2rem;line-height:1;color:#90caf9">--</span>
-        <span style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted)">kn</span>
-        <span id="wd-icon-dir" style="font-family:Bebas Neue,sans-serif;font-size:2rem;line-height:1;color:var(--text)">--</span>
+  <div style="flex:1;display:flex;flex-direction:column;gap:4px">
+    <div style="font-family:DM Mono,monospace;font-size:0.42rem;color:#90caf9;text-transform:uppercase;letter-spacing:0.1em;text-align:center">ICON</div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+        <svg class="wind-compass" viewBox="0 0 100 100">
+        <defs>
+          <filter id="glow-icon"><feGaussianBlur stdDeviation="2.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+        <circle cx="50" cy="50" r="47" fill="none" stroke="#90caf9" stroke-width="2.5" opacity="0.6"/>
+        <circle cx="50" cy="50" r="44" fill="none" stroke="#90caf9" stroke-width="0.8" opacity="0.25"/>
+        <circle cx="50" cy="50" r="43" fill="#030e1c"/>
+        <g stroke="#90caf9" stroke-width="2" opacity="0.9">
+          <line x1="50" y1="3" x2="50" y2="12"/>
+          <line x1="50" y1="88" x2="50" y2="97"/>
+          <line x1="3"  y1="50" x2="12" y2="50"/>
+          <line x1="88" y1="50" x2="97" y2="50"/>
+        </g>
+        <g stroke="#b0d4f0" stroke-width="1.2" opacity="0.7">
+          <line x1="19" y1="19" x2="24" y2="24"/>
+          <line x1="81" y1="19" x2="76" y2="24"/>
+          <line x1="19" y1="81" x2="24" y2="76"/>
+          <line x1="81" y1="81" x2="76" y2="76"/>
+        </g>
+        <text x="50" y="16" text-anchor="middle" fill="#ffffff" font-size="12" font-family="DM Mono,monospace" font-weight="bold">N</text>
+        <text x="50" y="98" text-anchor="middle" fill="#90caf9" font-size="10" font-family="DM Mono,monospace" font-weight="bold">S</text>
+        <text x="7"  y="54" text-anchor="middle" fill="#90caf9" font-size="10" font-family="DM Mono,monospace" font-weight="bold">W</text>
+        <text x="93" y="54" text-anchor="middle" fill="#90caf9" font-size="10" font-family="DM Mono,monospace" font-weight="bold">E</text>
+        <g id="icon-needle" transform="rotate(0,50,50)">
+          <polygon points="50,14 45,53 50,49 55,53" fill="#90caf9" filter="url(#glow-icon)"/>
+          <polygon points="50,86 45,51 50,55 55,51" fill="#2a5070"/>
+          <circle cx="50" cy="50" r="5" fill="#020c18" stroke="#90caf9" stroke-width="2.5"/>
+        </g>
+        </svg>
+        <div id="wd-icon-deg" style="font-family:Bebas Neue,sans-serif;font-size:1rem;color:var(--muted);line-height:1">--°</div>
       </div>
-      <div id="wd-icon-gust" style="font-family:DM Mono,monospace;font-size:0.45rem;color:var(--muted);margin-top:2px">raffica --kn</div>
-      <div id="wd-icon-deg" style="font-family:DM Mono,monospace;font-size:0.45rem;color:var(--muted);margin-top:1px">--°</div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <div style="display:flex;align-items:baseline;gap:3px">
+          <span id="wd-icon-speed" style="font-family:Bebas Neue,sans-serif;font-size:2rem;line-height:1;color:#90caf9">--</span>
+          <span style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted)">kn</span>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:3px">
+          <span id="wd-icon-dir" style="font-family:Bebas Neue,sans-serif;font-size:1.6rem;line-height:1;color:var(--text)">--</span>
+        </div>
+        <div id="wd-icon-gust" style="font-family:DM Mono,monospace;font-size:0.45rem;color:var(--muted)">raffica --kn</div>
+      </div>
     </div>
   </div>
 
@@ -2570,18 +2582,18 @@ function buildSimpleList(containerId, items) {
 const ENGINE_URL = 'https://nautilus-red.vercel.app/api/engine';
 
 const ALL_ZONES = [
-  { key: 'canale_piombino',  name: 'Canale di Piombino',       sub: 'Elba, Piombino, Punta Ala',         checked: true  },
-  { key: 'livorno',          name: 'Livorno',                   sub: 'Castiglioncello, Livorno Porto',    checked: true  },
-  { key: 'viareggio',        name: 'Viareggio - Versilia',      sub: 'Viareggio, Marina di Pisa',         checked: true  },
-  { key: 'capraia',          name: 'Capraia',                   sub: 'Capraia Porto',                     checked: false },
-  { key: 'elba_nord',        name: 'Elba Nord - Portoferraio',  sub: 'Portoferraio, Cavo, Rio Marina',    checked: false },
-  { key: 'elba_sud',         name: 'Elba Sud - Porto Azzurro',  sub: 'Porto Azzurro, Marina di Campo',    checked: false },
-  { key: 'gorgona',          name: 'Gorgona',                   sub: 'Isola di Gorgona',                  checked: false },
-  { key: 'giglio',           name: 'Isola del Giglio',          sub: 'Giglio Porto, Giglio Campese',      checked: false },
-  { key: 'castiglioncello',  name: 'Castiglioncello - Cecina',  sub: 'Castiglioncello, Cecina, S.Vincenzo',checked: false },
-  { key: 'punta_ala',        name: 'Punta Ala - Follonica',     sub: 'Punta Ala, Follonica',              checked: false },
-  { key: 'la_spezia',        name: 'La Spezia - Lerici',        sub: 'La Spezia, Lerici, Portovenere',    checked: false },
-  { key: 'bastia',           name: 'Bastia - Nord Corsica',     sub: 'Bastia, Saint-Florent',             checked: false },
+  { key: 'canale_piombino',  name: 'Canale di Piombino',       sub: 'Elba, Piombino, Punta Ala',          checked: true,  lat: 42.92, lon: 10.53 },
+  { key: 'livorno',          name: 'Livorno',                   sub: 'Castiglioncello, Livorno Porto',     checked: true,  lat: 43.55, lon: 10.31 },
+  { key: 'viareggio',        name: 'Viareggio - Versilia',      sub: 'Viareggio, Marina di Pisa',          checked: true,  lat: 43.87, lon: 10.23 },
+  { key: 'capraia',          name: 'Capraia',                   sub: 'Capraia Porto',                      checked: false, lat: 43.05, lon: 9.84  },
+  { key: 'elba_nord',        name: 'Elba Nord - Portoferraio',  sub: 'Portoferraio, Cavo, Rio Marina',     checked: false, lat: 42.82, lon: 10.33 },
+  { key: 'elba_sud',         name: 'Elba Sud - Porto Azzurro',  sub: 'Porto Azzurro, Marina di Campo',     checked: false, lat: 42.75, lon: 10.40 },
+  { key: 'gorgona',          name: 'Gorgona',                   sub: 'Isola di Gorgona',                   checked: false, lat: 43.43, lon: 9.90  },
+  { key: 'giglio',           name: 'Isola del Giglio',          sub: 'Giglio Porto, Giglio Campese',        checked: false, lat: 42.37, lon: 10.90 },
+  { key: 'castiglioncello',  name: 'Castiglioncello - Cecina',  sub: 'Castiglioncello, Cecina, S.Vincenzo', checked: false, lat: 43.40, lon: 10.49 },
+  { key: 'punta_ala',        name: 'Punta Ala - Follonica',     sub: 'Punta Ala, Follonica',               checked: false, lat: 42.80, lon: 10.73 },
+  { key: 'la_spezia',        name: 'La Spezia - Lerici',        sub: 'La Spezia, Lerici, Portovenere',     checked: false, lat: 44.10, lon: 9.82  },
+  { key: 'bastia',           name: 'Bastia - Nord Corsica',     sub: 'Bastia, Saint-Florent',              checked: false, lat: 42.70, lon: 9.45  },
 ];
 
 function loadEngine() {
@@ -2784,8 +2796,10 @@ async function runEngine() {
 
   try {
     // Fetch fresh Open-Meteo data before analysis to ensure consistency with Meteo tab
-    var engineLat = state.lat || 43.548;
-    var engineLon = state.lon || 10.310;
+    // Use coordinates of first selected zone for fresh fetch
+    var firstZone = ALL_ZONES.find(function(z) { return z.key === selectedZones[0]; });
+    var engineLat = firstZone ? firstZone.lat : (state.lat || 43.548);
+    var engineLon = firstZone ? firstZone.lon : (state.lon || 10.310);
     try {
       var freshUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + engineLat + '&longitude=' + engineLon +
         '&hourly=temperature_2m,relativehumidity_2m,surface_pressure,windspeed_10m,winddirection_10m,windgusts_10m,cloudcover,precipitation_probability,visibility,wave_height,wave_period,wave_direction,swell_wave_height,swell_wave_period,swell_wave_direction' +
@@ -3847,7 +3861,7 @@ async function runBackfill() {
   setTimeout(function() { btn.textContent = '📥 14gg'; }, 3000);
 }
 
-// Fine codice - NAUTILUS v5.3.6
+// Fine codice - NAUTILUS v5.3.7
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

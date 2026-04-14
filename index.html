@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.3.9 — 2026-04-14 -->
+<!-- NAUTILUS v5.6.0 — 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -526,7 +526,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.3.9 · by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.0 · by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1520,7 +1520,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica · Previsione operativa · v5.3.9 · by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica · Previsione operativa · v5.6.0 · by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -2807,7 +2807,16 @@ async function runEngine() {
       var freshRes = await fetch(freshUrl);
       if (freshRes.ok) {
         var freshData = await freshRes.json();
-        if (freshData.hourly) state.weatherData = freshData;
+        if (freshData.hourly) {
+          // Preserve existing ICON data if available
+          if (state.weatherData && state.weatherData._icon_wind_speed) {
+            freshData._icon_wind_speed = state.weatherData._icon_wind_speed;
+            freshData._icon_wind_dir = state.weatherData._icon_wind_dir;
+            freshData._icon_wind_gust = state.weatherData._icon_wind_gust;
+          }
+          state.weatherData = freshData;
+          renderWeather();
+        }
       }
     } catch(fe) {}
     cont.innerHTML = '<div class="engine-empty">Calcolo diagnosi per ' + selectedZones.length + ' zona/e...<br><div class="loading" style="margin-top:16px"><div class="spinner"></div></div></div>';
@@ -3861,7 +3870,7 @@ async function runBackfill() {
   setTimeout(function() { btn.textContent = '📥 14gg'; }, 3000);
 }
 
-// Fine codice - NAUTILUS v5.3.9
+// Fine codice - NAUTILUS v5.6.0
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

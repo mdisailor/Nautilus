@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.2 — 2026-04-14 -->
+<!-- NAUTILUS v5.6.3 — 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -465,6 +465,17 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 .verify-section { margin:12px 20px 0; }
 .predict-section { margin:12px 20px 0; }
 .predict-output { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px 16px; font-family:DM Mono,monospace; font-size:0.62rem; line-height:1.8; color:var(--text); margin-top:10px; white-space:pre-line; }
+.predict-history-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px 14px; margin-top:8px; }
+.predict-history-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+.predict-history-ts { font-family:DM Mono,monospace; font-size:0.52rem; color:var(--accent); }
+.predict-history-row { display:grid; grid-template-columns:2rem 1fr 1fr; gap:4px; align-items:center; padding:3px 0; border-bottom:1px solid rgba(58,96,128,0.15); }
+.predict-history-row:last-child { border-bottom:none; }
+.predict-history-label { font-family:DM Mono,monospace; font-size:0.48rem; color:var(--muted); }
+.predict-history-val { font-family:DM Mono,monospace; font-size:0.55rem; color:var(--text); }
+.predict-history-actual { font-family:DM Mono,monospace; font-size:0.55rem; }
+.predict-tab-bar { display:flex; gap:6px; margin-bottom:10px; }
+.predict-tab { flex:1; padding:7px; background:rgba(0,0,0,0.2); border:1px solid var(--border); border-radius:8px; color:var(--muted); font-family:DM Mono,monospace; font-size:0.55rem; cursor:pointer; text-align:center; }
+.predict-tab.active { background:rgba(144,202,249,0.15); border-color:#90caf9; color:#90caf9; }
 .predict-meta { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:8px; font-family:DM Mono,monospace; font-size:0.48rem; color:var(--muted); }
 .predict-meta-item { display:flex; gap:4px; align-items:center; }
 .btn-predict { padding:10px 16px; background:rgba(144,202,249,0.1); border:1px solid #90caf9; border-radius:10px; color:#90caf9; font-family:DM Mono,monospace; font-size:0.65rem; cursor:pointer; width:100%; letter-spacing:0.08em; }
@@ -532,7 +543,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.2 · by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.3 · by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1526,7 +1537,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica · Previsione operativa · v5.6.2 · by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica · Previsione operativa · v5.6.3 · by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -1568,9 +1579,21 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 
     <div class="predict-section" id="predict-section" style="display:none">
       <div style="font-family:DM Mono,monospace;font-size:0.55rem;color:#90caf9;letter-spacing:0.12em;text-transform:uppercase;opacity:0.8;margin-bottom:8px">⚡ Previsione Locale AI</div>
-      <div class="verify-zone-select" id="predict-zone-select"></div>
-      <div id="predict-content">
-        <div class="verify-empty">Seleziona una zona per la previsione locale basata su dati storici</div>
+      <div class="predict-tab-bar">
+        <button class="predict-tab active" id="predict-tab-new" onclick="switchPredictTab('new')">Nuova previsione</button>
+        <button class="predict-tab" id="predict-tab-history" onclick="switchPredictTab('history')">Storico & verifica</button>
+      </div>
+      <div id="predict-tab-new-content">
+        <div class="verify-zone-select" id="predict-zone-select"></div>
+        <div id="predict-content">
+          <div class="verify-empty">Seleziona una zona per la previsione locale basata su dati storici</div>
+        </div>
+      </div>
+      <div id="predict-tab-history-content" style="display:none">
+        <div class="verify-zone-select" id="predict-history-zone-select"></div>
+        <div id="predict-history-content">
+          <div class="verify-empty">Seleziona una zona per vedere lo storico previsioni</div>
+        </div>
       </div>
     </div>
 
@@ -3953,7 +3976,139 @@ function renderPredictContent(data, el) {
   el.innerHTML = html;
 }
 
-// Fine codice - NAUTILUS v5.6.2
+// -- STORICO PREVISIONI AI -------------------------------------------------------
+
+var predictHistoryCurrentZone = null;
+
+function switchPredictTab(tab) {
+  var newContent = document.getElementById('predict-tab-new-content');
+  var histContent = document.getElementById('predict-tab-history-content');
+  var tabNew = document.getElementById('predict-tab-new');
+  var tabHist = document.getElementById('predict-tab-history');
+  if (tab === 'new') {
+    newContent.style.display = 'block';
+    histContent.style.display = 'none';
+    tabNew.className = 'predict-tab active';
+    tabHist.className = 'predict-tab';
+  } else {
+    newContent.style.display = 'none';
+    histContent.style.display = 'block';
+    tabNew.className = 'predict-tab';
+    tabHist.className = 'predict-tab active';
+    // Populate zone buttons if not done
+    renderPredictHistoryZoneButtons();
+  }
+}
+
+function renderPredictHistoryZoneButtons() {
+  var container = document.getElementById('predict-history-zone-select');
+  if (!container || !engineResults) return;
+  var html = '';
+  Object.keys(engineResults).forEach(function(zk) {
+    var z = engineResults[zk];
+    if (z && !z.error) {
+      var isActive = zk === predictHistoryCurrentZone;
+      html += '<button class="verify-zone-btn' + (isActive ? ' active' : '') + '" onclick="loadPredictHistory(this.dataset.zone)" data-zone="' + zk + '">' +
+        (z.name || zk).split(' ')[0] +
+      '</button>';
+    }
+  });
+  container.innerHTML = html || '<div style="font-size:0.6rem;color:var(--muted)">Nessuna zona</div>';
+}
+
+async function loadPredictHistory(zoneKey) {
+  predictHistoryCurrentZone = zoneKey;
+  renderPredictHistoryZoneButtons();
+  var el = document.getElementById('predict-history-content');
+  el.innerHTML = '<div class="verify-empty"><div class="loading" style="display:inline-flex;margin-right:6px"><div class="spinner"></div></div>Caricamento storico...</div>';
+  try {
+    var res = await fetch(ENGINE_URL + '?action=predict_history&zone=' + zoneKey);
+    var data = await res.json();
+    if (data.error) {
+      el.innerHTML = '<div class="verify-empty" style="color:var(--danger)">' + data.error + '</div>';
+      return;
+    }
+    renderPredictHistory(data, el);
+  } catch(err) {
+    el.innerHTML = '<div class="verify-empty" style="color:var(--danger)">Errore: ' + err.message + '</div>';
+  }
+}
+
+function renderPredictHistory(data, el) {
+  if (!data.predictions || data.predictions.length === 0) {
+    el.innerHTML = '<div class="verify-empty">Nessuna previsione salvata per questa zona</div>';
+    return;
+  }
+
+  var html = '<div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);margin-bottom:8px">' +
+    data.total + ' previsioni salvate</div>';
+
+  data.predictions.forEach(function(item) {
+    var p = item.prediction;
+    var ts = new Date(p.generated_at).toLocaleString('it-IT', {
+      timeZone:'Europe/Rome', day:'2-digit', month:'2-digit',
+      hour:'2-digit', minute:'2-digit'
+    });
+
+    html += '<div class="predict-history-card">';
+
+    // Header
+    html += '<div class="predict-history-header">';
+    html += '<span class="predict-history-ts">' + ts + '</span>';
+    var windDir = p.current_wind_dir !== null ? degToDir(p.current_wind_dir) : '--';
+    html += '<span style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted)">' +
+      (p.current_wind ? p.current_wind.toFixed(1) : '--') + 'kn ' + windDir +
+      ' · ' + (p.current_pressure ? p.current_pressure.toFixed(0) : '--') + 'hPa</span>';
+    html += '</div>';
+
+    // Comparison header
+    html += '<div class="predict-history-row">';
+    html += '<span class="predict-history-label"></span>';
+    html += '<span class="predict-history-label" style="color:var(--accent)">▸ Previsto</span>';
+    html += '<span class="predict-history-label" style="color:var(--safe)">▸ Reale</span>';
+    html += '</div>';
+
+    // Extract numeric values from prediction text
+    var extractWind = function(text, horizon) {
+      var patterns = [
+        new RegExp('H\+?' + horizon + '[^:]*:\s*Vento[^\d]*(\d+\.?\d*)[^k]*kn', 'i'),
+        new RegExp('H' + horizon + '\D*(\d+\.?\d*)-(\d+\.?\d*)\s*kn', 'i'),
+        new RegExp('H\+?' + horizon + '\D*(\d+\.?\d*)\s*kn', 'i')
+      ];
+      for (var i = 0; i < patterns.length; i++) {
+        var m = text.match(patterns[i]);
+        if (m) return m[2] ? ((parseFloat(m[1])+parseFloat(m[2]))/2).toFixed(1) : m[1];
+      }
+      return null;
+    };
+
+    var horizons = [{h:'3', label:'H+3'}, {h:'6', label:'H+6'}, {h:'12', label:'H+12'}];
+    horizons.forEach(function(hz) {
+      var predicted = extractWind(p.prediction_text, hz.h);
+      var actual = hz.h === '6' ? item.actual_6h : (hz.h === '12' ? item.actual_12h : null);
+
+      html += '<div class="predict-history-row">';
+      html += '<span class="predict-history-label">' + hz.label + '</span>';
+      html += '<span class="predict-history-val">' + (predicted ? predicted + 'kn' : '--') + '</span>';
+
+      if (actual !== null) {
+        var diff = predicted ? Math.abs(parseFloat(predicted) - actual).toFixed(1) : null;
+        var color = diff ? (parseFloat(diff) <= 1.5 ? 'var(--safe)' : parseFloat(diff) <= 3 ? 'var(--gold)' : 'var(--danger)') : 'var(--muted)';
+        html += '<span class="predict-history-actual" style="color:' + color + '">' +
+          actual.toFixed(1) + 'kn' + (diff ? ' (Δ' + diff + ')' : '') + '</span>';
+      } else {
+        html += '<span class="predict-history-actual" style="color:var(--muted)">in attesa</span>';
+      }
+      html += '</div>';
+    });
+
+    html += '</div>';
+  });
+
+  el.innerHTML = html;
+}
+
+// Fine codice - NAUTILUS v5.6.3
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

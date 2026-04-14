@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.11 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.12 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1256,7 +1256,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.11', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.12', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -1614,36 +1614,67 @@ if (action === 'predict_history') {
   }
   try {
     var now4 = new Date();
-    // Read last 30 days - one key per hour (predictions generated once/day at 7:00)
-    // Max 30 keys to stay within timeout
+    // Search last 14 days, every hour = 336 slots but batch in groups
+    // Use a smarter approach: check every hour for last 14 days
     var predPromises = [];
-    for (var pd = 0; pd < 30; pd++) {
-      (function(dd) {
-        var t = new Date(now4.getTime() - dd*86400000);
-        var key = 'predict:' + zoneKey + ':' + t.toISOString().slice(0,13) + '-00';
-        predPromises.push(kvGet(key, kvUrl, kvToken).then(function(v) {
-          return v ? v : null;
-        }));
-        // Also check :30 slot for manual predictions
-        var key2 = 'predict:' + zoneKey + ':' + t.toISOString().slice(0,13) + '-30';
-        predPromises.push(kvGet(key2, kvUrl, kvToken).then(function(v) {
-          return v ? v : null;
-        }));
-      })(pd);
+    for (var pd4 = 0; pd4 < 14; pd4++) {
+      for (var ph4 = 0; ph4 < 24; ph4++) {
+        (function(dd, hh) {
+          var t = new Date(now4.getTime() - dd*86400000 - hh*3600000);
+          var mins4 = t.getMinutes() < 30 ? '00' : '30';
+          var key = 'predict:' + zoneKey + ':' + t.toISOString().slice(0,13) + '-' + mins4;
+          predPromises.push(kvGet(key, kvUrl, kvToken).then(function(v) {
+            return v ? v : null;
+          }));
+        })(pd4, ph4);
+      }
     }
-    var allPreds = await Promise.all(predPromises);
-    var predictions = allPreds.filter(function(p) { return p !== null; });
-    predictions.sort(function(a,b) { return new Date(b.generated_at) - new Date(a.generated_at); });
+    var allPreds4 = await Promise.all(predPromises);
+    // Deduplicate by generated_at
+    var seen = {};
+    var predictions4 = allPreds4.filter(function(p) {
+      if (!p || !p.generated_at) return false;
+      var key = p.generated_at;
+      if (seen[key]) return false;
+      seen[key] = true;
+      return true;
+    });
+    predictions4.sort(function(a,b) { return new Date(b.generated_at) - new Date(a.generated_at); });
 
-    // For each prediction, find the actual snapshot 6h and 12h later
-    var withActual = predictions.slice(0, 20).map(function(p) {
-      return { prediction: p, actual_6h: null, actual_12h: null };
+    // For each prediction, find actual snapshot at h6 and h12
+    var top10 = predictions4.slice(0, 10);
+    var actualPromises = [];
+    top10.forEach(function(p) {
+      var genTime = new Date(p.generated_at);
+      // h6 actual
+      var t6 = new Date(genTime.getTime() + 6*3600000);
+      var m6 = t6.getMinutes() < 30 ? '00' : '30';
+      var k6 = 'snap:' + zoneKey + ':' + t6.toISOString().slice(0,13) + '-' + m6;
+      actualPromises.push(kvGet(k6, kvUrl, kvToken));
+      // h12 actual
+      var t12 = new Date(genTime.getTime() + 12*3600000);
+      var m12 = t12.getMinutes() < 30 ? '00' : '30';
+      var k12 = 'snap:' + zoneKey + ':' + t12.toISOString().slice(0,13) + '-' + m12;
+      actualPromises.push(kvGet(k12, kvUrl, kvToken));
+    });
+    var actuals = await Promise.all(actualPromises);
+
+    var withActual = top10.map(function(p, i) {
+      var snap6 = actuals[i*2];
+      var snap12 = actuals[i*2+1];
+      return {
+        prediction: p,
+        actual_6h: snap6 ? snap6.wind_speed : null,
+        actual_6h_dir: snap6 ? snap6.wind_dir : null,
+        actual_12h: snap12 ? snap12.wind_speed : null,
+        actual_12h_dir: snap12 ? snap12.wind_dir : null
+      };
     });
 
     return res.status(200).json({
       zone: zoneKey,
       name: ZONES[zoneKey].name,
-      total: predictions.length,
+      total: predictions4.length,
       predictions: withActual
     });
   } catch(e) {
@@ -1750,4 +1781,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.11
+// Fine codice - NAUTILUS ENGINE v2.9.12

@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.4 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.5 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -822,12 +822,40 @@ if (sgData.current_dir)  base.current_dir = sgData.current_dir;
 base.wind_speed_om = base.wind_speed;
 base.wind_dir_om = base.wind_dir;
 
-// OWM observed wind overrides model for diagnosis - more accurate for current conditions
+// OWM coherence check - only use OWM if consistent with model
+// If direction differs by more than 90 degrees AND speed differs significantly, distrust OWM
 if (owmData && owmData.wind_speed_obs !== null && owmData.wind_speed_obs !== undefined) {
-base.wind_speed = owmData.wind_speed_obs;
-base.wind_dir = owmData.wind_dir_obs !== null ? owmData.wind_dir_obs : base.wind_dir;
-base.wind_gust = owmData.wind_gust_obs !== null ? owmData.wind_gust_obs : base.wind_gust;
-base.sources.wind = 'owm_observed';
+  var owmSpeed = owmData.wind_speed_obs;
+  var owmDir = owmData.wind_dir_obs !== null ? owmData.wind_dir_obs : base.wind_dir_om;
+  var omSpeed = base.wind_speed_om;
+  var omDir = base.wind_dir_om;
+
+  // Calculate angular difference between OWM and OM directions
+  var dirDiff = Math.abs(owmDir - omDir);
+  if (dirDiff > 180) dirDiff = 360 - dirDiff;
+
+  // Calculate speed ratio (how different are the speeds)
+  var maxSpeed = Math.max(owmSpeed, omSpeed, 0.1);
+  var speedDiff = Math.abs(owmSpeed - omSpeed) / maxSpeed;
+
+  // Use OWM only if coherent with model:
+  // - direction within 90 degrees OR both speeds are very low (< 3kn, direction unreliable)
+  // - speed not diverging by more than 70%
+  var bothLow = owmSpeed < 3 && omSpeed < 3;
+  var dirCoherent = dirDiff <= 90;
+  var speedCoherent = speedDiff <= 0.7;
+  var owmCoherent = bothLow || (dirCoherent && speedCoherent);
+
+  if (owmCoherent) {
+    base.wind_speed = owmSpeed;
+    base.wind_dir = owmDir;
+    base.wind_gust = owmData.wind_gust_obs !== null ? owmData.wind_gust_obs : base.wind_gust;
+    base.sources.wind = 'owm_observed';
+  } else {
+    // OWM diverges too much - keep OM but flag it
+    base.sources.wind = 'open-meteo (owm-discarded dir:' + Math.round(dirDiff) + 'deg)';
+    base.owm_discarded = true;
+  }
 }
 
 return base;
@@ -1262,7 +1290,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.8.4', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.5', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones

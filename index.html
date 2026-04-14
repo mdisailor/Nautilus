@@ -4034,78 +4034,98 @@ async function loadPredictHistory(zoneKey) {
   }
 }
 
+// Store loaded predictions for accordion
+var predictHistoryData = [];
+
+function extractWind(text, horizon) {
+  var patterns = [
+    new RegExp('H\\+?' + horizon + '[^:]*:\\s*Vento[^\\d]*(\\d+\\.?\\d*)[^k]*kn', 'i'),
+    new RegExp('H' + horizon + '\\D*(\\d+\\.?\\d*)-(\\d+\\.?\\d*)\\s*kn', 'i'),
+    new RegExp('H\\+?' + horizon + '\\D*(\\d+\\.?\\d*)\\s*kn', 'i')
+  ];
+  for (var i = 0; i < patterns.length; i++) {
+    var m = text.match(patterns[i]);
+    if (m) return m[2] ? ((parseFloat(m[1])+parseFloat(m[2]))/2).toFixed(1) : m[1];
+  }
+  return null;
+}
+
 function renderPredictHistory(data, el) {
   if (!data.predictions || data.predictions.length === 0) {
     el.innerHTML = '<div class="verify-empty">Nessuna previsione salvata per questa zona</div>';
     return;
   }
+  predictHistoryData = data.predictions;
 
   var html = '<div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);margin-bottom:8px">' +
-    data.total + ' previsioni salvate</div>';
+    data.total + ' previsioni salvate — clicca per espandere</div>';
 
-  data.predictions.forEach(function(item) {
+  data.predictions.forEach(function(item, idx) {
     var p = item.prediction;
     var ts = new Date(p.generated_at).toLocaleString('it-IT', {
       timeZone:'Europe/Rome', day:'2-digit', month:'2-digit',
       hour:'2-digit', minute:'2-digit'
     });
-
-    html += '<div class="predict-history-card">';
-
-    // Header
-    html += '<div class="predict-history-header">';
-    html += '<span class="predict-history-ts">' + ts + '</span>';
     var windDir = p.current_wind_dir !== null ? degToDir(p.current_wind_dir) : '--';
+    var h3 = extractWind(p.prediction_text, '3');
+    var h6 = extractWind(p.prediction_text, '6');
+    var h12 = extractWind(p.prediction_text, '12');
+    var hasActual = item.actual_6h !== null || item.actual_12h !== null;
+    var statusDot = hasActual ? '<span style="color:var(--safe)">●</span>' : '<span style="color:var(--muted)">○</span>';
+
+    html += '<div class="predict-history-card" style="cursor:pointer" onclick="togglePredictItem(' + idx + ')">';
+    html += '<div class="predict-history-header">';
+    html += '<span class="predict-history-ts">' + statusDot + ' ' + ts + '</span>';
     html += '<span style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted)">' +
-      (p.current_wind ? p.current_wind.toFixed(1) : '--') + 'kn ' + windDir +
-      ' · ' + (p.current_pressure ? p.current_pressure.toFixed(0) : '--') + 'hPa</span>';
+      (p.current_wind ? p.current_wind.toFixed(1) : '--') + 'kn ' + windDir + ' ▾</span>';
     html += '</div>';
-
-    // Comparison header
-    html += '<div class="predict-history-row">';
-    html += '<span class="predict-history-label"></span>';
-    html += '<span class="predict-history-label" style="color:var(--accent)">▸ Previsto</span>';
-    html += '<span class="predict-history-label" style="color:var(--safe)">▸ Reale</span>';
-    html += '</div>';
-
-    // Extract numeric values from prediction text
-    var extractWind = function(text, horizon) {
-      var patterns = [
-        new RegExp('H\+?' + horizon + '[^:]*:\s*Vento[^\d]*(\d+\.?\d*)[^k]*kn', 'i'),
-        new RegExp('H' + horizon + '\D*(\d+\.?\d*)-(\d+\.?\d*)\s*kn', 'i'),
-        new RegExp('H\+?' + horizon + '\D*(\d+\.?\d*)\s*kn', 'i')
-      ];
-      for (var i = 0; i < patterns.length; i++) {
-        var m = text.match(patterns[i]);
-        if (m) return m[2] ? ((parseFloat(m[1])+parseFloat(m[2]))/2).toFixed(1) : m[1];
-      }
-      return null;
-    };
-
-    var horizons = [{h:'3', label:'H+3'}, {h:'6', label:'H+6'}, {h:'12', label:'H+12'}];
-    horizons.forEach(function(hz) {
-      var predicted = extractWind(p.prediction_text, hz.h);
-      var actual = hz.h === '6' ? item.actual_6h : (hz.h === '12' ? item.actual_12h : null);
-
-      html += '<div class="predict-history-row">';
-      html += '<span class="predict-history-label">' + hz.label + '</span>';
-      html += '<span class="predict-history-val">' + (predicted ? predicted + 'kn' : '--') + '</span>';
-
-      if (actual !== null) {
-        var diff = predicted ? Math.abs(parseFloat(predicted) - actual).toFixed(1) : null;
-        var color = diff ? (parseFloat(diff) <= 1.5 ? 'var(--safe)' : parseFloat(diff) <= 3 ? 'var(--gold)' : 'var(--danger)') : 'var(--muted)';
-        html += '<span class="predict-history-actual" style="color:' + color + '">' +
-          actual.toFixed(1) + 'kn' + (diff ? ' (Δ' + diff + ')' : '') + '</span>';
-      } else {
-        html += '<span class="predict-history-actual" style="color:var(--muted)">in attesa</span>';
-      }
-      html += '</div>';
-    });
-
+    html += '<div style="font-family:DM Mono,monospace;font-size:0.48rem;color:var(--muted)">' +
+      'H3: ' + (h3 ? h3 + 'kn' : '--') + ' · H6: ' + (h6 ? h6 + 'kn' : '--') + ' · H12: ' + (h12 ? h12 + 'kn' : '--') + '</div>';
+    html += '<div id="predict-item-' + idx + '" style="display:none;margin-top:10px"></div>';
     html += '</div>';
   });
 
   el.innerHTML = html;
+}
+
+function togglePredictItem(idx) {
+  var el = document.getElementById('predict-item-' + idx);
+  if (!el) return;
+  if (el.style.display !== 'none') { el.style.display = 'none'; return; }
+
+  var item = predictHistoryData[idx];
+  var p = item.prediction;
+  var html = '';
+
+  // Comparison table
+  html += '<div class="predict-history-row">';
+  html += '<span class="predict-history-label"></span>';
+  html += '<span class="predict-history-label" style="color:var(--accent)">Previsto</span>';
+  html += '<span class="predict-history-label" style="color:var(--safe)">Reale</span>';
+  html += '</div>';
+
+  [{h:'3',label:'H+3'},{h:'6',label:'H+6'},{h:'12',label:'H+12'}].forEach(function(hz) {
+    var predicted = extractWind(p.prediction_text, hz.h);
+    var actual = hz.h === '6' ? item.actual_6h : (hz.h === '12' ? item.actual_12h : null);
+    html += '<div class="predict-history-row">';
+    html += '<span class="predict-history-label">' + hz.label + '</span>';
+    html += '<span class="predict-history-val">' + (predicted ? predicted + 'kn' : '--') + '</span>';
+    if (actual !== null) {
+      var diff = predicted ? Math.abs(parseFloat(predicted) - actual).toFixed(1) : null;
+      var color = diff ? (parseFloat(diff) <= 1.5 ? 'var(--safe)' : parseFloat(diff) <= 3 ? 'var(--gold)' : 'var(--danger)') : 'var(--muted)';
+      html += '<span class="predict-history-actual" style="color:' + color + '">' + actual.toFixed(1) + 'kn' + (diff ? ' Δ' + diff : '') + '</span>';
+    } else {
+      html += '<span class="predict-history-actual" style="color:var(--muted)">in attesa</span>';
+    }
+    html += '</div>';
+  });
+
+  // Full prediction text
+  html += '<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-family:DM Mono,monospace;font-size:0.55rem;line-height:1.7;color:var(--text);white-space:pre-line">' +
+    p.prediction_text.replace(/\*\*(.*?)\*\*/g, '<strong style="color:var(--accent)">$1</strong>') + '</div>';
+
+  el.innerHTML = html;
+  el.style.display = 'block';
 }
 
 // Fine codice - NAUTILUS v5.6.3

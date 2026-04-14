@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.7 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.8 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1256,7 +1256,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.7', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.8', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -1567,18 +1567,82 @@ if (action === 'predict') {
     var aiData = await aiRes.json();
     var aiText = aiData.content && aiData.content[0] ? aiData.content[0].text : 'Errore risposta AI';
 
-    return res.status(200).json({
+    // Save prediction to KV for later verification
+    var now3 = new Date();
+    var predMins = now3.getMinutes() < 30 ? '00' : '30';
+    var predKey = 'predict:' + zoneKey + ':' + now3.toISOString().slice(0, 13) + '-' + predMins;
+    var predRecord = {
+      generated_at: now3.toISOString(),
+      zone: zoneKey,
+      prediction_text: aiText,
+      current_wind: currentSnap ? currentSnap.wind_speed : null,
+      current_wind_dir: currentSnap ? currentSnap.wind_dir : null,
+      current_pressure: currentSnap ? currentSnap.pressure : null,
+      current_wave: currentSnap ? currentSnap.wave_height : null,
+      data_points: validSnaps.length,
+      similar_cases: similarCases.length
+    };
+    if (kvUrl && kvToken) {
+      await kvSet(predKey, predRecord, 2592000, kvUrl, kvToken); // 30 days TTL
+    }
+
+    var result = {
       zone: zoneKey,
       name: ZONES[zoneKey].name,
-      generated_at: new Date().toISOString(),
+      generated_at: now3.toISOString(),
+      saved_key: predKey,
       current: currentSnap,
       bias: bias,
       rotation: rotation,
       similar_cases: similarCases.length,
       prediction: aiText,
       data_points: validSnaps.length
+    };
+    return res.status(200).json(result);
+
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+// /api/engine?action=predict_history&zone=xxx - get saved predictions for verification
+if (action === 'predict_history') {
+  if (!zoneKey || !ZONES[zoneKey]) {
+    return res.status(404).json({ error: 'Zona non trovata' });
+  }
+  try {
+    var now4 = new Date();
+    var predPromises = [];
+    // Read last 7 days of saved predictions (2 per hour = 336 slots)
+    for (var pd = 0; pd < 7; pd++) {
+      for (var ph = 0; ph < 24; ph++) {
+        for (var pm = 0; pm < 2; pm++) {
+          (function(dd, hh, mm) {
+            var t = new Date(now4.getTime() - dd*86400000 - hh*3600000 - mm*1800000);
+            var mins2 = t.getMinutes() < 30 ? '00' : '30';
+            var key = 'predict:' + zoneKey + ':' + t.toISOString().slice(0,13) + '-' + mins2;
+            predPromises.push(kvGet(key, kvUrl, kvToken).then(function(v) {
+              return v ? v : null;
+            }));
+          })(pd, ph, pm);
+        }
+      }
+    }
+    var allPreds = await Promise.all(predPromises);
+    var predictions = allPreds.filter(function(p) { return p !== null; });
+    predictions.sort(function(a,b) { return new Date(b.generated_at) - new Date(a.generated_at); });
+
+    // For each prediction, find the actual snapshot 6h and 12h later
+    var withActual = predictions.slice(0, 20).map(function(p) {
+      return { prediction: p, actual_6h: null, actual_12h: null };
     });
 
+    return res.status(200).json({
+      zone: zoneKey,
+      name: ZONES[zoneKey].name,
+      total: predictions.length,
+      predictions: withActual
+    });
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }

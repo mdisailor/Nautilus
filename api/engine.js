@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.13 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.14 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1256,7 +1256,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.13', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.14', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -1575,20 +1575,18 @@ if (action === 'predict') {
     var predKey = 'predict:' + zoneKey + ':' + now3.toISOString().slice(0, 13) + '-' + predMins;
     // Extract structured wind values from AI text for easy comparison later
     var extractWindVal = function(text, h) {
-      var patterns = [
-        new RegExp('H[+]?' + h + '[^:]*:\s*Vento[^0-9]*(\d+\.?\d*)-(\d+\.?\d*)\s*kn', 'i'),
-        new RegExp('H[+]?' + h + '[^:]*:\s*Vento[^0-9]*(\d+\.?\d*)\s*kn', 'i'),
-        new RegExp('\*\*H[+]?' + h + '[^*]*\*\*[^0-9]*(\d+\.?\d*)-(\d+\.?\d*)\s*kn', 'i'),
-        new RegExp('\*\*H[+]?' + h + '[^*]*\*\*[^0-9]*(\d+\.?\d*)\s*kn', 'i'),
-        new RegExp('H' + h + '\D{0,20}(\d+\.?\d*)-(\d+\.?\d?)\s*kn', 'i'),
-        new RegExp('H' + h + '\D{0,20}(\d+\.?\d?)\s*kn', 'i')
-      ];
-      for (var pi = 0; pi < patterns.length; pi++) {
-        var m = text.match(patterns[pi]);
-        if (m) {
-          if (m[2]) return parseFloat(((parseFloat(m[1])+parseFloat(m[2]))/2).toFixed(1));
-          return parseFloat(m[1]);
-        }
+      // Find lines containing H3/H6/H12 and extract first number before 'kn'
+      var lines = text.split('\n');
+      for (var li = 0; li < lines.length; li++) {
+        var line = lines[li];
+        var lup = line.toUpperCase();
+        // Match H3, H+3, H3:, **H+3** etc
+        if (lup.indexOf('H' + h) === -1 && lup.indexOf('H+' + h) === -1) continue;
+        // Extract numbers before kn - look for pattern like 5.8kn or 5-7kn
+        var nums = line.match(/([0-9]+\.?[0-9]*)-([0-9]+\.?[0-9]*)\s*kn/i);
+        if (nums) return parseFloat(((parseFloat(nums[1])+parseFloat(nums[2]))/2).toFixed(1));
+        var num = line.match(/([0-9]+\.?[0-9]*)\s*kn/i);
+        if (num) return parseFloat(num[1]);
       }
       return null;
     };
@@ -1806,4 +1804,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.13
+// Fine codice - NAUTILUS ENGINE v2.9.14

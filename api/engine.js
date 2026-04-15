@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.18 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.21 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1249,7 +1249,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.18', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.21', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -1270,8 +1270,16 @@ if (req.query.zones) {
 var csResults = {};
 var csPromises = csZones.map(function(zk) {
   var zone = ZONES[zk];
-  return fetchOpenMeteo(zone.lat, zone.lon, 'best_match')
-    .then(function(omData) {
+  var owmKeyCs = process.env.OWM_KEY || null;
+  // Fetch OM, ICON and OWM in parallel
+  return Promise.all([
+    fetchOpenMeteo(zone.lat, zone.lon, 'best_match'),
+    fetchOpenMeteo(zone.lat, zone.lon, 'icon_seamless'),
+    owmKeyCs ? fetchOWM(zone.lat, zone.lon, owmKeyCs) : Promise.resolve(null)
+  ]).then(function(results) {
+      var omData = results[0];
+      var iconData = results[1];
+      var owmData = results[2];
       if (!omData || !omData.hourly) throw new Error('OM fetch failed');
       var romeParts = new Intl.DateTimeFormat('en-CA', {
         timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit'
@@ -1282,6 +1290,7 @@ var csPromises = csZones.map(function(zk) {
       var h = omData.hourly;
       var idx2 = h.time.findIndex(function(t) { return t === romeHour; });
       if (idx2 === -1) idx2 = 0;
+      var iconH = iconData && iconData.hourly ? iconData.hourly : null;
       var snap = {
         wind_speed: h.windspeed_10m ? h.windspeed_10m[idx2] : null,
         wind_dir: h.winddirection_10m ? h.winddirection_10m[idx2] : null,
@@ -1297,10 +1306,19 @@ var csPromises = csZones.map(function(zk) {
         swell_period: h.swell_wave_period ? h.swell_wave_period[idx2] : null,
         swell_dir: h.swell_wave_direction ? h.swell_wave_direction[idx2] : null,
         wind_speed_om: h.windspeed_10m ? h.windspeed_10m[idx2] : null,
-        wind_dir_om: h.winddirection_10m ? h.winddirection_10m[idx2] : null
+        wind_dir_om: h.winddirection_10m ? h.winddirection_10m[idx2] : null,
+        icon_wind_speed: iconH && iconH.windspeed_10m ? iconH.windspeed_10m[idx2] : null,
+        icon_wind_dir: iconH && iconH.winddirection_10m ? iconH.winddirection_10m[idx2] : null,
+        wind_speed_obs: owmData ? owmData.wind_speed_obs : null,
+        wind_dir_obs: owmData ? owmData.wind_dir_obs : null,
+        wind_gust_obs: owmData ? owmData.wind_gust_obs : null,
+        pressure_obs: owmData ? owmData.pressure_obs : null,
+        obs_source: owmData ? owmData.source : null,
+        obs_station: owmData ? owmData.station : null,
+        obs_time: owmData ? owmData.obs_time : null
       };
       return saveZoneSnapshot(zk, snap, kvUrl, kvToken)
-        .then(function() { csResults[zk] = { ok: true }; });
+        .then(function() { csResults[zk] = { ok: true, icon: !!iconH, owm: !!owmData }; });
     })
     .catch(function(e) { csResults[zk] = { ok: false, error: e.message }; });
 });
@@ -1500,7 +1518,7 @@ if (action === 'predict') {
     if (!anthropicKey) return res.status(500).json({ error: 'ANTHROPIC_KEY non configurata' });
 
     // Get last 14 days of snapshots
-    var snapshots14 = await getWindHistory(zoneKey, kvUrl, kvToken, 336); // 14 days * 24h
+    var snapshots14 = await getWindHistory(zoneKey, kvUrl, kvToken, req.query.fast === '1' ? 240 : 336); // fast=10days, full=14days
     var bias = await getBias(zoneKey, kvUrl, kvToken);
     var rotation = analyzeWindRotation(snapshots14.slice(0, 24)); // rotation from last 24h
 
@@ -1854,4 +1872,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.18
+// Fine codice - NAUTILUS ENGINE v2.9.21

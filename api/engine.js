@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.16 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.17 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1107,15 +1107,10 @@ if (clientWeatherData) {
 omData = clientWeatherData;
 owmData = await fetchOWM(zone.lat, zone.lon, owmKey);
 } else {
-// Cron mode: only fetch OM to stay within timeout - skip OWM
+// Cron mode: only fetch OM best_match - skip OWM and ICON to stay within timeout
 omData = await fetchOpenMeteo(zone.lat, zone.lon, 'best_match');
 owmData = null;
-// Fetch ICON separately - display only, does not affect calculations
 var iconData = null;
-try {
-  var iconRaw = await fetchOpenMeteo(zone.lat, zone.lon, 'icon_seamless');
-  if (iconRaw && iconRaw.hourly) { iconData = iconRaw; }
-} catch(e) {}
 }
 
 var sgData = null;
@@ -1254,7 +1249,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.16', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.17', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -1804,4 +1799,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.16
+// Fine codice - NAUTILUS ENGINE v2.9.17

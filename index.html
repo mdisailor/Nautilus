@@ -720,8 +720,6 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
     </div>
   </div>
 
-  </div>
-
   <!-- IFS compass -->
   <div style="display:flex;flex-direction:column;gap:4px">
     <div style="font-family:DM Mono,monospace;font-size:0.42rem;color:#ce93d8;text-transform:uppercase;letter-spacing:0.1em;text-align:center">IFS</div>
@@ -758,7 +756,6 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
     </div>
   </div>
 
-  </div>
   </div><!-- wind-card-top -->
   <div class="wind-card-bottom">
     <div style="grid-column:1/-1;font-family:DM Mono,monospace;font-size:0.55rem;color:var(--text);padding-bottom:5px;margin-bottom:4px;border-bottom:1px solid rgba(58,96,128,0.2)">💨 Vento</div>
@@ -1753,9 +1750,9 @@ async function fetchWeather() {
   const iconUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon +
     '&hourly=windspeed_10m,winddirection_10m,windgusts_10m' +
     '&wind_speed_unit=kn&timezone=Europe/Rome&forecast_days=2&models=icon_seamless';
-  const ifsUrl = 'https://api.open-meteo.com/v1/ecmwf?latitude=' + lat + '&longitude=' + lon +
+  const ifsUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon +
     '&hourly=windspeed_10m,winddirection_10m,windgusts_10m,surface_pressure' +
-    '&wind_speed_unit=kn&timezone=Europe/Rome&forecast_days=2&models=ifs04';
+    '&wind_speed_unit=kn&timezone=Europe/Rome&forecast_days=2&models=ecmwf_ifs04';
   const marineUrl = 'https://marine-api.open-meteo.com/v1/marine?latitude=' + lat + '&longitude=' + lon +
     '&hourly=wave_height,wave_period,wave_direction,swell_wave_height,swell_wave_period,swell_wave_direction' +
     '&length_unit=metric&timezone=Europe/Rome&forecast_days=2';

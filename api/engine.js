@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.22 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.23 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -834,7 +834,11 @@ sources: { wind: 'open-meteo', wave: 'open-meteo', pressure: 'open-meteo' },
     data_time: h.time[idx] || null,
     icon_wind_speed: (iconData && iconData.hourly && iconData.hourly.windspeed_10m) ? sn(iconData.hourly.windspeed_10m[idx]) : null,
     icon_wind_dir: (iconData && iconData.hourly && iconData.hourly.winddirection_10m) ? sn(iconData.hourly.winddirection_10m[idx]) : null,
-    icon_wind_gust: (iconData && iconData.hourly && iconData.hourly.windgusts_10m) ? sn(iconData.hourly.windgusts_10m[idx]) : null
+    icon_wind_gust: (iconData && iconData.hourly && iconData.hourly.windgusts_10m) ? sn(iconData.hourly.windgusts_10m[idx]) : null,
+    ifs_wind_speed: null,
+    ifs_wind_dir: null,
+    ifs_wind_gust: null,
+    ifs_pressure: null
 };
 
 if (sgData) {
@@ -923,7 +927,11 @@ obs_station: data.obs_station || null,
 // ICON model data for future comparison
 wind_speed_icon: data.icon_wind_speed !== undefined ? data.icon_wind_speed : null,
 wind_dir_icon: data.icon_wind_dir !== undefined ? data.icon_wind_dir : null,
-wind_gust_icon: data.icon_wind_gust !== undefined ? data.icon_wind_gust : null
+wind_gust_icon: data.icon_wind_gust !== undefined ? data.icon_wind_gust : null,
+ifs_wind_speed: data.ifs_wind_speed !== undefined ? data.ifs_wind_speed : null,
+ifs_wind_dir: data.ifs_wind_dir !== undefined ? data.ifs_wind_dir : null,
+ifs_wind_gust: data.ifs_wind_gust !== undefined ? data.ifs_wind_gust : null,
+ifs_pressure: data.ifs_pressure !== undefined ? data.ifs_pressure : null
 };
 await kvSet(key, snapshot, 1209600, restUrl, restToken);
 }
@@ -1134,15 +1142,18 @@ var zone = ZONES[zoneKey];
 // Otherwise fetch fresh from Open-Meteo (cron mode)
 var owmKey = process.env.OWM_KEY || null;
 var omData, owmData;
+var ifsDataCalc = null;
 if (clientWeatherData) {
 // Manual analysis: use frontend data + fetch OWM for observed comparison
 omData = clientWeatherData;
 owmData = await fetchOWM(zone.lat, zone.lon, owmKey);
+try { ifsDataCalc = await fetchECMWF(zone.lat, zone.lon, 'ifs04'); } catch(e) {}
 } else {
 // Cron mode: only fetch OM best_match - skip OWM and ICON to stay within timeout
 omData = await fetchOpenMeteo(zone.lat, zone.lon, 'best_match');
 owmData = null;
 var iconData = null;
+try { ifsDataCalc = await fetchECMWF(zone.lat, zone.lon, 'ifs04'); } catch(e) {}
 }
 
 var sgData = null;
@@ -1156,6 +1167,13 @@ hasStormglass = sgData !== null;
 }
 
 var currentData = extractCurrentData(omData, sgData, owmData, iconData);
+// Merge IFS data into currentData
+if (ifsDataCalc) {
+  currentData.ifs_wind_speed = ifsDataCalc.wind_speed !== undefined ? ifsDataCalc.wind_speed : null;
+  currentData.ifs_wind_dir = ifsDataCalc.wind_dir !== undefined ? ifsDataCalc.wind_dir : null;
+  currentData.ifs_wind_gust = ifsDataCalc.wind_gust !== undefined ? ifsDataCalc.wind_gust : null;
+  currentData.ifs_pressure = ifsDataCalc.pressure !== undefined ? ifsDataCalc.pressure : null;
+}
 
 // Rotation analysis from KV history - read only if explicitly requested
 var rotationAnalysis = { trend: 'insufficient_data', hours: 0, rotation: null, consistent: false };
@@ -1623,8 +1641,15 @@ if (action === 'predict') {
       if (currentSnap.wind_speed_obs) {
         pLines.push('- OWM osservato: ' + currentSnap.wind_speed_obs + 'kn da ' + dirs16p[Math.round((currentSnap.wind_dir_obs||0)/22.5)%16]);
       }
+      if (currentSnap.ifs_wind_speed !== null && currentSnap.ifs_wind_speed !== undefined) {
+        var ifsDirName = currentSnap.ifs_wind_dir !== null ? dirs16p[Math.round(currentSnap.ifs_wind_dir/22.5)%16] : '--';
+        pLines.push('- IFS ECMWF: ' + currentSnap.ifs_wind_speed + 'kn da ' + ifsDirName + ' (modello globale ad alta risoluzione)');
+      }
     }
     pLines.push('');
+    if (currentSnap && (currentSnap.wave_height || currentSnap.wave_period)) {
+      pLines.push('- Onda: ' + (currentSnap.wave_height||'--') + 'm, periodo: ' + (currentSnap.wave_period||'--') + 's');
+    }
     pLines.push('STATISTICHE ULTIME 24H:');
     pLines.push('- Vento medio: ' + avgWind24 + 'kn, max: ' + maxWind24 + 'kn');
     pLines.push('- Rotazione vento: ' + rotation.trend + ' (' + (rotation.rotation ? rotation.rotation.toFixed(0) + ' gradi in ' + rotation.hours + 'h' : 'dati insufficienti') + ')');
@@ -1654,7 +1679,7 @@ if (action === 'predict') {
     pLines.push('PATTERN: pattern sinottico identificato dai dati storici');
     pLines.push('CONSIGLIO: indicazione operativa per la navigazione in questa zona');
     pLines.push(req.query.fast === '1'
-    ? 'Rispondi SOLO con: H3: Xkn DIR, H6: Xkn DIR, H12: Xkn DIR. Confidenza: bassa/media/alta. Max 40 parole.'
+    ? 'Rispondi SOLO con: H3: Xkn DIR, H6: Xkn DIR, H12: Xkn DIR. Raffica: Xkn. Confidenza: bassa/media/alta. Max 60 parole.'
     : 'Max 200 parole. Basati SOLO sui dati forniti, non su conoscenza generica.');
     var prompt = pLines.join('\n');
 
@@ -1704,6 +1729,8 @@ if (action === 'predict') {
       current_wind_dir: currentSnap ? currentSnap.wind_dir : null,
       current_pressure: currentSnap ? currentSnap.pressure : null,
       current_wave: currentSnap ? currentSnap.wave_height : null,
+      current_ifs_wind: currentSnap ? currentSnap.ifs_wind_speed : null,
+      current_ifs_dir: currentSnap ? currentSnap.ifs_wind_dir : null,
       data_points: validSnaps.length,
       similar_cases: similarCases.length,
       forecast_h3: extractWindVal(aiText, '3'),
@@ -1910,4 +1937,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.22
+// Fine codice - NAUTILUS ENGINE v2.9.23

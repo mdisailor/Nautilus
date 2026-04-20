@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.4 — 2026-04-17 -->
+<!-- NAUTILUS v5.6.5 — 2026-04-17 -->
 
 <html lang="it">
 <head>
@@ -544,7 +544,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.4 · by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.5 · by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -620,7 +620,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 
 <div class="wind-card">
   <div class="wind-card-top" style="display:flex;justify-content:center;">
-  <div style="display:flex;align-items:flex-start;gap:16px;width:100%;justify-content:center;padding:0 8px">
+  <div style="display:flex;flex-wrap:wrap;align-items:flex-start;gap:12px;width:100%;justify-content:center;padding:0 4px">
 
   <!-- OM compass -->
   <div style="display:flex;flex-direction:column;gap:4px">
@@ -1573,7 +1573,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica · Previsione operativa · v5.6.4 · by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica · Previsione operativa · v5.6.5 · by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -1750,9 +1750,9 @@ async function fetchWeather() {
   const iconUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon +
     '&hourly=windspeed_10m,winddirection_10m,windgusts_10m' +
     '&wind_speed_unit=kn&timezone=Europe/Rome&forecast_days=2&models=icon_seamless';
-  const ifsUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon +
+  const ifsUrl = 'https://api.open-meteo.com/v1/ecmwf?latitude=' + lat + '&longitude=' + lon +
     '&hourly=windspeed_10m,winddirection_10m,windgusts_10m,surface_pressure' +
-    '&wind_speed_unit=kn&timezone=Europe/Rome&forecast_days=2&models=ecmwf_ifs04';
+    '&wind_speed_unit=kn&timezone=Europe/Rome&forecast_days=2';
   const marineUrl = 'https://marine-api.open-meteo.com/v1/marine?latitude=' + lat + '&longitude=' + lon +
     '&hourly=wave_height,wave_period,wave_direction,swell_wave_height,swell_wave_period,swell_wave_direction' +
     '&length_unit=metric&timezone=Europe/Rome&forecast_days=2';
@@ -4198,7 +4198,7 @@ function togglePredictItem(idx) {
   el.style.display = 'block';
 }
 
-// Fine codice - NAUTILUS v5.6.4
+// Fine codice - NAUTILUS v5.6.5
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

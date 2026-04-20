@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.5 — 2026-04-17 -->
+<!-- NAUTILUS v5.6.6 — 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -118,7 +118,6 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 .wind-card-top { display: flex; align-items: center; justify-content: center; gap: 20px; margin-bottom: 14px; }
 .wind-card-bottom { border-top: 1px solid var(–border); padding-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 2px 16px; }
 .wind-compass { width: 110px; height: 110px; flex-shrink: 0; }
-.wind-compass-sm { width: 80px; height: 80px; flex-shrink: 0; }
 .wind-compass svg { width: 100%; height: 100%; }
 .wind-now { text-align: center; }
 .wind-details { flex: 1; }
@@ -544,7 +543,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.5 · by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.6 · by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -620,7 +619,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 
 <div class="wind-card">
   <div class="wind-card-top" style="display:flex;justify-content:center;">
-  <div style="display:flex;flex-wrap:wrap;align-items:flex-start;gap:12px;width:100%;justify-content:center;padding:0 4px">
+  <div style="display:flex;align-items:flex-start;gap:16px;width:100%;justify-content:center;padding:0 8px">
 
   <!-- OM compass -->
   <div style="display:flex;flex-direction:column;gap:4px">
@@ -756,6 +755,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
     </div>
   </div>
 
+  </div>
   </div><!-- wind-card-top -->
   <div class="wind-card-bottom">
     <div style="grid-column:1/-1;font-family:DM Mono,monospace;font-size:0.55rem;color:var(--text);padding-bottom:5px;margin-bottom:4px;border-bottom:1px solid rgba(58,96,128,0.2)">💨 Vento</div>
@@ -1573,7 +1573,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica · Previsione operativa · v5.6.5 · by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica · Previsione operativa · v5.6.6 · by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -1751,7 +1751,7 @@ async function fetchWeather() {
     '&hourly=windspeed_10m,winddirection_10m,windgusts_10m' +
     '&wind_speed_unit=kn&timezone=Europe/Rome&forecast_days=2&models=icon_seamless';
   const ifsUrl = 'https://api.open-meteo.com/v1/ecmwf?latitude=' + lat + '&longitude=' + lon +
-    '&hourly=windspeed_10m,winddirection_10m,windgusts_10m,surface_pressure' +
+    '&hourly=windspeed_10m,winddirection_10m,windgusts_10m' +
     '&wind_speed_unit=kn&timezone=Europe/Rome&forecast_days=2';
   const marineUrl = 'https://marine-api.open-meteo.com/v1/marine?latitude=' + lat + '&longitude=' + lon +
     '&hourly=wave_height,wave_period,wave_direction,swell_wave_height,swell_wave_period,swell_wave_direction' +
@@ -1787,6 +1787,7 @@ async function fetchWeather() {
         _json._ifs_wind_speed = _ifs.hourly.windspeed_10m;
         _json._ifs_wind_dir = _ifs.hourly.winddirection_10m;
         _json._ifs_wind_gust = _ifs.hourly.windgusts_10m;
+        _json._ifs_time = _ifs.hourly.time;
       }
     }
     state.weatherData = _json;
@@ -2080,22 +2081,32 @@ function renderWeather() {
       iconSpdEl.style.color = iSpd >= 22 ? 'var(--danger)' : iSpd >= 11 ? 'var(--warn)' : iSpd >= 7 ? 'var(--gold)' : '#90caf9';
     }
   }
-  // IFS compass
-  if (d._ifs_wind_speed) {
-    var ifsIdx = getCurrentIdx();
+  // IFS compass — timestep ogni 3h, cerca indice piu vicino
+  if (d._ifs_wind_speed && d._ifs_time) {
+    var now = new Date();
+    var nowStr = now.getFullYear() + '-' +
+      String(now.getMonth()+1).padStart(2,'0') + '-' +
+      String(now.getDate()).padStart(2,'0') + 'T' +
+      String(now.getHours()).padStart(2,'0') + ':00';
+    var ifsIdx = 0;
+    var minDiff = Infinity;
+    for (var ti = 0; ti < d._ifs_time.length; ti++) {
+      var diff = Math.abs(new Date(d._ifs_time[ti]) - now);
+      if (diff < minDiff) { minDiff = diff; ifsIdx = ti; }
+    }
     var ifsSpd = d._ifs_wind_speed[ifsIdx];
     var ifsDir = d._ifs_wind_dir ? d._ifs_wind_dir[ifsIdx] : null;
     var ifsGust = d._ifs_wind_gust ? d._ifs_wind_gust[ifsIdx] : null;
     var ifsSpdEl = document.getElementById('wd-ifs-speed');
     var ifsDirEl = document.getElementById('wd-ifs-dir');
     var ifsGustEl = document.getElementById('wd-ifs-gust');
-    var ifsDegEl = document.getElementById('wd-ifs-deg');
     var ifsNeedle = document.getElementById('ifs-needle');
+    var ifsDegEl = document.getElementById('wd-ifs-deg');
     if (ifsSpdEl) ifsSpdEl.textContent = ifsSpd ? ifsSpd.toFixed(0) : '--';
     if (ifsDirEl) ifsDirEl.textContent = ifsDir !== null ? degToDir(ifsDir) : '--';
     if (ifsGustEl) ifsGustEl.textContent = 'raffica ' + (ifsGust ? ifsGust.toFixed(0) : '--') + 'kn';
-    if (ifsDegEl) ifsDegEl.textContent = (ifsDir !== null ? Math.round(ifsDir) : '--') + '°';
     if (ifsNeedle && ifsDir !== null) ifsNeedle.setAttribute('transform', 'rotate(' + ifsDir + ',50,50)');
+    if (ifsDegEl) ifsDegEl.textContent = (ifsDir !== null ? Math.round(ifsDir) : '--') + '°';
     if (ifsSpdEl && ifsSpd) {
       ifsSpdEl.style.color = ifsSpd >= 22 ? 'var(--danger)' : ifsSpd >= 11 ? 'var(--warn)' : ifsSpd >= 7 ? 'var(--gold)' : '#ce93d8';
     }
@@ -4198,7 +4209,7 @@ function togglePredictItem(idx) {
   el.style.display = 'block';
 }
 
-// Fine codice - NAUTILUS v5.6.5
+// Fine codice - NAUTILUS v5.6.6
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

@@ -118,6 +118,7 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 .wind-card-top { display: flex; align-items: center; justify-content: center; gap: 20px; margin-bottom: 14px; }
 .wind-card-bottom { border-top: 1px solid var(–border); padding-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 2px 16px; }
 .wind-compass { width: 110px; height: 110px; flex-shrink: 0; }
+.wind-compass-sm { width: 80px; height: 80px; flex-shrink: 0; }
 .wind-compass svg { width: 100%; height: 100%; }
 .wind-now { text-align: center; }
 .wind-details { flex: 1; }
@@ -742,14 +743,16 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
           <circle cx="50" cy="50" r="5" fill="#020c18" stroke="#ce93d8" stroke-width="2.5"/>
         </g>
         </svg>
-        <div id="wd-ifs-deg" style="font-family:Bebas Neue,sans-serif;font-size:0.85rem;color:var(--muted);line-height:1">--°</div>
+        <div id="wd-ifs-deg" style="font-family:Bebas Neue,sans-serif;font-size:1rem;color:var(--muted);line-height:1">--°</div>
       </div>
       <div style="display:flex;flex-direction:column;gap:4px">
         <div style="display:flex;align-items:baseline;gap:3px">
-          <span id="wd-ifs-speed" style="font-family:Bebas Neue,sans-serif;font-size:1.6rem;line-height:1;color:#ce93d8">--</span>
+          <span id="wd-ifs-speed" style="font-family:Bebas Neue,sans-serif;font-size:2rem;line-height:1;color:#ce93d8">--</span>
           <span style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted)">kn</span>
         </div>
-        <span id="wd-ifs-dir" style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;line-height:1;color:var(--text)">--</span>
+        <div style="display:flex;align-items:baseline;gap:3px">
+          <span id="wd-ifs-dir" style="font-family:Bebas Neue,sans-serif;font-size:1.6rem;line-height:1;color:var(--text)">--</span>
+        </div>
         <div id="wd-ifs-gust" style="font-family:DM Mono,monospace;font-size:0.45rem;color:var(--muted)">raffica --kn</div>
       </div>
     </div>
@@ -1782,13 +1785,15 @@ async function fetchWeather() {
       }
     }
     if (ifsRes.ok) {
-      var _ifs = await ifsRes.json();
-      if (_ifs.hourly) {
-        _json._ifs_wind_speed = _ifs.hourly.windspeed_10m;
-        _json._ifs_wind_dir = _ifs.hourly.winddirection_10m;
-        _json._ifs_wind_gust = _ifs.hourly.windgusts_10m;
-        _json._ifs_time = _ifs.hourly.time;
-      }
+      try {
+        var _ifs = await ifsRes.json();
+        if (_ifs.hourly && _ifs.hourly.windspeed_10m) {
+          _json._ifs_wind_speed = _ifs.hourly.windspeed_10m;
+          _json._ifs_wind_dir = _ifs.hourly.winddirection_10m;
+          _json._ifs_wind_gust = _ifs.hourly.windgusts_10m;
+          _json._ifs_time = _ifs.hourly.time;
+        }
+      } catch(e) { console.warn('IFS parse error', e); }
     }
     state.weatherData = _json;
     document.getElementById('src-openmeteo').className = 'src-badge ok';
@@ -2081,15 +2086,9 @@ function renderWeather() {
       iconSpdEl.style.color = iSpd >= 22 ? 'var(--danger)' : iSpd >= 11 ? 'var(--warn)' : iSpd >= 7 ? 'var(--gold)' : '#90caf9';
     }
   }
-  // IFS compass — timestep ogni 3h, cerca indice piu vicino
   if (d._ifs_wind_speed && d._ifs_time) {
     var now = new Date();
-    var nowStr = now.getFullYear() + '-' +
-      String(now.getMonth()+1).padStart(2,'0') + '-' +
-      String(now.getDate()).padStart(2,'0') + 'T' +
-      String(now.getHours()).padStart(2,'0') + ':00';
-    var ifsIdx = 0;
-    var minDiff = Infinity;
+    var ifsIdx = 0, minDiff = Infinity;
     for (var ti = 0; ti < d._ifs_time.length; ti++) {
       var diff = Math.abs(new Date(d._ifs_time[ti]) - now);
       if (diff < minDiff) { minDiff = diff; ifsIdx = ti; }

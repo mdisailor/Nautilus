@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.24 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.25 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1574,7 +1574,7 @@ if (action === 'predict') {
     if (!anthropicKey) return res.status(500).json({ error: 'ANTHROPIC_KEY non configurata' });
 
     // Get last 14 days of snapshots
-    var snapshots14 = await getWindHistory(zoneKey, kvUrl, kvToken, req.query.fast === '1' ? 240 : 336); // fast=10days, full=14days
+    var snapshots14 = await getWindHistory(zoneKey, kvUrl, kvToken, req.query.fast === '1' ? 48 : 336); // fast=48h(96 GET), full=14days(672 GET)
     var bias = await getBias(zoneKey, kvUrl, kvToken);
     var rotation = analyzeWindRotation(snapshots14.slice(0, 24)); // rotation from last 24h
 
@@ -1738,7 +1738,8 @@ if (action === 'predict') {
       forecast_h12: extractWindVal(aiText, '12')
     };
     if (kvUrl && kvToken) {
-      await kvSet(predKey, predRecord, 2592000, kvUrl, kvToken); // 30 days TTL
+      var saveOk = await kvSet(predKey, predRecord, 2592000, kvUrl, kvToken); // 30 days TTL
+      if (!saveOk) console.error('predict: kvSet failed for key', predKey);
     }
 
     var result = {
@@ -1746,6 +1747,7 @@ if (action === 'predict') {
       name: ZONES[zoneKey].name,
       generated_at: now3.toISOString(),
       saved_key: predKey,
+      save_ok: typeof saveOk !== 'undefined' ? saveOk : null,
       current: currentSnap,
       bias: bias,
       rotation: rotation,
@@ -1937,4 +1939,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.24
+// Fine codice - NAUTILUS ENGINE v2.9.25

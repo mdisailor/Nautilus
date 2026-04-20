@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.3 — 2026-04-14 -->
+<!-- NAUTILUS v5.6.4 — 2026-04-17 -->
 
 <html lang="it">
 <head>
@@ -118,6 +118,7 @@ header { padding: 20px 20px 0; display: flex; align-items: flex-start; justify-c
 .wind-card-top { display: flex; align-items: center; justify-content: center; gap: 20px; margin-bottom: 14px; }
 .wind-card-bottom { border-top: 1px solid var(–border); padding-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 2px 16px; }
 .wind-compass { width: 110px; height: 110px; flex-shrink: 0; }
+.wind-compass-sm { width: 80px; height: 80px; flex-shrink: 0; }
 .wind-compass svg { width: 100%; height: 100%; }
 .wind-now { text-align: center; }
 .wind-details { flex: 1; }
@@ -543,7 +544,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord · Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.3 · by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.4 · by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -715,6 +716,44 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
           <span id="wd-icon-dir" style="font-family:Bebas Neue,sans-serif;font-size:1.6rem;line-height:1;color:var(--text)">--</span>
         </div>
         <div id="wd-icon-gust" style="font-family:DM Mono,monospace;font-size:0.45rem;color:var(--muted)">raffica --kn</div>
+      </div>
+    </div>
+  </div>
+
+  </div>
+
+  <!-- IFS compass -->
+  <div style="display:flex;flex-direction:column;gap:4px">
+    <div style="font-family:DM Mono,monospace;font-size:0.42rem;color:#ce93d8;text-transform:uppercase;letter-spacing:0.1em;text-align:center">IFS</div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+        <svg class="wind-compass-sm" viewBox="0 0 100 100">
+        <defs><filter id="glow-ifs"><feGaussianBlur stdDeviation="2.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+        <circle cx="50" cy="50" r="47" fill="none" stroke="#ce93d8" stroke-width="2.5" opacity="0.6"/>
+        <circle cx="50" cy="50" r="43" fill="#030e1c"/>
+        <g stroke="#ce93d8" stroke-width="2" opacity="0.9">
+          <line x1="50" y1="3" x2="50" y2="12"/><line x1="50" y1="88" x2="50" y2="97"/>
+          <line x1="3" y1="50" x2="12" y2="50"/><line x1="88" y1="50" x2="97" y2="50"/>
+        </g>
+        <text x="50" y="16" text-anchor="middle" fill="#ffffff" font-size="12" font-family="DM Mono,monospace" font-weight="bold">N</text>
+        <text x="50" y="98" text-anchor="middle" fill="#ce93d8" font-size="10" font-family="DM Mono,monospace">S</text>
+        <text x="7" y="54" text-anchor="middle" fill="#ce93d8" font-size="10" font-family="DM Mono,monospace">W</text>
+        <text x="93" y="54" text-anchor="middle" fill="#ce93d8" font-size="10" font-family="DM Mono,monospace">E</text>
+        <g id="ifs-needle" transform="rotate(0,50,50)">
+          <polygon points="50,14 45,53 50,49 55,53" fill="#ce93d8" filter="url(#glow-ifs)"/>
+          <polygon points="50,86 45,51 50,55 55,51" fill="#5a3060"/>
+          <circle cx="50" cy="50" r="5" fill="#020c18" stroke="#ce93d8" stroke-width="2.5"/>
+        </g>
+        </svg>
+        <div id="wd-ifs-deg" style="font-family:Bebas Neue,sans-serif;font-size:0.85rem;color:var(--muted);line-height:1">--°</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <div style="display:flex;align-items:baseline;gap:3px">
+          <span id="wd-ifs-speed" style="font-family:Bebas Neue,sans-serif;font-size:1.6rem;line-height:1;color:#ce93d8">--</span>
+          <span style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted)">kn</span>
+        </div>
+        <span id="wd-ifs-dir" style="font-family:Bebas Neue,sans-serif;font-size:1.3rem;line-height:1;color:var(--text)">--</span>
+        <div id="wd-ifs-gust" style="font-family:DM Mono,monospace;font-size:0.45rem;color:var(--muted)">raffica --kn</div>
       </div>
     </div>
   </div>
@@ -1537,7 +1576,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(–border); bo
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica · Previsione operativa · v5.6.3 · by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica · Previsione operativa · v5.6.4 · by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -1714,11 +1753,14 @@ async function fetchWeather() {
   const iconUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon +
     '&hourly=windspeed_10m,winddirection_10m,windgusts_10m' +
     '&wind_speed_unit=kn&timezone=Europe/Rome&forecast_days=2&models=icon_seamless';
+  const ifsUrl = 'https://api.open-meteo.com/v1/ecmwf?latitude=' + lat + '&longitude=' + lon +
+    '&hourly=windspeed_10m,winddirection_10m,windgusts_10m,surface_pressure' +
+    '&wind_speed_unit=kn&timezone=Europe/Rome&forecast_days=2&models=ifs04';
   const marineUrl = 'https://marine-api.open-meteo.com/v1/marine?latitude=' + lat + '&longitude=' + lon +
     '&hourly=wave_height,wave_period,wave_direction,swell_wave_height,swell_wave_period,swell_wave_direction' +
     '&length_unit=metric&timezone=Europe/Rome&forecast_days=2';
   try {
-    const [atmRes, iconRes, marineRes] = await Promise.all([fetch(url), fetch(iconUrl), fetch(marineUrl)]);
+    const [atmRes, iconRes, ifsRes, marineRes] = await Promise.all([fetch(url), fetch(iconUrl), fetch(ifsUrl), fetch(marineUrl)]);
     var _json = await atmRes.json();
     if (_json.error || !_json.hourly || !_json.hourly.windspeed_10m) {
       throw new Error(_json.reason || _json.error || 'Risposta Open-Meteo non valida');
@@ -1740,6 +1782,14 @@ async function fetchWeather() {
         _json._icon_wind_speed = _icon.hourly.windspeed_10m;
         _json._icon_wind_dir = _icon.hourly.winddirection_10m;
         _json._icon_wind_gust = _icon.hourly.windgusts_10m;
+      }
+    }
+    if (ifsRes.ok) {
+      var _ifs = await ifsRes.json();
+      if (_ifs.hourly) {
+        _json._ifs_wind_speed = _ifs.hourly.windspeed_10m;
+        _json._ifs_wind_dir = _ifs.hourly.winddirection_10m;
+        _json._ifs_wind_gust = _ifs.hourly.windgusts_10m;
       }
     }
     state.weatherData = _json;
@@ -2031,6 +2081,26 @@ function renderWeather() {
     if (iconDegEl) iconDegEl.textContent = (iDir !== null ? Math.round(iDir) : '--') + '°';
     if (iconSpdEl && iSpd) {
       iconSpdEl.style.color = iSpd >= 22 ? 'var(--danger)' : iSpd >= 11 ? 'var(--warn)' : iSpd >= 7 ? 'var(--gold)' : '#90caf9';
+    }
+  }
+  // IFS compass
+  if (d._ifs_wind_speed) {
+    var ifsIdx = getCurrentIdx();
+    var ifsSpd = d._ifs_wind_speed[ifsIdx];
+    var ifsDir = d._ifs_wind_dir ? d._ifs_wind_dir[ifsIdx] : null;
+    var ifsGust = d._ifs_wind_gust ? d._ifs_wind_gust[ifsIdx] : null;
+    var ifsSpdEl = document.getElementById('wd-ifs-speed');
+    var ifsDirEl = document.getElementById('wd-ifs-dir');
+    var ifsGustEl = document.getElementById('wd-ifs-gust');
+    var ifsDegEl = document.getElementById('wd-ifs-deg');
+    var ifsNeedle = document.getElementById('ifs-needle');
+    if (ifsSpdEl) ifsSpdEl.textContent = ifsSpd ? ifsSpd.toFixed(0) : '--';
+    if (ifsDirEl) ifsDirEl.textContent = ifsDir !== null ? degToDir(ifsDir) : '--';
+    if (ifsGustEl) ifsGustEl.textContent = 'raffica ' + (ifsGust ? ifsGust.toFixed(0) : '--') + 'kn';
+    if (ifsDegEl) ifsDegEl.textContent = (ifsDir !== null ? Math.round(ifsDir) : '--') + '°';
+    if (ifsNeedle && ifsDir !== null) ifsNeedle.setAttribute('transform', 'rotate(' + ifsDir + ',50,50)');
+    if (ifsSpdEl && ifsSpd) {
+      ifsSpdEl.style.color = ifsSpd >= 22 ? 'var(--danger)' : ifsSpd >= 11 ? 'var(--warn)' : ifsSpd >= 7 ? 'var(--gold)' : '#ce93d8';
     }
   }
   document.getElementById('wd-deg').textContent = avgDir + '°';
@@ -4131,7 +4201,7 @@ function togglePredictItem(idx) {
   el.style.display = 'block';
 }
 
-// Fine codice - NAUTILUS v5.6.3
+// Fine codice - NAUTILUS v5.6.4
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

@@ -200,9 +200,12 @@ body { display:flex; flex-direction:column; font-family:'DM Mono',monospace; col
     <div class="leg-row"><div class="leg-color" style="background:#ffaa00"></div><span>7-14 kn</span></div>
     <div class="leg-row"><div class="leg-color" style="background:#ff7a00"></div><span>14-22 kn</span></div>
     <div class="leg-row"><div class="leg-color" style="background:#ff2d2d"></div><span>&gt; 22 kn</span></div>
-    <div style="margin-top:8px; padding-top:6px; border-top:1px solid var(--border);">
-      <div class="leg-row"><div style="width:10px;height:10px;border-radius:50%;background:var(--accent);flex-shrink:0"></div><span>Zona NAUTILUS</span></div>
-      <div class="leg-row"><div style="width:10px;height:10px;border-radius:50%;background:rgba(0,240,255,0.2);border:1px solid var(--accent);flex-shrink:0"></div><span>Griglia OM</span></div>
+    <div style="margin-top:10px; padding-top:8px; border-top:1px solid var(--border);">
+      <div class="leg-row"><div style="width:12px;height:12px;border-radius:50%;background:var(--accent);flex-shrink:0"></div><span>Zona NAUTILUS</span></div>
+      <div class="leg-row"><div style="width:12px;height:12px;border-radius:50%;background:rgba(0,240,255,0.15);border:1px solid var(--accent);flex-shrink:0"></div><span>Griglia OM</span></div>
+    </div>
+    <div style="margin-top:8px;font-size:0.55rem;color:var(--muted);border-top:1px solid var(--border);padding-top:6px;">
+      Griglia: dati correnti OM<br>Zone: snapshot KV NAUTILUS<br>Aggiorn. ogni 10 min
     </div>
   </div>
 </div>
@@ -374,8 +377,10 @@ ZONES.forEach(function(z) {
     var iconSpd= d.icon_wind_speed!== null && d.icon_wind_speed!== undefined ? d.icon_wind_speed.toFixed(1) : null;
     var iconDir= d.icon_wind_dir  !== null && d.icon_wind_dir  !== undefined ? degToDir(d.icon_wind_dir) : null;
 
+    var ts2 = d.ts ? new Date(d.ts).toLocaleTimeString('it-IT',{timeZone:'Europe/Rome',hour:'2-digit',minute:'2-digit'}) : '--';
     var html = '<div class="popup-zone">' + z.name + '</div>' +
       '<div class="popup-wind">' + spd + ' kn ' + dir + ' . raffica ' + gust + '</div>' +
+      '<div class="popup-detail">Snapshot ore ' + ts2 + '</div>' +
       '<div class="popup-sources">' +
       '<span class="popup-src om">OM ' + spd + 'kn ' + dir + '</span>' +
       (iconSpd ? '<span class="popup-src icon">ICON ' + iconSpd + 'kn ' + iconDir + '</span>' : '') +

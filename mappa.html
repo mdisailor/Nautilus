@@ -201,11 +201,11 @@ body { display:flex; flex-direction:column; font-family:'DM Mono',monospace; col
     <div class="leg-row"><div class="leg-color" style="background:#ff7a00"></div><span>14-22 kn</span></div>
     <div class="leg-row"><div class="leg-color" style="background:#ff2d2d"></div><span>&gt; 22 kn</span></div>
     <div style="margin-top:10px; padding-top:8px; border-top:1px solid var(--border);">
-      <div class="leg-row"><div style="width:12px;height:12px;border-radius:50%;background:var(--accent);flex-shrink:0"></div><span>Zona NAUTILUS</span></div>
-      <div class="leg-row"><div style="width:12px;height:12px;border-radius:50%;background:rgba(0,240,255,0.15);border:1px solid var(--accent);flex-shrink:0"></div><span>Griglia OM</span></div>
+      <div class="leg-row"><div style="width:14px;height:14px;border-radius:50%;background:var(--accent);flex-shrink:0"></div><span>Punti zona</span></div>
+      <div class="leg-row"><div style="width:14px;height:14px;border-radius:50%;background:rgba(0,240,255,0.15);border:1px solid var(--accent);flex-shrink:0"></div><span>Griglia OM</span></div>
     </div>
-    <div style="margin-top:8px;font-size:0.55rem;color:var(--muted);border-top:1px solid var(--border);padding-top:6px;">
-      Griglia: dati correnti OM<br>Zone: snapshot KV NAUTILUS<br>Aggiorn. ogni 10 min
+    <div style="margin-top:8px;font-size:0.62rem;color:var(--muted);border-top:1px solid var(--border);padding-top:8px;line-height:1.6;">
+      Griglia: dati correnti OM<br>Punti zona: snapshot NAUTILUS<br>Aggiorn. ogni 10 min
     </div>
   </div>
 </div>
@@ -378,8 +378,10 @@ ZONES.forEach(function(z) {
     var iconDir= d.icon_wind_dir  !== null && d.icon_wind_dir  !== undefined ? degToDir(d.icon_wind_dir) : null;
 
     var ts2 = d.ts ? new Date(d.ts).toLocaleTimeString('it-IT',{timeZone:'Europe/Rome',hour:'2-digit',minute:'2-digit'}) : '--';
+    var snapTs = d.ts ? new Date(d.ts).toLocaleTimeString('it-IT',{timeZone:'Europe/Rome',hour:'2-digit',minute:'2-digit'}) : '--';
     var html = '<div class="popup-zone">' + z.name + '</div>' +
       '<div class="popup-wind">' + spd + ' kn ' + dir + ' . raffica ' + gust + '</div>' +
+      '<div class="popup-detail">Snapshot ore ' + snapTs + '</div>' +
       '<div class="popup-detail">Snapshot ore ' + ts2 + '</div>' +
       '<div class="popup-sources">' +
       '<span class="popup-src om">OM ' + spd + 'kn ' + dir + '</span>' +
@@ -465,8 +467,10 @@ async function loadAll() {
     drawWind();
     state.lastUpdate = new Date();
     var ts = state.lastUpdate.toLocaleTimeString('it-IT', { hour:'2-digit', minute:'2-digit' });
-    setHud('ok', 'Aggiornato ' + ts);
-    document.getElementById('hud-time').style.display = 'none';
+    setHud('ok', 'Dati in diretta OM');
+    var hudTs = document.getElementById('hud-time');
+    hudTs.style.display = 'flex';
+    document.getElementById('hud-ts').textContent = 'Agg. ' + ts;
   } catch(e) {
     setHud('err', 'Errore caricamento');
     console.error(e);

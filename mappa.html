@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.1.7 - mdisailor - 2026-04-21 -->
+<!-- NAUTILUS MAPPA v1.2.0 - mdisailor - 2026-04-21 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.1.7</title>
+<title>NAUTILUS Mappa Vento v1.2.0</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -70,14 +70,25 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 #legend{
   position:absolute;bottom:36px;right:14px;z-index:600;
   background:rgba(6,24,46,0.97);border:1px solid var(--accent);
-  border-radius:14px;padding:18px 22px;backdrop-filter:blur(10px);
+  border-radius:14px;backdrop-filter:blur(10px);
   font-family:'DM Mono',monospace;font-size:0.82rem;color:var(--text);
-  min-width:170px;box-shadow:0 4px 24px rgba(0,240,255,0.15);
+  box-shadow:0 4px 24px rgba(0,240,255,0.15);
+  max-height:82vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
 }
-.leg-title{color:var(--accent);font-size:0.9rem;letter-spacing:0.1em;margin-bottom:14px;text-transform:uppercase;font-weight:bold}
+#legend-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:11px 16px;cursor:pointer;user-select:none;
+  border-bottom:1px solid transparent;transition:border-color 0.2s;
+}
+#legend-header.open{border-bottom-color:var(--border)}
+#legend-title{color:var(--accent);font-size:0.85rem;letter-spacing:0.1em;text-transform:uppercase;font-weight:bold}
+#legend-toggle{color:var(--muted);font-size:0.65rem;margin-left:12px;display:inline-block;transition:transform 0.2s}
+#legend-toggle.open{transform:rotate(180deg)}
+#legend-body{display:none;padding:12px 16px 14px}
+#legend-body.open{display:block}
 .leg-row{display:flex;align-items:center;gap:10px;margin-bottom:9px}
 .leg-color{width:32px;height:5px;border-radius:3px;flex-shrink:0}
-.leg-note{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:0.65rem;color:var(--muted);line-height:1.7}
+.leg-note{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:0.62rem;color:var(--muted);line-height:1.7}
 
 /* BUTTONS */
 #btn-gps,#btn-refresh{
@@ -140,7 +151,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.1.7</span>
+    <span id="nav-ver">mappa v1.2.0</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
   <a id="nav-back" href="/">APP</a>
@@ -164,7 +175,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   <button id="btn-refresh" title="Aggiorna">AGG</button>
 
   <div id="legend">
-    <div class="leg-title">Vento Beaufort</div>
+    <div id="legend-header" onclick="toggleLegend()">
+      <span id="legend-title">Scala Beaufort</span>
+      <span id="legend-toggle">&#9660;</span>
+    </div>
+    <div id="legend-body">
     <div class="leg-row"><div class="leg-color" style="background:#cc0000"></div><span>F8+ &gt;34 kn</span></div>
     <div class="leg-row"><div class="leg-color" style="background:#ff3300"></div><span>F7  28-34 kn</span></div>
     <div class="leg-row"><div class="leg-color" style="background:#ff8800"></div><span>F6  22-28 kn</span></div>
@@ -187,14 +202,15 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
     <div class="leg-note">
       Colore = scala Beaufort<br>Griglia: shaft=vento testa=raffica<br>Punti zona: sinistra=vento<br>destra=raffica<br>Tap per dettagli e orario<br>Aggiorn. 10 min
     </div>
+    </div>
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.1.7 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.2.0 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.1.7
+// NAUTILUS MAPPA v1.2.0
 
 var ENGINE_URL = '/api/engine';
 
@@ -241,55 +257,7 @@ function resizeCanvas(){
 }
 resizeCanvas();
 window.addEventListener('resize', function(){ resizeCanvas(); drawWind(); });
-map.on('moveend zoomend', function(){
-  // A zoom >= 9 aggiunge punti intermedi tra quelli esistenti per densit maggiore
-  rebuildGridIfNeeded();
-  drawWind();
-});
-
-var lastGridZoom = 0;
-function rebuildGridIfNeeded(){
-  var z = map.getZoom();
-  // Cambia step solo se zoom cambia classe
-  var newStep = z >= 10 ? 0.12 : z >= 9 ? 0.18 : 0.25;
-  var oldStep = lastGridZoom >= 10 ? 0.12 : lastGridZoom >= 9 ? 0.18 : 0.25;
-  if (Math.abs(newStep - oldStep) < 0.01) return; // stesso step, non rifare
-  lastGridZoom = z;
-  // Rebuild griglia con nuovo step
-  var bounds = map.getBounds().pad(0.1);
-  var newGrid = [];
-  var s = newStep;
-  for (var la = Math.floor(bounds.getSouth()/s)*s; la <= bounds.getNorth()+s; la = Math.round((la+s)*100)/100){
-    for (var lo = Math.floor(bounds.getWest()/s)*s; lo <= bounds.getEast()+s; lo = Math.round((lo+s)*100)/100){
-      // Includi solo se non gi presente nella griglia base
-      var exists = state.gridData.some(function(p){ return Math.abs(p.lat-la)<0.01 && Math.abs(p.lon-lo)<0.01; });
-      if (!exists) newGrid.push({lat:Math.round(la*100)/100, lon:Math.round(lo*100)/100});
-    }
-  }
-  if (newGrid.length === 0) return;
-  // Fetch asincrono dei nuovi punti
-  var batchSize = 15;
-  var allFetches = [];
-  for (var i = 0; i < newGrid.length; i += batchSize){
-    var batch = newGrid.slice(i, i+batchSize);
-    batch.forEach(function(pt){
-      allFetches.push(
-        fetch('https://api.open-meteo.com/v1/forecast?latitude='+pt.lat+'&longitude='+pt.lon+
-          '&current=windspeed_10m,winddirection_10m,windgusts_10m&wind_speed_unit=kn&timezone=Europe/Rome')
-        .then(function(r){ return r.json(); })
-        .then(function(d){
-          if (!d.current) return null;
-          var t = d.current.time ? new Date(d.current.time).toLocaleTimeString('it-IT',{timeZone:'Europe/Rome',hour:'2-digit',minute:'2-digit'}) : '--';
-          return {lat:pt.lat,lon:pt.lon,speed:d.current.windspeed_10m,dir:d.current.winddirection_10m,gust:d.current.windgusts_10m||null,time:t};
-        }).catch(function(){ return null; })
-      );
-    });
-  }
-  Promise.all(allFetches).then(function(results){
-    results.forEach(function(r){ if(r) state.gridData.push(r); });
-    drawWind();
-  });
-}
+map.on('moveend zoomend', drawWind);
 
 function windColor(s){
   // Scala Beaufort
@@ -381,14 +349,18 @@ function drawArrow(cx, cy, dir, spd, gust, alpha, isZone){
 
 function drawWind(){
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  var zoom = map.getZoom();
   var bounds = map.getBounds();
-  // A zoom basso mostra tutti i punti, a zoom alto filtra per densit visiva
-  // Ogni freccia occupa ~40px - sotto zoom 9 mostra tutto, sopra filtra per evitare sovraffollamento
-  var minDeg = zoom >= 11 ? 0 : zoom >= 10 ? 0.15 : zoom >= 9 ? 0.2 : 0;
+  // Distanza minima in pixel tra frecce per evitare sovraffollamento
+  var minPx = 30;
+  var drawn = [];
   state.gridData.forEach(function(pt){
-    if (!bounds.contains([pt.lat, pt.lon])) return; // fuori vista, salta
+    if (!bounds.contains([pt.lat, pt.lon])) return;
     var ll = map.latLngToContainerPoint([pt.lat, pt.lon]);
+    for (var di = 0; di < drawn.length; di++){
+      var dx = ll.x - drawn[di].x, dy = ll.y - drawn[di].y;
+      if (Math.sqrt(dx*dx+dy*dy) < minPx) return;
+    }
+    drawn.push(ll);
     drawArrow(ll.x, ll.y, pt.dir, pt.speed, pt.gust, 0.65, false);
   });
   ZONES.forEach(function(z){
@@ -441,9 +413,10 @@ ZONES.forEach(function(z){
     var snapTs = d.ts ? new Date(d.ts).toLocaleTimeString('it-IT',{timeZone:'Europe/Rome',hour:'2-digit',minute:'2-digit'}) : '--';
     var gustOm  = (d.wind_gust     != null && d.wind_gust     !== undefined) ? parseFloat(d.wind_gust).toFixed(0)     : null;
     var gustObs = (d.wind_gust_obs != null && d.wind_gust_obs !== undefined) ? parseFloat(d.wind_gust_obs).toFixed(0) : null;
-    var gustVal = gustObs || gustOm;
-    var gustSrc = gustObs ? 'OWM' : 'OM';
-    var gustLine = gustVal ? gustVal + ' kn (' + gustSrc + ')' : '--';
+    var gustLine = '';
+    if (gustOm)  gustLine += '<span style="color:#8ab8d0">OM ' + gustOm + 'kn</span>';
+    if (gustObs) gustLine += (gustOm ? '&nbsp;&nbsp;' : '') + '<span style="color:#00e676">OWM ' + gustObs + 'kn</span>';
+    if (!gustLine) gustLine = '<span style="color:var(--muted)">--</span>';
     var html =
       '<div class="popup-name">' + z.name + '</div>' +
       '<div class="popup-wind">' + spd + ' kn ' + dir + '</div>' +
@@ -471,8 +444,21 @@ function updateZoneMarkers(){
   });
 }
 
+// LEGENDA TOGGLE
+function toggleLegend(){
+  var body = document.getElementById('legend-body');
+  var toggle = document.getElementById('legend-toggle');
+  var header = document.getElementById('legend-header');
+  var isOpen = body.classList.contains('open');
+  body.classList.toggle('open', !isOpen);
+  toggle.classList.toggle('open', !isOpen);
+  header.classList.toggle('open', !isOpen);
+}
+
 // CLICK GRIGLIA - trova punto piu' vicino e mostra popup
-var gridPopup = L.popup({ className:'grid-popup' });
+var gridPopup = L.popup({ className:'grid-popup', autoPanPadding:[10,60] });
+gridPopup.on('add', function(){ canvas.style.opacity='0.25'; });
+gridPopup.on('remove', function(){ canvas.style.opacity='1'; });
 
 map.on('click', function(e){
   // Controlla se il click e' vicino a un punto zona (in quel caso il marker gestisce)
@@ -604,8 +590,7 @@ setInterval(loadAll, 600000);
 
 loadAll();
 
-// Fine codice - NAUTILUS MAPPA v1.1.7
+// Fine codice - NAUTILUS MAPPA v1.2.0
 </script>
 </body>
 </html>
-

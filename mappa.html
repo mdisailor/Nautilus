@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.2.9 - mdisailor - 2026-04-21 -->
+<!-- NAUTILUS MAPPA v1.2.10 - mdisailor - 2026-04-21 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.2.9</title>
+<title>NAUTILUS Mappa Vento v1.2.10</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -46,7 +46,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 }
 
 /* CANVAS */
-#wind-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:200}
+#wind-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:600}
 
 /* HUD */
 #hud{
@@ -151,7 +151,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.2.9</span>
+    <span id="nav-ver">mappa v1.2.10</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
   <a id="nav-back" href="/">APP</a>
@@ -206,11 +206,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.2.9 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.2.10 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.2.9
+// NAUTILUS MAPPA v1.2.10
 
 var ENGINE_URL = '/api/engine';
 
@@ -255,6 +255,8 @@ function resizeCanvas(){
   var w = document.getElementById('map-wrap');
   canvas.width = w.offsetWidth;
   canvas.height = w.offsetHeight;
+  canvas.style.zIndex = '600';
+  canvas.style.opacity = '1';
 }
 resizeCanvas();
 window.addEventListener('resize', function(){ resizeCanvas(); drawWind(); });
@@ -595,7 +597,7 @@ setInterval(loadAll, 600000);
 
 loadAll();
 
-// Fine codice - NAUTILUS MAPPA v1.2.9
+// Fine codice - NAUTILUS MAPPA v1.2.10
 </script>
 </body>
 </html>

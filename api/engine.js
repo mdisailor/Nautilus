@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.27 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.28 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1918,6 +1918,54 @@ if (action === 'predict_history') {
     }
   }
 
+if (action === 'grid') {
+  // Fetch vento griglia per la mappa - proxy verso Open-Meteo per evitare 429 dal browser
+  // Parametri: lats=lat1,lat2,...  lons=lon1,lon2,...
+  var glats = req.query.lats ? req.query.lats.split(',').map(Number) : [];
+  var glons = req.query.lons ? req.query.lons.split(',').map(Number) : [];
+  if (glats.length === 0 || glats.length !== glons.length) {
+    return res.status(400).json({ error: 'lats e lons richiesti e devono avere stessa lunghezza' });
+  }
+  try {
+    var latStr = glats.join(',');
+    var lonStr = glons.join(',');
+    var gridUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + latStr +
+      '&longitude=' + lonStr +
+      '&hourly=windspeed_10m,winddirection_10m,windgusts_10m' +
+      '&wind_speed_unit=kn&timezone=Europe/Rome&forecast_days=1';
+    var gridRes = await fetch(gridUrl);
+    if (!gridRes.ok) {
+      return res.status(gridRes.status).json({ error: 'Open-Meteo error: ' + gridRes.status });
+    }
+    var gridData = await gridRes.json();
+    var items = Array.isArray(gridData) ? gridData : [gridData];
+    // Trova indice ora corrente Europe/Rome
+    var romeParts2 = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Europe/Rome', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit'
+    }).formatToParts(new Date());
+    var rp2 = {};
+    romeParts2.forEach(function(p){ rp2[p.type] = p.value; });
+    var nowRome2 = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':00';
+    var gridPoints = items.map(function(d, idx) {
+      if (!d.hourly) return null;
+      var h = d.hourly;
+      var tidx = h.time ? h.time.findIndex(function(t){ return t === nowRome2; }) : 0;
+      if (tidx < 0) tidx = 0;
+      return {
+        lat: glats[idx],
+        lon: glons[idx],
+        speed: h.windspeed_10m    ? h.windspeed_10m[tidx]    : null,
+        dir:   h.winddirection_10m ? h.winddirection_10m[tidx] : null,
+        gust:  h.windgusts_10m   ? h.windgusts_10m[tidx]   : null,
+        time:  nowRome2.slice(11, 16)
+      };
+    }).filter(function(p){ return p !== null; });
+    return res.status(200).json({ points: gridPoints, ts: new Date().toISOString() });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
 if (action === 'zones') {
 var list = Object.keys(ZONES).filter(function(k) {
 return ZONES[k].enabled !== false;
@@ -1950,4 +1998,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.27
+// Fine codice - NAUTILUS ENGINE v2.9.28

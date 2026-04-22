@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.1.5 - mdisailor - 2026-04-21 -->
+<!-- NAUTILUS MAPPA v1.1.6 - mdisailor - 2026-04-21 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.1.5</title>
+<title>NAUTILUS Mappa Vento v1.1.6</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -140,7 +140,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.1.5</span>
+    <span id="nav-ver">mappa v1.1.6</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
   <a id="nav-back" href="/">APP</a>
@@ -190,11 +190,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.1.5 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.1.6 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.1.5
+// NAUTILUS MAPPA v1.1.6
 
 var ENGINE_URL = '/api/engine';
 
@@ -441,9 +441,11 @@ map.on('click', function(e){
   var dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
   var dirName = best.dir != null ? dirs[Math.round(best.dir/22.5)%16] : '--';
   var spd = best.speed != null ? best.speed.toFixed(1) : '--';
+  var gustGrid = (best.gust != null && !isNaN(best.gust)) ? best.gust.toFixed(0) + ' kn' : '--';
   var html =
     '<div class="popup-name" style="font-size:0.85rem">Griglia OM</div>' +
     '<div class="popup-wind">' + spd + ' kn ' + dirName + '</div>' +
+    '<div class="popup-wind" style="color:#ffaa00;font-size:0.85rem">Raffica: ' + gustGrid + '</div>' +
     '<div class="popup-ts">Modello OM ore ' + (best.time || '--') + '</div>' +
     '<div class="popup-ts" style="margin-top:3px;color:var(--muted)">Dato modello ~15-30 min fa</div>';
   gridPopup.setLatLng(e.latlng).setContent(html).openOn(map);
@@ -548,7 +550,7 @@ setInterval(loadAll, 600000);
 
 loadAll();
 
-// Fine codice - NAUTILUS MAPPA v1.1.5
+// Fine codice - NAUTILUS MAPPA v1.1.6
 </script>
 </body>
 </html>

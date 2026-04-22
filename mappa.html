@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.1.6 - mdisailor - 2026-04-21 -->
+<!-- NAUTILUS MAPPA v1.1.7 - mdisailor - 2026-04-21 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.1.6</title>
+<title>NAUTILUS Mappa Vento v1.1.7</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -140,7 +140,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.1.6</span>
+    <span id="nav-ver">mappa v1.1.7</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
   <a id="nav-back" href="/">APP</a>
@@ -190,11 +190,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.1.6 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.1.7 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.1.6
+// NAUTILUS MAPPA v1.1.7
 
 var ENGINE_URL = '/api/engine';
 
@@ -241,7 +241,55 @@ function resizeCanvas(){
 }
 resizeCanvas();
 window.addEventListener('resize', function(){ resizeCanvas(); drawWind(); });
-map.on('moveend zoomend', drawWind);
+map.on('moveend zoomend', function(){
+  // A zoom >= 9 aggiunge punti intermedi tra quelli esistenti per densit maggiore
+  rebuildGridIfNeeded();
+  drawWind();
+});
+
+var lastGridZoom = 0;
+function rebuildGridIfNeeded(){
+  var z = map.getZoom();
+  // Cambia step solo se zoom cambia classe
+  var newStep = z >= 10 ? 0.12 : z >= 9 ? 0.18 : 0.25;
+  var oldStep = lastGridZoom >= 10 ? 0.12 : lastGridZoom >= 9 ? 0.18 : 0.25;
+  if (Math.abs(newStep - oldStep) < 0.01) return; // stesso step, non rifare
+  lastGridZoom = z;
+  // Rebuild griglia con nuovo step
+  var bounds = map.getBounds().pad(0.1);
+  var newGrid = [];
+  var s = newStep;
+  for (var la = Math.floor(bounds.getSouth()/s)*s; la <= bounds.getNorth()+s; la = Math.round((la+s)*100)/100){
+    for (var lo = Math.floor(bounds.getWest()/s)*s; lo <= bounds.getEast()+s; lo = Math.round((lo+s)*100)/100){
+      // Includi solo se non gi presente nella griglia base
+      var exists = state.gridData.some(function(p){ return Math.abs(p.lat-la)<0.01 && Math.abs(p.lon-lo)<0.01; });
+      if (!exists) newGrid.push({lat:Math.round(la*100)/100, lon:Math.round(lo*100)/100});
+    }
+  }
+  if (newGrid.length === 0) return;
+  // Fetch asincrono dei nuovi punti
+  var batchSize = 15;
+  var allFetches = [];
+  for (var i = 0; i < newGrid.length; i += batchSize){
+    var batch = newGrid.slice(i, i+batchSize);
+    batch.forEach(function(pt){
+      allFetches.push(
+        fetch('https://api.open-meteo.com/v1/forecast?latitude='+pt.lat+'&longitude='+pt.lon+
+          '&current=windspeed_10m,winddirection_10m,windgusts_10m&wind_speed_unit=kn&timezone=Europe/Rome')
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+          if (!d.current) return null;
+          var t = d.current.time ? new Date(d.current.time).toLocaleTimeString('it-IT',{timeZone:'Europe/Rome',hour:'2-digit',minute:'2-digit'}) : '--';
+          return {lat:pt.lat,lon:pt.lon,speed:d.current.windspeed_10m,dir:d.current.winddirection_10m,gust:d.current.windgusts_10m||null,time:t};
+        }).catch(function(){ return null; })
+      );
+    });
+  }
+  Promise.all(allFetches).then(function(results){
+    results.forEach(function(r){ if(r) state.gridData.push(r); });
+    drawWind();
+  });
+}
 
 function windColor(s){
   // Scala Beaufort
@@ -256,7 +304,7 @@ function windColor(s){
   return '#aaddff';              // F0   quasi bianco
 }
 
-// Freccia primitiva: contorno bianco netto + colore sopra (funziona su qualsiasi sfondo)
+// Freccia primitiva: contorno nero netto + colore sopra (funziona su qualsiasi sfondo)
 function drawSingleArrow(ox, oy, rad, len, lw, colShaft, colHead, alpha){
   ctx.save();
   ctx.globalAlpha = alpha;
@@ -265,12 +313,12 @@ function drawSingleArrow(ox, oy, rad, len, lw, colShaft, colHead, alpha){
   ctx.shadowBlur = 0;
   var hw = len * 0.40;
 
-  // PASS 1: contorno bianco (piu' spesso)
+  // PASS 1: contorno nero (piu' spesso)
   var lwOut = lw + 2.5;
   ctx.beginPath();
   ctx.moveTo(0, len * 0.45);
   ctx.lineTo(0, -len * 0.25);
-  ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+  ctx.strokeStyle = 'rgba(0,0,0,0.85)';
   ctx.lineWidth = lwOut;
   ctx.lineCap = 'round';
   ctx.stroke();
@@ -279,10 +327,10 @@ function drawSingleArrow(ox, oy, rad, len, lw, colShaft, colHead, alpha){
   ctx.lineTo(-hw * 0.52, -len * 0.50 + hw * 0.88);
   ctx.lineTo( hw * 0.52, -len * 0.50 + hw * 0.88);
   ctx.closePath();
-  ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+  ctx.strokeStyle = 'rgba(0,0,0,0.85)';
   ctx.lineWidth = 2;
   ctx.stroke();
-  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  ctx.fillStyle = 'rgba(0,0,0,0.85)';
   ctx.fill();
 
   // PASS 2: colore vero sopra
@@ -333,7 +381,13 @@ function drawArrow(cx, cy, dir, spd, gust, alpha, isZone){
 
 function drawWind(){
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  var zoom = map.getZoom();
+  var bounds = map.getBounds();
+  // A zoom basso mostra tutti i punti, a zoom alto filtra per densit visiva
+  // Ogni freccia occupa ~40px - sotto zoom 9 mostra tutto, sopra filtra per evitare sovraffollamento
+  var minDeg = zoom >= 11 ? 0 : zoom >= 10 ? 0.15 : zoom >= 9 ? 0.2 : 0;
   state.gridData.forEach(function(pt){
+    if (!bounds.contains([pt.lat, pt.lon])) return; // fuori vista, salta
     var ll = map.latLngToContainerPoint([pt.lat, pt.lon]);
     drawArrow(ll.x, ll.y, pt.dir, pt.speed, pt.gust, 0.65, false);
   });
@@ -550,7 +604,7 @@ setInterval(loadAll, 600000);
 
 loadAll();
 
-// Fine codice - NAUTILUS MAPPA v1.1.6
+// Fine codice - NAUTILUS MAPPA v1.1.7
 </script>
 </body>
 </html>

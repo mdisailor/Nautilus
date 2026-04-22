@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.2.4 - mdisailor - 2026-04-21 -->
+<!-- NAUTILUS MAPPA v1.2.5 - mdisailor - 2026-04-21 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.2.4</title>
+<title>NAUTILUS Mappa Vento v1.2.5</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -151,7 +151,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.2.4</span>
+    <span id="nav-ver">mappa v1.2.5</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
   <a id="nav-back" href="/">APP</a>
@@ -206,11 +206,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.2.4 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.2.5 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.2.4
+// NAUTILUS MAPPA v1.2.5
 
 var ENGINE_URL = '/api/engine';
 
@@ -350,8 +350,9 @@ function drawArrow(cx, cy, dir, spd, gust, alpha, isZone){
 function drawWind(){
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   var bounds = map.getBounds();
-  // Distanza minima in pixel tra frecce per evitare sovraffollamento
-  var minPx = 30;
+  // Distanza minima in pixel tra frecce - si riduce con lo zoom per piu' densita'
+  var zoom = map.getZoom();
+  var minPx = zoom >= 10 ? 18 : zoom >= 9 ? 22 : 30;
   var drawn = [];
   state.gridData.forEach(function(pt){
     if (!bounds.contains([pt.lat, pt.lon])) return;
@@ -397,15 +398,18 @@ function zoneIcon(spd, gust){
 ZONES.forEach(function(z){
   var mk = L.marker([z.lat, z.lon], { icon:zoneIcon(0, null), zIndexOffset:100 }).addTo(map);
   mk.on('click', function(){
-    // Rebind ogni volta per garantire riapertura
     mk.unbindPopup();
+    canvas.style.opacity = '0.2';
     var d = state.zoneData[z.key];
     if (!d){ mk.bindPopup('<div class="popup-name">' + z.name + '</div><div class="popup-ts">Dati non disponibili</div>').openPopup(); return; }
-    var spd   = d.wind_speed     != null ? d.wind_speed.toFixed(1)     : '--';
-    var dir   = d.wind_dir       != null ? degToDir(d.wind_dir)        : '--';
-    var gust  = d.wind_gust      != null ? d.wind_gust.toFixed(0)+'kn' : '--';
-    var sObs  = (d.wind_speed_obs != null && d.wind_speed_obs !== undefined) ? d.wind_speed_obs.toFixed(1) : null;
-    var dObs  = (d.wind_dir_obs   != null && d.wind_dir_obs   !== undefined) ? degToDir(d.wind_dir_obs)   : null;
+    // Usa stessa fonte della freccia: OWM se disponibile, altrimenti OM
+    var sObs  = (d.wind_speed_obs != null && d.wind_speed_obs !== undefined) ? d.wind_speed_obs : null;
+    var dObsN = (d.wind_dir_obs   != null && d.wind_dir_obs   !== undefined) ? d.wind_dir_obs   : null;
+    var spd   = sObs != null ? sObs.toFixed(1) : (d.wind_speed != null ? d.wind_speed.toFixed(1) : '--');
+    var dir   = dObsN != null ? degToDir(dObsN) : (d.wind_dir != null ? degToDir(d.wind_dir) : '--');
+    var spdSrc = sObs != null ? 'OWM' : 'OM';
+    var gust  = d.wind_gust != null ? d.wind_gust.toFixed(0)+'kn' : '--';
+    var dObs  = dObsN != null ? degToDir(dObsN) : null;
     var sIfs  = (d.ifs_wind_speed != null && d.ifs_wind_speed !== undefined) ? d.ifs_wind_speed.toFixed(1) : null;
     var dIfs  = (d.ifs_wind_dir   != null && d.ifs_wind_dir   !== undefined) ? degToDir(d.ifs_wind_dir)   : null;
     var sIcon = (d.icon_wind_speed!= null && d.icon_wind_speed!== undefined) ? d.icon_wind_speed.toFixed(1): null;
@@ -419,7 +423,7 @@ ZONES.forEach(function(z){
     if (!gustLine) gustLine = '<span style="color:var(--muted)">--</span>';
     var html =
       '<div class="popup-name">' + z.name + '</div>' +
-      '<div class="popup-wind">' + spd + ' kn ' + dir + '</div>' +
+      '<div class="popup-wind">' + spd + ' kn ' + dir + ' <span style="font-size:0.7rem;color:var(--muted)">(' + spdSrc + ')</span></div>' +
       '<div class="popup-wind" style="color:#ffaa00">Raffica: ' + gustLine + '</div>' +
       '<div class="popup-ts">Snapshot ore ' + snapTs + '</div>' +
       '<div class="popup-srcs">' +
@@ -428,7 +432,9 @@ ZONES.forEach(function(z){
       (sIfs  ? '<span class="psrc psrc-ifs">IFS '  + sIfs  + 'kn ' + dIfs  + '</span>' : '') +
       (sObs  ? '<span class="psrc psrc-owm">OWM '  + sObs  + 'kn ' + dObs  + '</span>' : '') +
       '</div>';
-    mk.bindPopup(html).openPopup();
+    var zPop = L.popup().setContent(html);
+    zPop.on('remove', function(){ canvas.style.opacity='1'; });
+    mk.bindPopup(zPop).openPopup();
   });
   zoneMarkers[z.key] = mk;
 });
@@ -591,7 +597,7 @@ setInterval(loadAll, 600000);
 
 loadAll();
 
-// Fine codice - NAUTILUS MAPPA v1.2.4
+// Fine codice - NAUTILUS MAPPA v1.2.5
 </script>
 </body>
 </html>

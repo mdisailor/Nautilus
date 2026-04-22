@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.25 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.27 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -911,6 +911,7 @@ var snapshot = {
 ts: now.toISOString(),
 wind_dir: data.wind_dir_om !== undefined ? data.wind_dir_om : data.wind_dir,
 wind_speed: data.wind_speed_om !== undefined ? data.wind_speed_om : data.wind_speed,
+wind_gust: data.wind_gust !== undefined ? data.wind_gust : null,
 pressure: data.pressure,
 wave_height: data.wave_height,
 swell_height: data.swell_height,
@@ -1357,6 +1358,7 @@ var csPromises = csZones.map(function(zk) {
         swell_height: h.swell_wave_height ? h.swell_wave_height[idx2] : null,
         swell_period: h.swell_wave_period ? h.swell_wave_period[idx2] : null,
         swell_dir: h.swell_wave_direction ? h.swell_wave_direction[idx2] : null,
+        wind_gust: h.windgusts_10m ? h.windgusts_10m[idx2] : null,
         wind_speed_om: h.windspeed_10m ? h.windspeed_10m[idx2] : null,
         wind_dir_om: h.winddirection_10m ? h.winddirection_10m[idx2] : null,
         icon_wind_speed: iconH && iconH.windspeed_10m ? iconH.windspeed_10m[idx2] : null,
@@ -1679,7 +1681,7 @@ if (action === 'predict') {
     pLines.push('PATTERN: pattern sinottico identificato dai dati storici');
     pLines.push('CONSIGLIO: indicazione operativa per la navigazione in questa zona');
     pLines.push(req.query.fast === '1'
-    ? 'Rispondi SOLO con: H3: Xkn DIR, H6: Xkn DIR, H12: Xkn DIR. Raffica: Xkn. Confidenza: bassa/media/alta. Max 60 parole.'
+    ? 'Rispondi con: H3: Xkn DIR, H6: Xkn DIR, H12: Xkn DIR. Raffica: Xkn. Confidenza: bassa/media/alta. Pattern: una riga. Consiglio: una riga. Max 80 parole.'
     : 'Max 200 parole. Basati SOLO sui dati forniti, non su conoscenza generica.');
     var prompt = pLines.join('\n');
 
@@ -1702,8 +1704,8 @@ if (action === 'predict') {
 
     // Save prediction to KV for later verification
     var now3 = new Date();
-    var predMins = now3.getMinutes() < 30 ? '00' : '30';
-    var predKey = 'predict:' + zoneKey + ':' + now3.toISOString().slice(0, 13) + '-' + predMins;
+    var predMins15 = now3.getMinutes() < 15 ? '00' : now3.getMinutes() < 30 ? '15' : now3.getMinutes() < 45 ? '30' : '45';
+    var predKey = 'predict:' + zoneKey + ':' + now3.toISOString().slice(0, 13) + '-' + predMins15;
     // Extract structured wind values from AI text for easy comparison later
     var extractWindVal = function(text, h) {
       // Find lines containing H3/H6/H12 and extract first number before 'kn'
@@ -1776,10 +1778,11 @@ if (action === 'predict_history') {
     var predPromises = [];
     for (var pd4 = 0; pd4 < 7; pd4++) {
       for (var ph4 = 0; ph4 < 24; ph4++) {
-        for (var pm4 = 0; pm4 < 2; pm4++) {
-          (function(dd, hh, mm) {
-            var t = new Date(now4.getTime() - dd*86400000 - hh*3600000 - mm*1800000);
-            var key = 'predict:' + zoneKey + ':' + t.toISOString().slice(0,13) + '-' + (mm === 0 ? '00' : '30');
+        for (var pm4 = 0; pm4 < 4; pm4++) {
+          (function(dd, hh, qq) {
+            var t = new Date(now4.getTime() - dd*86400000 - hh*3600000 - qq*900000);
+            var minStr = qq === 0 ? '00' : qq === 1 ? '15' : qq === 2 ? '30' : '45';
+            var key = 'predict:' + zoneKey + ':' + t.toISOString().slice(0,13) + '-' + minStr;
             predPromises.push(kvGet(key, kvUrl, kvToken).then(function(v) {
               return v ? v : null;
             }));
@@ -1804,6 +1807,11 @@ if (action === 'predict_history') {
     var actualPromises = [];
     top10.forEach(function(p) {
       var genTime = new Date(p.generated_at);
+      // h3 actual
+      var t3 = new Date(genTime.getTime() + 3*3600000);
+      var m3 = t3.getMinutes() < 30 ? '00' : '30';
+      var k3 = 'snap:' + zoneKey + ':' + t3.toISOString().slice(0,13) + '-' + m3;
+      actualPromises.push(kvGet(k3, kvUrl, kvToken));
       // h6 actual
       var t6 = new Date(genTime.getTime() + 6*3600000);
       var m6 = t6.getMinutes() < 30 ? '00' : '30';
@@ -1818,10 +1826,13 @@ if (action === 'predict_history') {
     var actuals = await Promise.all(actualPromises);
 
     var withActual = top10.map(function(p, i) {
-      var snap6 = actuals[i*2];
-      var snap12 = actuals[i*2+1];
+      var snap3 = actuals[i*3];
+      var snap6 = actuals[i*3+1];
+      var snap12 = actuals[i*3+2];
       return {
         prediction: p,
+        actual_3h: snap3 ? snap3.wind_speed : null,
+        actual_3h_dir: snap3 ? snap3.wind_dir : null,
         actual_6h: snap6 ? snap6.wind_speed : null,
         actual_6h_dir: snap6 ? snap6.wind_dir : null,
         actual_12h: snap12 ? snap12.wind_speed : null,
@@ -1939,4 +1950,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.25
+// Fine codice - NAUTILUS ENGINE v2.9.27

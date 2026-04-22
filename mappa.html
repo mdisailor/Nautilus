@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.2.5 - mdisailor - 2026-04-21 -->
+<!-- NAUTILUS MAPPA v1.2.7 - mdisailor - 2026-04-21 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.2.5</title>
+<title>NAUTILUS Mappa Vento v1.2.7</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -46,7 +46,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 }
 
 /* CANVAS */
-#wind-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:400}
+#wind-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:200}
 
 /* HUD */
 #hud{
@@ -151,7 +151,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.2.5</span>
+    <span id="nav-ver">mappa v1.2.7</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
   <a id="nav-back" href="/">APP</a>
@@ -206,11 +206,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.2.5 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.2.7 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.2.5
+// NAUTILUS MAPPA v1.2.7
 
 var ENGINE_URL = '/api/engine';
 
@@ -368,10 +368,10 @@ function drawWind(){
     var d = state.zoneData[z.key];
     if (!d) return;
     var ll = map.latLngToContainerPoint([z.lat, z.lon]);
-    var spd  = (d.wind_speed_obs !== null && d.wind_speed_obs !== undefined) ? d.wind_speed_obs : d.wind_speed;
-    var dir  = (d.wind_dir_obs   !== null && d.wind_dir_obs   !== undefined) ? d.wind_dir_obs  : d.wind_dir;
-    var gust = (d.wind_gust_obs  !== null && d.wind_gust_obs  !== undefined) ? d.wind_gust_obs :
-               (d.wind_gust      !== null && d.wind_gust      !== undefined) ? d.wind_gust     : null;
+    // Freccia: usa OM come fonte primaria (piu preciso per direzione)
+    var spd  = d.wind_speed != null ? d.wind_speed : (d.wind_speed_obs || 0);
+    var dir  = d.wind_dir   != null ? d.wind_dir   : (d.wind_dir_obs  || 0);
+    var gust = d.wind_gust  != null ? d.wind_gust  : (d.wind_gust_obs || null);
     drawArrow(ll.x, ll.y, dir, spd, gust, 1.0, true);
   });
 }
@@ -402,14 +402,14 @@ ZONES.forEach(function(z){
     canvas.style.opacity = '0.2';
     var d = state.zoneData[z.key];
     if (!d){ mk.bindPopup('<div class="popup-name">' + z.name + '</div><div class="popup-ts">Dati non disponibili</div>').openPopup(); return; }
-    // Usa stessa fonte della freccia: OWM se disponibile, altrimenti OM
-    var sObs  = (d.wind_speed_obs != null && d.wind_speed_obs !== undefined) ? d.wind_speed_obs : null;
-    var dObsN = (d.wind_dir_obs   != null && d.wind_dir_obs   !== undefined) ? d.wind_dir_obs   : null;
-    var spd   = sObs != null ? sObs.toFixed(1) : (d.wind_speed != null ? d.wind_speed.toFixed(1) : '--');
-    var dir   = dObsN != null ? degToDir(dObsN) : (d.wind_dir != null ? degToDir(d.wind_dir) : '--');
-    var spdSrc = sObs != null ? 'OWM' : 'OM';
-    var gust  = d.wind_gust != null ? d.wind_gust.toFixed(0)+'kn' : '--';
-    var dObs  = dObsN != null ? degToDir(dObsN) : null;
+    // Popup: OM fonte primaria (coerente con freccia), OWM mostrato come confronto
+    var spd    = d.wind_speed != null ? d.wind_speed.toFixed(1) : '--';
+    var dir    = d.wind_dir   != null ? degToDir(d.wind_dir)    : '--';
+    var spdSrc = 'OM';
+    var sObs   = (d.wind_speed_obs != null && d.wind_speed_obs !== undefined) ? d.wind_speed_obs : null;
+    var dObsN  = (d.wind_dir_obs   != null && d.wind_dir_obs   !== undefined) ? d.wind_dir_obs   : null;
+    var gust   = d.wind_gust != null ? d.wind_gust.toFixed(0)+'kn' : '--';
+    var dObs   = dObsN != null ? degToDir(dObsN) : null;
     var sIfs  = (d.ifs_wind_speed != null && d.ifs_wind_speed !== undefined) ? d.ifs_wind_speed.toFixed(1) : null;
     var dIfs  = (d.ifs_wind_dir   != null && d.ifs_wind_dir   !== undefined) ? degToDir(d.ifs_wind_dir)   : null;
     var sIcon = (d.icon_wind_speed!= null && d.icon_wind_speed!== undefined) ? d.icon_wind_speed.toFixed(1): null;
@@ -443,9 +443,8 @@ function updateZoneMarkers(){
   ZONES.forEach(function(z){
     var d = state.zoneData[z.key];
     if (!d) return;
-    var spd  = (d.wind_speed_obs != null && d.wind_speed_obs !== undefined) ? d.wind_speed_obs : (d.wind_speed || 0);
-    var gust = (d.wind_gust_obs  != null && d.wind_gust_obs  !== undefined) ? d.wind_gust_obs  :
-               (d.wind_gust      != null && d.wind_gust      !== undefined) ? d.wind_gust      : null;
+    var spd  = d.wind_speed != null ? d.wind_speed : (d.wind_speed_obs || 0);
+    var gust = d.wind_gust  != null ? d.wind_gust  : (d.wind_gust_obs  || null);
     zoneMarkers[z.key].setIcon(zoneIcon(spd, gust));
   });
 }
@@ -597,7 +596,7 @@ setInterval(loadAll, 600000);
 
 loadAll();
 
-// Fine codice - NAUTILUS MAPPA v1.2.5
+// Fine codice - NAUTILUS MAPPA v1.2.7
 </script>
 </body>
 </html>

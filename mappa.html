@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.0.8 - mdisailor - 2026-04-21 -->
+<!-- NAUTILUS MAPPA v1.0.9 - mdisailor - 2026-04-21 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.0.8</title>
+<title>NAUTILUS Mappa Vento v1.0.9</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -39,7 +39,9 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 #map-wrap{position:relative;flex:1;overflow:hidden}
 #map{width:100%;height:100%}
 .leaflet-container{background:#020e1c !important}
-.leaflet-tile{filter:brightness(0.6) saturate(0.8) hue-rotate(175deg)}
+.leaflet-tile{filter:brightness(0.55) saturate(1.1) hue-rotate(190deg) contrast(0.9)}
+/* Forza colore mare celeste sul background */
+.leaflet-container{background:#1a4a6e !important}
 .leaflet-control-zoom a{
   background:var(--card) !important;color:var(--accent) !important;
   border-color:var(--border) !important;
@@ -140,7 +142,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.0.8</span>
+    <span id="nav-ver">mappa v1.0.9</span>
   </div>
   <a id="nav-back" href="/">APP</a>
 </nav>
@@ -189,16 +191,16 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.0.8 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.0.9 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.0.8
+// NAUTILUS MAPPA v1.0.9
 
 var ENGINE_URL = '/api/engine';
 
 var ZONES = [
-  { key:'livorno',          name:'Livorno',            lat:43.548, lon:10.310 },
+  { key:'livorno',          name:'Livorno',            lat:43.5497, lon:10.2950 },
   { key:'viareggio',        name:'Viareggio',          lat:43.874, lon:10.230 },
   { key:'la_spezia',        name:'La Spezia',          lat:44.103, lon:9.820  },
   { key:'capraia',          name:'Capraia',            lat:43.050, lon:9.840  },
@@ -211,8 +213,8 @@ var ZONES = [
 
 // Griglia 0.25 gradi - Liguria Toscana Corsica Nord
 var GRID = [];
-for (var _la = 41.8; _la <= 44.5; _la = Math.round((_la+0.25)*100)/100) {
-  for (var _lo = 8.8; _lo <= 11.3; _lo = Math.round((_lo+0.25)*100)/100) {
+for (var _la = 41.6; _la <= 44.6; _la = Math.round((_la+0.25)*100)/100) {
+  for (var _lo = 7.4; _lo <= 11.3; _lo = Math.round((_lo+0.25)*100)/100) {
     GRID.push({ lat:_la, lon:_lo });
   }
 }
@@ -221,7 +223,7 @@ var state = { zoneData:{}, gridData:[], gpsMarker:null, gpsCircle:null, lastUpda
 
 // MAPPA
 var map = L.map('map', {
-  center:[43.6, 9.8], zoom:7,
+  center:[43.5, 9.5], zoom:7,
   zoomControl:true, attributionControl:false,
 });
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18}).addTo(map);
@@ -512,7 +514,7 @@ setInterval(loadAll, 600000);
 
 loadAll();
 
-// Fine codice - NAUTILUS MAPPA v1.0.8
+// Fine codice - NAUTILUS MAPPA v1.0.9
 </script>
 </body>
 </html>

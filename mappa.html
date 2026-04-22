@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.2.8 - mdisailor - 2026-04-21 -->
+<!-- NAUTILUS MAPPA v1.2.9 - mdisailor - 2026-04-21 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.2.8</title>
+<title>NAUTILUS Mappa Vento v1.2.9</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -151,7 +151,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.2.8</span>
+    <span id="nav-ver">mappa v1.2.9</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
   <a id="nav-back" href="/">APP</a>
@@ -206,11 +206,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.2.8 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.2.9 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.2.8
+// NAUTILUS MAPPA v1.2.9
 
 var ENGINE_URL = '/api/engine';
 
@@ -349,6 +349,7 @@ function drawArrow(cx, cy, dir, spd, gust, alpha, isZone){
 }
 
 function drawWind(){
+  if (canvas.width === 0 || canvas.height === 0) { resizeCanvas(); }
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   var bounds = map.getBounds();
   // Distanza minima in pixel tra frecce - si riduce con lo zoom per piu' densita'
@@ -544,6 +545,7 @@ async function loadAll(){
   try {
     await Promise.all([fetchZoneData(), fetchGridData()]);
     updateZoneMarkers();
+    resizeCanvas();
     drawWind();
     state.lastUpdate = new Date();
     var ts = state.lastUpdate.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
@@ -593,7 +595,7 @@ setInterval(loadAll, 600000);
 
 loadAll();
 
-// Fine codice - NAUTILUS MAPPA v1.2.8
+// Fine codice - NAUTILUS MAPPA v1.2.9
 </script>
 </body>
 </html>

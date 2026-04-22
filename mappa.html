@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.0.6 - mdisailor - 2026-04-21 -->
+<!-- NAUTILUS MAPPA v1.0.7 - mdisailor - 2026-04-21 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.0.6</title>
+<title>NAUTILUS Mappa Vento v1.0.7</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -39,7 +39,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 #map-wrap{position:relative;flex:1;overflow:hidden}
 #map{width:100%;height:100%}
 .leaflet-container{background:#020e1c !important}
-.leaflet-tile{filter:brightness(0.72) saturate(0.55) hue-rotate(180deg)}
+.leaflet-tile{filter:brightness(0.65) saturate(0.7) hue-rotate(155deg) sepia(0.15)}
 .leaflet-control-zoom a{
   background:var(--card) !important;color:var(--accent) !important;
   border-color:var(--border) !important;
@@ -109,11 +109,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 .leaflet-popup-tip{background:var(--card) !important}
 .grid-popup .leaflet-popup-content-wrapper{border-color:var(--muted) !important}
 .leaflet-popup-content{margin:12px 14px !important}
-.popup-name{font-family:'Bebas Neue',cursive;font-size:1.1rem;color:var(--white);letter-spacing:0.1em}
-.popup-wind{font-family:'DM Mono',monospace;font-size:0.78rem;color:var(--accent);margin-top:5px}
-.popup-ts{font-family:'DM Mono',monospace;font-size:0.56rem;color:var(--muted);margin-top:3px}
-.popup-srcs{display:flex;gap:5px;margin-top:7px;flex-wrap:wrap}
-.psrc{font-size:0.5rem;padding:2px 7px;border-radius:4px;border:1px solid}
+.popup-name{font-family:'Bebas Neue',cursive;font-size:1.3rem;color:var(--white);letter-spacing:0.1em}
+.popup-wind{font-family:'DM Mono',monospace;font-size:0.95rem;color:var(--accent);margin-top:6px}
+.popup-ts{font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--muted);margin-top:4px}
+.popup-srcs{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
+.psrc{font-size:0.62rem;padding:3px 9px;border-radius:4px;border:1px solid}
 .psrc-om  {color:#8ab8d0;border-color:#8ab8d0}
 .psrc-icon{color:#90caf9;border-color:#90caf9}
 .psrc-ifs {color:#ce93d8;border-color:#ce93d8}
@@ -140,7 +140,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.0.6</span>
+    <span id="nav-ver">mappa v1.0.7</span>
   </div>
   <a id="nav-back" href="/">APP</a>
 </nav>
@@ -184,11 +184,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.0.6 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.0.7 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.0.6
+// NAUTILUS MAPPA v1.0.7
 
 var ENGINE_URL = '/api/engine';
 
@@ -216,7 +216,7 @@ var state = { zoneData:{}, gridData:[], gpsMarker:null, gpsCircle:null, lastUpda
 
 // MAPPA
 var map = L.map('map', {
-  center:[43.2, 10.2], zoom:7,
+  center:[43.0, 10.3], zoom:8,
   zoomControl:true, attributionControl:false,
 });
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18}).addTo(map);
@@ -244,11 +244,13 @@ function windColor(s){
 
 function drawArrow(cx, cy, dir, spd, alpha, isZone){
   if (spd === null || spd === undefined || isNaN(spd)) return;
-  // Dimensione FISSA in pixel - indipendente dallo zoom
-  var base = isZone ? 30 : 18;
-  var extra = Math.min(spd * 1.8, 20);
+  // Scala con zoom: zoom 7=piccole, zoom 9=normali, zoom 11+=grandi
+  var z = map.getZoom();
+  var zScale = Math.max(0.4, Math.min(1.4, (z - 6) * 0.3));
+  var base = isZone ? 28 * zScale : 16 * zScale;
+  var extra = Math.min(spd * 1.6, 18) * zScale;
   var len = base + extra;
-  var lw = isZone ? 4.5 : 3;
+  var lw = isZone ? Math.max(2, 4 * zScale) : Math.max(1.5, 2.8 * zScale);
   var rad = (dir - 180) * Math.PI / 180;
   // Entrambi usano colore per intensita'
   // Zona: dimensione maggiore per distinguerla dalla griglia
@@ -330,6 +332,8 @@ function zoneIcon(spd){
 ZONES.forEach(function(z){
   var mk = L.marker([z.lat, z.lon], { icon:zoneIcon(0), zIndexOffset:100 }).addTo(map);
   mk.on('click', function(){
+    // Rebind ogni volta per garantire riapertura
+    mk.unbindPopup();
     var d = state.zoneData[z.key];
     if (!d){ mk.bindPopup('<div class="popup-name">' + z.name + '</div><div class="popup-ts">Dati non disponibili</div>').openPopup(); return; }
     var spd   = d.wind_speed     != null ? d.wind_speed.toFixed(1)     : '--';
@@ -497,7 +501,7 @@ setInterval(loadAll, 600000);
 
 loadAll();
 
-// Fine codice - NAUTILUS MAPPA v1.0.6
+// Fine codice - NAUTILUS MAPPA v1.0.7
 </script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.15 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.16 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -544,7 +544,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(-border); bord
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.15  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.16  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1745,7 +1745,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(-border); bord
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.15  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.16  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -3281,13 +3281,9 @@ async function loadHistory(zoneKey) {
     html += '<div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);margin-top:8px;text-transform:uppercase;letter-spacing:0.1em">Pressione hPa</div>';
     html += renderHistoryBars(snaps, 'pressure', 'var(--accent)', function(s) { return s.pressure; }, 1);
 
-    // Wind chart
-    html += '<div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);margin-top:10px;text-transform:uppercase;letter-spacing:0.1em">Vento kn</div>';
-    html += renderHistoryBars(snaps, 'wind', 'var(--gold)', function(s) { return s.wind_speed; }, 0);
-
-    // Wind direction over time with arrows
-    html += '<div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);margin-top:10px;text-transform:uppercase;letter-spacing:0.1em">Direzione vento nel tempo</div>';
-    html += renderWindDirTimeline(snaps);
+    // Wind + gust grouped chart
+    html += '<div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);margin-top:10px;text-transform:uppercase;letter-spacing:0.1em">Vento / Raffica kn</div>';
+    html += renderWindGustBars(snaps);
 
     // Rotation analysis
     if (data.rotation && data.rotation.trend !== 'insufficient_data') {
@@ -3351,6 +3347,79 @@ function renderHistoryBars(snaps, type, color, getValue, decimals) {
     '</div>';
   });
   html += '</div>';
+  return html;
+}
+
+function renderWindGustBars(snaps) {
+  if (!snaps || snaps.length === 0) return '<div class="history-empty">Nessun dato</div>';
+  var dirs16 = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+  function bftColor(kn) {
+    if (kn === null || kn === undefined) return '#4a7090';
+    if (kn >= 34) return '#cc0000';
+    if (kn >= 28) return '#ff3300';
+    if (kn >= 22) return '#ff8800';
+    if (kn >= 17) return '#ffdd00';
+    if (kn >= 11) return '#00cc44';
+    if (kn >= 7)  return '#00ee88';
+    if (kn >= 4)  return '#44ddcc';
+    if (kn >= 1)  return '#88ccff';
+    return '#aaddff';
+  }
+  var MAX_H = 50, MIN_H = 4;
+  // Calcola max per scala
+  var allVals = [];
+  snaps.forEach(function(s) {
+    if (s.wind_speed != null) allVals.push(s.wind_speed);
+    if (s.wind_gust  != null) allVals.push(s.wind_gust);
+  });
+  if (allVals.length === 0) return '<div class="history-empty">Nessun dato</div>';
+  var maxV = Math.max.apply(null, allVals);
+  var minV = 0;
+  var range = Math.max(maxV - minV, 1);
+
+  var n = snaps.length;
+  // Mostra label ogni 3 ore circa
+  var step = Math.max(1, Math.floor(n / 8));
+
+  var html = '<div style="display:flex;gap:3px;align-items:flex-end;padding-top:4px;overflow-x:auto">';
+  snaps.forEach(function(s, i) {
+    var spd  = s.wind_speed != null ? parseFloat(s.wind_speed) : null;
+    var gust = s.wind_gust  != null ? parseFloat(s.wind_gust)  : null;
+    var dir  = s.wind_dir   != null ? dirs16[Math.round(s.wind_dir / 22.5) % 16] : '--';
+    var pres = s.pressure   != null ? parseFloat(s.pressure).toFixed(0) : '--';
+    var time = s.ts ? new Date(s.ts).toLocaleTimeString('it-IT', {timeZone:'Europe/Rome', hour:'2-digit', minute:'2-digit'}) : '--';
+    var isLast = i === n - 1;
+    var showLabel = (i % step === 0) || isLast;
+
+    var hSpd  = spd  != null ? Math.round(MIN_H + ((spd  - minV) / range) * (MAX_H - MIN_H)) : MIN_H;
+    var hGust = gust != null ? Math.round(MIN_H + ((gust - minV) / range) * (MAX_H - MIN_H)) : MIN_H;
+    var colSpd  = bftColor(spd);
+    var colGust = bftColor(gust);
+
+    html += '<div style="display:flex;flex-direction:column;align-items:center;min-width:20px">';
+    // Info sopra: dir + pressione
+    html += '<div style="font-family:DM Mono,monospace;font-size:0.42rem;color:var(--muted);text-align:center;line-height:1.4;min-height:22px">' +
+      (showLabel ? '<span style="color:#8ab8d0">' + dir + '</span><br>' + pres : '&nbsp;<br>&nbsp;') +
+    '</div>';
+    // Due barre affiancate
+    html += '<div style="display:flex;gap:1px;align-items:flex-end;height:' + MAX_H + 'px">';
+    // Barra vento
+    html += '<div style="width:7px;height:' + hSpd + 'px;background:' + colSpd + ';opacity:' + (isLast ? 1 : 0.7) + ';border-radius:1px 1px 0 0' + (isLast ? ';box-shadow:0 0 4px ' + colSpd : '') + '"></div>';
+    // Barra raffica
+    html += '<div style="width:7px;height:' + hGust + 'px;background:' + colGust + ';opacity:' + (isLast ? 1 : 0.55) + ';border-radius:1px 1px 0 0' + (isLast ? ';box-shadow:0 0 4px ' + colGust : '') + '"></div>';
+    html += '</div>';
+    // Orario sotto
+    html += '<div style="font-family:DM Mono,monospace;font-size:0.42rem;color:' + (isLast ? '#cce8ff' : '#4a7090') + ';margin-top:2px;white-space:nowrap">' +
+      (showLabel ? time : '&nbsp;') +
+    '</div>';
+    html += '</div>';
+  });
+  html += '</div>';
+  // Legenda
+  html += '<div style="font-family:DM Mono,monospace;font-size:0.42rem;color:var(--muted);margin-top:4px;display:flex;gap:8px">' +
+    '<span><span style="display:inline-block;width:7px;height:7px;background:var(--gold);border-radius:1px;vertical-align:middle"></span> Vento medio</span>' +
+    '<span><span style="display:inline-block;width:7px;height:7px;background:#ff8800;border-radius:1px;opacity:0.8;vertical-align:middle"></span> Raffica</span>' +
+  '</div>';
   return html;
 }
 
@@ -4392,7 +4461,7 @@ function togglePredictItem(idx) {
   el.style.display = 'block';
 }
 
-// Fine codice - NAUTILUS v5.6.15
+// Fine codice - NAUTILUS v5.6.16
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

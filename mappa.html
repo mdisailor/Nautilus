@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.2.7 - mdisailor - 2026-04-21 -->
+<!-- NAUTILUS MAPPA v1.2.8 - mdisailor - 2026-04-21 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.2.7</title>
+<title>NAUTILUS Mappa Vento v1.2.8</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -151,7 +151,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.2.7</span>
+    <span id="nav-ver">mappa v1.2.8</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
   <a id="nav-back" href="/">APP</a>
@@ -206,11 +206,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.2.7 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.2.8 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.2.7
+// NAUTILUS MAPPA v1.2.8
 
 var ENGINE_URL = '/api/engine';
 
@@ -249,6 +249,7 @@ L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',{opacity:0.7,
 // CANVAS
 var canvas = document.getElementById('wind-canvas');
 var ctx = canvas.getContext('2d');
+canvas.style.opacity = '1';
 
 function resizeCanvas(){
   var w = document.getElementById('map-wrap');
@@ -399,7 +400,6 @@ ZONES.forEach(function(z){
   var mk = L.marker([z.lat, z.lon], { icon:zoneIcon(0, null), zIndexOffset:100 }).addTo(map);
   mk.on('click', function(){
     mk.unbindPopup();
-    canvas.style.opacity = '0.2';
     var d = state.zoneData[z.key];
     if (!d){ mk.bindPopup('<div class="popup-name">' + z.name + '</div><div class="popup-ts">Dati non disponibili</div>').openPopup(); return; }
     // Popup: OM fonte primaria (coerente con freccia), OWM mostrato come confronto
@@ -433,7 +433,6 @@ ZONES.forEach(function(z){
       (sObs  ? '<span class="psrc psrc-owm">OWM '  + sObs  + 'kn ' + dObs  + '</span>' : '') +
       '</div>';
     var zPop = L.popup().setContent(html);
-    zPop.on('remove', function(){ canvas.style.opacity='1'; });
     mk.bindPopup(zPop).openPopup();
   });
   zoneMarkers[z.key] = mk;
@@ -462,8 +461,6 @@ function toggleLegend(){
 
 // CLICK GRIGLIA - trova punto piu' vicino e mostra popup
 var gridPopup = L.popup({ className:'grid-popup', autoPanPadding:[10,60] });
-gridPopup.on('add', function(){ canvas.style.opacity='0.25'; });
-gridPopup.on('remove', function(){ canvas.style.opacity='1'; });
 
 map.on('click', function(e){
   // Controlla se il click e' vicino a un punto zona (in quel caso il marker gestisce)
@@ -596,7 +593,7 @@ setInterval(loadAll, 600000);
 
 loadAll();
 
-// Fine codice - NAUTILUS MAPPA v1.2.7
+// Fine codice - NAUTILUS MAPPA v1.2.8
 </script>
 </body>
 </html>

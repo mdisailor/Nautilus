@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.0.9 - mdisailor - 2026-04-21 -->
+<!-- NAUTILUS MAPPA v1.1.2 - mdisailor - 2026-04-21 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.0.9</title>
+<title>NAUTILUS Mappa Vento v1.1.2</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -39,9 +39,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 #map-wrap{position:relative;flex:1;overflow:hidden}
 #map{width:100%;height:100%}
 .leaflet-container{background:#020e1c !important}
-.leaflet-tile{filter:brightness(0.55) saturate(1.1) hue-rotate(190deg) contrast(0.9)}
-/* Forza colore mare celeste sul background */
-.leaflet-container{background:#1a4a6e !important}
+.leaflet-container{background:#0d1f2d !important}
 .leaflet-control-zoom a{
   background:var(--card) !important;color:var(--accent) !important;
   border-color:var(--border) !important;
@@ -140,9 +138,10 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <body>
 
 <nav id="nav">
-  <div style="display:flex;align-items:baseline">
+  <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.0.9</span>
+    <span id="nav-ver">mappa v1.1.2</span>
+    <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
   <a id="nav-back" href="/">APP</a>
 </nav>
@@ -186,16 +185,16 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
       </div>
     </div>
     <div class="leg-note">
-      Colore = intensita' vento<br>* Punti zona: bordo bianco<br>  Tap per orario e dettagli<br>  (snapshot max 1h fa)<br>Aggiorn. 10 min
+      Colore = scala Beaufort<br>Griglia: shaft=vento testa=raffica<br>Punti zona: sinistra=vento<br>destra=raffica<br>Tap per dettagli e orario<br>Aggiorn. 10 min
     </div>
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.0.9 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.1.2 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.0.9
+// NAUTILUS MAPPA v1.1.2
 
 var ENGINE_URL = '/api/engine';
 
@@ -223,10 +222,12 @@ var state = { zoneData:{}, gridData:[], gpsMarker:null, gpsCircle:null, lastUpda
 
 // MAPPA
 var map = L.map('map', {
-  center:[43.5, 9.5], zoom:7,
+  center:[43.8, 9.6], zoom:8,
   zoomControl:true, attributionControl:false,
 });
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18}).addTo(map);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+  attribution:'CartoDB',maxZoom:19,subdomains:'abcd'
+}).addTo(map);
 L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',{opacity:0.7,maxZoom:18}).addTo(map);
 
 // CANVAS
@@ -255,9 +256,37 @@ function windColor(s){
   return '#aaddff';              // F0   quasi bianco
 }
 
-function drawArrow(cx, cy, dir, spd, alpha, isZone){
+// Freccia primitiva: shaft+testa con colori separati
+function drawSingleArrow(ox, oy, rad, len, lw, colShaft, colHead, alpha){
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(ox, oy);
+  ctx.rotate(rad);
+  ctx.shadowColor = 'rgba(0,0,0,0.95)';
+  ctx.shadowBlur = 6;
+  // Shaft
+  ctx.beginPath();
+  ctx.moveTo(0, len * 0.45);
+  ctx.lineTo(0, -len * 0.25);
+  ctx.strokeStyle = colShaft;
+  ctx.lineWidth = lw;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+  // Testa
+  var hw = len * 0.40;
+  ctx.shadowBlur = 3;
+  ctx.beginPath();
+  ctx.moveTo(0, -len * 0.50);
+  ctx.lineTo(-hw * 0.52, -len * 0.50 + hw * 0.88);
+  ctx.lineTo( hw * 0.52, -len * 0.50 + hw * 0.88);
+  ctx.closePath();
+  ctx.fillStyle = colHead;
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawArrow(cx, cy, dir, spd, gust, alpha, isZone){
   if (spd === null || spd === undefined || isNaN(spd)) return;
-  // Scala con zoom: zoom 7=piccole, zoom 9=normali, zoom 11+=grandi
   var z = map.getZoom();
   var zScale = Math.max(0.4, Math.min(1.4, (z - 6) * 0.3));
   var base = isZone ? 28 * zScale : 16 * zScale;
@@ -265,62 +294,39 @@ function drawArrow(cx, cy, dir, spd, alpha, isZone){
   var len = base + extra;
   var lw = isZone ? Math.max(2, 4 * zScale) : Math.max(1.5, 2.8 * zScale);
   var rad = (dir - 180) * Math.PI / 180;
-  // Entrambi usano colore per intensita'
-  // Zona: dimensione maggiore per distinguerla dalla griglia
-  var col = windColor(spd);
+  var colSpd  = windColor(spd);
+  var colGust = (gust != null && !isNaN(gust)) ? windColor(gust) : colSpd;
 
-  ctx.save();
-  ctx.globalAlpha = alpha;
-  ctx.translate(cx, cy);
-  ctx.rotate(rad);
-
-  // Ombra nera forte per leggibilita'
-  ctx.shadowColor = 'rgba(0,0,0,1)';
-  ctx.shadowBlur = 8;
-
-  // Shaft
-  ctx.beginPath();
-  ctx.moveTo(0, len * 0.46);
-  ctx.lineTo(0, -len * 0.38);
-  ctx.strokeStyle = col;
-  ctx.lineWidth = lw;
-  ctx.lineCap = 'round';
-  ctx.stroke();
-
-  // Testa freccia larga
-  var hw = len * 0.42;
-  ctx.shadowBlur = 5;
-  ctx.beginPath();
-  ctx.moveTo(0, -len * 0.5);
-  ctx.lineTo(-hw * 0.55, -len * 0.5 + hw * 0.85);
-  ctx.lineTo( hw * 0.55, -len * 0.5 + hw * 0.85);
-  ctx.closePath();
-  ctx.fillStyle = col;
-  ctx.fill();
-
-  // Dot centrale
-  ctx.shadowBlur = 0;
-  ctx.beginPath();
-  ctx.arc(0, 0, lw * 0.9, 0, Math.PI * 2);
-  ctx.fillStyle = col;
-  ctx.fill();
-
-  ctx.restore();
+  if (isZone) {
+    // Due frecce parallele: offset laterale rispetto alla direzione
+    var off = 5 * zScale;
+    var perpX = Math.cos(rad) * off;
+    var perpY = Math.sin(rad) * off;
+    // Sinistra = vento medio
+    drawSingleArrow(cx - perpX, cy - perpY, rad, len, lw, colSpd, colSpd, alpha);
+    // Destra = raffica
+    drawSingleArrow(cx + perpX, cy + perpY, rad, len, lw, colGust, colGust, alpha);
+  } else {
+    // Griglia: freccia unica bicolore - shaft=vento, testa=raffica
+    drawSingleArrow(cx, cy, rad, len, lw, colSpd, colGust, alpha);
+  }
 }
 
 function drawWind(){
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   state.gridData.forEach(function(pt){
     var ll = map.latLngToContainerPoint([pt.lat, pt.lon]);
-    drawArrow(ll.x, ll.y, pt.dir, pt.speed, 0.65, false);
+    drawArrow(ll.x, ll.y, pt.dir, pt.speed, pt.gust, 0.65, false);
   });
   ZONES.forEach(function(z){
     var d = state.zoneData[z.key];
     if (!d) return;
     var ll = map.latLngToContainerPoint([z.lat, z.lon]);
-    var spd = (d.wind_speed_obs !== null && d.wind_speed_obs !== undefined) ? d.wind_speed_obs : d.wind_speed;
-    var dir = (d.wind_dir_obs  !== null && d.wind_dir_obs  !== undefined) ? d.wind_dir_obs  : d.wind_dir;
-    drawArrow(ll.x, ll.y, dir, spd, 1.0, true);
+    var spd  = (d.wind_speed_obs !== null && d.wind_speed_obs !== undefined) ? d.wind_speed_obs : d.wind_speed;
+    var dir  = (d.wind_dir_obs   !== null && d.wind_dir_obs   !== undefined) ? d.wind_dir_obs  : d.wind_dir;
+    var gust = (d.wind_gust_obs  !== null && d.wind_gust_obs  !== undefined) ? d.wind_gust_obs :
+               (d.wind_gust      !== null && d.wind_gust      !== undefined) ? d.wind_gust     : null;
+    drawArrow(ll.x, ll.y, dir, spd, gust, 1.0, true);
   });
 }
 
@@ -331,19 +337,20 @@ function degToDir(deg){
   return ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'][Math.round(deg/22.5)%16];
 }
 
-function zoneIcon(spd){
+function zoneIcon(spd, gust){
   var col = windColor(spd || 0);
-  // Bordo bianco spesso per distinguere i punti zona dalla griglia
+  var gustCol = gust ? windColor(gust) : col;
+  // Centro: colore vento medio. Bordo: colore raffica (se disponibile)
   return L.divIcon({
     html:'<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26">' +
-      '<circle cx="13" cy="13" r="11" fill="' + col + '" fill-opacity="0.25" stroke="#e8f4ff" stroke-width="2.5"/>' +
+      '<circle cx="13" cy="13" r="11" fill="' + col + '" fill-opacity="0.2" stroke="' + gustCol + '" stroke-width="3"/>' +
       '<circle cx="13" cy="13" r="5" fill="' + col + '"/></svg>',
     className:'', iconSize:[26,26], iconAnchor:[13,13], popupAnchor:[0,-14]
   });
 }
 
 ZONES.forEach(function(z){
-  var mk = L.marker([z.lat, z.lon], { icon:zoneIcon(0), zIndexOffset:100 }).addTo(map);
+  var mk = L.marker([z.lat, z.lon], { icon:zoneIcon(0, null), zIndexOffset:100 }).addTo(map);
   mk.on('click', function(){
     // Rebind ogni volta per garantire riapertura
     mk.unbindPopup();
@@ -359,9 +366,12 @@ ZONES.forEach(function(z){
     var sIcon = (d.icon_wind_speed!= null && d.icon_wind_speed!== undefined) ? d.icon_wind_speed.toFixed(1): null;
     var dIcon = (d.icon_wind_dir  != null && d.icon_wind_dir  !== undefined) ? degToDir(d.icon_wind_dir)  : null;
     var snapTs = d.ts ? new Date(d.ts).toLocaleTimeString('it-IT',{timeZone:'Europe/Rome',hour:'2-digit',minute:'2-digit'}) : '--';
+    var gustOm = (d.wind_gust != null && d.wind_gust !== undefined) ? d.wind_gust.toFixed(0) + 'kn' : '--';
+    var gustObs = (d.wind_gust_obs != null && d.wind_gust_obs !== undefined) ? d.wind_gust_obs.toFixed(0) + 'kn' : null;
+    var gustStr = gustObs ? gustObs + ' (OWM)' : gustOm;
     var html =
       '<div class="popup-name">' + z.name + '</div>' +
-      '<div class="popup-wind">' + spd + ' kn ' + dir + ' - raffica ' + gust + '</div>' +
+      '<div class="popup-wind">' + spd + ' kn ' + dir + ' - raffica ' + gustStr + '</div>' +
       '<div class="popup-ts">Snapshot ore ' + snapTs + '</div>' +
       '<div class="popup-srcs">' +
       '<span class="psrc psrc-om">OM ' + spd + 'kn ' + dir + '</span>' +
@@ -378,8 +388,10 @@ function updateZoneMarkers(){
   ZONES.forEach(function(z){
     var d = state.zoneData[z.key];
     if (!d) return;
-    var spd = (d.wind_speed_obs != null && d.wind_speed_obs !== undefined) ? d.wind_speed_obs : (d.wind_speed || 0);
-    zoneMarkers[z.key].setIcon(zoneIcon(spd));
+    var spd  = (d.wind_speed_obs != null && d.wind_speed_obs !== undefined) ? d.wind_speed_obs : (d.wind_speed || 0);
+    var gust = (d.wind_gust_obs  != null && d.wind_gust_obs  !== undefined) ? d.wind_gust_obs  :
+               (d.wind_gust      != null && d.wind_gust      !== undefined) ? d.wind_gust      : null;
+    zoneMarkers[z.key].setIcon(zoneIcon(spd, gust));
   });
 }
 
@@ -514,7 +526,7 @@ setInterval(loadAll, 600000);
 
 loadAll();
 
-// Fine codice - NAUTILUS MAPPA v1.0.9
+// Fine codice - NAUTILUS MAPPA v1.1.2
 </script>
 </body>
 </html>

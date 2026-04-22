@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.28 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.29 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1918,6 +1918,49 @@ if (action === 'predict_history') {
     }
   }
 
+if (action === 'meteo') {
+  // Proxy fetch dati meteo completi per il tab Meteo - evita 429 dall'IP del browser
+  // Parametri: lat, lon
+  var mlat = req.query.lat ? parseFloat(req.query.lat) : null;
+  var mlon = req.query.lon ? parseFloat(req.query.lon) : null;
+  if (!mlat || !mlon) {
+    return res.status(400).json({ error: 'lat e lon richiesti' });
+  }
+  try {
+    var atmUrl  = 'https://api.open-meteo.com/v1/forecast?latitude=' + mlat + '&longitude=' + mlon +
+      '&hourly=temperature_2m,relativehumidity_2m,visibility,cloudcover,precipitation_probability,' +
+      'windspeed_10m,winddirection_10m,windgusts_10m,surface_pressure' +
+      '&wind_speed_unit=kn&timezone=Europe/Rome&forecast_days=2&models=best_match';
+    var iconUrl  = 'https://api.open-meteo.com/v1/forecast?latitude=' + mlat + '&longitude=' + mlon +
+      '&hourly=windspeed_10m,winddirection_10m,windgusts_10m' +
+      '&wind_speed_unit=kn&timezone=Europe/Rome&forecast_days=2&models=icon_seamless';
+    var ifsUrl   = 'https://api.open-meteo.com/v1/ecmwf?latitude=' + mlat + '&longitude=' + mlon +
+      '&hourly=windspeed_10m,winddirection_10m,windgusts_10m' +
+      '&wind_speed_unit=kn&timezone=Europe/Rome&forecast_days=2';
+    var marineUrl = 'https://marine-api.open-meteo.com/v1/marine?latitude=' + mlat + '&longitude=' + mlon +
+      '&hourly=wave_height,wave_period,wave_direction,swell_wave_height,swell_wave_period,swell_wave_direction,sea_surface_temperature' +
+      '&length_unit=metric&timezone=Europe/Rome&forecast_days=2';
+    var [atmRes, iconRes, ifsRes, marineRes] = await Promise.all([
+      fetch(atmUrl), fetch(iconUrl), fetch(ifsUrl), fetch(marineUrl)
+    ]);
+    var atmData    = atmRes.ok    ? await atmRes.json()    : null;
+    var iconData   = iconRes.ok   ? await iconRes.json()   : null;
+    var ifsData    = ifsRes.ok    ? await ifsRes.json()    : null;
+    var marineData = marineRes.ok ? await marineRes.json() : null;
+    if (!atmData || atmData.error) {
+      return res.status(502).json({ error: atmData ? atmData.reason : 'OM error' });
+    }
+    return res.status(200).json({
+      atm:    atmData,
+      icon:   iconData,
+      ifs:    ifsData,
+      marine: marineData
+    });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
 if (action === 'grid') {
   // Fetch vento griglia per la mappa - proxy verso Open-Meteo per evitare 429 dal browser
   // Parametri: lats=lat1,lat2,...  lons=lon1,lon2,...
@@ -1998,4 +2041,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.28
+// Fine codice - NAUTILUS ENGINE v2.9.29

@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.0.7 - mdisailor - 2026-04-21 -->
+<!-- NAUTILUS MAPPA v1.0.8 - mdisailor - 2026-04-21 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.0.7</title>
+<title>NAUTILUS Mappa Vento v1.0.8</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -39,7 +39,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 #map-wrap{position:relative;flex:1;overflow:hidden}
 #map{width:100%;height:100%}
 .leaflet-container{background:#020e1c !important}
-.leaflet-tile{filter:brightness(0.65) saturate(0.7) hue-rotate(155deg) sepia(0.15)}
+.leaflet-tile{filter:brightness(0.6) saturate(0.8) hue-rotate(175deg)}
 .leaflet-control-zoom a{
   background:var(--card) !important;color:var(--accent) !important;
   border-color:var(--border) !important;
@@ -140,7 +140,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.0.7</span>
+    <span id="nav-ver">mappa v1.0.8</span>
   </div>
   <a id="nav-back" href="/">APP</a>
 </nav>
@@ -163,11 +163,16 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   <button id="btn-refresh" title="Aggiorna">AGG</button>
 
   <div id="legend">
-    <div class="leg-title">Vento</div>
-    <div class="leg-row"><div class="leg-color" style="background:#00e676"></div><span>&lt; 7 kn</span></div>
-    <div class="leg-row"><div class="leg-color" style="background:#ffaa00"></div><span>7-14 kn</span></div>
-    <div class="leg-row"><div class="leg-color" style="background:#ff7a00"></div><span>14-22 kn</span></div>
-    <div class="leg-row"><div class="leg-color" style="background:#ff2d2d"></div><span>&gt; 22 kn</span></div>
+    <div class="leg-title">Vento Beaufort</div>
+    <div class="leg-row"><div class="leg-color" style="background:#cc0000"></div><span>F8+ &gt;34 kn</span></div>
+    <div class="leg-row"><div class="leg-color" style="background:#ff3300"></div><span>F7  28-34 kn</span></div>
+    <div class="leg-row"><div class="leg-color" style="background:#ff8800"></div><span>F6  22-28 kn</span></div>
+    <div class="leg-row"><div class="leg-color" style="background:#ffdd00"></div><span>F5  17-22 kn</span></div>
+    <div class="leg-row"><div class="leg-color" style="background:#00cc44"></div><span>F4  11-17 kn</span></div>
+    <div class="leg-row"><div class="leg-color" style="background:#00ee88"></div><span>F3   7-11 kn</span></div>
+    <div class="leg-row"><div class="leg-color" style="background:#44ddcc"></div><span>F2   4-7 kn</span></div>
+    <div class="leg-row"><div class="leg-color" style="background:#88ccff"></div><span>F1   1-4 kn</span></div>
+    <div class="leg-row"><div class="leg-color" style="background:#aaddff"></div><span>F0  &lt; 1 kn</span></div>
     <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
       <div class="leg-row">
         <svg width="16" height="16"><circle cx="8" cy="8" r="7" fill="#ffaa00" fill-opacity="0.25" stroke="#e8f4ff" stroke-width="2"/><circle cx="8" cy="8" r="3" fill="#ffaa00"/></svg>
@@ -184,11 +189,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.0.7 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.0.8 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.0.7
+// NAUTILUS MAPPA v1.0.8
 
 var ENGINE_URL = '/api/engine';
 
@@ -216,7 +221,7 @@ var state = { zoneData:{}, gridData:[], gpsMarker:null, gpsCircle:null, lastUpda
 
 // MAPPA
 var map = L.map('map', {
-  center:[43.0, 10.3], zoom:8,
+  center:[43.6, 9.8], zoom:7,
   zoomControl:true, attributionControl:false,
 });
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18}).addTo(map);
@@ -236,10 +241,16 @@ window.addEventListener('resize', function(){ resizeCanvas(); drawWind(); });
 map.on('moveend zoomend', drawWind);
 
 function windColor(s){
-  if (s >= 22) return '#ff2d2d';
-  if (s >= 14) return '#ff7a00';
-  if (s >= 7)  return '#ffaa00';
-  return '#00e676';
+  // Scala Beaufort
+  if (s >= 34) return '#cc0000'; // F8+  rosso scuro
+  if (s >= 28) return '#ff3300'; // F7   rosso
+  if (s >= 22) return '#ff8800'; // F6   arancio
+  if (s >= 17) return '#ffdd00'; // F5   giallo
+  if (s >= 11) return '#00cc44'; // F4   verde scuro
+  if (s >= 7)  return '#00ee88'; // F3   verde medio
+  if (s >= 4)  return '#44ddcc'; // F2   azzurro-verde
+  if (s >= 1)  return '#88ccff'; // F1   azzurro chiaro
+  return '#aaddff';              // F0   quasi bianco
 }
 
 function drawArrow(cx, cy, dir, spd, alpha, isZone){
@@ -501,7 +512,7 @@ setInterval(loadAll, 600000);
 
 loadAll();
 
-// Fine codice - NAUTILUS MAPPA v1.0.7
+// Fine codice - NAUTILUS MAPPA v1.0.8
 </script>
 </body>
 </html>

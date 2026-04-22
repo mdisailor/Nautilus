@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.1.2 - mdisailor - 2026-04-21 -->
+<!-- NAUTILUS MAPPA v1.1.4 - mdisailor - 2026-04-21 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.1.2</title>
+<title>NAUTILUS Mappa Vento v1.1.4</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -39,7 +39,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 #map-wrap{position:relative;flex:1;overflow:hidden}
 #map{width:100%;height:100%}
 .leaflet-container{background:#020e1c !important}
-.leaflet-container{background:#0d1f2d !important}
+.leaflet-container{background:#a8c8e8 !important}
 .leaflet-control-zoom a{
   background:var(--card) !important;color:var(--accent) !important;
   border-color:var(--border) !important;
@@ -140,7 +140,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.1.2</span>
+    <span id="nav-ver">mappa v1.1.4</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
   <a id="nav-back" href="/">APP</a>
@@ -190,11 +190,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.1.2 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.1.4 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.1.2
+// NAUTILUS MAPPA v1.1.4
 
 var ENGINE_URL = '/api/engine';
 
@@ -213,7 +213,7 @@ var ZONES = [
 // Griglia 0.25 gradi - Liguria Toscana Corsica Nord
 var GRID = [];
 for (var _la = 41.6; _la <= 44.6; _la = Math.round((_la+0.25)*100)/100) {
-  for (var _lo = 7.4; _lo <= 11.3; _lo = Math.round((_lo+0.25)*100)/100) {
+  for (var _lo = 7.4; _lo <= 12.5; _lo = Math.round((_lo+0.25)*100)/100) {
     GRID.push({ lat:_la, lon:_lo });
   }
 }
@@ -222,10 +222,10 @@ var state = { zoneData:{}, gridData:[], gpsMarker:null, gpsCircle:null, lastUpda
 
 // MAPPA
 var map = L.map('map', {
-  center:[43.8, 9.6], zoom:8,
+  center:[43.5, 10.2], zoom:8,
   zoomControl:true, attributionControl:false,
 });
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
   attribution:'CartoDB',maxZoom:19,subdomains:'abcd'
 }).addTo(map);
 L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',{opacity:0.7,maxZoom:18}).addTo(map);
@@ -456,12 +456,12 @@ async function fetchGridData(){
     var fetches = batch.map(function(pt){
       return fetch('https://api.open-meteo.com/v1/forecast?latitude=' + pt.lat +
         '&longitude=' + pt.lon +
-        '&current=windspeed_10m,winddirection_10m&wind_speed_unit=kn&timezone=Europe/Rome')
+        '&current=windspeed_10m,winddirection_10m,windgusts_10m&wind_speed_unit=kn&timezone=Europe/Rome')
         .then(function(r){ return r.json(); })
         .then(function(d){
           if (!d.current) return null;
           var t = d.current.time ? new Date(d.current.time).toLocaleTimeString('it-IT',{timeZone:'Europe/Rome',hour:'2-digit',minute:'2-digit'}) : '--';
-          return { lat:pt.lat, lon:pt.lon, speed:d.current.windspeed_10m, dir:d.current.winddirection_10m, time:t };
+          return { lat:pt.lat, lon:pt.lon, speed:d.current.windspeed_10m, dir:d.current.winddirection_10m, gust:d.current.windgusts_10m||null, time:t };
         }).catch(function(){ return null; });
     });
     var br = await Promise.all(fetches);
@@ -526,7 +526,7 @@ setInterval(loadAll, 600000);
 
 loadAll();
 
-// Fine codice - NAUTILUS MAPPA v1.1.2
+// Fine codice - NAUTILUS MAPPA v1.1.4
 </script>
 </body>
 </html>

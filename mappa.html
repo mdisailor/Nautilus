@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.2.0 - mdisailor - 2026-04-21 -->
+<!-- NAUTILUS MAPPA v1.2.1 - mdisailor - 2026-04-21 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.2.0</title>
+<title>NAUTILUS Mappa Vento v1.2.1</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -151,7 +151,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.2.0</span>
+    <span id="nav-ver">mappa v1.2.1</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
   <a id="nav-back" href="/">APP</a>
@@ -206,11 +206,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.2.0 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.2.1 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.2.0
+// NAUTILUS MAPPA v1.2.1
 
 var ENGINE_URL = '/api/engine';
 
@@ -286,7 +286,7 @@ function drawSingleArrow(ox, oy, rad, len, lw, colShaft, colHead, alpha){
   ctx.beginPath();
   ctx.moveTo(0, len * 0.45);
   ctx.lineTo(0, -len * 0.25);
-  ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+  ctx.strokeStyle = 'rgba(90,90,90,0.5)';
   ctx.lineWidth = lwOut;
   ctx.lineCap = 'round';
   ctx.stroke();
@@ -295,10 +295,10 @@ function drawSingleArrow(ox, oy, rad, len, lw, colShaft, colHead, alpha){
   ctx.lineTo(-hw * 0.52, -len * 0.50 + hw * 0.88);
   ctx.lineTo( hw * 0.52, -len * 0.50 + hw * 0.88);
   ctx.closePath();
-  ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+  ctx.strokeStyle = 'rgba(90,90,90,0.5)';
   ctx.lineWidth = 2;
   ctx.stroke();
-  ctx.fillStyle = 'rgba(0,0,0,0.85)';
+  ctx.fillStyle = 'rgba(90,90,90,0.5)';
   ctx.fill();
 
   // PASS 2: colore vero sopra
@@ -590,7 +590,7 @@ setInterval(loadAll, 600000);
 
 loadAll();
 
-// Fine codice - NAUTILUS MAPPA v1.2.0
+// Fine codice - NAUTILUS MAPPA v1.2.1
 </script>
 </body>
 </html>

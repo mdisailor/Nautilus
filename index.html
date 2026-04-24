@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.22 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.23 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -548,7 +548,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(-border); bord
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.22  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.23  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1749,7 +1749,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(-border); bord
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.22  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.23  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -3280,18 +3280,7 @@ async function loadHistory(zoneKey) {
 
     var snaps = data.snapshots;
     var html = '';
-
-    // Pressure chart
-    html += '<div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);margin-top:8px;text-transform:uppercase;letter-spacing:0.1em">Pressione hPa</div>';
-    html += renderHistoryBars(snaps, 'pressure', 'var(--accent)', function(s) { return s.pressure; }, 1);
-
-    // Wind + gust grouped chart
-    html += '<div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);margin-top:10px;text-transform:uppercase;letter-spacing:0.1em">Vento / Raffica kn</div>';
-    html += renderWindGustBars(snaps);
-
-    // Wind direction timeline - ripristinato
-    html += '<div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);margin-top:10px;text-transform:uppercase;letter-spacing:0.1em">Direzione vento nel tempo</div>';
-    html += renderWindDirTimeline(snaps);
+    html += renderHistoryMatrix(snaps);
 
     // Rotation analysis
     if (data.rotation && data.rotation.trend !== 'insufficient_data') {
@@ -3321,6 +3310,136 @@ async function loadHistory(zoneKey) {
   } catch(err) {
     container.innerHTML = '<div class="history-empty" style="color:var(--danger)">Errore: ' + err.message + '</div>';
   }
+}
+
+function renderHistoryMatrix(snaps) {
+  if (!snaps || snaps.length === 0) return '<div class="history-empty">Nessun dato storico disponibile.</div>';
+
+  var dirs16 = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+  function degToDir(d){ return d != null ? dirs16[Math.round(d/22.5)%16] : '--'; }
+  function bftColor(kn){
+    if (kn == null) return '#4a7090';
+    if (kn >= 34) return '#cc0000'; if (kn >= 28) return '#ff3300';
+    if (kn >= 22) return '#ff8800'; if (kn >= 17) return '#ffdd00';
+    if (kn >= 11) return '#00cc44'; if (kn >= 7)  return '#00ee88';
+    if (kn >= 4)  return '#44ddcc'; if (kn >= 1)  return '#88ccff';
+    return '#aaddff';
+  }
+  function dirColor(deg){
+    if (deg == null) return '#4a7090';
+    var d = ((deg % 360) + 360) % 360;
+    if (d >= 315 || d < 45)  return '#4499ff';
+    if (d >= 45  && d < 135) return '#00cc44';
+    if (d >= 135 && d < 225) return '#ff4444';
+    return '#cc8800';
+  }
+  function dirArrow(deg){
+    if (deg == null) return '?';
+    var arrows = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+    // Freccia unicode che punta dove VA il vento
+    var arrowChars = ['','','','','','','','','','','','','','','',''];
+    return arrowChars[Math.round(deg/22.5)%16];
+  }
+
+  // Scale per altezza barre
+  var pressVals = snaps.map(function(s){ return s.pressure; }).filter(function(v){ return v != null; });
+  var windVals  = snaps.map(function(s){ return s.wind_speed; }).filter(function(v){ return v != null; });
+  var gustVals  = snaps.map(function(s){ return s.wind_gust; }).filter(function(v){ return v != null; });
+  var allWind = windVals.concat(gustVals);
+  var maxP = pressVals.length ? Math.max.apply(null, pressVals) : 1030;
+  var minP = pressVals.length ? Math.min.apply(null, pressVals) : 1010;
+  var rangeP = Math.max(maxP - minP, 2);
+  var maxW = allWind.length ? Math.max.apply(null, allWind) : 10;
+  var BAR_H = 44, MIN_H = 3, COL_W = 28;
+
+  var html = '<div style="margin-top:8px">';
+
+  // Labels riga sinistra
+  html += '<div style="display:flex;gap:0">';
+  html += '<div style="width:52px;flex-shrink:0;font-family:DM Mono,monospace;font-size:0.42rem;color:var(--accent);display:flex;flex-direction:column;justify-content:space-between;padding:0 4px 0 0;text-align:right">' +
+    '<div style="height:18px;line-height:18px">hPa</div>' +
+    '<div style="height:' + (BAR_H+14) + 'px;line-height:' + (BAR_H+14) + 'px">kn</div>' +
+    '<div style="height:38px;line-height:38px">dir</div>' +
+    '<div style="height:14px;line-height:14px;color:var(--muted)">ora</div>' +
+    '</div>';
+
+  // Scroll orizzontale
+  html += '<div class="history-scroll" style="flex:1">';
+  html += '<div style="display:flex;gap:1px;min-width:max-content">';
+
+  snaps.forEach(function(s, i) {
+    var pres  = s.pressure   != null ? parseFloat(s.pressure)   : null;
+    var spd   = s.wind_speed != null ? parseFloat(s.wind_speed) : null;
+    var gust  = s.wind_gust  != null ? parseFloat(s.wind_gust)  : null;
+    var dir   = s.wind_dir   != null ? parseFloat(s.wind_dir)   : null;
+    var isLast = i === snaps.length - 1;
+    var time  = s.ts ? new Date(s.ts).toLocaleTimeString('it-IT',{timeZone:'Europe/Rome',hour:'2-digit',minute:'2-digit'}) : '--';
+    var showTime = (i % 2 === 0) || isLast;
+
+    var hP = pres != null ? Math.max(MIN_H, Math.round(MIN_H + ((pres - minP) / rangeP) * (BAR_H - MIN_H))) : MIN_H;
+    var hS = spd  != null ? Math.max(MIN_H, Math.round(MIN_H + (spd  / maxW) * (BAR_H - MIN_H))) : MIN_H;
+    var hG = gust != null ? Math.max(MIN_H, Math.round(MIN_H + (gust / maxW) * (BAR_H - MIN_H))) : MIN_H;
+
+    var colP  = isLast ? 'var(--accent)' : 'rgba(0,180,220,0.55)';
+    var colS  = bftColor(spd);
+    var colG  = bftColor(gust);
+    var colD  = dirColor(dir);
+    var glow  = isLast ? 'box-shadow:0 0 5px currentColor;' : '';
+
+    html += '<div style="width:' + COL_W + 'px;flex-shrink:0;display:flex;flex-direction:column;align-items:center">';
+
+    // --- PRESSIONE ---
+    html += '<div style="height:18px;display:flex;align-items:flex-end;justify-content:center">';
+    html += '<div style="font-family:DM Mono,monospace;font-size:0.38rem;color:' + (isLast?'#fff':'#8ab8d0') + ';text-align:center;white-space:nowrap;font-weight:' + (isLast?'bold':'normal') + '">' + (pres != null ? pres.toFixed(0) : '') + '</div>';
+    html += '</div>';
+    html += '<div style="height:' + BAR_H + 'px;display:flex;align-items:flex-end;justify-content:center">';
+    html += '<div style="width:' + (COL_W-4) + 'px;height:' + hP + 'px;background:' + colP + ';border-radius:2px 2px 0 0;' + glow + '"></div>';
+    html += '</div>';
+
+    // --- VENTO / RAFFICA ---
+    html += '<div style="height:14px;display:flex;align-items:center;justify-content:center">';
+    var spdTxt = (spd != null ? Math.round(spd) : '-') + '/' + (gust != null ? Math.round(gust) : '-');
+    html += '<div style="font-family:DM Mono,monospace;font-size:0.36rem;color:' + (isLast?'#fff':'#8ab8d0') + ';text-align:center;white-space:nowrap">' + spdTxt + '</div>';
+    html += '</div>';
+    html += '<div style="height:' + BAR_H + 'px;display:flex;align-items:flex-end;justify-content:center;gap:1px">';
+    html += '<div style="width:' + Math.floor((COL_W-6)/2) + 'px;height:' + hS + 'px;background:' + colS + ';border-radius:2px 2px 0 0;opacity:' + (isLast?1:0.75) + '"></div>';
+    html += '<div style="width:' + Math.floor((COL_W-6)/2) + 'px;height:' + hG + 'px;background:' + colG + ';border-radius:2px 2px 0 0;opacity:' + (isLast?1:0.6)  + '"></div>';
+    html += '</div>';
+
+    // --- DIREZIONE ---
+    html += '<div style="height:38px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px">';
+    if (dir != null) {
+      var dspd = spd || 0;
+      var arrowH = Math.max(8, Math.min(22, Math.round(8 + (dspd / Math.max(maxW,1)) * 14)));
+      html += '<div style="width:' + (COL_W-6) + 'px;height:' + arrowH + 'px;background:' + colD + ';border-radius:1px;opacity:' + (isLast?1:0.75) + '"></div>';
+      html += '<div style="font-family:DM Mono,monospace;font-size:0.38rem;color:' + colD + ';text-align:center">' + degToDir(dir) + '</div>';
+    } else {
+      html += '<div style="font-family:DM Mono,monospace;font-size:0.38rem;color:var(--muted)">--</div>';
+    }
+    html += '</div>';
+
+    // --- ORA ---
+    html += '<div style="height:14px;display:flex;align-items:center;justify-content:center">';
+    html += '<div style="font-family:DM Mono,monospace;font-size:0.38rem;color:' + (isLast?'#cce8ff':'#4a7090') + ';text-align:center;white-space:nowrap">' + (showTime ? time : '') + '</div>';
+    html += '</div>';
+
+    html += '</div>'; // fine colonna
+  });
+
+  html += '</div></div></div>'; // close flex, scroll, outer
+
+  // Legenda
+  html += '<div style="font-family:DM Mono,monospace;font-size:0.42rem;color:var(--muted);margin-top:6px;display:flex;gap:10px;flex-wrap:wrap">' +
+    '<span><span style="display:inline-block;width:8px;height:8px;background:var(--accent);border-radius:1px;vertical-align:middle"></span> Pressione</span>' +
+    '<span><span style="display:inline-block;width:8px;height:8px;background:#00cc44;border-radius:1px;vertical-align:middle"></span> Vento</span>' +
+    '<span><span style="display:inline-block;width:8px;height:8px;background:#ff8800;border-radius:1px;opacity:0.8;vertical-align:middle"></span> Raffica</span>' +
+    '<span><span style="display:inline-block;width:8px;height:8px;background:#4499ff;border-radius:1px;vertical-align:middle"></span> Nord</span>' +
+    '<span><span style="display:inline-block;width:8px;height:8px;background:#00cc44;border-radius:1px;vertical-align:middle"></span> Est</span>' +
+    '<span><span style="display:inline-block;width:8px;height:8px;background:#ff4444;border-radius:1px;vertical-align:middle"></span> Sud</span>' +
+    '<span><span style="display:inline-block;width:8px;height:8px;background:#cc8800;border-radius:1px;vertical-align:middle"></span> Ovest</span>' +
+    '</div>';
+
+  return html;
 }
 
 function renderHistoryBars(snaps, type, color, getValue, decimals) {
@@ -4505,7 +4624,7 @@ function togglePredictItem(idx) {
   el.style.display = 'block';
 }
 
-// Fine codice - NAUTILUS v5.6.22
+// Fine codice - NAUTILUS v5.6.23
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

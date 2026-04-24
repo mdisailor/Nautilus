@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.33 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.34 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -9,7 +9,7 @@ var ZONES = {
 canale_piombino: {
 enabled: true,
 name: 'Canale di Piombino',
-lat: 42.92, lon: 10.50,
+lat: 42.9296, lon: 10.5073,
 ports: {
 piombino:  { name: 'Piombino',  exposure: 'SW', shelter: 'medium', swell_threshold: 1.0 },
 cavo:      { name: 'Cavo',      exposure: 'N',  shelter: 'low',    swell_threshold: 0.8 },
@@ -23,7 +23,7 @@ cross_sea_canale: { desc: 'Mare incrociato nel canale', active_wind_dirs: [0, 36
 livorno: {
 enabled: true,
 name: 'Livorno',
-lat: 43.548, lon: 10.310,
+lat: 43.5497, lon: 10.2950,
 ports: {
 livorno:        { name: 'Livorno',        exposure: 'SW', shelter: 'high', swell_threshold: 2.0 },
 
@@ -39,7 +39,7 @@ local_effects: {
 viareggio: {
 enabled: true,
 name: 'Viareggio - Versilia',
-lat: 43.87, lon: 10.23,
+lat: 43.8621, lon: 10.2329,
 ports: {
 viareggio:   { name: 'Viareggio',      exposure: 'W', shelter: 'medium', swell_threshold: 1.2 },
 marina_pisa: { name: 'Marina di Pisa', exposure: 'W', shelter: 'medium', swell_threshold: 1.0 },
@@ -52,7 +52,7 @@ convergenza_arno: { desc: 'Convergenza termica Arno', active_wind_dirs: [0, 360]
 capraia: {
 enabled: true,
 name: 'Capraia',
-lat: 43.04, lon: 9.84,
+lat: 43.0527, lon: 9.8410,
 ports: {
 capraia: { name: 'Capraia Porto', exposure: 'NW', shelter: 'low', swell_threshold: 0.7 },
 },
@@ -64,7 +64,7 @@ esposizione_totale: { desc: 'Isola esposta su tutti i lati', active_wind_dirs: [
 elba_nord: {
 enabled: true,
 name: 'Elba Nord - Portoferraio',
-lat: 42.82, lon: 10.32,
+lat: 42.8138, lon: 10.3457,
 ports: {
 portoferraio: { name: 'Portoferraio', exposure: 'NE', shelter: 'high',   swell_threshold: 1.5 },
 cavo:         { name: 'Cavo',         exposure: 'N',  shelter: 'low',    swell_threshold: 0.8 },
@@ -78,7 +78,7 @@ venturi_piombino: { desc: 'Influenza Venturi Piombino', active_wind_dirs: [270, 
 elba_sud: {
 enabled: true,
 name: 'Elba Sud - Porto Azzurro',
-lat: 42.75, lon: 10.40,
+lat: 42.7604, lon: 10.4024,
 ports: {
 porto_azzurro: { name: 'Porto Azzurro',  exposure: 'SE', shelter: 'high',   swell_threshold: 1.8 },
 marina_campo:  { name: 'Marina di Campo',exposure: 'S',  shelter: 'medium', swell_threshold: 1.0 },
@@ -101,7 +101,7 @@ esposizione_totale: { desc: 'Isola completamente esposta', active_wind_dirs: [0,
 giglio: {
 enabled: true,
 name: 'Isola del Giglio',
-lat: 42.37, lon: 10.90,
+lat: 42.3614, lon: 10.9206,
 ports: {
 giglio_porto:   { name: 'Giglio Porto',   exposure: 'NE', shelter: 'medium', swell_threshold: 1.0 },
 giglio_campese: { name: 'Giglio Campese', exposure: 'W',  shelter: 'low',    swell_threshold: 0.8 },
@@ -127,7 +127,7 @@ fetch_sw: { desc: 'Fetch aperto SW', active_wind_dirs: [210, 270], note: 'Costa 
 punta_ala: {
 enabled: true,
 name: 'Punta Ala - Follonica',
-lat: 42.93, lon: 10.74,
+lat: 42.8088, lon: 10.7357,
 ports: {
 punta_ala: { name: 'Punta Ala', exposure: 'SW', shelter: 'medium', swell_threshold: 1.2 },
 follonica:  { name: 'Follonica', exposure: 'SW', shelter: 'low',    swell_threshold: 0.9 },
@@ -140,7 +140,7 @@ correnti_giglio: { desc: 'Correnti variabili zona Grosseto', active_wind_dirs: [
 la_spezia: {
 enabled: true,
 name: 'La Spezia - Lerici',
-lat: 44.10, lon: 9.82,
+lat: 44.0718, lon: 9.8666,
 ports: {
 la_spezia:   { name: 'La Spezia',   exposure: 'S',  shelter: 'high',   swell_threshold: 2.0 },
 lerici:      { name: 'Lerici',      exposure: 'S',  shelter: 'medium', swell_threshold: 1.2 },
@@ -2086,4 +2086,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.33
+// Fine codice - NAUTILUS ENGINE v2.9.34

@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.29 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.32 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1664,16 +1664,66 @@ if (action === 'predict') {
     } else {
       pLines.push('- Dati insufficienti per bias affidabile');
     }
-    if (similarCases.length > 0 && req.query.fast !== '1') {
+    if (similarCases.length > 0) {
       pLines.push('');
-      pLines.push('CASI STORICI SIMILI (stessa tendenza barica, ultimi 14 giorni):');
-      similarCases.slice(0, 5).forEach(function(c) {
+      pLines.push('CASI STORICI SIMILI (stessa tendenza barica):');
+      var maxCases = req.query.fast === '1' ? 3 : 5;
+      similarCases.slice(0, maxCases).forEach(function(c) {
         var cDate = new Date(c.at).toLocaleString('it-IT',{timeZone:'Europe/Rome',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
         pLines.push('- ' + cDate + ': vento ' + c.wind_at + 'kn -> dopo 6h: ' + c.wind_6h + 'kn');
       });
-    } else if (similarCases.length > 0) {
-      pLines.push('Casi simili: ' + similarCases.length + ' (vento medio ' + avgWind24 + 'kn)');
     }
+    // Aggiunge contesto rotazione dal manuale operativo (tab Nuvole)
+    if (rotation && rotation.trend !== 'insufficient_data' && rotation.trend !== 'stable') {
+      pLines.push('');
+      pLines.push('CONTESTO OPERATIVO PER QUESTO TIPO DI ROTAZIONE:');
+      if (rotation.trend === 'veering') {
+        var veeringRate = rotation.rotation && Math.abs(rotation.rotation) > 60 ? 'rapido' : 'lento';
+        if (veeringRate === 'rapido') {
+          pLines.push('Veering orario RAPIDO rilevato. Meccanismo tipico: fronte freddo in avvicinamento.');
+          pLines.push('- Barometro: attendersi caduta rapida >1 hPa/h poi risalita brusca post-fronte');
+          pLines.push('- Vento: aumento con raffiche, rotazione S->SW->W->NW->N in minuti-ore');
+          pLines.push('- Mare: crescita rapida Hs con periodo che si accorcia (onde corte e ripide)');
+          pLines.push('- Cross-sea probabile: swell da settore precedente + nuovo mare da W-NW');
+          pLines.push('- Navigazione: reef anticipato, evitare andature portanti in raffiche convettive');
+          pLines.push('- Timeline: segnali pre-frontali 1-3h prima, passaggio in minuti, condizioni ventose 6-12h post-fronte');
+          pLines.push('- CASO CRITICO se rotazione via Ovest (SWN): linea di groppo + mare ancora formato = finestra piu pericolosa');
+        } else {
+          pLines.push('Veering orario LENTO rilevato. Meccanismo tipico: fronte caldo in avvicinamento.');
+          pLines.push('- Barometro: calo lento e regolare nel corso di 12-24h');
+          pLines.push('- Vento: aumento progressivo, rotazione N->NE->E->SE->S, gust spread contenuto');
+          pLines.push('- Mare: swell lungo in arrivo ORE PRIMA che il vento rinforzi (segnale precoce)');
+          pLines.push('- Rischio nebbia da avvezione se SST < T aria');
+          pLines.push('- Navigazione: angolo d onda favorevole, radar/AIS attivi, segnalazioni foniche se nebbia');
+          pLines.push('- Timeline: deterioramento lento 12-36h, piogge leggere/moderate per molte ore');
+        }
+      } else if (rotation.trend === 'backing') {
+        pLines.push('Backing antiorario rilevato.');
+        if (pressureTrend && pressureTrend.indexOf('calo') >= 0) {
+          pLines.push('- Con pressione in calo: possibile ciclogenesi o movimento retrogrado del minimo');
+          pLines.push('- Barometro: caduta continua, a tratti accelerata >3-4 hPa/3h');
+          pLines.push('- Vento: direzione instabile, raffiche intermittenti, backing S->SE->E->NE->N');
+          pLines.push('- Mare: molto confuso per onde da direzioni diverse, frangenti su corrente contraria');
+          pLines.push('- Navigazione: heavy-weather, cercare ridosso, report regolari posizione');
+          pLines.push('- Timeline: peggioramento prolungato e irregolare (ore-giorni)');
+        } else {
+          pLines.push('- Con pressione stabile/rialzo: rimonta anticiclonica (NES = miglioramento reale)');
+          pLines.push('- Barometro: tendenza al rialzo costante');
+          pLines.push('- Vento: attenuazione raffiche, direzione stabilizza verso W-S');
+          pLines.push('- Mare: decadimento mare di vento, swell lungo residuo 24-72h');
+          pLines.push('- Navigazione: attendere finestre di minima risacca, verificare ormeggi post-burrasca');
+          pLines.push('- Timeline: schiarite e calo vento in poche ore, swell residuo 24-72h');
+        }
+      } else if (rotation.trend === 'variable') {
+        pLines.push('Direzione VARIABILE rilevata. Incrociare queste leve diagnostiche:');
+        pLines.push('- Barometro: calo rapido >2 hPa/h = fronte freddo | calo lento = fronte caldo | rialzo = rimonta');
+        pLines.push('- Vento: aumento brusco + raffiche + veering rapido = fronte freddo (PERICOLOSO)');
+        pLines.push('- Mare: swell lungo prima del vento = fronte caldo a distanza | onde corte + corrente contraria = passaggio frontale');
+        pLines.push('- Attenzione effetti Venturi nei canali (Capraia, Elba, Piombino) e risacca su imboccature');
+        pLines.push('- Verificare SEMPRE: trend barometrico, sequenza nuvolosa, radar/nowcasting');
+      }
+    }
+
     pLines.push('');
     pLines.push('Basandoti su questi dati storici reali (non sul modello numerico), fornisci:');
     pLines.push('PREVISIONE_LOCALE: evoluzione vento e mare per h3, h6, h12 con valori numerici');
@@ -1681,7 +1731,7 @@ if (action === 'predict') {
     pLines.push('PATTERN: pattern sinottico identificato dai dati storici');
     pLines.push('CONSIGLIO: indicazione operativa per la navigazione in questa zona');
     pLines.push(req.query.fast === '1'
-    ? 'Rispondi con: H3: Xkn DIR, H6: Xkn DIR, H12: Xkn DIR. Raffica: Xkn. Confidenza: bassa/media/alta. Pattern: una riga. Consiglio: una riga. Max 80 parole.'
+    ? 'Rispondi con: PREVISIONE_LOCALE: H3 Xkn DIR | H6 Xkn DIR | H12 Xkn DIR. Raffica max: Xkn. Onda: Xm. CONFIDENZA: bassa/media/alta con motivazione breve. PATTERN: una riga descrittiva. CONSIGLIO: indicazione operativa. Max 150 parole.'
     : 'Max 200 parole. Basati SOLO sui dati forniti, non su conoscenza generica.');
     var prompt = pLines.join('\n');
 
@@ -1695,7 +1745,7 @@ if (action === 'predict') {
       },
       body: JSON.stringify({
         model: req.query.fast === '1' ? 'claude-haiku-4-5-20251001' : 'claude-sonnet-4-20250514',
-        max_tokens: req.query.fast === '1' ? 150 : 600,
+        max_tokens: req.query.fast === '1' ? 300 : 600,
         messages: [{ role: 'user', content: prompt }]
       })
     });
@@ -1754,6 +1804,7 @@ if (action === 'predict') {
       bias: bias,
       rotation: rotation,
       similar_cases: similarCases.length,
+      similar_cases_detail: similarCases,
       prediction: aiText,
       data_points: validSnaps.length
     };
@@ -2041,4 +2092,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.29
+// Fine codice - NAUTILUS ENGINE v2.9.32

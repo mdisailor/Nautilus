@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.21 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.22 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -401,7 +401,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(-border); bord
 .history-scroll::-webkit-scrollbar { height:4px; }
 .history-scroll::-webkit-scrollbar-track { background:rgba(0,0,0,0.2); border-radius:2px; }
 .history-scroll::-webkit-scrollbar-thumb { background:var(--accent); border-radius:2px; opacity:0.5; }
-.history-bars { display:flex; align-items:flex-end; gap:2px; height:70px; flex-direction:row-reverse; min-width:max-content; }
+.history-bars { display:flex; align-items:flex-end; gap:2px; height:70px;  min-width:max-content; }
 .history-bar-wrap { width:22px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:0; scroll-snap-align:start; }
 .history-bar-val { font-family:DM Mono,monospace; font-size:0.38rem; text-align:center; height:12px; line-height:12px; }
 .history-bar { width:100%; border-radius:2px 2px 0 0; min-height:2px; transition:height 0.3s; }
@@ -548,7 +548,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(-border); bord
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.21  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.22  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1749,7 +1749,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(-border); bord
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.21  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.22  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -3390,7 +3390,7 @@ function renderWindGustBars(snaps) {
   // Mostra label ogni 3 ore circa
   var step = Math.max(1, Math.floor(n / 8));
 
-  var html = '<div class="history-scroll"><div style="display:flex;gap:3px;align-items:flex-end;padding-top:4px;flex-direction:row-reverse;min-width:max-content">';
+  var html = '<div class="history-scroll"><div style="display:flex;gap:3px;align-items:flex-end;padding-top:4px;min-width:max-content">';
   snaps.forEach(function(s, i) {
     var spd  = s.wind_speed != null ? parseFloat(s.wind_speed) : null;
     var gust = s.wind_gust  != null ? parseFloat(s.wind_gust)  : null;
@@ -3456,7 +3456,7 @@ function renderWindDirTimeline(snaps) {
   else if (n > 2) { labelSet.add(Math.floor(n / 2)); }
 
   // Container with fixed height for arrow + name + time
-  var html = '<div class="history-scroll"><div style="display:flex;gap:2px;align-items:flex-end;padding-top:4px;flex-direction:row-reverse;min-width:max-content">';
+  var html = '<div class="history-scroll"><div style="display:flex;gap:2px;align-items:flex-end;padding-top:4px;min-width:max-content">';
   snaps.forEach(function(s, i) {
     var d = s.wind_dir;
     var spd = s.wind_speed || 0;
@@ -4505,7 +4505,7 @@ function togglePredictItem(idx) {
   el.style.display = 'block';
 }
 
-// Fine codice - NAUTILUS v5.6.21
+// Fine codice - NAUTILUS v5.6.22
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

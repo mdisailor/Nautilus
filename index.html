@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.18 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.20 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -397,8 +397,12 @@ padding: 5px 12px; background: transparent; border: 1px solid var(-border); bord
 .engine-zone-checkbox-sub { font-size:0.52rem; color:var(--muted); }
 .engine-zone-select { flex:1; padding:10px 14px; background:var(--card); border:1px solid var(--border); border-radius:10px; color:var(--text); font-family:'DM Mono',monospace; font-size:0.65rem; -webkit-appearance:none; }
 .history-chart { margin-top:8px; }
-.history-bars { display:flex; align-items:flex-end; gap:2px; height:70px; }
-.history-bar-wrap { flex:1; display:flex; flex-direction:column; align-items:center; gap:0; }
+.history-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; scroll-snap-type:x proximity; }
+.history-scroll::-webkit-scrollbar { height:4px; }
+.history-scroll::-webkit-scrollbar-track { background:rgba(0,0,0,0.2); border-radius:2px; }
+.history-scroll::-webkit-scrollbar-thumb { background:var(--accent); border-radius:2px; opacity:0.5; }
+.history-bars { display:flex; align-items:flex-end; gap:2px; height:70px; flex-direction:row-reverse; min-width:max-content; }
+.history-bar-wrap { width:22px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:0; scroll-snap-align:start; }
 .history-bar-val { font-family:DM Mono,monospace; font-size:0.38rem; text-align:center; height:12px; line-height:12px; }
 .history-bar { width:100%; border-radius:2px 2px 0 0; min-height:2px; transition:height 0.3s; }
 .history-bar-label { font-family:DM Mono,monospace; font-size:0.38rem; text-align:center; white-space:nowrap; height:12px; line-height:12px; }
@@ -544,7 +548,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(-border); bord
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.18  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.20  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1745,7 +1749,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(-border); bord
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.18  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.20  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -3331,7 +3335,7 @@ function renderHistoryBars(snaps, type, color, getValue, decimals) {
   if (n > 4) { labelSet.add(Math.floor(n / 3)); labelSet.add(Math.floor(2 * n / 3)); }
   else if (n > 2) { labelSet.add(Math.floor(n / 2)); }
 
-  var html = '<div class="history-bars">';
+  var html = '<div class="history-scroll"><div class="history-bars">';
   snaps.forEach(function(s, i) {
     var v = getValue(s);
     if (v === null || v === undefined) return;
@@ -3349,7 +3353,7 @@ function renderHistoryBars(snaps, type, color, getValue, decimals) {
       '</div>' +
     '</div>';
   });
-  html += '</div>';
+  html += '</div></div>';
   return html;
 }
 
@@ -3384,7 +3388,7 @@ function renderWindGustBars(snaps) {
   // Mostra label ogni 3 ore circa
   var step = Math.max(1, Math.floor(n / 8));
 
-  var html = '<div style="display:flex;gap:3px;align-items:flex-end;padding-top:4px;overflow-x:auto">';
+  var html = '<div class="history-scroll"><div style="display:flex;gap:3px;align-items:flex-end;padding-top:4px;flex-direction:row-reverse;min-width:max-content">';
   snaps.forEach(function(s, i) {
     var spd  = s.wind_speed != null ? parseFloat(s.wind_speed) : null;
     var gust = s.wind_gust  != null ? parseFloat(s.wind_gust)  : null;
@@ -3417,7 +3421,7 @@ function renderWindGustBars(snaps) {
     '</div>';
     html += '</div>';
   });
-  html += '</div>';
+  html += '</div></div>';
   // Legenda
   html += '<div style="font-family:DM Mono,monospace;font-size:0.42rem;color:var(--muted);margin-top:4px;display:flex;gap:8px">' +
     '<span><span style="display:inline-block;width:7px;height:7px;background:var(--gold);border-radius:1px;vertical-align:middle"></span> Vento medio</span>' +
@@ -3450,7 +3454,7 @@ function renderWindDirTimeline(snaps) {
   else if (n > 2) { labelSet.add(Math.floor(n / 2)); }
 
   // Container with fixed height for arrow + name + time
-  var html = '<div style="display:flex;gap:2px;align-items:flex-end;padding-top:4px">';
+  var html = '<div class="history-scroll"><div style="display:flex;gap:2px;align-items:flex-end;padding-top:4px;flex-direction:row-reverse;min-width:max-content">';
   snaps.forEach(function(s, i) {
     var d = s.wind_dir;
     var spd = s.wind_speed || 0;
@@ -3480,15 +3484,15 @@ function renderWindDirTimeline(snaps) {
       : '<div style="width:14px;height:14px"></div>') +
       // Wind speed bar
       '<div style="width:100%;height:' + barH + 'px;background:' + col + ';opacity:' + (isLast ? 1 : 0.5) + ';border-radius:2px 2px 0 0;' + (isLast ? 'box-shadow:0 0 4px ' + col + ';' : '') + '"></div>' +
-      // Time bottom
+      // Time bottom - una colonna si una no
       '<div style="font-family:DM Mono,monospace;font-size:0.38rem;color:' + (isLast ? '#cce8ff' : '#6a9ab8') + ';height:12px;line-height:12px">' +
-        (showLabel ? time : '&nbsp;') +
+        (i % 2 === 0 || isLast ? time : '&nbsp;') +
       '</div>' +
     '</div>';
   });
-  html += '</div>';
+    html += '</div></div>';
 
-  // Legend
+// Legend
   html += '<div style="display:flex;gap:10px;margin-top:6px;flex-wrap:wrap">';
   [{l:'Nord',c:'#1a8cff'},{l:'Est',c:'#22dd44'},{l:'Sud',c:'#ff4444'},{l:'Ovest',c:'#996633'}].forEach(function(x) {
     html += '<div style="display:flex;align-items:center;gap:3px;font-family:DM Mono,monospace;font-size:0.45rem;color:var(--muted)">' +
@@ -4303,6 +4307,41 @@ function renderPredictContent(data, el) {
     html += '<div class="predict-output">' + formatted + '</div>';
   }
 
+  // Pannello casi storici strutturato
+  if (data.similar_cases_detail && data.similar_cases_detail.length > 0) {
+    var dirs16c = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+    function degToDirC(d){ return d != null ? dirs16c[Math.round(d/22.5)%16] : '--'; }
+    var cases = data.similar_cases_detail;
+    var rotInfo = data.rotation && data.rotation.trend !== 'insufficient_data' ? data.rotation : null;
+    var rotLabel = rotInfo ? ({'veering':'Rotazione ORARIA','backing':'Rotazione ANTIORARIA','stable':'Vento STABILE','variable':'Direzione VARIABILE'}[rotInfo.trend] || rotInfo.trend) : '';
+    var panelId = 'casi-panel-' + data.zone;
+    html += '<div style="margin-top:10px">';
+    html += '<div onclick="var p=document.getElementById(\'' + panelId + '\');var a=this.querySelector(\'.casi-arr\');if(p.style.display===\'none\'){p.style.display=\'block\';a.textContent=\'\u25bc\';}else{p.style.display=\'none\';a.textContent=\'\u25b6\';}" ' +
+      'style="cursor:pointer;font-family:DM Mono,monospace;font-size:0.5rem;color:var(--accent);display:flex;align-items:center;gap:6px;padding:5px 8px;background:rgba(0,160,192,0.08);border-radius:6px">' +
+      '<span class="casi-arr">&#9658;</span>' +
+      '<span style="flex:1">' + cases.length + ' casi storici simili' + (rotLabel ? ' &mdash; ' + rotLabel : '') + '</span>' +
+      '</div>';
+    html += '<div id="' + panelId + '" style="display:none;margin-top:4px;background:rgba(0,0,0,0.15);border-radius:0 0 6px 6px;overflow:hidden">';
+    html += '<div style="display:grid;grid-template-columns:1.2fr 0.8fr 0.6fr 0.8fr 0.8fr;gap:2px;padding:5px 8px;background:rgba(0,160,192,0.12);font-family:DM Mono,monospace;font-size:0.42rem;color:var(--accent);font-weight:bold">' +
+      '<span>Data/Ora</span><span>Vento</span><span>Dir</span><span>Pressione</span><span>+6h (delta)</span>' +
+      '</div>';
+    cases.forEach(function(cas, ci) {
+      var dt = cas.at ? new Date(cas.at).toLocaleString('it-IT',{timeZone:'Europe/Rome',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '--';
+      var wAt = cas.wind_at   != null ? parseFloat(cas.wind_at).toFixed(1)+'kn'   : '--';
+      var w6h = cas.wind_6h   != null ? parseFloat(cas.wind_6h).toFixed(1)+'kn'   : '--';
+      var pAt = cas.pressure_at != null ? parseFloat(cas.pressure_at).toFixed(0)+'hPa' : '--';
+      var dAt = degToDirC(cas.dir_at);
+      var delta = (cas.wind_at != null && cas.wind_6h != null) ? (parseFloat(cas.wind_6h)-parseFloat(cas.wind_at)).toFixed(1) : null;
+      var dCol = delta===null ? 'var(--muted)' : parseFloat(delta)>0 ? '#ff8800' : parseFloat(delta)<0 ? '#00cc44' : 'var(--muted)';
+      var w6hTxt = w6h + (delta!==null ? ' <span style="color:'+dCol+'">('+( parseFloat(delta)>0?'+':'')+delta+')</span>' : '');
+      var bg = ci%2===0 ? 'rgba(255,255,255,0.02)' : 'transparent';
+      html += '<div style="display:grid;grid-template-columns:1.2fr 0.8fr 0.6fr 0.8fr 0.8fr;gap:2px;padding:4px 8px;background:'+bg+';font-family:DM Mono,monospace;font-size:0.45rem;color:var(--text)">' +
+        '<span style="color:var(--muted)">'+dt+'</span><span>'+wAt+'</span><span>'+dAt+'</span><span style="color:var(--muted)">'+pAt+'</span><span>'+w6hTxt+'</span>' +
+        '</div>';
+    });
+    html += '</div></div>';
+  }
+
   // Refresh button
   html += '<button class="btn-predict" style="margin-top:10px" onclick="loadPredict(this.dataset.zone)" data-zone="' + data.zone + '"> Aggiorna previsione</button>';
 
@@ -4464,7 +4503,7 @@ function togglePredictItem(idx) {
   el.style.display = 'block';
 }
 
-// Fine codice - NAUTILUS v5.6.18
+// Fine codice - NAUTILUS v5.6.20
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

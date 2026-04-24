@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.32 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.33 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -743,13 +743,7 @@ if (!res.ok) return null;
 var data = await res.json();
 if (!data.hourly || !data.hourly.windspeed_10m) return null;
 // Find current hour index
-var now = new Date();
-var romeParts = new Intl.DateTimeFormat('en-CA', {
-  timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit'
-}).formatToParts(now);
-var rp = {};
-romeParts.forEach(function(p) { rp[p.type] = p.value; });
-var romeHour = rp.year + '-' + rp.month + '-' + rp.day + 'T' + rp.hour + ':00';
+var romeHour = getNowRome();
 var h = data.hourly;
 var idx = h.time.findIndex(function(t) { return t === romeHour; });
 if (idx === -1) idx = 0;
@@ -1334,12 +1328,7 @@ var csPromises = csZones.map(function(zk) {
       var owmData = results[2];
       var ifsData = results[3];
       if (!omData || !omData.hourly) throw new Error('OM fetch failed');
-      var romeParts = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit'
-      }).formatToParts(new Date());
-      var rp2 = {};
-      romeParts.forEach(function(p) { rp2[p.type] = p.value; });
-      var romeHour = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':00';
+      var romeHour = getNowRome();
       var h = omData.hourly;
       var idx2 = h.time.findIndex(function(t) { return t === romeHour; });
       if (idx2 === -1) idx2 = 0;
@@ -2012,6 +2001,16 @@ if (action === 'meteo') {
   }
 }
 
+// Helper: ora corrente in formato Europe/Rome compatibile con OM hourly.time
+function getNowRome() {
+  var romeStr = new Date().toLocaleString('en-CA', {
+    timeZone: 'Europe/Rome', year:'numeric', month:'2-digit', day:'2-digit',
+    hour:'2-digit', minute:'2-digit', hour12: false
+  });
+  var m = romeStr.match(/(\d{4})-(\d{2})-(\d{2}),\s*(\d{2}):(\d{2})/);
+  return m ? m[1]+'-'+m[2]+'-'+m[3]+'T'+m[4]+':00' : null;
+}
+
 if (action === 'grid') {
   // Fetch vento griglia per la mappa - proxy verso Open-Meteo per evitare 429 dal browser
   // Parametri: lats=lat1,lat2,...  lons=lon1,lon2,...
@@ -2034,12 +2033,7 @@ if (action === 'grid') {
     var gridData = await gridRes.json();
     var items = Array.isArray(gridData) ? gridData : [gridData];
     // Trova indice ora corrente Europe/Rome
-    var romeParts2 = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Europe/Rome', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit'
-    }).formatToParts(new Date());
-    var rp2 = {};
-    romeParts2.forEach(function(p){ rp2[p.type] = p.value; });
-    var nowRome2 = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':00';
+    var nowRome2 = getNowRome();
     var gridPoints = items.map(function(d, idx) {
       if (!d.hourly) return null;
       var h = d.hourly;
@@ -2092,4 +2086,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.32
+// Fine codice - NAUTILUS ENGINE v2.9.33

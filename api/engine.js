@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.36 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.38 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1285,6 +1285,17 @@ return sources;
 //- VERCEL HANDLER -
 
 module.exports = async function handler(req, res) {
+
+// Helper: ora corrente in formato Europe/Rome compatibile con OM hourly.time
+function getNowRome() {
+  var romeStr = new Date().toLocaleString('en-CA', {
+    timeZone: 'Europe/Rome', year:'numeric', month:'2-digit', day:'2-digit',
+    hour:'2-digit', minute:'2-digit', hour12: false
+  });
+  var m = romeStr.match(/([0-9]{4})-([0-9]{2})-([0-9]{2}),\s*([0-9]{2}):([0-9]{2})/);
+  return m ? m[1]+'-'+m[2]+'-'+m[3]+'T'+m[4]+':00' : null;
+}
+
 res.setHeader('Access-Control-Allow-Origin', '*');
 res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
 res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -1550,7 +1561,13 @@ return res.status(404).json({ error: 'Zona non trovata' });
 }
 try {
 var hours = parseInt(req.query.hours) || 24;
-var snapshots = await getWindHistory(zoneKey, kvUrl, kvToken, hours);
+// Per richieste brevi dalla mappa (hours=1), leggi almeno 3 slot (90min)
+// per avere dati anche durante il cron quando lo slot corrente non e' ancora scritto
+var minSlots = req.query.min_slots ? parseInt(req.query.min_slots) : 0;
+var effectiveHours = (hours <= 1 && minSlots === 0) ? 1.5 : hours;
+var snapshots = await getWindHistory(zoneKey, kvUrl, kvToken, effectiveHours);
+// Ritorna solo gli ultimi N snapshot se hours era specificato piccolo
+if (hours <= 1 && snapshots.length > 3) snapshots = snapshots.slice(-3);
 var bias = await getBias(zoneKey, kvUrl, kvToken);
 var rotation = analyzeWindRotation(snapshots);
 return res.status(200).json({
@@ -2014,16 +2031,7 @@ if (action === 'meteo') {
 }
 
 // Helper: ora corrente in formato Europe/Rome compatibile con OM hourly.time
-function getNowRome() {
-  var romeStr = new Date().toLocaleString('en-CA', {
-    timeZone: 'Europe/Rome', year:'numeric', month:'2-digit', day:'2-digit',
-    hour:'2-digit', minute:'2-digit', hour12: false
-  });
-  var m = romeStr.match(/(\d{4})-(\d{2})-(\d{2}),\s*(\d{2}):(\d{2})/);
-  return m ? m[1]+'-'+m[2]+'-'+m[3]+'T'+m[4]+':00' : null;
-}
-
-if (action === 'grid') {
+if (actionif (action === 'grid') {
   // Fetch vento griglia per la mappa - proxy verso Open-Meteo per evitare 429 dal browser
   // Parametri: lats=lat1,lat2,...  lons=lon1,lon2,...
   var glats = req.query.lats ? req.query.lats.split(',').map(Number) : [];
@@ -2098,4 +2106,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.36
+// Fine codice - NAUTILUS ENGINE v2.9.38

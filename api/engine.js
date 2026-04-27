@@ -1292,7 +1292,7 @@ function getNowRome() {
     timeZone: 'Europe/Rome', year:'numeric', month:'2-digit', day:'2-digit',
     hour:'2-digit', minute:'2-digit', hour12: false
   });
-  var m = romeStr.match(/([0-9]{4})-([0-9]{2})-([0-9]{2}),\s*([0-9]{2}):([0-9]{2})/);
+  var m = romeStr.match(/([0-9]{4})-([0-9]{2})-([0-9]{2}), ([0-9]{2}):([0-9]{2})/) || romeStr.match(/([0-9]{4})-([0-9]{2})-([0-9]{2}),([0-9]{2}):([0-9]{2})/);
   return m ? m[1]+'-'+m[2]+'-'+m[3]+'T'+m[4]+':00' : null;
 }
 

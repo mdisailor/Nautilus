@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.41 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.43 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1158,6 +1158,10 @@ var iconData = null;
 try { ifsDataCalc = await fetchECMWF(zone.lat, zone.lon, 'ifs04'); } catch(e) {}
 }
 
+// Fetch MeteoNetwork realtime
+var mnwToken = process.env.METEONETWORK_TOKEN || '';
+var mnwData = await fetchMeteoNetwork(zoneKey, mnwToken);
+
 var sgData = null;
 var hasStormglass = false;
 if (sgKey) {
@@ -1190,7 +1194,7 @@ if (kvUrl && kvToken) {
 // In cron mode await the save, otherwise fire and forget
 var isCron = req && req.query && req.query.history === '1';
 // Merge OWM observed data into snapshot
-var snapData = owmData ? Object.assign({}, currentData, {
+var snapBase = owmData ? Object.assign({}, currentData, {
 wind_speed_obs: owmData.wind_speed_obs,
 wind_dir_obs: owmData.wind_dir_obs,
 wind_gust_obs: owmData.wind_gust_obs,
@@ -1199,6 +1203,13 @@ obs_source: owmData.source,
 obs_station: owmData.station,
 obs_time: owmData.obs_time
 }) : currentData;
+var snapData = mnwData ? Object.assign({}, snapBase, {
+wind_speed_mnw: mnwData.wind_speed_mnw,
+wind_dir_mnw:   mnwData.wind_dir_mnw,
+wind_gust_mnw:  mnwData.wind_gust_mnw,
+pressure_mnw:   mnwData.pressure_mnw,
+station_mnw:    mnwData.station_mnw
+}) : snapBase;
 if (isCron) {
 await saveZoneSnapshot(zoneKey, snapData, kvUrl, kvToken);
 } else {
@@ -1389,11 +1400,11 @@ var csPromises = csZones.map(function(zk) {
         obs_source: owmData ? owmData.source : null,
         obs_station: owmData ? owmData.station : null,
         obs_time: owmData ? owmData.obs_time : null,
-        wind_speed_mnw: mnwData ? mnwData.wind_speed_mnw : null,
-        wind_dir_mnw:   mnwData ? mnwData.wind_dir_mnw   : null,
-        wind_gust_mnw:  mnwData ? mnwData.wind_gust_mnw  : null,
-        pressure_mnw:   mnwData ? mnwData.pressure_mnw   : null,
-        station_mnw:    mnwData ? mnwData.station_mnw     : null,
+        wind_speed_mnw: null,
+        wind_dir_mnw:   null,
+        wind_gust_mnw:  null,
+        pressure_mnw:   null,
+        station_mnw:    null,
         ifs_wind_speed: ifsData && ifsData.wind_speed !== undefined ? ifsData.wind_speed : null,
         ifs_wind_dir: ifsData && ifsData.wind_dir !== undefined ? ifsData.wind_dir : null,
         ifs_wind_gust: ifsData && ifsData.wind_gust !== undefined ? ifsData.wind_gust : null,
@@ -2118,4 +2129,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.41
+// Fine codice - NAUTILUS ENGINE v2.9.43

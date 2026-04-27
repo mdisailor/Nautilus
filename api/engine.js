@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.43 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.44 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1137,6 +1137,48 @@ source: 'openweathermap'
 } catch(e) { return null; }
 }
 
+// MeteoNetwork station codes per zona
+var MNW_STATIONS = {
+  livorno:         'tsc265',
+  viareggio:       'tsc508',
+  capraia:         'tsc578',
+  elba_nord:       'tsc621',
+  canale_piombino: 'tsc228',
+  la_spezia:       'tsc431',
+  giglio:          'tsc587'
+};
+
+async function fetchMeteoNetwork(zoneKey, mnwToken) {
+  var stationCode = MNW_STATIONS[zoneKey];
+  if (!stationCode || !mnwToken) return null;
+  try {
+    var url = 'https://api.meteonetwork.it/v3/data-realtime/' + stationCode;
+    var r = await fetch(url, {
+      headers: {
+        'Authorization': 'Bearer ' + mnwToken,
+        'User-Agent': 'NAUTILUS/1.0 meteomarine-app'
+      }
+    });
+    if (!r.ok) return null;
+    var d = await r.json();
+    if (!d || !d.data) return null;
+    var data = d.data;
+    var windKmh  = data.wind_speed != null ? parseFloat(data.wind_speed) : null;
+    var gustKmh  = data.wind_gust  != null ? parseFloat(data.wind_gust)  : null;
+    return {
+      wind_speed_mnw: windKmh != null ? Math.round(windKmh / 1.852 * 10) / 10 : null,
+      wind_dir_mnw:   data.wind_direction != null ? parseFloat(data.wind_direction) : null,
+      wind_gust_mnw:  gustKmh != null ? Math.round(gustKmh / 1.852 * 10) / 10 : null,
+      pressure_mnw:   data.smlp != null ? parseFloat(data.smlp) : null,
+      temp_mnw:       data.temp != null ? parseFloat(data.temp) : null,
+      station_mnw:    stationCode,
+      ts_mnw:         data.date || null
+    };
+  } catch(e) {
+    return null;
+  }
+}
+
 async function calcZone(zoneKey, sgKey, kvUrl, kvToken, req, clientWeatherData) {
 var zone = ZONES[zoneKey];
 
@@ -2129,4 +2171,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.43
+// Fine codice - NAUTILUS ENGINE v2.9.44

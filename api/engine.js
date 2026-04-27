@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.38 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.39 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -2030,8 +2030,8 @@ if (action === 'meteo') {
   }
 }
 
-// Helper: ora corrente in formato Europe/Rome compatibile con OM hourly.time
-if (actionif (action === 'grid') {
+
+if (action === 'grid') {
   // Fetch vento griglia per la mappa - proxy verso Open-Meteo per evitare 429 dal browser
   // Parametri: lats=lat1,lat2,...  lons=lon1,lon2,...
   var glats = req.query.lats ? req.query.lats.split(',').map(Number) : [];
@@ -2106,4 +2106,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.38
+// Fine codice - NAUTILUS ENGINE v2.9.39

@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.2.11 - mdisailor - 2026-04-21 -->
+<!-- NAUTILUS MAPPA v1.2.12 - mdisailor - 2026-04-21 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.2.11</title>
+<title>NAUTILUS Mappa Vento v1.2.12</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -151,7 +151,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.2.11</span>
+    <span id="nav-ver">mappa v1.2.12</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
   <a id="nav-back" href="/">APP</a>
@@ -206,11 +206,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.2.11 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.2.12 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.2.11
+// NAUTILUS MAPPA v1.2.12
 
 var ENGINE_URL = '/api/engine';
 
@@ -505,7 +505,7 @@ function setHud(status, text){
 // FETCH ZONE DATA
 async function fetchZoneData(){
   var promises = ZONES.map(function(z){
-    return fetch(ENGINE_URL + '?action=history&zone=' + z.key + '&hours=1')
+    return fetch(ENGINE_URL + '?action=history&zone=' + z.key + '&hours=2')
       .then(function(r){ return r.json(); })
       .then(function(data){
         if (data.snapshots && data.snapshots.length > 0){
@@ -597,7 +597,7 @@ setInterval(loadAll, 600000);
 
 loadAll();
 
-// Fine codice - NAUTILUS MAPPA v1.2.11
+// Fine codice - NAUTILUS MAPPA v1.2.12
 </script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.39 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.40 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -580,7 +580,7 @@ else if (wave_height >= 0.8) alerts.push({ type: 'wave_low', severity: 'low', ms
 if (swell_period >= 10 && swell_height >= 0.8) alerts.push({ type: 'early_swell', severity: 'medium', msg: '[ATTENZIONE] Swell lungo ' + sf(swell_period,0) + 's - sistema perturbato in avvicinamento' });
 
 var deltaT = temp_air - temp_water;
-var romeHourNow = parseInt(getNowRome().slice(11,13));
+var romeHourNow = (new Date().getUTCHours() + 2) % 24; // approssimazione UTC+2 (ora legale)
 var isFogHour = romeHourNow >= 20 || romeHourNow < 10;
 if (deltaT < 0.5 && humidity > 90 && isFogHour) {
   alerts.push({ type: 'fog_high', severity: 'high', msg: '[ROSSO] Delta T ' + sf(deltaT,1) + ' C, umidita ' + sf(humidity,0) + '% - nebbia probabile' });
@@ -2106,4 +2106,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.39
+// Fine codice - NAUTILUS ENGINE v2.9.40

@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.35 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.36 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -580,8 +580,15 @@ else if (wave_height >= 0.8) alerts.push({ type: 'wave_low', severity: 'low', ms
 if (swell_period >= 10 && swell_height >= 0.8) alerts.push({ type: 'early_swell', severity: 'medium', msg: '[ATTENZIONE] Swell lungo ' + sf(swell_period,0) + 's - sistema perturbato in avvicinamento' });
 
 var deltaT = temp_air - temp_water;
-if (deltaT < 0.5 && humidity > 90) alerts.push({ type: 'fog_high', severity: 'high', msg: '[ROSSO] Delta T ' + sf(deltaT,1) + ' C, umidita ' + sf(humidity,0) + '% - nebbia probabile' });
-else if (deltaT < 1.0 && humidity > 85) alerts.push({ type: 'fog_risk', severity: 'low', msg: '[INFO] Delta T ' + sf(deltaT,1) + ' C - rischio nebbia nelle ore notturne' });
+var romeHourNow = parseInt(getNowRome().slice(11,13));
+var isFogHour = romeHourNow >= 20 || romeHourNow < 10;
+if (deltaT < 0.5 && humidity > 90 && isFogHour) {
+  alerts.push({ type: 'fog_high', severity: 'high', msg: '[ROSSO] Delta T ' + sf(deltaT,1) + ' C, umidita ' + sf(humidity,0) + '% - nebbia probabile' });
+} else if (deltaT < 0.5 && humidity > 90) {
+  alerts.push({ type: 'fog_risk', severity: 'medium', msg: '[GIALLO] Delta T ' + sf(deltaT,1) + ' C, umidita ' + sf(humidity,0) + '% - condizioni favorevoli nebbia notturna' });
+} else if (deltaT < 1.0 && humidity > 85) {
+  alerts.push({ type: 'fog_risk', severity: 'low', msg: '[INFO] Delta T ' + sf(deltaT,1) + ' C - rischio nebbia nelle ore notturne' });
+}
 
 for (var key in localEffects) {
 var ef = localEffects[key];
@@ -2091,4 +2098,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.35
+// Fine codice - NAUTILUS ENGINE v2.9.36

@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.53 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.58 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1138,14 +1138,16 @@ source: 'openweathermap'
 }
 
 // MeteoNetwork station codes per zona
+// MeteoNetwork -- solo stazioni con licenza distribuzione verificata
+// Testare con: curl data-realtime/CODICE -- se risponde [{observation_time...}] e ok
 var MNW_STATIONS = {
-  livorno:         'tsc265',
-  viareggio:       'tsc508',
-  capraia:         'tsc578',
-  elba_nord:       'tsc621',
-  canale_piombino: 'tsc228',
-  la_spezia:       'tsc431',
-  giglio:          'tsc587'
+  canale_piombino: 'tsc228'
+  // tsc265 Livorno: licenza revocata 28/04
+  // tsc508 Viareggio: no licenza
+  // tsc578 Capraia: da verificare
+  // tsc621 Elba Nord: da verificare
+  // tsc431 Marina di Pisa: da verificare
+  // tsc587 Giglio: da verificare
 };
 
 async function fetchMeteoNetwork(zoneKey, mnwToken) {
@@ -1871,18 +1873,15 @@ if (action === 'predict') {
     var predKey = 'predict:' + zoneKey + ':' + now3.toISOString().slice(0, 13) + '-' + predMins15;
     // Extract structured wind values from AI text for easy comparison later
     var extractWindVal = function(text, h) {
-      // Find lines containing H3/H6/H12 and extract first number before 'kn'
-      var lines = text.split('\n');
-      for (var li = 0; li < lines.length; li++) {
-        var line = lines[li];
-        var lup = line.toUpperCase();
-        // Match H3, H+3, H3:, **H+3** etc
-        if (lup.indexOf('H' + h) === -1 && lup.indexOf('H+' + h) === -1) continue;
-        // Extract numbers before kn - look for pattern like 5.8kn or 5-7kn
-        var nums = line.match(/([0-9]+\.?[0-9]*)-([0-9]+\.?[0-9]*)\s*kn/i);
-        if (nums) return parseFloat(((parseFloat(nums[1])+parseFloat(nums[2]))/2).toFixed(1));
-        var num = line.match(/([0-9]+\.?[0-9]*)\s*kn/i);
-        if (num) return parseFloat(num[1]);
+      // Cerca H3/H6/H12 e prende il numero KN immediatamente dopo
+      // Gestisce sia formato multi-riga che inline: "H3: 4.5kn | H6: 5.5kn"
+      var patterns = [
+        new RegExp('H\\+?' + h + '[^0-9]*([0-9]+\\.?[0-9]*)\\s*kn', 'i'),
+        new RegExp('H\\+?' + h + '\\s*\\([^)]+\\)[^0-9]*([0-9]+\\.?[0-9]*)\\s*kn', 'i')
+      ];
+      for (var pi = 0; pi < patterns.length; pi++) {
+        var m = text.match(patterns[pi]);
+        if (m) return parseFloat(m[1]);
       }
       return null;
     };
@@ -2201,4 +2200,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.53
+// Fine codice - NAUTILUS ENGINE v2.9.58

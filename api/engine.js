@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.50 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.52 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1172,16 +1172,32 @@ async function fetchMeteoNetwork(zoneKey, mnwToken) {
     var windKmh  = data.wind_speed != null ? parseFloat(data.wind_speed) : null;
     var gustKmh  = data.wind_gust  != null ? parseFloat(data.wind_gust)  : null;
     // Log campi direzione disponibili per debug
+    // Converte direzione MNW: puo essere gradi numerici o stringa cardinale
+    // Log tutti i campi della risposta MNW per debug direzione
+    console.log('MNW data keys:', Object.keys(data).join(','));
+    console.log('MNW wind_direction raw:', JSON.stringify(data.wind_direction), 'wind_dir:', JSON.stringify(data.wind_dir));
+    var MNW_DIR_MAP = {
+      'N':0,'NNE':22,'NE':45,'ENE':67,'E':90,'ESE':112,'SE':135,'SSE':157,
+      'S':180,'SSO':202,'SO':225,'OSO':247,'O':270,'ONO':292,'NO':315,'NNO':337,
+      'NNW':337,'NW':315,'WNW':292,'W':270,'WSW':247,'SW':225,'SSW':202,
+      'SSE':157,'SE':135,'ESE':112,'ENE':67,'NE':45,'NNE':22
+    };
     var dirFields = ['wind_direction','wind_dir','wind_degree','wind_bearing','wind_angle','dir','direction'];
     var windDir = null;
     for (var di = 0; di < dirFields.length; di++) {
-      if (data[dirFields[di]] != null && data[dirFields[di]] !== undefined) {
-        windDir = parseFloat(data[dirFields[di]]);
-        console.log('MNW dir field found:', dirFields[di], '=', windDir, 'station:', stationCode);
+      var dval = data[dirFields[di]];
+      if (dval != null && dval !== undefined && dval !== '') {
+        var dnum = parseFloat(dval);
+        if (!isNaN(dnum)) {
+          windDir = dnum;
+        } else {
+          // Stringa cardinale -> gradi
+          var dstr = String(dval).trim().toUpperCase();
+          windDir = MNW_DIR_MAP[dstr] !== undefined ? MNW_DIR_MAP[dstr] : null;
+        }
         break;
       }
     }
-    if (windDir === null) console.log('MNW dir fields available:', Object.keys(data).filter(function(k){ return k.indexOf('wind') >= 0 || k.indexOf('dir') >= 0; }));
     return {
       wind_speed_mnw: windKmh != null ? Math.round(windKmh / 1.852 * 10) / 10 : null,
       wind_dir_mnw:   windDir,
@@ -2188,4 +2204,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.50
+// Fine codice - NAUTILUS ENGINE v2.9.52

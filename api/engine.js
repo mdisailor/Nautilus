@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.44 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.45 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1159,9 +1159,25 @@ async function fetchMeteoNetwork(zoneKey, mnwToken) {
         'User-Agent': 'NAUTILUS/1.0 meteomarine-app'
       }
     });
-    if (!r.ok) return null;
+    if (!r.ok) { console.error('MNW error:', r.status, stationCode); return null; }
     var d = await r.json();
-    if (!d || !d.data) return null;
+    console.log('MNW raw keys:', d ? Object.keys(d) : 'null', 'station:', stationCode);
+    if (!d || !d.data) {
+      // Prova struttura alternativa: risposta diretta senza wrapper data
+      if (d && d.wind_speed !== undefined) {
+        var data2 = d;
+        var windKmh2  = data2.wind_speed != null ? parseFloat(data2.wind_speed) : null;
+        var gustKmh2  = data2.wind_gust  != null ? parseFloat(data2.wind_gust)  : null;
+        return {
+          wind_speed_mnw: windKmh2 != null ? Math.round(windKmh2 / 1.852 * 10) / 10 : null,
+          wind_dir_mnw:   data2.wind_direction != null ? parseFloat(data2.wind_direction) : null,
+          wind_gust_mnw:  gustKmh2 != null ? Math.round(gustKmh2 / 1.852 * 10) / 10 : null,
+          pressure_mnw:   data2.smlp != null ? parseFloat(data2.smlp) : null,
+          station_mnw:    stationCode
+        };
+      }
+      return null;
+    }
     var data = d.data;
     var windKmh  = data.wind_speed != null ? parseFloat(data.wind_speed) : null;
     var gustKmh  = data.wind_gust  != null ? parseFloat(data.wind_gust)  : null;
@@ -2171,4 +2187,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.44
+// Fine codice - NAUTILUS ENGINE v2.9.45

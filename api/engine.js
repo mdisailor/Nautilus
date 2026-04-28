@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.58 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.60 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1024,29 +1024,43 @@ to_dir: dirs[dirs.length - 1]
 async function verifyForecasts(zoneKey, currentData, kvUrl, kvToken) {
 if (!kvUrl || !kvToken) return;
 var now = new Date();
-var horizons = [6, 12, 24];
+// H+3 incluso -- usa chiave predict: (AI forecast)
+var horizons = [3, 6, 12, 24];
 for (var hi = 0; hi < horizons.length; hi = hi + 1) {
 var h = horizons[hi];
 var pastTime = new Date(now.getTime() - h * 3600000);
-var pastMins = pastTime.getMinutes() < 30 ? '00' : '30';
-var pastKey = 'forecast:' + zoneKey + ':' + pastTime.toISOString().slice(0, 13) + '-' + pastMins;
-var forecast = await kvGet(pastKey, kvUrl, kvToken);
+// Calcola ora corretta Europe/Rome per la chiave
+var pastRomeStr = pastTime.toLocaleString('en-CA', {
+  timeZone: 'Europe/Rome', year:'numeric', month:'2-digit', day:'2-digit',
+  hour:'2-digit', minute:'2-digit', hour12: false
+});
+var pastRomeM = pastRomeStr.match(/([0-9]{4})-([0-9]{2})-([0-9]{2}), ([0-9]{2}):([0-9]{2})/) ||
+                pastRomeStr.match(/([0-9]{4})-([0-9]{2})-([0-9]{2}),([0-9]{2}):([0-9]{2})/);
+var pastRomeHour = pastRomeM ? pastRomeM[1]+'-'+pastRomeM[2]+'-'+pastRomeM[3]+'T'+pastRomeM[4] : pastTime.toISOString().slice(0,13);
+// Prova tutti i 4 slot da 15 minuti dell'ora passata
+var forecast = null;
+var slots15 = ['00','15','30','45'];
+for (var si = 0; si < slots15.length; si++) {
+  forecast = await kvGet('predict:' + zoneKey + ':' + pastRomeHour + '-' + slots15[si], kvUrl, kvToken);
+  if (forecast) break;
+}
 if (!forecast) continue;
-var windError = currentData.wind_speed - forecast['h' + h + '_wind'];
-var waveError = currentData.wave_height - forecast['h' + h + '_wave'];
-var verKey = 'verify:' + zoneKey + ':' + pastTime.toISOString().slice(0, 13) + ':h' + h;
+var predictedWind = forecast['forecast_h' + h];
+if (predictedWind == null) continue;
+var windError = parseFloat((currentData.wind_speed - predictedWind).toFixed(1));
+var verKey = 'verify:' + zoneKey + ':' + pastRomeHour + ':h' + h;
+// Evita di sovrascrivere verifiche gia salvate
+var existing = await kvGet(verKey, kvUrl, kvToken);
+if (existing && existing.actual_wind != null) continue;
 var verRecord = {
 forecast_time: pastTime.toISOString(),
 horizon_h: h,
-predicted_wind: forecast['h' + h + '_wind'],
-predicted_wind_dir: forecast['h' + h + '_wind_dir'] || null,
-predicted_wave: forecast['h' + h + '_wave'],
+predicted_wind: predictedWind,
 actual_wind: currentData.wind_speed,
 actual_wind_dir: currentData.wind_dir || null,
-actual_wind_source: currentData.sources ? currentData.sources.wind : 'open-meteo',
 actual_wave: currentData.wave_height,
-wind_error: parseFloat(windError.toFixed(1)),
-wave_error: parseFloat(waveError.toFixed(2))
+wind_error: windError,
+wave_error: 0
 };
 await kvSet(verKey, verRecord, 2592000, kvUrl, kvToken);
 await updateBias(zoneKey, verRecord, kvUrl, kvToken);
@@ -1319,8 +1333,8 @@ if (isCronMode) {
 await saveForecast(zoneKey, forecast, currentData, kvUrl, kvToken);
 await verifyForecasts(zoneKey, currentData, kvUrl, kvToken);
 } else {
+// Manuale: salva forecast ma NON verifica -- la verifica gira solo nel cron_snap
 saveForecast(zoneKey, forecast, currentData, kvUrl, kvToken).catch(function() {});
-verifyForecasts(zoneKey, currentData, kvUrl, kvToken).catch(function() {});
 }
 }
 
@@ -2200,4 +2214,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.58
+// Fine codice - NAUTILUS ENGINE v2.9.60

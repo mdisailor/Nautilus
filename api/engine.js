@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.45 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.46 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1159,9 +1159,10 @@ async function fetchMeteoNetwork(zoneKey, mnwToken) {
         'User-Agent': 'NAUTILUS/1.0 meteomarine-app'
       }
     });
+    console.log('MNW status:', r.status, stationCode);
     if (!r.ok) { console.error('MNW error:', r.status, stationCode); return null; }
     var d = await r.json();
-    console.log('MNW raw keys:', d ? Object.keys(d) : 'null', 'station:', stationCode);
+    console.log('MNW raw:', JSON.stringify(d).slice(0,200), 'station:', stationCode);
     if (!d || !d.data) {
       // Prova struttura alternativa: risposta diretta senza wrapper data
       if (d && d.wind_speed !== undefined) {
@@ -2187,4 +2188,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.45
+// Fine codice - NAUTILUS ENGINE v2.9.46

@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.62 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.65 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1568,6 +1568,14 @@ return calcZone(zk, null, kvUrl, kvToken, { query: { history: '1' } })
 .catch(function(e) { cronResults[zk] = { ok: false, error: e.message }; });
 });
 await Promise.all(cronPromises);
+// Genera scheda situazione per ogni zona (fire and forget, usa Haiku)
+var ENGINE_URL_CRON = 'https://nautilus-red.vercel.app/api/engine';
+cronZones.forEach(function(zk) {
+  fetch(ENGINE_URL_CRON + '?action=situazione&zone=' + zk + '&fast=1', {
+    method: 'GET',
+    headers: { 'x-cron-secret': expectedSecret }
+  }).catch(function() {});
+});
 return res.status(200).json({ ok: true, ts: new Date().toISOString(), zones: cronResults });
 }
 
@@ -1736,6 +1744,141 @@ return res.status(500).json({ error: e.message });
 }
 
 // /api/engine?action=predict&zone=xxx - AI local forecast based on historical data
+if (action === 'situazione') {
+  if (!zoneKey || !ZONES[zoneKey]) {
+    return res.status(404).json({ error: 'Zona non trovata' });
+  }
+  try {
+    var anthropicKey = process.env.ANTHROPIC_KEY || null;
+    if (!anthropicKey) return res.status(500).json({ error: 'ANTHROPIC_KEY non configurata' });
+
+    var isFast = req.query.fast === '1';
+    var snapsSit = await getWindHistory(zoneKey, kvUrl, kvToken, 48);
+    var biasSit = await getBias(zoneKey, kvUrl, kvToken);
+    var rotSit = analyzeWindRotation(snapsSit.slice(0, 24));
+    var currentSit = snapsSit[snapsSit.length - 1] || null;
+    if (!currentSit) return res.status(500).json({ error: 'Nessun dato disponibile per la zona' });
+
+    // Tendenza pressione
+    var pressNow = currentSit.pressure || null;
+    var press3h = snapsSit.length >= 6 ? snapsSit[snapsSit.length - 6].pressure : null;
+    var pressTrend = (pressNow && press3h) ? (pressNow - press3h).toFixed(1) + ' hPa/3h' : 'nd';
+
+    // Vento medio e max ultime 6h
+    var last6 = snapsSit.slice(-6).filter(function(s){ return s.wind_speed != null; });
+    var avgWind6 = last6.length ? (last6.reduce(function(a,s){ return a+s.wind_speed; },0)/last6.length).toFixed(1) : '--';
+    var maxWind6 = last6.length ? Math.max.apply(null, last6.map(function(s){ return s.wind_speed; })).toFixed(1) : '--';
+
+    // Diagnosi sinottica
+    var diagSit = diagnoseSynopticCase(currentSit, rotSit);
+
+    // Alert attivi
+    var alertsSit = [];
+    if (rotSit.trend !== 'stable' && rotSit.trend !== 'insufficient_data' && rotSit.total_path > 60) {
+      alertsSit.push('Rotazione ' + rotSit.trend + ': percorso ' + rotSit.total_path + ' gradi in ' + rotSit.hours + 'h');
+    }
+    if (pressNow && press3h && (pressNow - press3h) < -2) {
+      alertsSit.push('Caduta pressione rapida: ' + pressTrend);
+    }
+    if (currentSit.wind_speed_850 && currentSit.wind_dir_850 && currentSit.wind_dir) {
+      var divSit = Math.abs(currentSit.wind_dir_850 - currentSit.wind_dir);
+      if (divSit > 90) alertsSit.push('Divergenza vento quota/superficie: ' + Math.round(divSit) + ' gradi');
+    }
+
+    // Prompt AI
+    var dir16sit = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+    var sLines = [];
+    sLines.push('Sei un meteorologo marino esperto del Tirreno settentrionale. Analizza i dati della zona ' + ZONES[zoneKey].name + ' e genera una SCHEDA SITUAZIONE strutturata.');
+    sLines.push('');
+    sLines.push('DATI ATTUALI:');
+    sLines.push('- Vento: ' + (currentSit.wind_speed||'--') + 'kn da ' + (currentSit.wind_dir != null ? dir16sit[Math.round(currentSit.wind_dir/22.5)%16] : '--'));
+    sLines.push('- Raffica: ' + (currentSit.wind_gust||'--') + 'kn');
+    sLines.push('- Pressione: ' + (currentSit.pressure||'--') + ' hPa (tendenza ' + pressTrend + ')');
+    sLines.push('- Onda: ' + (currentSit.wave_height||'--') + 'm');
+    sLines.push('- T aria/acqua: ' + (currentSit.temp_air||'--') + '/' + (currentSit.temp_water||'--') + ' C');
+    sLines.push('- Vento medio 6h: ' + avgWind6 + 'kn, max: ' + maxWind6 + 'kn');
+    if (currentSit.wind_speed_850 != null) {
+      sLines.push('- Vento 850hPa: ' + currentSit.wind_speed_850 + 'kn da ' + (currentSit.wind_dir_850 != null ? dir16sit[Math.round(currentSit.wind_dir_850/22.5)%16] : '--'));
+    }
+    sLines.push('');
+    sLines.push('PATTERN SINOTTICO: ' + (diagSit.description || diagSit.case));
+    sLines.push('ROTAZIONE: ' + rotSit.trend + ', percorso ' + (rotSit.total_path||0) + ' gradi in ' + rotSit.hours + 'h');
+    if (biasSit && biasSit.wind_bias) {
+      sLines.push('BIAS STORICO: ' + biasSit.wind_bias + 'kn (i modelli tendono a ' + (biasSit.wind_bias < 0 ? 'sottostimare' : 'sovrastimare') + ')');
+    }
+    if (alertsSit.length > 0) {
+      sLines.push('');
+      sLines.push('ALERT RILEVATI: ' + alertsSit.join(' | '));
+    }
+    sLines.push('');
+    sLines.push('Rispondi ESATTAMENTE in questo formato (usa questi titoli in maiuscolo):');
+    sLines.push('');
+    sLines.push('SITUAZIONE ATTUALE');
+    sLines.push('[2-3 righe: descrivi cosa sta succedendo ora in linguaggio naturale]');
+    sLines.push('');
+    sLines.push('EVOLUZIONE ATTESA');
+    sLines.push('[2-3 righe: cosa ci si aspetta nelle prossime 3-12 ore con valori indicativi]');
+    sLines.push('');
+    sLines.push('CONSIGLIO NAVIGAZIONE');
+    sLines.push('[1-2 righe: indicazione operativa concreta per questa zona]');
+    sLines.push('');
+    sLines.push('MONITORARE');
+    sLines.push('[2-4 punti specifici da tenere d occhio con soglie concrete]');
+    sLines.push('');
+    sLines.push('ALLERTA: VERDE o GIALLO o ROSSO');
+    sLines.push('');
+    sLines.push('Max ' + (isFast ? '200' : '300') + ' parole totali. Sii concreto e operativo.');
+
+    var sitRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: isFast ? 'claude-haiku-4-5-20251001' : 'claude-sonnet-4-20250514',
+        max_tokens: isFast ? 400 : 600,
+        messages: [{ role: 'user', content: sLines.join('\n') }]
+      })
+    });
+    if (!sitRes.ok) return res.status(500).json({ error: 'AI error ' + sitRes.status });
+    var sitData = await sitRes.json();
+    var sitText = sitData.content && sitData.content[0] ? sitData.content[0].text : '';
+
+    // Estrae livello allerta dal testo
+    var allertaMatch = sitText.match(/ALLERTA:\s*(VERDE|GIALLO|ROSSO)/i);
+    var allertaLevel = allertaMatch ? allertaMatch[1].toUpperCase() : 'VERDE';
+    var allertaColor = allertaLevel === 'ROSSO' ? 'danger' : allertaLevel === 'GIALLO' ? 'warn' : 'safe';
+
+    // Salva in KV
+    var now3s = new Date();
+    var mins15s = now3s.getMinutes() < 15 ? '00' : now3s.getMinutes() < 30 ? '15' : now3s.getMinutes() < 45 ? '30' : '45';
+    var romeHourS = getNowRome();
+    var sitKey = 'situazione:' + zoneKey + ':' + romeHourS + '-' + mins15s;
+    var sitRecord = {
+      zone: zoneKey,
+      generated_at: now3s.toISOString(),
+      text: sitText,
+      allerta: allertaLevel,
+      allerta_color: allertaColor,
+      current_wind: currentSit.wind_speed,
+      current_pressure: currentSit.pressure,
+      rotation_trend: rotSit.trend,
+      rotation_path: rotSit.total_path
+    };
+    if (kvUrl && kvToken) await kvSet(sitKey, sitRecord, 86400, kvUrl, kvToken); // TTL 24h
+
+    return res.status(200).json({
+      zone: zoneKey,
+      name: ZONES[zoneKey].name,
+      generated_at: sitRecord.generated_at,
+      saved_key: sitKey,
+      allerta: allertaLevel,
+      allerta_color: allertaColor,
+      text: sitText
+    });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
 if (action === 'predict') {
   if (!zoneKey || !ZONES[zoneKey]) {
     return res.status(404).json({ error: 'Zona non trovata' });
@@ -1813,6 +1956,20 @@ if (action === 'predict') {
           Math.round(Math.abs(currentSnap.wind_dir_850 - currentSnap.wind_dir)) : null;
         pLines.push('- Vento 850hPa: ' + currentSnap.wind_speed_850 + 'kn da ' + dir850 +
           (diverg !== null ? ' (divergenza sup/quota ' + diverg + 'gradi)' : ''));
+        // Fornisce contesto interpretativo divergenza per l'AI
+        if (diverg !== null) {
+          if (diverg > 90) {
+            pLines.push('  [NOTA 850hPa] Divergenza elevata (>' + diverg + 'gradi): flusso in quota disaccoppiato dalla superficie.');
+            pLines.push('  Possibili cause: fronte in avvicinamento, inversione termica, rotazione imminente del vento superficiale.');
+            pLines.push('  Il vento superficiale tendera ad allinearsi con quello in quota nelle prossime 3-12h.');
+            pLines.push('  Valuta in combinazione con tendenza barica e rotazione recente.');
+          } else if (diverg > 45) {
+            pLines.push('  [NOTA 850hPa] Divergenza moderata (' + diverg + 'gradi): transizione in corso tra flusso sinottico e locale.');
+            pLines.push('  Situazione instabile, monitorare tendenza barica e direzione vento nelle prossime 3-6h.');
+          } else {
+            pLines.push('  [NOTA 850hPa] Buon accoppiamento sup/quota (divergenza ' + diverg + 'gradi): situazione stabile e coerente.');
+          }
+        }
       }
       pLines.push('- Pressione: ' + (currentSnap.pressure||'--') + 'hPa - ' + pressureTrend);
       pLines.push('- Onda: ' + (currentSnap.wave_height||'--') + 'm');
@@ -1989,6 +2146,39 @@ if (action === 'predict') {
 }
 
 // /api/engine?action=predict_history&zone=xxx - get saved predictions for verification
+if (action === 'situazione_get') {
+  if (!zoneKey || !ZONES[zoneKey]) {
+    return res.status(404).json({ error: 'Zona non trovata' });
+  }
+  try {
+    // Cerca le ultime 4 chiavi (ultima ora, 4 slot da 15min)
+    var romeHourG = getNowRome();
+    var slots4 = ['00','15','30','45'];
+    var sitFound = null;
+    // Prova ora corrente e ora precedente
+    for (var hh = 0; hh <= 1 && !sitFound; hh++) {
+      var searchTime = new Date(new Date().getTime() - hh * 3600000);
+      var searchRome = searchTime.toLocaleString('en-CA', {
+        timeZone: 'Europe/Rome', year:'numeric', month:'2-digit', day:'2-digit',
+        hour:'2-digit', minute:'2-digit', hour12: false
+      });
+      var srm = searchRome.match(/([0-9]{4})-([0-9]{2})-([0-9]{2}), ([0-9]{2}):([0-9]{2})/) ||
+                searchRome.match(/([0-9]{4})-([0-9]{2})-([0-9]{2}),([0-9]{2}):([0-9]{2})/);
+      var searchHour = srm ? srm[1]+'-'+srm[2]+'-'+srm[3]+'T'+srm[4] : null;
+      if (!searchHour) continue;
+      for (var si4 = slots4.length - 1; si4 >= 0 && !sitFound; si4--) {
+        var sk = 'situazione:' + zoneKey + ':' + searchHour + '-' + slots4[si4];
+        var rec = await kvGet(sk, kvUrl, kvToken);
+        if (rec) { sitFound = rec; sitFound._key = sk; }
+      }
+    }
+    if (!sitFound) return res.status(200).json({ zone: zoneKey, found: false });
+    return res.status(200).json({ zone: zoneKey, found: true, situazione: sitFound });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
 if (action === 'predict_history') {
   if (!zoneKey || !ZONES[zoneKey]) {
     return res.status(404).json({ error: 'Zona non trovata' });
@@ -2261,4 +2451,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.62
+// Fine codice - NAUTILUS ENGINE v2.9.65

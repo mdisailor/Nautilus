@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.33 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.34 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -570,7 +570,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.33  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.34  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1771,7 +1771,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.33  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.34  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -4532,7 +4532,8 @@ async function generateSituazione(zoneKey) {
       if (container) container.innerHTML = renderSituazionePanel(zoneKey, { found: true, situazione: data });
     }
   } catch(e) {
-    if (container) container.innerHTML = '<div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--danger);padding:10px 20px">Errore generazione scheda</div>';
+    console.error('Situazione error:', e.message, e.stack);
+    if (container) container.innerHTML = '<div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--danger);padding:10px 20px">Errore: ' + e.message + '</div>';
   }
 }
 
@@ -4786,7 +4787,7 @@ function togglePredictItem(idx) {
   el.style.display = 'block';
 }
 
-// Fine codice - NAUTILUS v5.6.33
+// Fine codice - NAUTILUS v5.6.34
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

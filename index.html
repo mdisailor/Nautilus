@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.29 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.30 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -570,7 +570,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.29  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.30  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1771,7 +1771,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.29  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.30  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -2734,6 +2734,8 @@ window.addEventListener('load', () => {
     if (bb) bb.style.display = 'inline-block';
   }
   fetchAll();
+  // Forza scroll in cima dopo il rendering iniziale
+  setTimeout(function(){ window.scrollTo(0, 0); }, 100);
 });
 
 
@@ -3322,18 +3324,24 @@ async function loadHistory(zoneKey) {
       var vDeg = rot.veering_deg != null ? Math.round(rot.veering_deg) : 0;
       var bDeg = rot.backing_deg != null ? Math.abs(Math.round(rot.backing_deg)) : 0;
       // Label principale
-      // Testo sintetico e leggibile
-      var rotDesc = {
-        veering:  'Rotazione ORARIA di ' + rotNet + ' gradi nelle ultime ' + rot.hours + 'h',
-        backing:  'Rotazione ANTIORARIA di ' + rotNet + ' gradi nelle ultime ' + rot.hours + 'h',
-        stable:   'Direzione stabile nelle ultime ' + rot.hours + 'h',
-        variable: 'Direzione variabile nelle ultime ' + rot.hours + 'h'
-      }[rot.trend] || rot.trend;
-      // Aggiunge contesto se il percorso e' molto diverso dalla netta (oscillazione)
-      if (rot.trend === 'variable' && rotPath > 120) {
-        rotDesc += ' (ha girato molto: ' + rotPath + ' gradi totali, con rinforzi da ' + (vDeg > bDeg ? 'orario' : 'antiorario') + ')';
-      } else if ((rot.trend === 'veering' || rot.trend === 'backing') && rotPath > rotNet * 1.5) {
-        rotDesc += ' con oscillazioni intermedie';
+      // Descrizione operativa della rotazione
+      var fromDir = rot.from_dir != null ? dirs16[Math.round(rot.from_dir/22.5)%16] : '--';
+      var toDir   = rot.to_dir   != null ? dirs16[Math.round(rot.to_dir/22.5)%16]   : '--';
+      var rotDesc;
+      if (rot.trend === 'stable') {
+        rotDesc = 'Direzione stabile (' + fromDir + ') nelle ultime ' + rot.hours + 'h';
+      } else if (rot.trend === 'veering') {
+        rotDesc = 'Rotazione ORARIA: ' + fromDir + ' -> ' + toDir + ' in ' + rot.hours + 'h';
+        if (rotPath > rotNet * 1.5) rotDesc += ' con oscillazioni';
+      } else if (rot.trend === 'backing') {
+        rotDesc = 'Rotazione ANTIORARIA: ' + fromDir + ' -> ' + toDir + ' in ' + rot.hours + 'h';
+        if (rotPath > rotNet * 1.5) rotDesc += ' con oscillazioni';
+      } else {
+        // Variable - descrivi il percorso in modo leggibile
+        rotDesc = 'Direzione variabile: ' + fromDir + ' -> ' + toDir + ' in ' + rot.hours + 'h';
+        if (vDeg > 30 && bDeg > 30) {
+          rotDesc += ' (ha oscillato: ' + vDeg + ' gradi orario, ' + bDeg + ' antiorario)';
+        }
       }
       html += '<div class="history-rotation ' + rot.trend + '">' + rotDesc + '</div>';
       // Link guida interattiva per rotazioni significative
@@ -4429,7 +4437,7 @@ async function runBackfill() {
 var predictCurrentZone = null;
 
 //  SCHEDA SITUAZIONE 
-function toggleSituazione(zoneKey) {
+
 // Event delegation per sit-header e sit-regen
 document.addEventListener('click', function(e) {
   var el = e.target.closest('[data-action]');
@@ -4441,6 +4449,7 @@ document.addEventListener('click', function(e) {
   if (action === 'regen-sit') { e.stopPropagation(); generateSituazione(zone); }
 });
 
+function toggleSituazione(zoneKey) {
   var body = document.getElementById('sit-body-' + zoneKey);
   var toggle = document.getElementById('sit-toggle-' + zoneKey);
   if (!body) return;
@@ -4448,7 +4457,6 @@ document.addEventListener('click', function(e) {
   body.classList.toggle('open', !isOpen);
   toggle.textContent = isOpen ? '' : '';
 }
-
 function renderSituazionePanel(zoneKey, data) {
   if (!data || !data.found || !data.situazione) {
     return '<div class="sit-panel"><div style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:var(--card);border:1px solid var(--border);border-radius:10px">' +
@@ -4776,7 +4784,7 @@ function togglePredictItem(idx) {
   el.style.display = 'block';
 }
 
-// Fine codice - NAUTILUS v5.6.29
+// Fine codice - NAUTILUS v5.6.30
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

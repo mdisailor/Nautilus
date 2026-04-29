@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.61 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.62 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1807,6 +1807,13 @@ if (action === 'predict') {
     if (currentSnap) {
       var dirNameP = currentSnap.wind_dir !== null ? dirs16p[Math.round(currentSnap.wind_dir/22.5)%16] : '--';
       pLines.push('- Vento: ' + (currentSnap.wind_speed||'--') + 'kn da ' + dirNameP + ' (' + (currentSnap.wind_dir||'--') + 'deg)');
+      if (currentSnap.wind_speed_850 != null) {
+        var dir850 = currentSnap.wind_dir_850 != null ? dirs16p[Math.round(currentSnap.wind_dir_850/22.5)%16] : '--';
+        var diverg = (currentSnap.wind_dir_850 != null && currentSnap.wind_dir != null) ?
+          Math.round(Math.abs(currentSnap.wind_dir_850 - currentSnap.wind_dir)) : null;
+        pLines.push('- Vento 850hPa: ' + currentSnap.wind_speed_850 + 'kn da ' + dir850 +
+          (diverg !== null ? ' (divergenza sup/quota ' + diverg + 'gradi)' : ''));
+      }
       pLines.push('- Pressione: ' + (currentSnap.pressure||'--') + 'hPa - ' + pressureTrend);
       pLines.push('- Onda: ' + (currentSnap.wave_height||'--') + 'm');
       if (currentSnap.wind_speed_obs) {
@@ -2254,4 +2261,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.61
+// Fine codice - NAUTILUS ENGINE v2.9.62

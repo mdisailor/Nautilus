@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.26 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.27 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -415,6 +415,8 @@ padding: 5px 12px; background: transparent; border: 1px solid var(-border); bord
 .history-rotation.backing { background:rgba(100,100,255,0.08); border:1px solid rgba(100,100,255,0.3); color:#aaaaff; }
 .history-rotation.stable { background:rgba(34,221,136,0.08); border:1px solid rgba(34,221,136,0.3); color:var(--safe); }
 .history-rotation.insufficient_data { background:rgba(58,96,128,0.08); border:1px solid rgba(58,96,128,0.3); color:var(--muted); }
+.history-rotation.variable { background:rgba(180,100,255,0.08); border:1px solid rgba(180,100,255,0.3); color:#cc88ff; }
+.rot-guide-link { display:inline-block;margin-top:6px;font-size:0.58rem;color:var(--accent);cursor:pointer;text-decoration:underline; }
 .engine-summary { margin:12px 20px 0; display:flex; flex-direction:column; gap:6px; }
 .summary-card { display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--card); border:1px solid var(--border); border-radius:12px; cursor:pointer; transition:all 0.2s; }
 .summary-card:active { opacity:0.8; }
@@ -548,7 +550,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(-border); bord
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.26  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.27  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1749,7 +1751,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(-border); bord
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.26  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.27  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -3288,13 +3290,39 @@ async function loadHistory(zoneKey) {
     // Rotation analysis
     if (data.rotation && data.rotation.trend !== 'insufficient_data') {
       var rot = data.rotation;
-      var rotLabel = {
-        veering: 'Rotazione ORARIA - ' + Math.abs(rot.rotation).toFixed(0) + ' gradi in ' + rot.hours + 'h',
-        backing: 'Rotazione ANTIORARIA - ' + Math.abs(rot.rotation).toFixed(0) + ' gradi in ' + rot.hours + 'h',
-        stable: 'Vento STABILE - variazione ' + Math.abs(rot.rotation).toFixed(0) + ' gradi in ' + rot.hours + 'h',
-        variable: 'Direzione VARIABILE - rotazione non costante'
-      };
-      html += '<div class="history-rotation ' + rot.trend + '">' + (rotLabel[rot.trend] || rot.trend) + '</div>';
+      var rotNet  = rot.rotation != null ? Math.abs(Math.round(rot.rotation)) : 0;
+      var rotPath = rot.total_path != null ? Math.round(rot.total_path) : rotNet;
+      var vDeg = rot.veering_deg != null ? Math.round(rot.veering_deg) : 0;
+      var bDeg = rot.backing_deg != null ? Math.abs(Math.round(rot.backing_deg)) : 0;
+      // Label principale
+      var rotMain = {
+        veering:  'Rotazione ORARIA ' + rotNet + ' gradi netti in ' + rot.hours + 'h',
+        backing:  'Rotazione ANTIORARIA ' + rotNet + ' gradi netti in ' + rot.hours + 'h',
+        stable:   'Vento STABILE - variazione ' + rotNet + ' gradi in ' + rot.hours + 'h',
+        variable: 'Direzione VARIABILE - percorso ' + rotPath + ' gradi in ' + rot.hours + 'h'
+      }[rot.trend] || rot.trend;
+      // Dettaglio percorso
+      var rotDetail = '';
+      if (rotPath > rotNet + 30) {
+        rotDetail = ' | Veering +' + vDeg + ' / Backing -' + bDeg + ' (percorso reale ' + rotPath + ' gradi)';
+      }
+      // Fasi significative
+      var phasesHtml = '';
+      if (rot.phases && rot.phases.length > 0) {
+        phasesHtml = rot.phases.map(function(ph){
+          return (ph.type === 'veering' ? '+' : '-') + Math.abs(Math.round(ph.total)) + 'gradi';
+        }).join(' poi ');
+        phasesHtml = ' | Fasi: ' + phasesHtml;
+      }
+      html += '<div class="history-rotation ' + rot.trend + '">' + rotMain + rotDetail + phasesHtml + '</div>';
+      // Link guida interattiva per rotazioni significative
+      var showGuide = (rot.trend === 'veering' && rotNet > 45) || (rot.trend === 'backing' && rotNet > 45) || (rot.trend === 'variable' && rotPath > 120);
+      if (showGuide) {
+        var guideTarget = rot.trend === 'variable' ? 'nuvole' : 'nuvole';
+        html += '<div class="rot-guide-link" onclick="showPage(\'' + guideTarget + '\')">' +
+          'Consulta guida meteorologica per questo tipo di rotazione' +
+          '</div>';
+      }
     } else {
       html += '<div class="history-rotation insufficient_data">Dati insufficienti per analisi rotazione (' + (data.hours_available || 0) + 'h disponibili, min 3h)</div>';
     }
@@ -4629,7 +4657,7 @@ function togglePredictItem(idx) {
   el.style.display = 'block';
 }
 
-// Fine codice - NAUTILUS v5.6.26
+// Fine codice - NAUTILUS v5.6.27
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

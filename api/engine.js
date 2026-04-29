@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.65 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.67 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1061,6 +1061,116 @@ return {
 
 //- CALCOLO ZONA -
 
+async function getSituazioneAccuracy(zoneKey, kvUrl, kvToken) {
+  // Legge le ultime verifiche della scheda situazione e calcola accuratezza
+  if (!kvUrl || !kvToken) return null;
+  try {
+    var results = [];
+    var now = new Date();
+    // Cerca verifiche ultime 7 giorni
+    for (var d = 0; d < 7; d++) {
+      var dayTime = new Date(now.getTime() - d * 86400000);
+      for (var h = 0; h < 24; h++) {
+        var t = new Date(dayTime);
+        t.setHours(h, 0, 0, 0);
+        var tRome = t.toLocaleString('en-CA', {
+          timeZone:'Europe/Rome', year:'numeric', month:'2-digit', day:'2-digit',
+          hour:'2-digit', hour12:false
+        });
+        var tm = tRome.match(/([0-9]{4})-([0-9]{2})-([0-9]{2}), ([0-9]{2})/) ||
+                 tRome.match(/([0-9]{4})-([0-9]{2})-([0-9]{2}),([0-9]{2})/);
+        if (!tm) continue;
+        var th = tm[1]+'-'+tm[2]+'-'+tm[3]+'T'+tm[4];
+        for (var hn of [6, 12]) {
+          var vk = 'sit_verify:' + zoneKey + ':' + th + ':h' + hn;
+          var rec = await kvGet(vk, kvUrl, kvToken);
+          if (rec) results.push(rec);
+        }
+      }
+    }
+    if (results.length === 0) return null;
+    // Calcola statistiche
+    var correct = results.filter(function(r){ return r.wind_in_range === true; }).length;
+    var total = results.filter(function(r){ return r.wind_in_range !== null; }).length;
+    var windErrors = results.filter(function(r){
+      return r.actual_wind != null && r.wind_predicted_max != null;
+    }).map(function(r){
+      return r.actual_wind - ((r.wind_predicted_min + r.wind_predicted_max) / 2);
+    });
+    var avgError = windErrors.length ? (windErrors.reduce(function(a,b){return a+b;},0) / windErrors.length).toFixed(1) : null;
+    var gialli = results.filter(function(r){ return r.allerta_predicted === 'GIALLO'; });
+    var rossi  = results.filter(function(r){ return r.allerta_predicted === 'ROSSO'; });
+    return {
+      total: results.length,
+      correct: correct,
+      accuracy_pct: total > 0 ? Math.round(correct/total*100) : null,
+      avg_wind_error: avgError,
+      giallo_count: gialli.length,
+      rosso_count: rossi.length
+    };
+  } catch(e) { return null; }
+}
+
+async function verifySituazione(zoneKey, currentData, kvUrl, kvToken) {
+  if (!kvUrl || !kvToken) return;
+  var now = new Date();
+  // Verifica schede delle ultime 6h e 12h
+  var horizons = [6, 12];
+  for (var hi = 0; hi < horizons.length; hi++) {
+    var h = horizons[hi];
+    var pastTime = new Date(now.getTime() - h * 3600000);
+    var pastRomeStr = pastTime.toLocaleString('en-CA', {
+      timeZone: 'Europe/Rome', year:'numeric', month:'2-digit', day:'2-digit',
+      hour:'2-digit', minute:'2-digit', hour12: false
+    });
+    var pastRomeM = pastRomeStr.match(/([0-9]{4})-([0-9]{2})-([0-9]{2}), ([0-9]{2}):([0-9]{2})/) ||
+                    pastRomeStr.match(/([0-9]{4})-([0-9]{2})-([0-9]{2}),([0-9]{2}):([0-9]{2})/);
+    if (!pastRomeM) continue;
+    var pastHour = pastRomeM[1]+'-'+pastRomeM[2]+'-'+pastRomeM[3]+'T'+pastRomeM[4];
+    // Cerca la scheda salvata in quell'ora
+    var sitFound = null;
+    var slots = ['00','15','30','45'];
+    for (var si = 0; si < slots.length; si++) {
+      var sk = 'situazione:' + zoneKey + ':' + pastHour + '-' + slots[si];
+      var rec = await kvGet(sk, kvUrl, kvToken);
+      if (rec && rec.text) { sitFound = rec; break; }
+    }
+    if (!sitFound) continue;
+    // Evita di sovrascrivere verifica gia esistente
+    var verSitKey = 'sit_verify:' + zoneKey + ':' + pastHour + ':h' + h;
+    var existing = await kvGet(verSitKey, kvUrl, kvToken);
+    if (existing) continue;
+    // Estrai previsione vento dalla scheda (cerca pattern Xkn nel testo)
+    var windMatch = sitFound.text ? sitFound.text.match(/(\d+)-(\d+)kn|(\d+\.?\d*)kn/) : null;
+    var predictedWindMin = null, predictedWindMax = null;
+    if (windMatch) {
+      if (windMatch[1] && windMatch[2]) {
+        predictedWindMin = parseFloat(windMatch[1]);
+        predictedWindMax = parseFloat(windMatch[2]);
+      } else if (windMatch[3]) {
+        predictedWindMin = predictedWindMax = parseFloat(windMatch[3]);
+      }
+    }
+    var verRecord = {
+      zone: zoneKey,
+      generated_at: sitFound.generated_at,
+      horizon_h: h,
+      allerta_predicted: sitFound.allerta,
+      wind_predicted_min: predictedWindMin,
+      wind_predicted_max: predictedWindMax,
+      actual_wind: currentData.wind_speed,
+      actual_wind_dir: currentData.wind_dir,
+      actual_pressure: currentData.pressure,
+      actual_wave: currentData.wave_height,
+      verified_at: now.toISOString(),
+      // Valuta se la previsione era corretta
+      wind_in_range: (predictedWindMin !== null && predictedWindMax !== null) ?
+        (currentData.wind_speed >= predictedWindMin * 0.7 && currentData.wind_speed <= predictedWindMax * 1.3) : null
+    };
+    await kvSet(verSitKey, verRecord, 2592000, kvUrl, kvToken); // 30 giorni
+  }
+}
+
 async function verifyForecasts(zoneKey, currentData, kvUrl, kvToken) {
 if (!kvUrl || !kvToken) return;
 var now = new Date();
@@ -1372,6 +1482,7 @@ var isCronMode = req && req.query && req.query.history === '1';
 if (isCronMode) {
 await saveForecast(zoneKey, forecast, currentData, kvUrl, kvToken);
 await verifyForecasts(zoneKey, currentData, kvUrl, kvToken);
+await verifySituazione(zoneKey, currentData, kvUrl, kvToken);
 } else {
 // Manuale: salva forecast ma NON verifica -- la verifica gira solo nel cron_snap
 saveForecast(zoneKey, forecast, currentData, kvUrl, kvToken).catch(function() {});
@@ -1810,6 +1921,21 @@ if (action === 'situazione') {
       sLines.push('');
       sLines.push('ALERT RILEVATI: ' + alertsSit.join(' | '));
     }
+    // Aggiungi track record accuratezza schede precedenti
+    var sitAccuracy = await getSituazioneAccuracy(zoneKey, kvUrl, kvToken);
+    if (sitAccuracy && sitAccuracy.total >= 3) {
+      sLines.push('');
+      sLines.push('TRACK RECORD SCHEDE PRECEDENTI (' + sitAccuracy.total + ' verifiche):');
+      sLines.push('- Accuratezza previsione vento: ' + (sitAccuracy.accuracy_pct !== null ? sitAccuracy.accuracy_pct + '%' : 'nd'));
+      if (sitAccuracy.avg_wind_error !== null) {
+        var errDir = parseFloat(sitAccuracy.avg_wind_error) > 0 ? 'sovrastima' : 'sottostima';
+        sLines.push('- Errore medio: ' + Math.abs(sitAccuracy.avg_wind_error) + 'kn (' + errDir + ')');
+      }
+      if (sitAccuracy.giallo_count > 0) {
+        sLines.push('- Allerte GIALLO emesse: ' + sitAccuracy.giallo_count + ' (verifica se erano giustificate)');
+      }
+      sLines.push('Usa questi dati per calibrare la tua valutazione attuale.');
+    }
     sLines.push('');
     sLines.push('Rispondi ESATTAMENTE in questo formato (usa questi titoli in maiuscolo):');
     sLines.push('');
@@ -2146,6 +2272,43 @@ if (action === 'predict') {
 }
 
 // /api/engine?action=predict_history&zone=xxx - get saved predictions for verification
+if (action === 'situazione_verify') {
+  if (!zoneKey || !ZONES[zoneKey]) return res.status(404).json({ error: 'Zona non trovata' });
+  try {
+    var verKeys = [];
+    var verResults = [];
+    // Cerca verifiche ultime 14 giorni
+    var nowV = new Date();
+    for (var dv = 0; dv < 14; dv++) {
+      var dayTime = new Date(nowV.getTime() - dv * 86400000);
+      for (var hv = 0; hv < 24; hv++) {
+        var t = new Date(dayTime);
+        t.setUTCHours(hv, 0, 0, 0);
+        var tStr = t.toLocaleString('en-CA', {
+          timeZone:'Europe/Rome', year:'numeric', month:'2-digit', day:'2-digit',
+          hour:'2-digit', hour12:false
+        });
+        var tm = tStr.match(/([0-9]{4})-([0-9]{2})-([0-9]{2}), ([0-9]{2})/) ||
+                 tStr.match(/([0-9]{4})-([0-9]{2})-([0-9]{2}),([0-9]{2})/);
+        if (!tm) continue;
+        var th = tm[1]+'-'+tm[2]+'-'+tm[3]+'T'+tm[4];
+        for (var hvn of [6, 12]) {
+          var vk = 'sit_verify:' + zoneKey + ':' + th + ':h' + hvn;
+          verKeys.push(vk);
+        }
+      }
+    }
+    // Fetch in parallel batch
+    var batchV = [];
+    for (var ki = 0; ki < Math.min(verKeys.length, 100); ki++) {
+      batchV.push(kvGet(verKeys[ki], kvUrl, kvToken).then(function(r){ return r; }));
+    }
+    var verRaw = await Promise.all(batchV);
+    verResults = verRaw.filter(function(r){ return r !== null; });
+    return res.status(200).json({ zone: zoneKey, count: verResults.length, verifications: verResults });
+  } catch(e) { return res.status(500).json({ error: e.message }); }
+}
+
 if (action === 'situazione_get') {
   if (!zoneKey || !ZONES[zoneKey]) {
     return res.status(404).json({ error: 'Zona non trovata' });
@@ -2451,4 +2614,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.65
+// Fine codice - NAUTILUS ENGINE v2.9.67

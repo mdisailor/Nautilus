@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.28 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.29 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -471,6 +471,26 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 .wind-rose-legend-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
 .verify-section { margin:12px 20px 0; }
 .predict-section { margin:12px 20px 0; }
+/* SCHEDA SITUAZIONE */
+.sit-panel { margin: 12px 20px; border-radius: 14px; overflow: hidden; }
+.sit-header { display:flex; align-items:center; justify-content:space-between; padding:10px 16px; cursor:pointer; }
+.sit-header.verde  { background:rgba(34,221,136,0.12); border:1px solid rgba(34,221,136,0.3); }
+.sit-header.giallo { background:rgba(255,170,0,0.12);  border:1px solid rgba(255,170,0,0.3); }
+.sit-header.rosso  { background:rgba(255,68,68,0.12);  border:1px solid rgba(255,68,68,0.3); }
+.sit-badge { font-family:'DM Mono',monospace; font-size:0.65rem; font-weight:bold; letter-spacing:0.1em; }
+.sit-badge.verde  { color:var(--safe); }
+.sit-badge.giallo { color:var(--warn); }
+.sit-badge.rosso  { color:var(--danger); }
+.sit-title { font-family:'DM Mono',monospace; font-size:0.55rem; color:var(--muted); letter-spacing:0.08em; text-transform:uppercase; }
+.sit-toggle { font-size:0.6rem; color:var(--muted); }
+.sit-body { display:none; padding:14px 16px; background:var(--card); border-left:1px solid var(--border); border-right:1px solid var(--border); border-bottom:1px solid var(--border); border-radius:0 0 14px 14px; }
+.sit-body.open { display:block; }
+.sit-section { margin-bottom:12px; }
+.sit-section-title { font-family:'DM Mono',monospace; font-size:0.5rem; color:var(--accent); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:4px; font-weight:bold; }
+.sit-section-text { font-family:'DM Mono',monospace; font-size:0.58rem; color:var(--text); line-height:1.7; white-space:pre-line; }
+.sit-footer { font-family:'DM Mono',monospace; font-size:0.45rem; color:var(--muted); margin-top:8px; padding-top:8px; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+.sit-regen { font-size:0.5rem; color:var(--accent); cursor:pointer; text-decoration:underline; }
+
 .predict-output { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px 16px; font-family:DM Mono,monospace; font-size:0.62rem; line-height:1.8; color:var(--text); margin-top:10px; white-space:pre-line; }
 .predict-history-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px 14px; margin-top:8px; }
 .predict-history-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
@@ -550,7 +570,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.28  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.29  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1751,7 +1771,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.28  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.29  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -1842,6 +1862,7 @@ const ANTHROPIC_KEY = 'LA_TUA_CHIAVE_ANTHROPIC';
 const state = {
   lat: null, lon: null, locationName: null,
   horizon: 3,
+  situazione: {},  // { zona: { allerta, text, generated_at } }
   weatherData: null,
   stormglassData: null,
   stormglassTs: null,
@@ -3188,6 +3209,9 @@ function renderEngineResults() {
       continue;
     }
     summaryHtml += renderZoneSummary(z);
+    // Pannello situazione in cima alla zona
+    var sitData = state.situazione[zk];
+    detailHtml += '<div id="sit-container-' + zk + '">' + renderSituazionePanel(zk, sitData || null) + '</div>';
     detailHtml += renderZone(z);
   }
 
@@ -3197,6 +3221,10 @@ function renderEngineResults() {
   divEl.style.display = summaryHtml ? 'block' : 'none';
 
   cont.innerHTML = detailHtml || '<div class="engine-empty">Nessun dato disponibile</div>';
+  // Carica schede situazione per tutte le zone visualizzate
+  Object.keys(engineResults).forEach(function(zk) {
+    if (!engineResults[zk].error) loadSituazione(zk);
+  });
 
   // Show briefing section and enable button
   var bsec = document.getElementById('engine-briefing-section');
@@ -4407,6 +4435,90 @@ async function runBackfill() {
 
 var predictCurrentZone = null;
 
+//  SCHEDA SITUAZIONE 
+function toggleSituazione(zoneKey) {
+  var body = document.getElementById('sit-body-' + zoneKey);
+  var toggle = document.getElementById('sit-toggle-' + zoneKey);
+  if (!body) return;
+  var isOpen = body.classList.contains('open');
+  body.classList.toggle('open', !isOpen);
+  toggle.textContent = isOpen ? '' : '';
+}
+
+function renderSituazionePanel(zoneKey, data) {
+  if (!data || !data.found || !data.situazione) {
+    return '<div class="sit-panel"><div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);padding:8px 20px">Scheda situazione non disponibile -- generala con il tasto sottostante</div></div>';
+  }
+  var sit = data.situazione;
+  var allerta = (sit.allerta || 'VERDE').toLowerCase();
+  var text = sit.text || '';
+
+  // Estrae le sezioni dal testo
+  function extractSection(t, title) {
+    var re = new RegExp(title + '\\s*\\n([\\s\\S]*?)(?=\\n[A-Z ]{4,}:|$)', 'i');
+    var m = t.match(re);
+    return m ? m[1].trim() : '';
+  }
+  var secSituazione = extractSection(text, 'SITUAZIONE ATTUALE');
+  var secEvoluzione = extractSection(text, 'EVOLUZIONE ATTESA');
+  var secConsiglio  = extractSection(text, 'CONSIGLIO NAVIGAZIONE');
+  var secMonitorare = extractSection(text, 'MONITORARE');
+
+  var ts = sit.generated_at ? new Date(sit.generated_at).toLocaleTimeString('it-IT',{timeZone:'Europe/Rome',hour:'2-digit',minute:'2-digit'}) : '--';
+  var badge = allerta === 'rosso' ? '' : allerta === 'giallo' ? '' : '';
+
+  var html = '<div class="sit-panel">';
+  html += '<div class="sit-header ' + allerta + '" onclick="toggleSituazione('' + zoneKey + '')">';
+  html += '<div><span class="sit-badge ' + allerta + '">' + badge + ' ALLERTA ' + (sit.allerta||'VERDE') + '</span>';
+  html += ' <span class="sit-title">Scheda Situazione &mdash; ore ' + ts + '</span></div>';
+  html += '<span class="sit-toggle" id="sit-toggle-' + zoneKey + '"></span>';
+  html += '</div>';
+  html += '<div class="sit-body" id="sit-body-' + zoneKey + '">';
+  if (secSituazione) {
+    html += '<div class="sit-section"><div class="sit-section-title">Situazione Attuale</div><div class="sit-section-text">' + secSituazione + '</div></div>';
+  }
+  if (secEvoluzione) {
+    html += '<div class="sit-section"><div class="sit-section-title">Evoluzione Attesa</div><div class="sit-section-text">' + secEvoluzione + '</div></div>';
+  }
+  if (secConsiglio) {
+    html += '<div class="sit-section"><div class="sit-section-title">Consiglio Navigazione</div><div class="sit-section-text">' + secConsiglio + '</div></div>';
+  }
+  if (secMonitorare) {
+    html += '<div class="sit-section"><div class="sit-section-title">Monitorare</div><div class="sit-section-text">' + secMonitorare + '</div></div>';
+  }
+  html += '<div class="sit-footer">';
+  html += '<span>Generata: ' + ts + ' &mdash; ' + (sit.rotation_trend || '') + '</span>';
+  html += '<span class="sit-regen" onclick="generateSituazione('' + zoneKey + '')">Rigenera</span>';
+  html += '</div>';
+  html += '</div></div>';
+  return html;
+}
+
+async function loadSituazione(zoneKey) {
+  try {
+    var res = await fetch(ENGINE_URL + '?action=situazione_get&zone=' + zoneKey);
+    var data = await res.json();
+    state.situazione[zoneKey] = data;
+    var container = document.getElementById('sit-container-' + zoneKey);
+    if (container) container.innerHTML = renderSituazionePanel(zoneKey, data);
+  } catch(e) { console.warn('Situazione load error:', e); }
+}
+
+async function generateSituazione(zoneKey) {
+  var container = document.getElementById('sit-container-' + zoneKey);
+  if (container) container.innerHTML = '<div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--accent);padding:10px 20px">Generazione scheda in corso...</div>';
+  try {
+    var res = await fetch(ENGINE_URL + '?action=situazione&zone=' + zoneKey);
+    var data = await res.json();
+    if (data.text) {
+      state.situazione[zoneKey] = { found: true, situazione: data };
+      if (container) container.innerHTML = renderSituazionePanel(zoneKey, { found: true, situazione: data });
+    }
+  } catch(e) {
+    if (container) container.innerHTML = '<div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--danger);padding:10px 20px">Errore generazione scheda</div>';
+  }
+}
+
 function renderPredictZoneButtons() {
   var container = document.getElementById('predict-zone-select');
   if (!container || !engineResults) return;
@@ -4657,7 +4769,7 @@ function togglePredictItem(idx) {
   el.style.display = 'block';
 }
 
-// Fine codice - NAUTILUS v5.6.28
+// Fine codice - NAUTILUS v5.6.29
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

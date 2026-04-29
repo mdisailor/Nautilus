@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.30 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.33 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -570,7 +570,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.30  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.33  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1771,7 +1771,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.30  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.33  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -3325,8 +3325,9 @@ async function loadHistory(zoneKey) {
       var bDeg = rot.backing_deg != null ? Math.abs(Math.round(rot.backing_deg)) : 0;
       // Label principale
       // Descrizione operativa della rotazione
-      var fromDir = rot.from_dir != null ? dirs16[Math.round(rot.from_dir/22.5)%16] : '--';
-      var toDir   = rot.to_dir   != null ? dirs16[Math.round(rot.to_dir/22.5)%16]   : '--';
+      var dirs16loc = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+      var fromDir = rot.from_dir != null ? dirs16loc[Math.round(rot.from_dir/22.5)%16] : '--';
+      var toDir   = rot.to_dir   != null ? dirs16loc[Math.round(rot.to_dir/22.5)%16]   : '--';
       var rotDesc;
       if (rot.trend === 'stable') {
         rotDesc = 'Direzione stabile (' + fromDir + ') nelle ultime ' + rot.hours + 'h';
@@ -4470,7 +4471,8 @@ function renderSituazionePanel(zoneKey, data) {
 
   // Estrae le sezioni dal testo
   function extractSection(t, title) {
-    var re = new RegExp(title + '\\s*\\n([\\s\\S]*?)(?=\\n[A-Z ]{4,}:|$)', 'i');
+    // Gestisce sia **TITOLO** che TITOLO senza asterischi
+    var re = new RegExp('\\*{0,2}' + title + '\\*{0,2}\\s*\\n([\\s\\S]*?)(?=\\n\\*{0,2}[A-Z][A-Z ]{3,}\\*{0,2}|$)', 'i');
     var m = t.match(re);
     return m ? m[1].trim() : '';
   }
@@ -4486,7 +4488,7 @@ function renderSituazionePanel(zoneKey, data) {
   html += '<div class="sit-header ' + allerta + '" data-action="toggle-sit" data-zone="' + zoneKey + '">';
   html += '<div><span class="sit-badge ' + allerta + '">' + badge + ' ALLERTA ' + (sit.allerta||'VERDE') + '</span>';
   html += ' <span class="sit-title">Scheda Situazione &mdash; ore ' + ts + '</span></div>';
-  html += '<span class="sit-toggle" id="sit-toggle-' + zoneKey + '"></span>';
+  html += '<span class="sit-toggle" id="sit-toggle-' + zoneKey + '">' + (autoOpen ? '' : '') + '</span>';
   html += '</div>';
   html += '<div class="sit-body" id="sit-body-' + zoneKey + '">';
   if (secSituazione) {
@@ -4784,7 +4786,7 @@ function togglePredictItem(idx) {
   el.style.display = 'block';
 }
 
-// Fine codice - NAUTILUS v5.6.30
+// Fine codice - NAUTILUS v5.6.33
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

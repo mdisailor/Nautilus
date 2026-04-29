@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.68 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.69 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1062,51 +1062,41 @@ return {
 //- CALCOLO ZONA -
 
 async function getSituazioneAccuracy(zoneKey, kvUrl, kvToken) {
-  // Legge le ultime verifiche della scheda situazione e calcola accuratezza
   if (!kvUrl || !kvToken) return null;
   try {
-    var results = [];
+    var keys = [];
     var now = new Date();
-    // Cerca verifiche ultime 7 giorni
-    for (var d = 0; d < 7; d++) {
-      var dayTime = new Date(now.getTime() - d * 86400000);
-      for (var h = 0; h < 24; h++) {
-        var t = new Date(dayTime);
-        t.setHours(h, 0, 0, 0);
-        var tRome = t.toLocaleString('en-CA', {
-          timeZone:'Europe/Rome', year:'numeric', month:'2-digit', day:'2-digit',
-          hour:'2-digit', hour12:false
-        });
-        var tm = tRome.match(/([0-9]{4})-([0-9]{2})-([0-9]{2}), ([0-9]{2})/) ||
-                 tRome.match(/([0-9]{4})-([0-9]{2})-([0-9]{2}),([0-9]{2})/);
-        if (!tm) continue;
-        var th = tm[1]+'-'+tm[2]+'-'+tm[3]+'T'+tm[4];
-        var hns = [6, 12]; for (var hni = 0; hni < hns.length; hni++) { var hn = hns[hni];
-          var vk = 'sit_verify:' + zoneKey + ':' + th + ':h' + hn;
-          var rec = await kvGet(vk, kvUrl, kvToken);
-          if (rec) results.push(rec);
-        }
-      }
+    for (var h = 0; h < 48; h++) {
+      var t = new Date(now.getTime() - h * 3600000);
+      var tRome = t.toLocaleString('en-CA', {
+        timeZone:'Europe/Rome', year:'numeric', month:'2-digit', day:'2-digit',
+        hour:'2-digit', hour12:false
+      });
+      var tm = tRome.match(/([0-9]{4})-([0-9]{2})-([0-9]{2}), ([0-9]{2})/) ||
+               tRome.match(/([0-9]{4})-([0-9]{2})-([0-9]{2}),([0-9]{2})/);
+      if (!tm) continue;
+      var th = tm[1]+'-'+tm[2]+'-'+tm[3]+'T'+tm[4];
+      keys.push('sit_verify:' + zoneKey + ':' + th + ':h6');
+      keys.push('sit_verify:' + zoneKey + ':' + th + ':h12');
     }
+    var raws = await Promise.all(keys.map(function(k){ return kvGet(k, kvUrl, kvToken); }));
+    var results = raws.filter(function(r){ return r !== null; });
     if (results.length === 0) return null;
-    // Calcola statistiche
     var correct = results.filter(function(r){ return r.wind_in_range === true; }).length;
-    var total = results.filter(function(r){ return r.wind_in_range !== null; }).length;
-    var windErrors = results.filter(function(r){
+    var total   = results.filter(function(r){ return r.wind_in_range !== null; }).length;
+    var errors  = results.filter(function(r){
       return r.actual_wind != null && r.wind_predicted_max != null;
     }).map(function(r){
       return r.actual_wind - ((r.wind_predicted_min + r.wind_predicted_max) / 2);
     });
-    var avgError = windErrors.length ? (windErrors.reduce(function(a,b){return a+b;},0) / windErrors.length).toFixed(1) : null;
-    var gialli = results.filter(function(r){ return r.allerta_predicted === 'GIALLO'; });
-    var rossi  = results.filter(function(r){ return r.allerta_predicted === 'ROSSO'; });
+    var avgError = errors.length ? (errors.reduce(function(a,b){return a+b;},0)/errors.length).toFixed(1) : null;
     return {
       total: results.length,
       correct: correct,
       accuracy_pct: total > 0 ? Math.round(correct/total*100) : null,
       avg_wind_error: avgError,
-      giallo_count: gialli.length,
-      rosso_count: rossi.length
+      giallo_count: results.filter(function(r){ return r.allerta_predicted==='GIALLO'; }).length,
+      rosso_count:  results.filter(function(r){ return r.allerta_predicted==='ROSSO';  }).length
     };
   } catch(e) { return null; }
 }
@@ -2614,4 +2604,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.68
+// Fine codice - NAUTILUS ENGINE v2.9.69

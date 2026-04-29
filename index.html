@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.35 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.37 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -570,7 +570,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.35  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.37  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1771,7 +1771,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.35  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.37  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -3068,7 +3068,7 @@ function renderZone(z) {
     '<div class="zone-card-header">' +
       '<div class="zone-card-title"> ' + z.name + '</div>' +
       '<div style="display:flex;align-items:center;gap:6px">' +
-      (z.risk ? '<div style="padding:3px 8px;border-radius:6px;font-family:DM Mono,monospace;font-size:0.55rem;background:var(--' + (z.risk.color||'safe') + ');color:#000;font-weight:600">' + (z.risk.label||'') + '</div>' : '') +
+      (z.risk ? '<div style="padding:3px 8px;border-radius:6px;font-family:DM Mono,monospace;font-size:0.55rem;background:var(--' + (z.risk.color||'safe') + ');color:#000;font-weight:600">' + (z.risk.label||'') + ' <span style="font-weight:400;opacity:0.8">ora</span></div>' : '') +
       '<div class="zone-card-updated">' + new Date(z.updated).toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'}) + '</div>' +
       '</div>' +
     '</div>' +
@@ -4462,7 +4462,7 @@ function renderSituazionePanel(zoneKey, data) {
   if (!data || !data.found || !data.situazione) {
     return '<div class="sit-panel"><div style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:var(--card);border:1px solid var(--border);border-radius:10px">' +
       '<span style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted)">Scheda situazione non ancora generata</span>' +
-      '<span class="sit-regen" data-action="regen-sit" data-zone="' + zoneKey + '" style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--accent);cursor:pointer;text-decoration:underline">Genera ora</span>' +
+      '<span class="sit-regen" data-action="regen-sit" data-zone="' + zoneKey + '" style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--accent);cursor:pointer;text-decoration:underline;padding:8px 12px;min-height:44px;display:inline-flex;align-items:center;border:1px solid var(--accent);border-radius:8px">Genera ora</span>' +
       '</div></div>';
   }
   var sit = data.situazione;
@@ -4487,8 +4487,8 @@ function renderSituazionePanel(zoneKey, data) {
 
   var html = '<div class="sit-panel">';
   html += '<div class="sit-header ' + allerta + '" data-action="toggle-sit" data-zone="' + zoneKey + '">';
-  html += '<div><span class="sit-badge ' + allerta + '">' + badge + ' ALLERTA ' + (sit.allerta||'VERDE') + '</span>';
-  html += ' <span class="sit-title">Scheda Situazione &mdash; ore ' + ts + '</span></div>';
+  html += '<div><span class="sit-badge ' + allerta + '">' + badge + ' ' + (sit.allerta||'VERDE') + '</span>';
+  html += ' <span class="sit-title">Evoluzione attesa &mdash; ore ' + ts + '</span></div>';
   html += '<span class="sit-toggle" id="sit-toggle-' + zoneKey + '">' + (autoOpen ? '' : '') + '</span>';
   html += '</div>';
   html += '<div class="sit-body" id="sit-body-' + zoneKey + '">';
@@ -4506,7 +4506,7 @@ function renderSituazionePanel(zoneKey, data) {
   }
   html += '<div class="sit-footer">';
   html += '<span>Generata: ' + ts + (sit.rotation_trend ? ' &mdash; ' + sit.rotation_trend : '') + '</span>';
-  html += '<span class="sit-regen" data-action="regen-sit" data-zone="' + zoneKey + '" style="margin-left:12px">&#8635; Rigenera</span>';
+  html += '<span class="sit-regen" data-action="regen-sit" data-zone="' + zoneKey + '" style="margin-left:12px;padding:6px 10px;border:1px solid var(--accent);border-radius:6px;cursor:pointer">&#8635; Rigenera</span>';
   html += '</div>';
   html += '</div></div>';
   return html;
@@ -4788,7 +4788,7 @@ function togglePredictItem(idx) {
   el.style.display = 'block';
 }
 
-// Fine codice - NAUTILUS v5.6.35
+// Fine codice - NAUTILUS v5.6.37
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

@@ -2487,9 +2487,7 @@ function renderTimeline() {
     item.innerHTML = `<div class="ti-time">${i===idx?'ORA':t.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})}</div><div class="ti-icon">${getWeatherIcon(parseFloat(wind),parseFloat(wave))}</div><div class="ti-wind">${wind}kn ${wdirName}</div><div class="ti-wave">${wave}m</div><div class="ti-wave">${press}hPa</div>`;
     container.appendChild(item);
   }
-  // Scrolla all'elemento attivo
-  var activeEl = container.querySelector('.timeline-item.active');
-  if (activeEl) activeEl.scrollIntoView({ behavior:'smooth', block:'nearest', inline:'start' });
+  // Non fa scroll automatico -- lascia la pagina ferma
 }
 
 function getWeatherIcon(w,wv) {
@@ -2502,6 +2500,7 @@ function degToDir(d) {
 
 function setHorizon(h, el) {
   state.horizon = h;
+  // NON fare scroll - lascia la pagina dove e' 
   document.querySelectorAll('.htab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
   ['lbl-wind','lbl-wave','lbl-gust'].forEach(id => {
@@ -3323,26 +3322,20 @@ async function loadHistory(zoneKey) {
       var vDeg = rot.veering_deg != null ? Math.round(rot.veering_deg) : 0;
       var bDeg = rot.backing_deg != null ? Math.abs(Math.round(rot.backing_deg)) : 0;
       // Label principale
-      var rotMain = {
-        veering:  'Rotazione ORARIA ' + rotNet + ' gradi netti in ' + rot.hours + 'h',
-        backing:  'Rotazione ANTIORARIA ' + rotNet + ' gradi netti in ' + rot.hours + 'h',
-        stable:   'Vento STABILE - variazione ' + rotNet + ' gradi in ' + rot.hours + 'h',
-        variable: 'Direzione VARIABILE - percorso ' + rotPath + ' gradi in ' + rot.hours + 'h'
+      // Testo sintetico e leggibile
+      var rotDesc = {
+        veering:  'Rotazione ORARIA di ' + rotNet + ' gradi nelle ultime ' + rot.hours + 'h',
+        backing:  'Rotazione ANTIORARIA di ' + rotNet + ' gradi nelle ultime ' + rot.hours + 'h',
+        stable:   'Direzione stabile nelle ultime ' + rot.hours + 'h',
+        variable: 'Direzione variabile nelle ultime ' + rot.hours + 'h'
       }[rot.trend] || rot.trend;
-      // Dettaglio percorso
-      var rotDetail = '';
-      if (rotPath > rotNet + 30) {
-        rotDetail = ' | Veering +' + vDeg + ' / Backing -' + bDeg + ' (percorso reale ' + rotPath + ' gradi)';
+      // Aggiunge contesto se il percorso e' molto diverso dalla netta (oscillazione)
+      if (rot.trend === 'variable' && rotPath > 120) {
+        rotDesc += ' (ha girato molto: ' + rotPath + ' gradi totali, con rinforzi da ' + (vDeg > bDeg ? 'orario' : 'antiorario') + ')';
+      } else if ((rot.trend === 'veering' || rot.trend === 'backing') && rotPath > rotNet * 1.5) {
+        rotDesc += ' con oscillazioni intermedie';
       }
-      // Fasi significative
-      var phasesHtml = '';
-      if (rot.phases && rot.phases.length > 0) {
-        phasesHtml = rot.phases.map(function(ph){
-          return (ph.type === 'veering' ? '+' : '-') + Math.abs(Math.round(ph.total)) + 'gradi';
-        }).join(' poi ');
-        phasesHtml = ' | Fasi: ' + phasesHtml;
-      }
-      html += '<div class="history-rotation ' + rot.trend + '">' + rotMain + rotDetail + phasesHtml + '</div>';
+      html += '<div class="history-rotation ' + rot.trend + '">' + rotDesc + '</div>';
       // Link guida interattiva per rotazioni significative
       var showGuide = (rot.trend === 'veering' && rotNet > 45) || (rot.trend === 'backing' && rotNet > 45) || (rot.trend === 'variable' && rotPath > 120);
       if (showGuide) {
@@ -4458,7 +4451,10 @@ document.addEventListener('click', function(e) {
 
 function renderSituazionePanel(zoneKey, data) {
   if (!data || !data.found || !data.situazione) {
-    return '<div class="sit-panel"><div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);padding:8px 20px">Scheda situazione non disponibile -- generala con il tasto sottostante</div></div>';
+    return '<div class="sit-panel"><div style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:var(--card);border:1px solid var(--border);border-radius:10px">' +
+      '<span style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted)">Scheda situazione non ancora generata</span>' +
+      '<span class="sit-regen" data-action="regen-sit" data-zone="' + zoneKey + '" style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--accent);cursor:pointer;text-decoration:underline">Genera ora</span>' +
+      '</div></div>';
   }
   var sit = data.situazione;
   var allerta = (sit.allerta || 'VERDE').toLowerCase();
@@ -4498,8 +4494,8 @@ function renderSituazionePanel(zoneKey, data) {
     html += '<div class="sit-section"><div class="sit-section-title">Monitorare</div><div class="sit-section-text">' + secMonitorare + '</div></div>';
   }
   html += '<div class="sit-footer">';
-  html += '<span>Generata: ' + ts + ' &mdash; ' + (sit.rotation_trend || '') + '</span>';
-  html += '<span class="sit-regen" data-action="regen-sit" data-zone="' + zoneKey + '">Rigenera</span>';
+  html += '<span>Generata: ' + ts + (sit.rotation_trend ? ' &mdash; ' + sit.rotation_trend : '') + '</span>';
+  html += '<span class="sit-regen" data-action="regen-sit" data-zone="' + zoneKey + '" style="margin-left:12px">&#8635; Rigenera</span>';
   html += '</div>';
   html += '</div></div>';
   return html;

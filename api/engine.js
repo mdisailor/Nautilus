@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.67 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.68 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1081,7 +1081,7 @@ async function getSituazioneAccuracy(zoneKey, kvUrl, kvToken) {
                  tRome.match(/([0-9]{4})-([0-9]{2})-([0-9]{2}),([0-9]{2})/);
         if (!tm) continue;
         var th = tm[1]+'-'+tm[2]+'-'+tm[3]+'T'+tm[4];
-        for (var hn of [6, 12]) {
+        var hns = [6, 12]; for (var hni = 0; hni < hns.length; hni++) { var hn = hns[hni];
           var vk = 'sit_verify:' + zoneKey + ':' + th + ':h' + hn;
           var rec = await kvGet(vk, kvUrl, kvToken);
           if (rec) results.push(rec);
@@ -2292,7 +2292,7 @@ if (action === 'situazione_verify') {
                  tStr.match(/([0-9]{4})-([0-9]{2})-([0-9]{2}),([0-9]{2})/);
         if (!tm) continue;
         var th = tm[1]+'-'+tm[2]+'-'+tm[3]+'T'+tm[4];
-        for (var hvn of [6, 12]) {
+        var hvns = [6, 12]; for (var hvni = 0; hvni < hvns.length; hvni++) { var hvn = hvns[hvni];
           var vk = 'sit_verify:' + zoneKey + ':' + th + ':h' + hvn;
           verKeys.push(vk);
         }
@@ -2614,4 +2614,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.67
+// Fine codice - NAUTILUS ENGINE v2.9.68

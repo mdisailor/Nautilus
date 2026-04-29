@@ -4437,6 +4437,17 @@ var predictCurrentZone = null;
 
 //  SCHEDA SITUAZIONE 
 function toggleSituazione(zoneKey) {
+// Event delegation per sit-header e sit-regen
+document.addEventListener('click', function(e) {
+  var el = e.target.closest('[data-action]');
+  if (!el) return;
+  var action = el.getAttribute('data-action');
+  var zone = el.getAttribute('data-zone');
+  if (!zone) return;
+  if (action === 'toggle-sit') toggleSituazione(zone);
+  if (action === 'regen-sit') { e.stopPropagation(); generateSituazione(zone); }
+});
+
   var body = document.getElementById('sit-body-' + zoneKey);
   var toggle = document.getElementById('sit-toggle-' + zoneKey);
   if (!body) return;
@@ -4468,7 +4479,7 @@ function renderSituazionePanel(zoneKey, data) {
   var badge = allerta === 'rosso' ? '' : allerta === 'giallo' ? '' : '';
 
   var html = '<div class="sit-panel">';
-  html += '<div class="sit-header ' + allerta + '" onclick="toggleSituazione('' + zoneKey + '')">';
+  html += '<div class="sit-header ' + allerta + '" data-action="toggle-sit" data-zone="' + zoneKey + '">';
   html += '<div><span class="sit-badge ' + allerta + '">' + badge + ' ALLERTA ' + (sit.allerta||'VERDE') + '</span>';
   html += ' <span class="sit-title">Scheda Situazione &mdash; ore ' + ts + '</span></div>';
   html += '<span class="sit-toggle" id="sit-toggle-' + zoneKey + '"></span>';
@@ -4488,7 +4499,7 @@ function renderSituazionePanel(zoneKey, data) {
   }
   html += '<div class="sit-footer">';
   html += '<span>Generata: ' + ts + ' &mdash; ' + (sit.rotation_trend || '') + '</span>';
-  html += '<span class="sit-regen" onclick="generateSituazione('' + zoneKey + '')">Rigenera</span>';
+  html += '<span class="sit-regen" data-action="regen-sit" data-zone="' + zoneKey + '">Rigenera</span>';
   html += '</div>';
   html += '</div></div>';
   return html;

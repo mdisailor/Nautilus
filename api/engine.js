@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.60 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.61 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -986,36 +986,76 @@ return results.map(function(r) { return r.snap; });
 
 function analyzeWindRotation(snapshots) {
 if (snapshots.length < 3) return { rotation: null, trend: 'insufficient_data', hours: snapshots.length };
-var dirs = snapshots.map(function(s) { return s.wind_dir; });
-var totalRotation = 0;
-var rotations = [];
+var dirs = snapshots.map(function(s) { return s.wind_dir; }).filter(function(d){ return d != null; });
+if (dirs.length < 3) return { rotation: null, trend: 'insufficient_data', hours: snapshots.length };
+
+var steps = [];
 for (var i = 1; i < dirs.length; i++) {
-var diff = dirs[i] - dirs[i-1];
-if (diff > 180) diff -= 360;
-if (diff < -180) diff += 360;
-rotations.push(diff);
-totalRotation += diff;
+  var diff = dirs[i] - dirs[i-1];
+  if (diff > 180) diff -= 360;
+  if (diff < -180) diff += 360;
+  steps.push(diff);
 }
-var avgRotation = totalRotation / rotations.length;
-var isConsistent = rotations.filter(function(r) { return r * avgRotation > 0; }).length >= rotations.length * 0.6;
+
+// Rotazione netta (somma algebrica -- puo cancellarsi)
+var netRotation = steps.reduce(function(a,b){ return a+b; }, 0);
+// Percorso totale (somma valori assoluti -- non si cancella mai)
+var totalPath = steps.reduce(function(a,b){ return a + Math.abs(b); }, 0);
+// Consistenza: quante rotazioni hanno stesso segno della netta
+var veeringSteps = steps.filter(function(r){ return r > 0; }).length;
+var backingSteps = steps.filter(function(r){ return r < 0; }).length;
+var dominantSign = netRotation >= 0 ? 1 : -1;
+var consistentSteps = dominantSign > 0 ? veeringSteps : backingSteps;
+var isConsistent = steps.length > 0 && consistentSteps >= steps.length * 0.6;
+
+// Classificazione basata su percorso totale (non solo netta)
+// Percorso >60deg in 24h e' significativo anche se netta e' piccola
 var trend;
-if (Math.abs(totalRotation) < 20) {
-trend = 'stable';
-} else if (totalRotation > 0 && isConsistent) {
-trend = 'veering';
-} else if (totalRotation < 0 && isConsistent) {
-trend = 'backing';
+var significantPath = totalPath > 60;   // percorso reale importante
+var significantNet  = Math.abs(netRotation) > 20; // rotazione netta importante
+
+if (!significantPath && !significantNet) {
+  trend = 'stable';
+} else if (significantPath && !significantNet) {
+  // Grande percorso ma netta piccola = oscillazione o rotazione completa
+  trend = 'variable';
+} else if (significantNet && netRotation > 0 && isConsistent) {
+  trend = 'veering';
+} else if (significantNet && netRotation < 0 && isConsistent) {
+  trend = 'backing';
+} else if (significantPath) {
+  trend = 'variable';
 } else {
-trend = 'variable';
+  trend = 'stable';
 }
+
+// Fasi: identifica sequenze di backing/veering consecutive
+var phases = [];
+var currentPhase = null;
+steps.forEach(function(step) {
+  var sign = step > 2 ? 'veering' : step < -2 ? 'backing' : 'stable';
+  if (!currentPhase || currentPhase.type !== sign) {
+    if (currentPhase) phases.push(currentPhase);
+    currentPhase = { type: sign, total: step, count: 1 };
+  } else {
+    currentPhase.total += step;
+    currentPhase.count++;
+  }
+});
+if (currentPhase) phases.push(currentPhase);
+
 return {
-rotation: totalRotation,
-avg_per_hour: avgRotation,
-trend: trend,
-consistent: isConsistent,
-hours: snapshots.length,
-from_dir: dirs[0],
-to_dir: dirs[dirs.length - 1]
+  rotation: Math.round(netRotation),
+  total_path: Math.round(totalPath),
+  avg_per_hour: Math.round(netRotation / steps.length * 10) / 10,
+  trend: trend,
+  consistent: isConsistent,
+  hours: snapshots.length,
+  from_dir: dirs[0],
+  to_dir: dirs[dirs.length - 1],
+  veering_deg: Math.round(steps.filter(function(s){ return s>0; }).reduce(function(a,b){return a+b;},0)),
+  backing_deg: Math.round(steps.filter(function(s){ return s<0; }).reduce(function(a,b){return a+b;},0)),
+  phases: phases.filter(function(p){ return p.type !== 'stable' && Math.abs(p.total) > 15; })
 };
 }
 
@@ -2214,4 +2254,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.60
+// Fine codice - NAUTILUS ENGINE v2.9.61

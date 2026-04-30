@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.70 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.72 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1966,7 +1966,7 @@ if (action === 'situazione') {
     // Salva in KV
     var now3s = new Date();
     var mins15s = now3s.getMinutes() < 15 ? '00' : now3s.getMinutes() < 30 ? '15' : now3s.getMinutes() < 45 ? '30' : '45';
-    var romeHourS = getNowRome();
+    var romeHourS = getNowRome().slice(0, 13); // "2026-04-30T09" senza :00
     var sitKey = 'situazione:' + zoneKey + ':' + romeHourS + '-' + mins15s;
     var sitRecord = {
       zone: zoneKey,
@@ -2204,7 +2204,7 @@ if (action === 'predict') {
     // Save prediction to KV for later verification
     var now3 = new Date();
     var predMins15 = now3.getMinutes() < 15 ? '00' : now3.getMinutes() < 30 ? '15' : now3.getMinutes() < 45 ? '30' : '45';
-    var predRomeHour = getNowRome(); // usa ora Rome per coerenza con verifyForecasts
+    var predRomeHour = getNowRome().slice(0, 13); // "2026-04-30T09" senza :00
     var predKey = 'predict:' + zoneKey + ':' + predRomeHour + '-' + predMins15;
     // Extract structured wind values from AI text for easy comparison later
     var extractWindVal = function(text, h) {
@@ -2309,8 +2309,8 @@ if (action === 'situazione_get') {
     var romeHourG = getNowRome();
     var slots4 = ['00','15','30','45'];
     var sitFound = null;
-    // Prova ora corrente e ora precedente
-    for (var hh = 0; hh <= 1 && !sitFound; hh++) {
+    // Cerca nelle ultime 24 ore
+    for (var hh = 0; hh <= 23 && !sitFound; hh++) {
       var searchTime = new Date(new Date().getTime() - hh * 3600000);
       var searchRome = searchTime.toLocaleString('en-CA', {
         timeZone: 'Europe/Rome', year:'numeric', month:'2-digit', day:'2-digit',
@@ -2605,4 +2605,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.70
+// Fine codice - NAUTILUS ENGINE v2.9.72

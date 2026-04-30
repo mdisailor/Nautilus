@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.37 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.38 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -489,6 +489,13 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 .sit-section-title { font-family:'DM Mono',monospace; font-size:0.5rem; color:var(--accent); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:4px; font-weight:bold; }
 .sit-section-text { font-family:'DM Mono',monospace; font-size:0.58rem; color:var(--text); line-height:1.7; white-space:pre-line; }
 .sit-footer { font-family:'DM Mono',monospace; font-size:0.45rem; color:var(--muted); margin-top:8px; padding-top:8px; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+.sit-verify-section { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+.sit-verify-title { font-family:'DM Mono',monospace; font-size:0.45rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:6px; }
+.sit-verify-row { display:flex; justify-content:space-between; align-items:center; padding:3px 0; font-family:'DM Mono',monospace; font-size:0.48rem; border-bottom:1px solid rgba(255,255,255,0.05); }
+.sit-verify-ok   { color:var(--safe);   font-weight:bold; }
+.sit-verify-warn { color:var(--warn);   font-weight:bold; }
+.sit-verify-miss { color:var(--danger); font-weight:bold; }
+.sit-verify-nd   { color:var(--muted); }
 .sit-regen { font-size:0.5rem; color:var(--accent); cursor:pointer; text-decoration:underline; }
 
 .predict-output { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px 16px; font-family:DM Mono,monospace; font-size:0.62rem; line-height:1.8; color:var(--text); margin-top:10px; white-space:pre-line; }
@@ -570,7 +577,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.37  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.38  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1771,7 +1778,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.37  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.38  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -4504,6 +4511,7 @@ function renderSituazionePanel(zoneKey, data) {
   if (secMonitorare) {
     html += '<div class="sit-section"><div class="sit-section-title">Monitorare</div><div class="sit-section-text">' + secMonitorare + '</div></div>';
   }
+  html += '<div id="sit-verify-' + zoneKey + '"></div>';
   html += '<div class="sit-footer">';
   html += '<span>Generata: ' + ts + (sit.rotation_trend ? ' &mdash; ' + sit.rotation_trend : '') + '</span>';
   html += '<span class="sit-regen" data-action="regen-sit" data-zone="' + zoneKey + '" style="margin-left:12px;padding:6px 10px;border:1px solid var(--accent);border-radius:6px;cursor:pointer">&#8635; Rigenera</span>';
@@ -4512,13 +4520,56 @@ function renderSituazionePanel(zoneKey, data) {
   return html;
 }
 
+async function loadSituazioneVerify(zoneKey) {
+  try {
+    var res = await fetch(ENGINE_URL + '?action=situazione_verify&zone=' + zoneKey);
+    var data = await res.json();
+    if (!data.verifications || data.verifications.length === 0) return '';
+    var verifs = data.verifications.slice(0, 8); // max 8 righe
+    var html = '<div class="sit-verify-section">';
+    html += '<div class="sit-verify-title">Verifiche recenti (previsione vs reale)</div>';
+    verifs.forEach(function(v) {
+      var ts = v.generated_at ? new Date(v.generated_at).toLocaleString('it-IT',{
+        timeZone:'Europe/Rome', month:'2-digit', day:'2-digit',
+        hour:'2-digit', minute:'2-digit'
+      }) : '--';
+      var hLabel = 'H+' + v.horizon_h;
+      var allertaColor = v.allerta_predicted === 'ROSSO' ? 'var(--danger)' : v.allerta_predicted === 'GIALLO' ? 'var(--warn)' : 'var(--safe)';
+      var windPrev = (v.wind_predicted_min != null && v.wind_predicted_max != null) ?
+        v.wind_predicted_min + '-' + v.wind_predicted_max + 'kn' : '--';
+      var windReal = v.actual_wind != null ? Math.round(v.actual_wind) + 'kn' : '--';
+      var statusClass = v.wind_in_range === true ? 'sit-verify-ok' :
+                        v.wind_in_range === false ? 'sit-verify-miss' : 'sit-verify-nd';
+      var statusText = v.wind_in_range === true ? 'OK' :
+                       v.wind_in_range === false ? 'FUORI' : '--';
+      html += '<div class="sit-verify-row">';
+      html += '<span style="color:var(--muted)">' + ts + '</span>';
+      html += '<span style="color:' + allertaColor + '">' + (v.allerta_predicted||'?') + '</span>';
+      html += '<span>' + hLabel + ': prev ' + windPrev + ' / reale ' + windReal + '</span>';
+      html += '<span class="' + statusClass + '">' + statusText + '</span>';
+      html += '</div>';
+    });
+    html += '</div>';
+    return html;
+  } catch(e) { return ''; }
+}
+
 async function loadSituazione(zoneKey) {
   try {
     var res = await fetch(ENGINE_URL + '?action=situazione_get&zone=' + zoneKey);
     var data = await res.json();
     state.situazione[zoneKey] = data;
     var container = document.getElementById('sit-container-' + zoneKey);
-    if (container) container.innerHTML = renderSituazionePanel(zoneKey, data);
+    if (container) {
+      container.innerHTML = renderSituazionePanel(zoneKey, data);
+      // Carica verifiche in background
+      if (data && data.found) {
+        loadSituazioneVerify(zoneKey).then(function(verHtml) {
+          var verEl = document.getElementById('sit-verify-' + zoneKey);
+          if (verEl) verEl.innerHTML = verHtml;
+        });
+      }
+    }
   } catch(e) { console.warn('Situazione load error:', e); }
 }
 
@@ -4788,7 +4839,7 @@ function togglePredictItem(idx) {
   el.style.display = 'block';
 }
 
-// Fine codice - NAUTILUS v5.6.37
+// Fine codice - NAUTILUS v5.6.38
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

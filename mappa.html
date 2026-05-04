@@ -151,7 +151,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.2.13</span>
+    <span id="nav-ver">mappa v1.2.14</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
   <a id="nav-back" href="/">APP</a>
@@ -424,10 +424,39 @@ ZONES.forEach(function(z){
     if (gustOm)  gustLine += '<span style="color:#8ab8d0">OM ' + gustOm + 'kn</span>';
     if (gustObs) gustLine += (gustOm ? '&nbsp;&nbsp;' : '') + '<span style="color:#00e676">OWM ' + gustObs + 'kn</span>';
     if (!gustLine) gustLine = '<span style="color:var(--muted)">--</span>';
+    // Pressione e tendenza
+    var pres = d.pressure ? d.pressure.toFixed(1) + ' hPa' : '--';
+    var trend3h = d.pressure_trend_3h != null ? d.pressure_trend_3h.toFixed(1) : null;
+    var trendStr = trend3h ? (trend3h > 0 ? '+' : '') + trend3h + '/3h' : '';
+    var trendColor = trend3h && trend3h <= -2 ? '#ff6b6b' : trend3h && trend3h >= 1 ? '#69db7c' : '#8ab8d0';
+    // Badge rischio semplificato
+    var windSpd = d.wind_speed || 0;
+    var windGust = d.wind_gust || 0;
+    var wave = d.wave_height || 0;
+    var gustRatio = windSpd > 3 ? windGust / windSpd : 0;
+    var riskLevel = 'BASSO';
+    var riskColor = '#1a6a2a';
+    if (windSpd >= 28 || windGust >= 35 || wave >= 2.5 || (trend3h && trend3h <= -5)) {
+      riskLevel = 'ALTO'; riskColor = '#7a1a00';
+    } else if (windSpd >= 10 || windGust >= 25 || wave >= 0.5 || (trend3h && trend3h <= -2) || gustRatio >= 2) {
+      riskLevel = 'MEDIO'; riskColor = '#856404';
+    }
+    // 850hPa se disponibile
+    var wind850 = '';
+    if (d.wind_speed_850 != null && d.wind_dir_850 != null) {
+      var dirs16m = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+      var dir850str = dirs16m[Math.round(d.wind_dir_850/22.5)%16];
+      wind850 = '<div style="font-size:0.65rem;color:#8ab8d0;margin-top:2px">850hPa: ' + d.wind_speed_850.toFixed(0) + 'kn ' + dir850str + '</div>';
+    }
     var html =
       '<div class="popup-name">' + z.name + '</div>' +
-      '<div class="popup-wind">' + spd + ' kn ' + dir + ' <span style="font-size:0.7rem;color:var(--muted)">(' + spdSrc + ')</span></div>' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">' +
+        '<div class="popup-wind">' + spd + ' kn ' + dir + '</div>' +
+        '<div style="background:' + riskColor + ';color:#fff;padding:2px 8px;border-radius:4px;font-size:0.6rem;font-weight:bold">' + riskLevel + '</div>' +
+      '</div>' +
       '<div class="popup-wind" style="color:#ffaa00">Raffica: ' + gustLine + '</div>' +
+      '<div style="font-size:0.65rem;color:' + trendColor + ';margin-top:2px">Pressione: ' + pres + (trendStr ? ' <span style="color:' + trendColor + '">' + trendStr + '</span>' : '') + '</div>' +
+      wind850 +
       '<div class="popup-ts">Snapshot ore ' + snapTs + '</div>' +
       '<div class="popup-srcs">' +
       '<span class="psrc psrc-om">OM ' + spd + 'kn ' + dir + '</span>' +

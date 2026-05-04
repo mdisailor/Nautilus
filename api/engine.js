@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.72 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.73 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1669,14 +1669,12 @@ return calcZone(zk, null, kvUrl, kvToken, { query: { history: '1' } })
 .catch(function(e) { cronResults[zk] = { ok: false, error: e.message }; });
 });
 await Promise.all(cronPromises);
-// Genera scheda situazione per ogni zona (fire and forget, usa Haiku)
-var ENGINE_URL_CRON = 'https://nautilus-red.vercel.app/api/engine';
-cronZones.forEach(function(zk) {
-  fetch(ENGINE_URL_CRON + '?action=situazione&zone=' + zk + '&fast=1', {
-    method: 'GET',
-    headers: { 'x-cron-secret': expectedSecret }
-  }).catch(function() {});
+// Genera scheda situazione per ogni zona in parallelo (chiamata diretta)
+var sitPromises = cronZones.map(function(zk) {
+  return generateSituazioneForZone(zk, true, kvUrl, kvToken, process.env.ANTHROPIC_KEY || null)
+    .catch(function() {});
 });
+await Promise.all(sitPromises);
 return res.status(200).json({ ok: true, ts: new Date().toISOString(), zones: cronResults });
 }
 
@@ -2605,4 +2603,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.72
+// Fine codice - NAUTILUS ENGINE v2.9.73

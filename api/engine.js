@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.73 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.74 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -623,25 +623,48 @@ var hasMedium = alerts.some(function(a) { return a.severity === 'medium'; });
 var level = hasHigh ? 3 : hasMedium ? 2 : 1;
 var reasons = [];
 
-// Hard thresholds that ALWAYS override - raffiche prima di tutto
-if (wind_gust >= 28) { level = Math.max(level, 3); reasons.push('raffiche ' + Math.round(wind_gust) + 'kn'); }
-else if (wind_gust >= 22) { level = Math.max(level, 2); reasons.push('raffiche ' + Math.round(wind_gust) + 'kn'); }
+// Soglie NAUTILUS v2 -- definite 03/05/2026
+// ROSSO: condizioni severe (forza 6 Beaufort pieno)
+if (wind_gust >= 35) { level = Math.max(level, 3); reasons.push('raffiche ' + Math.round(wind_gust) + 'kn'); }
+else if (wind_gust >= 25) { level = Math.max(level, 2); reasons.push('raffiche ' + Math.round(wind_gust) + 'kn'); }
 
-if (wind_speed >= 22) { level = Math.max(level, 3); reasons.push('vento ' + Math.round(wind_speed) + 'kn'); }
-else if (wind_speed >= 17) { level = Math.max(level, 2); reasons.push('vento ' + Math.round(wind_speed) + 'kn'); }
+if (wind_speed >= 28) { level = Math.max(level, 3); reasons.push('vento ' + Math.round(wind_speed) + 'kn'); }
+else if (wind_speed >= 10) { level = Math.max(level, 2); reasons.push('vento ' + Math.round(wind_speed) + 'kn'); }
 
-if (wave_height >= 2.0) { level = Math.max(level, 3); reasons.push('onda ' + wave_height.toFixed(1) + 'm'); }
-else if (wave_height >= 1.2) { level = Math.max(level, 2); reasons.push('onda ' + wave_height.toFixed(1) + 'm'); }
+if (wave_height >= 2.5) { level = Math.max(level, 3); reasons.push('onda ' + wave_height.toFixed(1) + 'm'); }
+else if (wave_height >= 0.5) { level = Math.max(level, 2); reasons.push('onda ' + wave_height.toFixed(1) + 'm'); }
 
-if (pressure_trend_3h <= -4.0) { level = Math.max(level, 3); reasons.push('calo pressione rapido'); }
+if (pressure_trend_3h <= -5.0) { level = Math.max(level, 3); reasons.push('calo pressione critico'); }
 else if (pressure_trend_3h <= -2.0) { level = Math.max(level, 2); reasons.push('calo pressione'); }
+
+// Rapporto raffica/vento anomalo (>2x) -> GIALLO
+if (wind_speed > 3 && wind_gust > 0 && wind_gust / wind_speed >= 2.0) {
+  level = Math.max(level, 2);
+  reasons.push('raffica ' + Math.round(wind_gust / wind_speed * 10) / 10 + 'x vento medio');
+}
+
+// Combinazione pericolosa: vento >20kn + onda corta <4s
+var wave_period = sn(data.wave_period);
+if (wind_speed >= 20 && wave_period && wave_period < 4) {
+  level = Math.max(level, 3);
+  reasons.push('mare corto e agitato');
+}
+
+// Calo pressione >4 hPa in 6h -> GIALLO automatico
+var pressure_trend_6h = data.pressure_prev && data.pressure ?
+  (data.pressure - data.pressure_prev) : null;
+// pressure_prev e' lo snapshot di 3h fa, approssimazione 6h = 2x trend 3h
+if (pressure_trend_3h && pressure_trend_3h * 2 <= -4.0 && level < 2) {
+  level = 2;
+  reasons.push('calo pressione >4 hPa/6h');
+}
 
 // Active local effects with amplification
 for (var key in localEffects) {
 var ef = localEffects[key];
 if (ef.active && ef.amplified_speed) {
 if (ef.amplified_speed >= 28) { level = Math.max(level, 3); reasons.push(ef.desc + ' ' + ef.amplified_speed + 'kn stimati'); }
-else if (ef.amplified_speed >= 22) { level = Math.max(level, 2); reasons.push(ef.desc); }
+else if (ef.amplified_speed >= 20) { level = Math.max(level, 2); reasons.push(ef.desc); }
 }
 }
 
@@ -2603,4 +2626,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.73
+// Fine codice - NAUTILUS ENGINE v2.9.74

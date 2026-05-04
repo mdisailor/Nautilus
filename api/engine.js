@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.74 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.75 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -862,7 +862,15 @@ sources: { wind: 'open-meteo', wave: 'open-meteo', pressure: 'open-meteo' },
     ifs_wind_speed: null,
     ifs_wind_dir: null,
     ifs_wind_gust: null,
-    ifs_pressure: null
+    ifs_pressure: null,
+    wind_speed_850: h.windspeed_850hPa ? sn(h.windspeed_850hPa[idx]) : null,
+    wind_dir_850:   h.winddirection_850hPa ? sn(h.winddirection_850hPa[idx]) : null,
+    cape:           h.cape ? sn(h.cape[idx]) : null,
+    lifted_index:   h.lifted_index ? sn(h.lifted_index[idx]) : null,
+    precip_prob:    h.precipitation_probability ? sn(h.precipitation_probability[idx]) : null,
+    weather_code:   h.weather_code ? h.weather_code[idx] : null,
+    cloudcover_high: h.cloudcover_high ? sn(h.cloudcover_high[idx]) : null,
+    wind_speed_om:  sn(h.windspeed_10m[idx])
 };
 
 if (sgData) {
@@ -2110,6 +2118,19 @@ if (action === 'predict') {
       }
       pLines.push('- Pressione: ' + (currentSnap.pressure||'--') + 'hPa - ' + pressureTrend);
       pLines.push('- Onda: ' + (currentSnap.wave_height||'--') + 'm');
+      if (currentSnap.cape != null && currentSnap.cape > 100) {
+        pLines.push('- CAPE: ' + Math.round(currentSnap.cape) + ' J/kg' + (currentSnap.cape > 500 ? ' -- instabilita significativa, temporali possibili' : ' -- lieve instabilita'));
+      }
+      if (currentSnap.precip_prob != null && currentSnap.precip_prob > 20) {
+        pLines.push('- Probabilita precipitazioni: ' + Math.round(currentSnap.precip_prob) + '%');
+      }
+      if (currentSnap.weather_code != null && currentSnap.weather_code > 49) {
+        var wc2 = currentSnap.weather_code;
+        pLines.push('- Condizioni: ' + (wc2 <= 67 ? 'pioggia' : wc2 <= 82 ? 'rovesci' : 'TEMPORALE') + ' (WMO ' + wc2 + ')');
+      }
+      if (currentSnap.cloudcover_high != null && currentSnap.cloudcover_high > 30) {
+        pLines.push('- Cirri alti: ' + Math.round(currentSnap.cloudcover_high) + '% -- possibile fronte 12-24h');
+      }
       if (currentSnap.wind_speed_obs) {
         pLines.push('- OWM osservato: ' + currentSnap.wind_speed_obs + 'kn da ' + dirs16p[Math.round((currentSnap.wind_dir_obs||0)/22.5)%16]);
       }
@@ -2626,4 +2647,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.74
+// Fine codice - NAUTILUS ENGINE v2.9.75

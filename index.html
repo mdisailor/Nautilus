@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.39 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.41 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -577,7 +577,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.39  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.41  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1778,7 +1778,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.39  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.41  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -4444,6 +4444,135 @@ async function runBackfill() {
 
 var predictCurrentZone = null;
 
+//  AGENT 
+var agentHistory = [];
+var agentZone = null;
+var agentZoneMap = {
+  'livorno': 'Livorno', 'viareggio': 'Viareggio', 'capraia': 'Capraia',
+  'elba_nord': 'Elba Nord', 'elba_sud': 'Elba Sud', 'giglio': 'Giglio',
+  'canale_piombino': 'Canale di Piombino', 'punta_ala': 'Punta Ala',
+  'la_spezia': 'La Spezia'
+};
+var AGENT_SYSTEM = 'Sei NAUTILUS Agent, assistente meteorologico marino esperto del Tirreno settentrionale. ' +
+  'Rispondi in italiano, conciso e operativo come un meteorologo marino. ' +
+  'Quando i dati sono incerti dillo esplicitamente. ' +
+  'Zone: Livorno, Viareggio, Capraia, Elba Nord, Elba Sud, Giglio, Canale di Piombino, Punta Ala, La Spezia. ' +
+  'Beaufort: <10kn calmo, 10-16kn navigabile, 17-21kn attenzione, 22-27kn vento fresco, >28kn difficile. ' +
+  'Canale Piombino: effetto Venturi +30-50%. Capraia: anticipa costa di 2-3h. Raffica/vento >2x=instabilita convettiva. Calo >2hPa/3h=fronte. Calo >5hPa/3h=emergenza.';
+
+function agentKeydown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); agentSend(); }
+}
+function agentDetectZone(text) {
+  var t = text.toLowerCase();
+  var zones = Object.keys(agentZoneMap);
+  for (var i = 0; i < zones.length; i++) {
+    var z = zones[i];
+    if (t.indexOf(z.replace('_',' ')) !== -1 || t.indexOf(agentZoneMap[z].toLowerCase()) !== -1) return z;
+  }
+  return null;
+}
+function agentTs() {
+  return new Date().toLocaleString('it-IT',{timeZone:'Europe/Rome',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+}
+function agentAppendMessage(role, text, ts) {
+  var container = document.getElementById('agent-messages');
+  if (!container) return;
+  var isUser = role === 'user';
+  var div = document.createElement('div');
+  div.style.cssText = 'display:flex;flex-direction:column;align-items:' + (isUser ? 'flex-end' : 'flex-start');
+  var bubble = document.createElement('div');
+  bubble.style.cssText = 'max-width:88%;padding:10px 13px;' +
+    'border-radius:' + (isUser ? '14px 14px 4px 14px' : '14px 14px 14px 4px') + ';' +
+    'background:' + (isUser ? 'var(--accent)' : 'var(--card)') + ';' +
+    'color:' + (isUser ? '#000' : 'var(--text)') + ';' +
+    'font-family:DM Mono,monospace;font-size:0.62rem;line-height:1.6;white-space:pre-wrap;' +
+    'border:1px solid ' + (isUser ? 'transparent' : 'var(--border)');
+  bubble.textContent = text;
+  var timeEl = document.createElement('div');
+  timeEl.style.cssText = 'font-family:DM Mono,monospace;font-size:0.42rem;color:var(--muted);margin-top:3px;padding:0 4px';
+  timeEl.textContent = ts || agentTs();
+  div.appendChild(bubble);
+  div.appendChild(timeEl);
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+function agentShowTyping() {
+  var container = document.getElementById('agent-messages');
+  if (!container) return;
+  var div = document.createElement('div');
+  div.id = 'agent-typing';
+  div.innerHTML = '<div style="background:var(--card);border:1px solid var(--border);border-radius:14px 14px 14px 4px;padding:10px 14px;font-family:DM Mono,monospace;font-size:0.62rem;color:var(--muted)">...</div>';
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+function agentHideTyping() { var el = document.getElementById('agent-typing'); if (el) el.remove(); }
+
+async function agentSend() {
+  var input = document.getElementById('agent-input');
+  var text = input ? input.value.trim() : '';
+  if (!text) return;
+  input.value = '';
+  var detected = agentDetectZone(text);
+  if (detected) agentZone = detected;
+  agentAppendMessage('user', text, agentTs());
+  agentHistory.push({ role: 'user', content: text });
+  agentShowTyping();
+  try {
+    var contextData = '';
+    if (agentZone) {
+      try {
+        var zRes = await fetch(ENGINE_URL + '?action=zone&zone=' + agentZone);
+        var zData = await zRes.json();
+        if (zData && zData.raw) {
+          var r = zData.raw;
+          var dirs16a = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+          var dirStr = r.wind_dir != null ? dirs16a[Math.round(r.wind_dir/22.5)%16] : '--';
+          contextData = '\n\nDATI ATTUALI ' + agentZoneMap[agentZone].toUpperCase() + ' ore ' +
+            new Date().toLocaleTimeString('it-IT',{timeZone:'Europe/Rome',hour:'2-digit',minute:'2-digit'}) + ':' +
+            '\nVento: ' + (r.wind_speed||'--') + 'kn da ' + dirStr + (r.wind_gust ? ', raffica ' + r.wind_gust.toFixed(0) + 'kn' : '') +
+            '\nPressione: ' + (r.pressure||'--') + ' hPa' + (r.pressure_trend_3h != null ? ' (' + (r.pressure_trend_3h>0?'+':'') + r.pressure_trend_3h.toFixed(1) + ' hPa/3h)' : '') +
+            '\nOnda: ' + (r.wave_height||'--') + 'm' + (r.wave_period ? ', periodo ' + r.wave_period.toFixed(0) + 's' : '');
+          if (r.wind_speed_850 != null) {
+            contextData += '\nVento 850hPa: ' + r.wind_speed_850.toFixed(0) + 'kn da ' + dirs16a[Math.round(r.wind_dir_850/22.5)%16];
+          }
+          try {
+            var sRes = await fetch(ENGINE_URL + '?action=situazione_get&zone=' + agentZone);
+            var sData = await sRes.json();
+            if (sData.found && sData.situazione && sData.situazione.text) {
+              contextData += '\n\nSCHEDA SITUAZIONE:\n' + sData.situazione.text.replace(/\*\*/g,'').slice(0,600);
+            }
+          } catch(e2) {}
+        }
+      } catch(e) {}
+    }
+    var messages = agentHistory.map(function(m, i) {
+      if (i === agentHistory.length - 1 && contextData) {
+        return { role: m.role, content: m.content + contextData };
+      }
+      return { role: m.role, content: m.content };
+    });
+    var res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 600,
+        system: AGENT_SYSTEM,
+        messages: messages
+      })
+    });
+    var data = await res.json();
+    var reply = (data.content && data.content[0]) ? data.content[0].text : 'Errore nella risposta.';
+    agentHideTyping();
+    agentAppendMessage('assistant', reply, agentTs());
+    agentHistory.push({ role: 'assistant', content: reply });
+  } catch(err) {
+    agentHideTyping();
+    agentAppendMessage('assistant', 'Errore di connessione. Riprova.', '');
+  }
+}
+
 //  SCHEDA SITUAZIONE 
 
 // Event delegation per sit-header e sit-regen
@@ -4562,6 +4691,16 @@ async function loadSituazione(zoneKey) {
     var container = document.getElementById('sit-container-' + zoneKey);
     if (container) {
       container.innerHTML = renderSituazionePanel(zoneKey, data);
+      // Auto-apri se giallo o rosso
+      if (data && data.found && data.situazione) {
+        var allertaVal = (data.situazione.allerta || 'VERDE').toLowerCase();
+        if (allertaVal === 'giallo' || allertaVal === 'rosso') {
+          var bodyEl = document.getElementById('sit-body-' + zoneKey);
+          var togEl  = document.getElementById('sit-toggle-' + zoneKey);
+          if (bodyEl) bodyEl.classList.add('open');
+          if (togEl)  togEl.textContent = '';
+        }
+      }
       // Carica verifiche in background
       if (data && data.found) {
         loadSituazioneVerify(zoneKey).then(function(verHtml) {
@@ -4839,7 +4978,7 @@ function togglePredictItem(idx) {
   el.style.display = 'block';
 }
 
-// Fine codice - NAUTILUS v5.6.39
+// Fine codice - NAUTILUS v5.6.41
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

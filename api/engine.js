@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.75 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.76 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1322,6 +1322,48 @@ source: 'openweathermap'
 } catch(e) { return null; }
 }
 
+// Adiacenze per visione multi-zona
+var ZONE_NEIGHBORS = {
+  livorno:         ['viareggio', 'capraia', 'elba_nord'],
+  viareggio:       ['livorno', 'la_spezia'],
+  la_spezia:       ['viareggio', 'livorno'],
+  capraia:         ['livorno', 'elba_nord', 'giglio'],
+  elba_nord:       ['livorno', 'capraia', 'elba_sud', 'canale_piombino'],
+  elba_sud:        ['elba_nord', 'canale_piombino', 'giglio'],
+  canale_piombino: ['elba_nord', 'elba_sud', 'punta_ala'],
+  punta_ala:       ['canale_piombino', 'giglio'],
+  giglio:          ['punta_ala', 'elba_sud', 'capraia']
+};
+
+async function getNeighborSnapshots(zoneKey, kvUrl, kvToken) {
+  var neighbors = ZONE_NEIGHBORS[zoneKey] || [];
+  if (!neighbors.length || !kvUrl || !kvToken) return [];
+  // Legge ultimo snapshot di ogni zona vicina
+  var now = new Date();
+  var results = [];
+  for (var ni = 0; ni < neighbors.length; ni++) {
+    var nk = neighbors[ni];
+    var found = null;
+    // Prova le ultime 3 ore
+    for (var hi = 0; hi < 3 && !found; hi++) {
+      var t = new Date(now.getTime() - hi * 3600000);
+      var mins = t.getMinutes() < 30 ? '00' : '30';
+      var tRome = t.toLocaleString('en-CA', {
+        timeZone:'Europe/Rome', year:'numeric', month:'2-digit', day:'2-digit',
+        hour:'2-digit', hour12:false
+      });
+      var tm = tRome.match(/([0-9]{4})-([0-9]{2})-([0-9]{2}), ([0-9]{2})/) ||
+               tRome.match(/([0-9]{4})-([0-9]{2})-([0-9]{2}),([0-9]{2})/);
+      if (!tm) continue;
+      var th = tm[1]+'-'+tm[2]+'-'+tm[3]+'T'+tm[4];
+      var snap = await kvGet('snap:' + nk + ':' + th + '-' + mins, kvUrl, kvToken);
+      if (snap) { found = { zone: nk, name: ZONES[nk] ? ZONES[nk].name : nk, snap: snap }; }
+    }
+    if (found) results.push(found);
+  }
+  return results;
+}
+
 // MeteoNetwork station codes per zona
 // MeteoNetwork -- solo stazioni con licenza distribuzione verificata
 // Testare con: curl data-realtime/CODICE -- se risponde [{observation_time...}] e ok
@@ -1940,6 +1982,24 @@ if (action === 'situazione') {
       sLines.push('');
       sLines.push('ALERT RILEVATI: ' + alertsSit.join(' | '));
     }
+    // Legge snapshot zone vicine per visione d'insieme
+    var neighborSnaps = await getNeighborSnapshots(zoneKey, kvUrl, kvToken);
+    if (neighborSnaps.length > 0) {
+      sLines.push('');
+      sLines.push('ZONE VICINE (per gradiente e anticipazione):');
+      neighborSnaps.forEach(function(nb) {
+        var ns = nb.snap;
+        var nbDir = ns.wind_dir != null ? dir16sit[Math.round(ns.wind_dir/22.5)%16] : '--';
+        var nbPres = ns.pressure ? ns.pressure.toFixed(0) + 'hPa' : '--';
+        var nbWind = ns.wind_speed != null ? ns.wind_speed.toFixed(1) + 'kn ' + nbDir : '--';
+        var pressDiff = (ns.pressure && currentSit.pressure) ?
+          (ns.pressure - currentSit.pressure).toFixed(1) : null;
+        sLines.push('- ' + nb.name + ': vento ' + nbWind + ', pressione ' + nbPres +
+          (pressDiff ? ' (diff ' + (pressDiff > 0 ? '+' : '') + pressDiff + 'hPa vs ' + ZONES[zoneKey].name + ')' : ''));
+      });
+      sLines.push('Usa il gradiente di pressione tra zone per anticipare direzione e intensita del vento.');
+    }
+
     // Aggiungi track record accuratezza schede precedenti
     var sitAccuracy = await getSituazioneAccuracy(zoneKey, kvUrl, kvToken);
     if (sitAccuracy && sitAccuracy.total >= 3) {
@@ -2647,4 +2707,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.75
+// Fine codice - NAUTILUS ENGINE v2.9.76

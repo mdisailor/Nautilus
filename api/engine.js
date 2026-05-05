@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.77 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.78 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1931,7 +1931,7 @@ if (action === 'agent') {
       headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 600,
+        max_tokens: 900,
         system: body.system || '',
         messages: body.messages || []
       })
@@ -2336,15 +2336,20 @@ if (action === 'predict') {
     var predKey = 'predict:' + zoneKey + ':' + predRomeHour + '-' + predMins15;
     // Extract structured wind values from AI text for easy comparison later
     var extractWindVal = function(text, h) {
-      // Cerca H3/H6/H12 e prende il numero KN immediatamente dopo
-      // Gestisce sia formato multi-riga che inline: "H3: 4.5kn | H6: 5.5kn"
+      // Gestisce: "H3: 6.5kn", "H3: 6-7kn", "H+3 (10:15): 6-7kn", inline e multi-riga
       var patterns = [
+        // Range X-Ykn -- prende la media
+        new RegExp('H\\+?' + h + '[^0-9]*([0-9]+\\.?[0-9]*)\\s*-\\s*([0-9]+\\.?[0-9]*)\\s*kn', 'i'),
+        // Singolo Xkn
         new RegExp('H\\+?' + h + '[^0-9]*([0-9]+\\.?[0-9]*)\\s*kn', 'i'),
+        // Con orario tra parentesi H3 (10:15): Xkn
         new RegExp('H\\+?' + h + '\\s*\\([^)]+\\)[^0-9]*([0-9]+\\.?[0-9]*)\\s*kn', 'i')
       ];
-      for (var pi = 0; pi < patterns.length; pi++) {
-        var m = text.match(patterns[pi]);
-        if (m) return parseFloat(m[1]);
+      var m = text.match(patterns[0]);
+      if (m) return Math.round((parseFloat(m[1]) + parseFloat(m[2])) / 2 * 10) / 10;
+      for (var pi = 1; pi < patterns.length; pi++) {
+        var m2 = text.match(patterns[pi]);
+        if (m2) return parseFloat(m2[1]);
       }
       return null;
     };
@@ -2728,9 +2733,9 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.77 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.78 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.77
+// Fine codice - NAUTILUS ENGINE v2.9.78

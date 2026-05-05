@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.76 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.77 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1916,6 +1916,32 @@ return res.status(500).json({ error: e.message });
 }
 
 // /api/engine?action=predict&zone=xxx - AI local forecast based on historical data
+if (action === 'agent') {
+  try {
+    var anthropicKey = process.env.ANTHROPIC_KEY || null;
+    if (!anthropicKey) return res.status(500).json({ error: 'ANTHROPIC_KEY non configurata' });
+    var body = await new Promise(function(resolve, reject) {
+      var data = '';
+      req.on('data', function(chunk) { data += chunk; });
+      req.on('end', function() { try { resolve(JSON.parse(data)); } catch(e) { resolve({}); } });
+      req.on('error', reject);
+    });
+    var agentRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 600,
+        system: body.system || '',
+        messages: body.messages || []
+      })
+    });
+    if (!agentRes.ok) return res.status(500).json({ error: 'AI error ' + agentRes.status });
+    var agentData = await agentRes.json();
+    return res.status(200).json(agentData);
+  } catch(e) { return res.status(500).json({ error: e.message }); }
+}
+
 if (action === 'situazione') {
   if (!zoneKey || !ZONES[zoneKey]) {
     return res.status(404).json({ error: 'Zona non trovata' });
@@ -2707,4 +2733,4 @@ endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.76
+// Fine codice - NAUTILUS ENGINE v2.9.77

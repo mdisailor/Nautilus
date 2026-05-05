@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.82 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.84 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -626,7 +626,8 @@ var reasons = [];
 // Soglie NAUTILUS v2 -- definite 03/05/2026
 // ROSSO: condizioni severe (forza 6 Beaufort pieno)
 if (wind_gust >= 35) { level = Math.max(level, 3); reasons.push('raffiche ' + Math.round(wind_gust) + 'kn'); }
-else if (wind_gust >= 25) { level = Math.max(level, 2); reasons.push('raffiche ' + Math.round(wind_gust) + 'kn'); }
+else if (wind_gust >= 30) { level = Math.max(level, 3); reasons.push('raffiche ' + Math.round(wind_gust) + 'kn'); }
+else if (wind_gust >= 22) { level = Math.max(level, 2); reasons.push('raffiche ' + Math.round(wind_gust) + 'kn'); }
 
 if (wind_speed >= 28) { level = Math.max(level, 3); reasons.push('vento ' + Math.round(wind_speed) + 'kn'); }
 else if (wind_speed >= 10) { level = Math.max(level, 2); reasons.push('vento ' + Math.round(wind_speed) + 'kn'); }
@@ -2010,7 +2011,7 @@ if (action === 'agent') {
       headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 1400,
+        max_tokens: 1800,
         system: body.system || '',
         messages: body.messages || []
       })
@@ -2812,9 +2813,9 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.82 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.84 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.82
+// Fine codice - NAUTILUS ENGINE v2.9.84

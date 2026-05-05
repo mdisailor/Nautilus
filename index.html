@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.59 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.60 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -578,7 +578,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.59  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.60  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1792,7 +1792,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.59  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.60  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -4504,7 +4504,9 @@ var AGENT_SYSTEM = [
   'CALCOLO ANDATURA OBBLIGATORIO: calcola SEMPRE l angolo tra la rotta vera e la direzione DA CUI VIENE il vento. Angolo = differenza assoluta tra direzione vento e rotta (prendi il minore tra differenza diretta e 360-differenza). Risultato: 0-30 gradi = CONTROVENTO PIENO, motore obbligatorio, impossibile navigare a vela su quella rotta diretta. 30-60 gradi = BOLINA STRETTA impegnativa. 60-80 gradi = BOLINA LARGA ottima. 80-100 gradi = TRAVERSO ottimale. 100-150 gradi = LASCO. 150-180 gradi = POPPA. IMPORTANTE: 17 gradi NON e bolina stretta navigabile, e CONTROVENTO PIENO. Non usare mai frasi come bolina moderata o controvento moderato sotto i 30 gradi.',
   'DIVIETO ASSOLUTO: non dire mai bonaccia o vela scarsa con vento 6-12kn. Non sbagliare mai l andatura in base a calcolo errato del angolo vento-rotta. Questi sono errori gravi di navigazione.',
   'FORMATO RISPOSTA: testo semplice con newline. No markdown, no tabelle, no separatori, no grassetto. Scrivi come parla un marinaio esperto: diretto, asciutto, pratico. No linguaggio da report tecnico.',
-  'TONO: evita parole pompose come CRITICO, ANOMALO, DISCREPANZA, STATUS, MARGINE SICUREZZA. Usa termini nautici normali. Non usare mai controvento pieno come etichetta - descrivi invece cosa significa praticamente per la navigazione.',
+  'TONO: diretto e asciutto come parla un marinaio. Vietati: CRITICO, ANOMALO, STATUS, MARGINE SICUREZZA, controvento pieno (mai questa espressione - descrivi cosa fare: motore, bordeggio, impossibile navigare a vela diretta). Non fare mai riferimenti al comfort.',
+  'ANDATURE: indica solo l andatura reale possibile in base all angolo calcolato. Se angolo e sotto 30 gradi non citare mai traverso o poppa come opzioni - non esistono su quella rotta con quel vento. Cita solo l andatura che deriva dall angolo reale.',
+  'VENTO: indica SEMPRE velocita E direzione insieme. Mai solo il numero senza direzione.',
   'GRIGLIA ROTTA: elenca TUTTI i punti della griglia ricevuti uno per uno con nm e orario. Se ricevi 9 punti, scrivi 9 righe. Non raggruppare o sintetizzare.',
   'BARCHE: solo due categorie - sotto 10m e 10-15m.',
   'Canale Piombino: effetto Venturi +30-50%. Capraia: anticipa costa di 2-3h. Calo oltre 2hPa/3h=fronte. Calo oltre 5hPa/3h=emergenza.'
@@ -5151,7 +5153,7 @@ function togglePredictItem(idx) {
   el.style.display = 'block';
 }
 
-// Fine codice - NAUTILUS v5.6.59
+// Fine codice - NAUTILUS v5.6.60
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

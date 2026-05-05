@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.52 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.54 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -578,7 +578,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.52  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.54  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1792,7 +1792,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.52  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.54  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -4564,6 +4564,130 @@ async function agentSend() {
   agentShowTyping();
   try {
     var contextData = '';
+    // Rotte costiere: mappa zone da interrogare
+    var routeZones = {
+      'viareggio_piombino':   ['viareggio','livorno','canale_piombino'],
+      'viareggio_punta_ala':  ['viareggio','livorno','canale_piombino','punta_ala'],
+      'viareggio_elba_nord':  ['viareggio','livorno','elba_nord'],
+      'viareggio_elba_sud':   ['viareggio','livorno','elba_nord','elba_sud'],
+      'livorno_piombino':     ['livorno','canale_piombino'],
+      'livorno_punta_ala':    ['livorno','canale_piombino','punta_ala'],
+      'livorno_elba_sud':     ['livorno','elba_nord','elba_sud'],
+      'capraia_punta_ala':    ['capraia','elba_nord','canale_piombino','punta_ala'],
+      'capraia_elba_sud':     ['capraia','elba_nord','elba_sud'],
+    };
+    // Waypoint coordinate per griglia rotta
+    var routeWaypoints = {
+      'viareggio_piombino':  [{lat:43.86,lon:10.23,name:'Viareggio'},{lat:43.45,lon:10.20,name:'Largo Livorno'},{lat:42.93,lon:10.45,name:'Canale Piombino'},{lat:42.93,lon:10.51,name:'Piombino'}],
+      'viareggio_punta_ala': [{lat:43.86,lon:10.23,name:'Viareggio'},{lat:43.45,lon:10.20,name:'Largo Livorno'},{lat:42.93,lon:10.45,name:'Canale Piombino'},{lat:42.81,lon:10.74,name:'Punta Ala'}],
+      'viareggio_elba_nord': [{lat:43.86,lon:10.23,name:'Viareggio'},{lat:43.45,lon:10.20,name:'Largo Livorno'},{lat:42.85,lon:10.25,name:'Nord Elba'},{lat:42.81,lon:10.35,name:'Elba Nord'}],
+      'viareggio_elba_sud':  [{lat:43.86,lon:10.23,name:'Viareggio'},{lat:43.45,lon:10.20,name:'Largo Livorno'},{lat:42.80,lon:10.15,name:'Ovest Elba'},{lat:42.68,lon:10.55,name:'Sud Elba'},{lat:42.76,lon:10.40,name:'Elba Sud'}],
+      'viareggio_capraia':   [{lat:43.86,lon:10.23,name:'Viareggio'},{lat:43.55,lon:10.10,name:'Largo Livorno'},{lat:43.05,lon:9.84,name:'Capraia'}],
+      'livorno_capraia':     [{lat:43.55,lon:10.30,name:'Livorno'},{lat:43.05,lon:9.84,name:'Capraia'}],
+      'livorno_piombino':    [{lat:43.55,lon:10.30,name:'Livorno'},{lat:43.45,lon:10.20,name:'Largo costa'},{lat:42.93,lon:10.51,name:'Piombino'}],
+      'livorno_punta_ala':   [{lat:43.55,lon:10.30,name:'Livorno'},{lat:43.45,lon:10.20,name:'Largo costa'},{lat:42.93,lon:10.45,name:'Canale Piombino'},{lat:42.81,lon:10.74,name:'Punta Ala'}],
+      'livorno_elba_nord':   [{lat:43.55,lon:10.30,name:'Livorno'},{lat:42.85,lon:10.25,name:'Nord Elba'},{lat:42.81,lon:10.35,name:'Elba Nord'}],
+      'capraia_elba_nord':   [{lat:43.05,lon:9.84,name:'Capraia'},{lat:43.05,lon:9.95,name:'Est Capraia'},{lat:42.81,lon:10.35,name:'Elba Nord'}],
+      'capraia_elba_sud':    [{lat:43.05,lon:9.84,name:'Capraia'},{lat:42.80,lon:10.15,name:'Ovest Elba'},{lat:42.76,lon:10.40,name:'Elba Sud'}],
+      'capraia_punta_ala':   [{lat:43.05,lon:9.84,name:'Capraia'},{lat:42.80,lon:10.15,name:'Ovest Elba'},{lat:42.93,lon:10.51,name:'Piombino'},{lat:42.81,lon:10.74,name:'Punta Ala'}],
+      'elba_sud_giglio':     [{lat:42.76,lon:10.40,name:'Elba Sud'},{lat:42.36,lon:10.92,name:'Giglio'}],
+      'punta_ala_giglio':    [{lat:42.81,lon:10.74,name:'Punta Ala'},{lat:42.36,lon:10.92,name:'Giglio'}],
+      'la_spezia_capraia':   [{lat:44.07,lon:9.87,name:'La Spezia'},{lat:43.05,lon:9.84,name:'Capraia'}],
+    };
+    // Rileva se e una richiesta di rotta
+    var textLower = text.toLowerCase();
+    var routeZonesList = null;
+    var routeKeys = Object.keys(routeZones);
+    for (var ri = 0; ri < routeKeys.length; ri++) {
+      var rk = routeKeys[ri].replace(/_/g,' ');
+      var parts = routeKeys[ri].split('_');
+      var z1name = agentZoneMap[parts[0]] ? agentZoneMap[parts[0]].toLowerCase() : parts[0];
+      var z2name = agentZoneMap[parts.slice(1).join('_')] ? agentZoneMap[parts.slice(1).join('_')].toLowerCase() : parts.slice(1).join(' ');
+      if ((textLower.includes(z1name) || textLower.includes(parts[0])) &&
+          (textLower.includes(z2name) || textLower.includes(parts.slice(1).join(' ')))) {
+        routeZonesList = routeZones[routeKeys[ri]];
+        break;
+      }
+    }
+    var zonesToFetch = routeZonesList || (agentZone ? [agentZone] : []);
+
+    // Fetch griglia rotta se disponibile
+    var routeKey2 = null;
+    var rwKeys = Object.keys(routeWaypoints);
+    for (var rwi = 0; rwi < rwKeys.length; rwi++) {
+      var rwParts = rwKeys[rwi].split('_');
+      var rwZ1 = rwParts[0], rwZ2 = rwParts.slice(1).join('_');
+      var rwN1 = (agentZoneMap[rwZ1]||rwZ1).toLowerCase();
+      var rwN2 = (agentZoneMap[rwZ2]||rwZ2).toLowerCase().replace(/_/g,' ');
+      if ((textLower.includes(rwN1)||textLower.includes(rwZ1)) &&
+          (textLower.includes(rwN2)||textLower.includes(rwZ2))) {
+        routeKey2 = rwKeys[rwi]; break;
+      }
+    }
+    if (routeKey2 && routeWaypoints[routeKey2]) {
+      try {
+        var gridRes = await fetch(ENGINE_URL + '?action=route_grid', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ waypoints: routeWaypoints[routeKey2] })
+        });
+        var gridData = await gridRes.json();
+        if (gridData.ok && gridData.grid) {
+          var dirs16g = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+          var gridLines = gridData.grid.map(function(gp) {
+            if (gp.error) return 'nm ' + gp.nm + ': dati non disponibili';
+            var gdir = gp.wind_dir != null ? dirs16g[Math.round(gp.wind_dir/22.5)%16] : '--';
+            return (gp.name ? gp.name : 'nm ' + gp.nm) + ': ' +
+              (gp.wind_speed||'--') + 'kn ' + gdir +
+              (gp.wind_gust ? ' raffica ' + gp.wind_gust + 'kn' : '') +
+              (gp.wave_height ? ' onda ' + gp.wave_height + 'm' : '') +
+              (gp.pressure ? ' p.' + gp.pressure + 'hPa' : '');
+          });
+          contextData += '\n\nGRIGLIA ROTTA ogni ~15nm (' + gridData.total_nm + 'nm totali):\n' + gridLines.join('\n');
+        }
+      } catch(egrid) {}
+    }
+
+    if (zonesToFetch.length > 0) {
+      try {
+        var dirs16a = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+        var zoneDataLines = [];
+        for (var zi = 0; zi < zonesToFetch.length; zi++) {
+          var zk2 = zonesToFetch[zi];
+          try {
+            var zRes2 = await fetch(ENGINE_URL + '?action=zone&zone=' + zk2);
+            var zData2 = await zRes2.json();
+            if (zData2 && zData2.raw) {
+              var r2 = zData2.raw;
+              var dirStr2 = r2.wind_dir != null ? dirs16a[Math.round(r2.wind_dir/22.5)%16] : '--';
+              zoneDataLines.push((agentZoneMap[zk2]||zk2).toUpperCase() + ': vento ' +
+                (r2.wind_speed||'--') + 'kn ' + dirStr2 +
+                (r2.wind_gust ? ' raffica ' + r2.wind_gust.toFixed(0) + 'kn' : '') +
+                ' onda ' + (r2.wave_height||'--') + 'm' +
+                ' pressione ' + (r2.pressure||'--') + 'hPa' +
+                (r2.pressure_trend_3h != null ? ' (' + (r2.pressure_trend_3h>0?'+':'') + r2.pressure_trend_3h.toFixed(1) + '/3h)' : ''));
+            }
+          } catch(ez) {}
+        }
+        if (zoneDataLines.length > 0) {
+          contextData += '\n\nDATI ZONE ROTTA ore ' +
+            new Date().toLocaleTimeString('it-IT',{timeZone:'Europe/Rome',hour:'2-digit',minute:'2-digit'}) + ':\n' +
+            zoneDataLines.join('\n');
+          // Scheda situazione zona partenza
+          if (zonesToFetch[0]) {
+            try {
+              var sRes2 = await fetch(ENGINE_URL + '?action=situazione_get&zone=' + zonesToFetch[0]);
+              var sData2 = await sRes2.json();
+              if (sData2.found && sData2.situazione && sData2.situazione.text) {
+                contextData += '\n\nSCHEDA ' + (agentZoneMap[zonesToFetch[0]]||zonesToFetch[0]).toUpperCase() + ':\n' +
+                  sData2.situazione.text.replace(/\*\*/g,'').slice(0,400);
+              }
+            } catch(es2) {}
+          }
+        }
+      } catch(e) {}
+    }
+    if (false) { // vecchio blocco disabilitato
     if (agentZone) {
       try {
         var zRes = await fetch(ENGINE_URL + '?action=zone&zone=' + agentZone);
@@ -4589,6 +4713,7 @@ async function agentSend() {
           } catch(e2) {}
         }
       } catch(e) {}
+    } // fine vecchio blocco
     }
     var messages = agentHistory.map(function(m, i) {
       if (i === agentHistory.length - 1 && contextData) {
@@ -5020,7 +5145,7 @@ function togglePredictItem(idx) {
   el.style.display = 'block';
 }
 
-// Fine codice - NAUTILUS v5.6.52
+// Fine codice - NAUTILUS v5.6.54
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

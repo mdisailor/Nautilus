@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.51 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.52 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -578,7 +578,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.51  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.52  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1792,7 +1792,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.51  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.52  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -4492,10 +4492,13 @@ var AGENT_SYSTEM = [
   'SOGLIE: VERDE sotto 10kn raffica sotto 25kn onda sotto 0.5m. GIALLO: vento 10-28kn o raffica 25-35kn o onda 0.5-2.5m o calo oltre 2hPa/3h o raffica/vento sopra 2x. ROSSO: vento oltre 28kn o raffica oltre 35kn o onda oltre 2.5m o calo oltre 5hPa/3h.',
   'Zone con coordinate: Livorno 43.55N 10.30E, Viareggio 43.86N 10.23E, La Spezia 44.07N 9.87E, Capraia 43.05N 9.84E, Elba Nord 42.81N 10.35E, Elba Sud 42.76N 10.40E, Canale Piombino 42.93N 10.51E, Punta Ala 42.81N 10.74E, Giglio 42.36N 10.92E.',
   'Punti intermedi: Gorgona 43.43N 9.89E (isola, no stazione), Pianosa 42.59N 10.09E (isola, no stazione), Montecristo 42.33N 11.06E.',
-  'ROTTE PRINCIPALI distanza e rotta vera: Livorno-Capraia 36nm 214M, Livorno-Elba Nord 44nm 177M, Livorno-Gorgona 19nm 248M, Viareggio-Capraia 52nm 199M, Viareggio-Livorno 19nm 172M, Viareggio-La Spezia 20nm 309M, La Spezia-Capraia 61nm 181M, Capraia-Elba Nord 26nm 123M, Capraia-Giglio 63nm 131M, Elba Nord-Canale Piombino 10nm 46M, Elba Sud-Giglio 33nm 136M, Punta Ala-Giglio 28nm 163M, Elba Nord-Pianosa 18nm 219M, Livorno-Pianosa 59nm 189M.',
+  'ROTTE DIRETTE (mare aperto senza ostacoli): Livorno-Capraia 36nm 214M, Livorno-Gorgona 19nm 248M, Viareggio-Livorno 19nm 172M, Viareggio-La Spezia 20nm 309M, La Spezia-Capraia 61nm 181M, Capraia-Elba Nord 26nm 123M, Capraia-Giglio 63nm 131M, Elba Nord-Elba Sud 4nm 142M, Elba Nord-Pianosa 18nm 219M, Livorno-Pianosa 59nm 189M, Elba Sud-Giglio 33nm 136M, Punta Ala-Giglio 28nm 163M.',
+  'ROTTE COSTIERE CON WAYPOINT OBBLIGATORI (non passare sulla terra): Viareggio-Piombino 62nm via Livorno poi largo costa poi ingresso canale. Viareggio-Elba Nord 67nm via Livorno poi largo costa poi nord Elba. Viareggio-Elba Sud 92nm via Livorno poi ovest Elba poi sud Porto Azzurro. Viareggio-Punta Ala 74nm via Livorno poi largo costa. Livorno-Piombino 43nm via largo costa poi ingresso canale. Livorno-Elba Sud 73nm via ovest Elba poi sud. Capraia-Elba Sud 49nm via est Capraia poi ovest Elba poi sud. Capraia-Punta Ala 52nm via est Capraia poi ovest Elba.',
+  'REGOLA ISOLA ELBA: non esiste rotta diretta che attraversa l isola. Tutte le rotte verso Elba Sud o che passano a est dell Elba devono circumnavigare l isola. Stessa cosa per rotte tra nord e sud Elba.',
+  'REGOLA ROTTE COSTIERE: Viareggio verso qualsiasi destinazione a sud deve costeggiare passando per Livorno. Non calcolare mai rotte dirette che attraversano la terraferma toscana.',
   'Per rotte calcolate stima tempo: velocita media crociera 5-6kn, regata 7-8kn. Es: 36nm a 6kn = 6h.',
   'Per punti senza stazione meteo (Gorgona, Pianosa, Montecristo) interpola dai dati delle zone vicine.',
-  'REGOLA ROTTE PROATTIVA: quando analizzi una rotta includi SEMPRE nella prima risposta le condizioni di TUTTE le zone attraversate senza aspettare che te lo chiedano. Se le condizioni cambiano lungo la rotta segnalalo subito con analisi fase per fase.',
+  'REGOLA ROTTE PROATTIVA: quando analizzi una rotta includi SEMPRE nella prima risposta le condizioni di TUTTE le zone attraversate e TUTTI i cambi di condizioni significativi senza aspettare domande. Rispondi in modo completo dalla prima risposta - l utente non deve fare domande di follow-up per avere informazioni che gia possiedi.',
   'CALCOLO ANDATURA OBBLIGATORIO: calcola SEMPRE l angolo tra la rotta vera e la direzione DA CUI VIENE il vento. Angolo = differenza tra direzione vento e rotta (prendi il valore assoluto minore tra 0-180). Risultato: 0-30 gradi = CONTROVENTO impossibile a vela diretta, motore o bordi di bolina. 30-60 gradi = BOLINA STRETTA navigabile ma impegnativa. 60-80 gradi = BOLINA LARGA ottima per la vela. 80-100 gradi = TRAVERSO andatura ottimale. 100-150 gradi = LASCO veloce e comodo. 150-180 gradi = POPPA si sente tutta l onda. ESEMPIO: rotta 177 gradi, vento da SSO (200 gradi), angolo = 23 gradi = CONTROVENTO, non traverso lasco.',
   'DIVIETO ASSOLUTO: non dire mai bonaccia o vela scarsa con vento 6-12kn. Non sbagliare mai l andatura in base a calcolo errato del angolo vento-rotta. Questi sono errori gravi di navigazione.',
   'Canale Piombino: effetto Venturi +30-50%. Capraia: anticipa costa di 2-3h. Calo oltre 2hPa/3h=fronte. Calo oltre 5hPa/3h=emergenza.'
@@ -5017,7 +5020,7 @@ function togglePredictItem(idx) {
   el.style.display = 'block';
 }
 
-// Fine codice - NAUTILUS v5.6.51
+// Fine codice - NAUTILUS v5.6.52
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

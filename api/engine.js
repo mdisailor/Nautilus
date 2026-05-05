@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.78 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.79 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1916,6 +1916,82 @@ return res.status(500).json({ error: e.message });
 }
 
 // /api/engine?action=predict&zone=xxx - AI local forecast based on historical data
+if (action === 'route_grid') {
+  try {
+    // Riceve waypoints array e divide la rotta in segmenti da ~15nm
+    var bodyRG = await new Promise(function(resolve, reject) {
+      var data = '';
+      req.on('data', function(chunk) { data += chunk; });
+      req.on('end', function() { try { resolve(JSON.parse(data)); } catch(e) { resolve({}); } });
+      req.on('error', reject);
+    });
+    var waypoints = bodyRG.waypoints || []; // [{lat,lon,name}]
+    if (waypoints.length < 2) return res.status(400).json({ error: 'Servono almeno 2 waypoint' });
+
+    // Funzione distanza in nm
+    function haversineNm(lat1, lon1, lat2, lon2) {
+      var R = 3440.065;
+      var dLat = (lat2-lat1)*Math.PI/180;
+      var dLon = (lon2-lon1)*Math.PI/180;
+      var a = Math.sin(dLat/2)*Math.sin(dLat/2) +
+        Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    // Genera punti griglia ogni ~15nm lungo la rotta
+    var GRID_NM = 15;
+    var gridPoints = [];
+    var cumulativeNm = 0;
+    gridPoints.push({ lat: waypoints[0].lat, lon: waypoints[0].lon, name: waypoints[0].name || 'Partenza', nm: 0 });
+
+    for (var wi = 0; wi < waypoints.length - 1; wi++) {
+      var p1 = waypoints[wi], p2 = waypoints[wi+1];
+      var segNm = haversineNm(p1.lat, p1.lon, p2.lat, p2.lon);
+      var steps = Math.floor(segNm / GRID_NM);
+      for (var si = 1; si <= steps; si++) {
+        var frac = si * GRID_NM / segNm;
+        var lat = p1.lat + (p2.lat - p1.lat) * frac;
+        var lon = p1.lon + (p2.lon - p1.lon) * frac;
+        cumulativeNm += GRID_NM;
+        gridPoints.push({ lat: lat, lon: lon, nm: Math.round(cumulativeNm) });
+      }
+      cumulativeNm += segNm - steps * GRID_NM;
+    }
+    // Aggiunge punto arrivo
+    var lastWP = waypoints[waypoints.length-1];
+    var totalNm = 0;
+    for (var wj = 0; wj < waypoints.length-1; wj++) {
+      totalNm += haversineNm(waypoints[wj].lat, waypoints[wj].lon, waypoints[wj+1].lat, waypoints[wj+1].lon);
+    }
+    gridPoints.push({ lat: lastWP.lat, lon: lastWP.lon, name: lastWP.name || 'Arrivo', nm: Math.round(totalNm) });
+
+    // Fetch OM per ogni punto in parallelo
+    var omPromises = gridPoints.map(function(gp) {
+      var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + gp.lat.toFixed(4) +
+        '&longitude=' + gp.lon.toFixed(4) +
+        '&hourly=windspeed_10m,winddirection_10m,windgusts_10m,surface_pressure,wave_height&wind_speed_unit=kn&timezone=Europe/Rome&forecast_days=1';
+      return fetch(url).then(function(r) { return r.json(); }).then(function(d) {
+        var h = d.hourly;
+        var romeNow = getNowRome();
+        var idx = h && h.time ? h.time.findIndex(function(t){ return t === romeNow; }) : 0;
+        if (idx === -1) idx = 0;
+        return {
+          lat: gp.lat.toFixed(2), lon: gp.lon.toFixed(2),
+          name: gp.name || null, nm: gp.nm,
+          wind_speed: h && h.windspeed_10m ? Math.round(h.windspeed_10m[idx]*10)/10 : null,
+          wind_dir: h && h.winddirection_10m ? Math.round(h.winddirection_10m[idx]) : null,
+          wind_gust: h && h.windgusts_10m ? Math.round(h.windgusts_10m[idx]*10)/10 : null,
+          pressure: h && h.surface_pressure ? Math.round(h.surface_pressure[idx]*10)/10 : null,
+          wave_height: h && h.wave_height ? Math.round(h.wave_height[idx]*100)/100 : null,
+        };
+      }).catch(function() { return { nm: gp.nm, error: true }; });
+    });
+
+    var gridResults = await Promise.all(omPromises);
+    return res.status(200).json({ ok: true, total_nm: Math.round(totalNm), grid: gridResults });
+  } catch(e) { return res.status(500).json({ error: e.message }); }
+}
+
 if (action === 'agent') {
   try {
     var anthropicKey = process.env.ANTHROPIC_KEY || null;
@@ -2733,9 +2809,9 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.78 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.79 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.78
+// Fine codice - NAUTILUS ENGINE v2.9.79

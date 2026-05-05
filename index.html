@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.54 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.56 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -578,7 +578,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.54  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.56  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1792,7 +1792,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.54  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.56  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -4496,10 +4496,11 @@ var AGENT_SYSTEM = [
   'ROTTE COSTIERE CON WAYPOINT OBBLIGATORI (non passare sulla terra): Viareggio-Piombino 62nm via Livorno poi largo costa poi ingresso canale. Viareggio-Elba Nord 67nm via Livorno poi largo costa poi nord Elba. Viareggio-Elba Sud 92nm via Livorno poi ovest Elba poi sud Porto Azzurro. Viareggio-Punta Ala 74nm via Livorno poi largo costa. Livorno-Piombino 43nm via largo costa poi ingresso canale. Livorno-Elba Sud 73nm via ovest Elba poi sud. Capraia-Elba Sud 49nm via est Capraia poi ovest Elba poi sud. Capraia-Punta Ala 52nm via est Capraia poi ovest Elba.',
   'REGOLA ISOLA ELBA: non esiste rotta diretta che attraversa l isola. Tutte le rotte verso Elba Sud o che passano a est dell Elba devono circumnavigare l isola. Stessa cosa per rotte tra nord e sud Elba.',
   'REGOLA ROTTE COSTIERE: Viareggio verso qualsiasi destinazione a sud deve costeggiare passando per Livorno. Non calcolare mai rotte dirette che attraversano la terraferma toscana.',
-  'Per rotte calcolate stima tempo: velocita media crociera 5-6kn, regata 7-8kn. Es: 36nm a 6kn = 6h.',
+  'Per rotte calcolate stima tempo: velocita media crociera 5-6kn, regata 7-8kn. Es: 36nm a 6kn = 6h. USA SEMPRE MIGLIA NAUTICHE (nm) non km per le distanze.',
   'Per punti senza stazione meteo (Gorgona, Pianosa, Montecristo) interpola dai dati delle zone vicine.',
+  'TERMINI NAUTICI: non tradurre MAI questi termini tecnici in italiano: winch (mai mulinelli), genoa, randa, fiocco, lazy jacks, cunningham, kicker, vang, backstay, forestay, spreader, spinnaker, gennaker, code zero. Usare sempre il termine tecnico originale.',
   'REGOLA ROTTE PROATTIVA: quando analizzi una rotta includi SEMPRE nella prima risposta le condizioni di TUTTE le zone attraversate e TUTTI i cambi di condizioni significativi senza aspettare domande. Rispondi in modo completo dalla prima risposta - l utente non deve fare domande di follow-up per avere informazioni che gia possiedi.',
-  'CALCOLO ANDATURA OBBLIGATORIO: calcola SEMPRE l angolo tra la rotta vera e la direzione DA CUI VIENE il vento. Angolo = differenza tra direzione vento e rotta (prendi il valore assoluto minore tra 0-180). Risultato: 0-30 gradi = CONTROVENTO impossibile a vela diretta, motore o bordi di bolina. 30-60 gradi = BOLINA STRETTA navigabile ma impegnativa. 60-80 gradi = BOLINA LARGA ottima per la vela. 80-100 gradi = TRAVERSO andatura ottimale. 100-150 gradi = LASCO veloce e comodo. 150-180 gradi = POPPA si sente tutta l onda. ESEMPIO: rotta 177 gradi, vento da SSO (200 gradi), angolo = 23 gradi = CONTROVENTO, non traverso lasco.',
+  'CALCOLO ANDATURA OBBLIGATORIO: calcola SEMPRE l angolo tra la rotta vera e la direzione DA CUI VIENE il vento. Angolo = differenza assoluta tra direzione vento e rotta (prendi il minore tra differenza diretta e 360-differenza). Risultato: 0-30 gradi = CONTROVENTO PIENO, motore obbligatorio, impossibile navigare a vela su quella rotta diretta. 30-60 gradi = BOLINA STRETTA impegnativa. 60-80 gradi = BOLINA LARGA ottima. 80-100 gradi = TRAVERSO ottimale. 100-150 gradi = LASCO. 150-180 gradi = POPPA. IMPORTANTE: 17 gradi NON e bolina stretta navigabile, e CONTROVENTO PIENO. Non usare mai frasi come bolina moderata o controvento moderato sotto i 30 gradi.',
   'DIVIETO ASSOLUTO: non dire mai bonaccia o vela scarsa con vento 6-12kn. Non sbagliare mai l andatura in base a calcolo errato del angolo vento-rotta. Questi sono errori gravi di navigazione.',
   'Canale Piombino: effetto Venturi +30-50%. Capraia: anticipa costa di 2-3h. Calo oltre 2hPa/3h=fronte. Calo oltre 5hPa/3h=emergenza.'
 ].join(' ')
@@ -4578,8 +4579,8 @@ async function agentSend() {
     };
     // Waypoint coordinate per griglia rotta
     var routeWaypoints = {
-      'viareggio_piombino':  [{lat:43.86,lon:10.23,name:'Viareggio'},{lat:43.45,lon:10.20,name:'Largo Livorno'},{lat:42.93,lon:10.45,name:'Canale Piombino'},{lat:42.93,lon:10.51,name:'Piombino'}],
-      'viareggio_punta_ala': [{lat:43.86,lon:10.23,name:'Viareggio'},{lat:43.45,lon:10.20,name:'Largo Livorno'},{lat:42.93,lon:10.45,name:'Canale Piombino'},{lat:42.81,lon:10.74,name:'Punta Ala'}],
+      'viareggio_piombino':  [{lat:43.86,lon:10.23,name:'Viareggio'},{lat:43.55,lon:10.30,name:'Livorno'},{lat:43.20,lon:10.25,name:'Largo costa'},{lat:43.00,lon:10.35,name:'Avvicinamento canale'},{lat:42.93,lon:10.51,name:'Canale Piombino - Piombino'}],
+      'viareggio_punta_ala': [{lat:43.86,lon:10.23,name:'Viareggio'},{lat:43.55,lon:10.30,name:'Livorno'},{lat:43.20,lon:10.25,name:'Largo costa'},{lat:43.00,lon:10.35,name:'Avvicinamento canale'},{lat:42.93,lon:10.51,name:'Canale Piombino'},{lat:42.87,lon:10.62,name:'Uscita canale'},{lat:42.81,lon:10.74,name:'Punta Ala'}],
       'viareggio_elba_nord': [{lat:43.86,lon:10.23,name:'Viareggio'},{lat:43.45,lon:10.20,name:'Largo Livorno'},{lat:42.85,lon:10.25,name:'Nord Elba'},{lat:42.81,lon:10.35,name:'Elba Nord'}],
       'viareggio_elba_sud':  [{lat:43.86,lon:10.23,name:'Viareggio'},{lat:43.45,lon:10.20,name:'Largo Livorno'},{lat:42.80,lon:10.15,name:'Ovest Elba'},{lat:42.68,lon:10.55,name:'Sud Elba'},{lat:42.76,lon:10.40,name:'Elba Sud'}],
       'viareggio_capraia':   [{lat:43.86,lon:10.23,name:'Viareggio'},{lat:43.55,lon:10.10,name:'Largo Livorno'},{lat:43.05,lon:9.84,name:'Capraia'}],
@@ -5145,7 +5146,7 @@ function togglePredictItem(idx) {
   el.style.display = 'block';
 }
 
-// Fine codice - NAUTILUS v5.6.54
+// Fine codice - NAUTILUS v5.6.56
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

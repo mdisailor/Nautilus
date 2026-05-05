@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.42 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.43 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -578,7 +578,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.42  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.43  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1237,6 +1237,19 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
   </div><!-- /osservazioni -->
 
+  <!-- PAGE AGENT -->
+  <div class="page" id="page-agent">
+    <div style="padding:16px 16px 8px">
+      <div style="font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px">NAUTILUS AGENT &mdash; Assistente Meteorologico</div>
+      <div id="agent-messages" style="min-height:300px;max-height:55vh;overflow-y:auto;background:var(--deep);border:1px solid var(--border);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:10px;scroll-behavior:smooth;"></div>
+      <div style="margin-top:10px;display:flex;gap:8px;align-items:flex-end">
+        <textarea id="agent-input" placeholder="Es: Come sono le condizioni a Livorno?" style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'DM Mono',monospace;font-size:0.65rem;padding:10px 12px;resize:none;min-height:44px;max-height:120px;outline:none;line-height:1.5;" rows="2" onkeydown="agentKeydown(event)"></textarea>
+        <button onclick="agentSend()" style="background:var(--accent);color:#000;border:none;border-radius:10px;padding:10px 14px;font-family:'DM Mono',monospace;font-size:0.6rem;font-weight:bold;cursor:pointer;min-height:44px;white-space:nowrap;">Invia</button>
+      </div>
+      <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:6px;text-align:center">Specifica la zona nella prima domanda. Rimane nel contesto fino a che non ne menzioni un'altra.</div>
+    </div>
+  </div>
+
   <!--  PAGE NUVOLE  -->
 
   <div id="page-nuvole" class="page">
@@ -1779,7 +1792,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.42  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.43  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -4979,7 +4992,7 @@ function togglePredictItem(idx) {
   el.style.display = 'block';
 }
 
-// Fine codice - NAUTILUS v5.6.42
+// Fine codice - NAUTILUS v5.6.43
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.79 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.82 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1953,7 +1953,8 @@ if (action === 'route_grid') {
         var lat = p1.lat + (p2.lat - p1.lat) * frac;
         var lon = p1.lon + (p2.lon - p1.lon) * frac;
         cumulativeNm += GRID_NM;
-        gridPoints.push({ lat: lat, lon: lon, nm: Math.round(cumulativeNm) });
+        gridPoints.push({ lat: lat, lon: lon, nm: Math.round(cumulativeNm),
+          name: 'nm ' + Math.round(cumulativeNm) + ' (ore +' + (Math.round(cumulativeNm/6*10)/10).toFixed(1) + 'h a 6kn)' });
       }
       cumulativeNm += segNm - steps * GRID_NM;
     }
@@ -1963,7 +1964,9 @@ if (action === 'route_grid') {
     for (var wj = 0; wj < waypoints.length-1; wj++) {
       totalNm += haversineNm(waypoints[wj].lat, waypoints[wj].lon, waypoints[wj+1].lat, waypoints[wj+1].lon);
     }
-    gridPoints.push({ lat: lastWP.lat, lon: lastWP.lon, name: lastWP.name || 'Arrivo', nm: Math.round(totalNm) });
+    gridPoints.push({ lat: lastWP.lat, lon: lastWP.lon,
+      name: (lastWP.name || 'Arrivo') + ' nm ' + Math.round(totalNm) + ' (ore +' + (Math.round(totalNm/6*10)/10).toFixed(1) + 'h a 6kn)',
+      nm: Math.round(totalNm) });
 
     // Fetch OM per ogni punto in parallelo
     var omPromises = gridPoints.map(function(gp) {
@@ -2007,7 +2010,7 @@ if (action === 'agent') {
       headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 900,
+        max_tokens: 1400,
         system: body.system || '',
         messages: body.messages || []
       })
@@ -2809,9 +2812,9 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.79 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.82 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.79
+// Fine codice - NAUTILUS ENGINE v2.9.82

@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.67 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.68 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -578,7 +578,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.67  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.68  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1792,7 +1792,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.67  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.68  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -4476,7 +4476,8 @@ var AGENT_SYSTEM = [
   '3. Struttura rotta: prima riga = distanza nm e tempo stimato. Poi ogni punto con nm, orario stimato, vento, raffica, onda, pressione, angolo gradi.',
   '4. Nessun riferimento a equipaggio, passeggeri, timoniere, comfort.',
   '5. No parole: CRITICO, SEVERO, TOTALE, ANOMALO, ALLERTA, bonaccia (con vento <5kn scrivi vento assente o debole), bolina/traverso/lasco/poppa come classificazioni.',
-  '6. Controvento: se angolo sotto 30 gradi scrivi solo vento dalla stessa direzione della rotta, niente consigli operativi su come gestirlo.',
+  '6. Controvento: se angolo sotto 30 gradi scrivi solo vento dalla stessa direzione della rotta, niente consigli operativi.',
+  '6b. NESSUN CONSIGLIO OPERATIVO MAI: non dire mai ridurre le vele, ridurre in anticipo, valutare rinvio, monitorare, prepararsi, procedere con cautela, ancoraggio intermedio, mantenere vele ridotte. Dai i dati e le condizioni. Chi naviga decide tutto il resto senza suggerimenti.',
   '7. Motore consigliato: solo se vento sotto 5kn o se vento troppo forte per condizioni di sicurezza. Non consigliarlo per ragioni di andatura.',
   '8. Griglia rotta: elenca TUTTI i punti uno per uno con nm e orario. Se hai 9 punti scrivi 9 righe.',
   '9. Soglie: VERDE raffica sotto 22kn. GIALLO raffica 22-30kn. ROSSO raffica oltre 30kn.',
@@ -5146,7 +5147,7 @@ function togglePredictItem(idx) {
   el.style.display = 'block';
 }
 
-// Fine codice - NAUTILUS v5.6.67
+// Fine codice - NAUTILUS v5.6.68
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

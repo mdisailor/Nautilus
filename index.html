@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.68 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.69 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -578,7 +578,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.68  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.69  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1792,7 +1792,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.68  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.69  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -5125,7 +5125,7 @@ function togglePredictItem(idx) {
     var predicted = hz.h === '3' ? (p.forecast_h3 || extractWind(p.prediction_text, '3')) :
                     hz.h === '6' ? (p.forecast_h6 || extractWind(p.prediction_text, '6')) :
                                    (p.forecast_h12 || extractWind(p.prediction_text, '12'));
-    var actual = hz.h === '6' ? item.actual_6h : (hz.h === '12' ? item.actual_12h : null);
+    var actual = hz.h === '3' ? item.actual_3h : (hz.h === '6' ? item.actual_6h : (hz.h === '12' ? item.actual_12h : null));
     html += '<div class="predict-history-row">';
     html += '<span class="predict-history-label">' + hz.label + '</span>';
     html += '<span class="predict-history-val">' + (predicted ? predicted + 'kn' : '--') + '</span>';
@@ -5147,7 +5147,7 @@ function togglePredictItem(idx) {
   el.style.display = 'block';
 }
 
-// Fine codice - NAUTILUS v5.6.68
+// Fine codice - NAUTILUS v5.6.69
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

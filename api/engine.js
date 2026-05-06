@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.84 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.85 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -2518,20 +2518,13 @@ if (action === 'situazione_get') {
     return res.status(404).json({ error: 'Zona non trovata' });
   }
   try {
-    // Cerca le ultime 4 chiavi (ultima ora, 4 slot da 15min)
-    var romeHourG = getNowRome();
+    // Cerca nelle ultime 24 ore usando sv-SE (stesso formato di getNowRome)
     var slots4 = ['00','15','30','45'];
     var sitFound = null;
-    // Cerca nelle ultime 24 ore
     for (var hh = 0; hh <= 23 && !sitFound; hh++) {
       var searchTime = new Date(new Date().getTime() - hh * 3600000);
-      var searchRome = searchTime.toLocaleString('en-CA', {
-        timeZone: 'Europe/Rome', year:'numeric', month:'2-digit', day:'2-digit',
-        hour:'2-digit', minute:'2-digit', hour12: false
-      });
-      var srm = searchRome.match(/([0-9]{4})-([0-9]{2})-([0-9]{2}), ([0-9]{2}):([0-9]{2})/) ||
-                searchRome.match(/([0-9]{4})-([0-9]{2})-([0-9]{2}),([0-9]{2}):([0-9]{2})/);
-      var searchHour = srm ? srm[1]+'-'+srm[2]+'-'+srm[3]+'T'+srm[4] : null;
+      var searchHour = searchTime.toLocaleString('sv-SE', {timeZone:'Europe/Rome'})
+        .replace(' ','T').slice(0,13).replace(':','-');
       if (!searchHour) continue;
       for (var si4 = slots4.length - 1; si4 >= 0 && !sitFound; si4--) {
         var sk = 'situazione:' + zoneKey + ':' + searchHour + '-' + slots4[si4];
@@ -2813,9 +2806,9 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.84 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.85 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.84
+// Fine codice - NAUTILUS ENGINE v2.9.85

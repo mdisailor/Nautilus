@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.87 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.88 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1639,7 +1639,7 @@ return sources;
 async function fetchLammaStation(nome) {
   try {
     var lammaUrl = 'https://geoportale.lamma.rete.toscana.it/geoserver/ows?service=WFS&version=2.0.0&request=GetFeature&typeName=lamma_stazioni:vento&outputFormat=application/json&CQL_FILTER=nome=' + encodeURIComponent("'" + nome + "'");
-    var res2 = await fetch(lammaUrl);
+    var res2 = await fetch(lammaUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NAUTILUS/1.0)', 'Accept': 'application/json' } });
     if (!res2.ok) return null;
     var data2 = await res2.json();
     if (!data2.features || data2.features.length === 0) return null;
@@ -2916,7 +2916,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.87 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.88 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -3040,4 +3040,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.87
+// Fine codice - NAUTILUS ENGINE v2.9.88

@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.88 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.89 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1640,9 +1640,11 @@ async function fetchLammaStation(nome) {
   try {
     var lammaUrl = 'https://geoportale.lamma.rete.toscana.it/geoserver/ows?service=WFS&version=2.0.0&request=GetFeature&typeName=lamma_stazioni:vento&outputFormat=application/json&CQL_FILTER=nome=' + encodeURIComponent("'" + nome + "'");
     var res2 = await fetch(lammaUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NAUTILUS/1.0)', 'Accept': 'application/json' } });
-    if (!res2.ok) return null;
+    var res2 = await fetch(lammaUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NAUTILUS/1.0)', 'Accept': 'application/json' } });
+    console.log('LaMMA ' + nome + ' status=' + res2.status + ' url=' + lammaUrl.slice(-50));
+    if (!res2.ok) { console.log('LaMMA ' + nome + ' not ok'); return null; }
     var data2 = await res2.json();
-    if (!data2.features || data2.features.length === 0) return null;
+    console.log('LaMMA ' + nome + ' features=' + (data2.features ? data2.features.length : 'null'));
     var todayUTC = new Date().toISOString().slice(0, 10);
     var todayF = data2.features.filter(function(f) { return f.properties.data_ora && f.properties.data_ora.startsWith(todayUTC); });
     if (todayF.length === 0) todayF = data2.features;
@@ -2916,7 +2918,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.88 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.89 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -3040,4 +3042,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.88
+// Fine codice - NAUTILUS ENGINE v2.9.89

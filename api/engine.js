@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.86 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.87 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1660,7 +1660,7 @@ async function fetchLammaStation(nome) {
       last_time: last.data_ora,
       samples: speeds.length
     };
-  } catch(e) { return null; }
+  } catch(e) { console.error('LaMMA fetch error ' + nome + ': ' + e.message); return null; }
 }
 
 async function updateLammaBias(kvUrl, kvToken) {
@@ -1689,6 +1689,7 @@ async function updateLammaBias(kvUrl, kvToken) {
     });
     console.log('LaMMA saved ' + zk3 + ': ' + lammaAvg3.toFixed(1) + 'kn');
   }
+  console.log('LaMMA bias update done, zones: ' + Object.keys(zoneData).join(','));
   return zoneData;
 }
 
@@ -2915,7 +2916,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.86 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.87 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -3039,4 +3040,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.86
+// Fine codice - NAUTILUS ENGINE v2.9.87

@@ -1745,7 +1745,7 @@ if (action === 'lamma_bias_get') {
 
 if (action === 'cron_lamma') {
   var cronSecretL = process.env.CRON_SECRET || '';
-  if (req.headers['x-cron-secret'] !== cronSecretL) return res.status(401).json({ error: 'Unauthorized' });
+  if (req.query.secret !== cronSecretL) return res.status(401).json({ error: 'Unauthorized' });
   try {
     var result = await updateLammaBias(kvUrl, kvToken);
     return res.status(200).json({ ok: true, action: 'cron_lamma', zones: Object.keys(result).length, ts: Date.now() });

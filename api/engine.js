@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.85 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.86 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -164,6 +164,32 @@ canale_corsica: { desc: 'Canale di Corsica', active_wind_dirs: [330, 60], amplif
 }
 },
 };
+//  LAMMA STATIONS MAP 
+var LAMMA_STATIONS = [
+  { id: 4652,  nome: 'CAPRAIA',            zone: 'capraia' },
+  { id: 430,   nome: "BOCCA_D'ARNO",       zone: 'viareggio' },
+  { id: 4636,  nome: 'VIAREGGIO',          zone: 'viareggio' },
+  { id: 1656,  nome: 'GORGONA',            zone: 'livorno' },
+  { id: 466,   nome: 'PORTOFERRAIO',       zone: 'elba_nord' },
+  { id: 3927,  nome: 'GIGLIO_PORTO',       zone: 'giglio' },
+  { id: 3931,  nome: 'GIGLIO_CASTELLO',    zone: 'giglio' },
+  { id: 2424,  nome: 'MONTECRISTO_(LAMMA)',zone: 'giglio' },
+  { id: 467,   nome: 'SAN_VINCENZO',       zone: 'canale_piombino' },
+  { id: 2420,  nome: 'FOLLONICA_(LAMMA)',  zone: 'punta_ala' },
+  { id: 1529,  nome: 'MONTE_ARGENTARIO',   zone: 'giglio' },
+  { id: 463,   nome: 'DONORATICO',         zone: 'livorno' },
+  { id: 462,   nome: 'CECINA',             zone: 'livorno' },
+  { id: 507,   nome: 'LIDO_DI_CAMAIORE',   zone: 'viareggio' },
+  { id: 363,   nome: 'TORRE_DEL_LAGO',     zone: 'viareggio' },
+  { id: 3954,  nome: 'GROSSETO_(LAMMA)',   zone: 'punta_ala' },
+  { id: 9338,  nome: 'PIETRASANTA',        zone: 'viareggio' },
+  { id: 2530,  nome: 'FORTE_DEI_MARMI',    zone: 'viareggio' },
+  { id: 2475,  nome: 'QUERCIANELLA',       zone: 'livorno' },
+  { id: 551,   nome: 'ALBERESE',           zone: 'punta_ala' },
+  { id: 531,   nome: 'CAPALBIO',           zone: 'giglio' },
+  { id: 2526,  nome: 'AVENZA',             zone: 'la_spezia' },
+];
+
 
 //- HELPER FUNCTIONS -
 
@@ -1610,6 +1636,62 @@ return sources;
 
 //- VERCEL HANDLER -
 
+async function fetchLammaStation(nome) {
+  try {
+    var lammaUrl = 'https://geoportale.lamma.rete.toscana.it/geoserver/ows?service=WFS&version=2.0.0&request=GetFeature&typeName=lamma_stazioni:vento&outputFormat=application/json&CQL_FILTER=nome=' + encodeURIComponent("'" + nome + "'");
+    var res2 = await fetch(lammaUrl);
+    if (!res2.ok) return null;
+    var data2 = await res2.json();
+    if (!data2.features || data2.features.length === 0) return null;
+    var todayUTC = new Date().toISOString().slice(0, 10);
+    var todayF = data2.features.filter(function(f) { return f.properties.data_ora && f.properties.data_ora.startsWith(todayUTC); });
+    if (todayF.length === 0) todayF = data2.features;
+    var speeds = todayF.map(function(f) { return f.properties.vven_ms; }).filter(function(v) { return v != null && v >= 0; });
+    if (speeds.length === 0) return null;
+    var avgMs = speeds.reduce(function(a, b) { return a + b; }, 0) / speeds.length;
+    var maxMs = Math.max.apply(null, speeds);
+    var last = todayF[todayF.length - 1].properties;
+    return {
+      nome: nome,
+      avg_kn: Math.round(avgMs * 1.944 * 10) / 10,
+      max_kn: Math.round(maxMs * 1.944 * 10) / 10,
+      last_kn: Math.round((last.vven_ms || 0) * 1.944 * 10) / 10,
+      last_dir: last.dven_gr || null,
+      last_time: last.data_ora,
+      samples: speeds.length
+    };
+  } catch(e) { return null; }
+}
+
+async function updateLammaBias(kvUrl, kvToken) {
+  console.log('LaMMA bias update start');
+  var zoneData = {};
+  for (var si = 0; si < LAMMA_STATIONS.length; si++) {
+    var st = LAMMA_STATIONS[si];
+    var result = await fetchLammaStation(st.nome);
+    if (!result) { console.log('LaMMA skip ' + st.nome); continue; }
+    if (!zoneData[st.zone]) zoneData[st.zone] = { readings: [], stations: [] };
+    zoneData[st.zone].readings.push(result.avg_kn);
+    zoneData[st.zone].stations.push(result.nome + '=' + result.avg_kn + 'kn');
+    console.log('LaMMA ' + st.nome + ' avg=' + result.avg_kn + 'kn max=' + result.max_kn + 'kn samples=' + result.samples);
+  }
+  var zones3 = Object.keys(zoneData);
+  for (var zi2 = 0; zi2 < zones3.length; zi2++) {
+    var zk3 = zones3[zi2];
+    var zd3 = zoneData[zk3];
+    var lammaAvg3 = zd3.readings.reduce(function(a, b) { return a + b; }, 0) / zd3.readings.length;
+    var lammaKey3 = 'lamma:' + zk3 + ':' + new Date().toISOString().slice(0, 10);
+    var lammaRecord3 = { date: new Date().toISOString().slice(0, 10), lamma_avg_kn: Math.round(lammaAvg3 * 10) / 10, stations: zd3.stations, samples: zd3.readings.length };
+    await fetch(kvUrl + '/set/' + encodeURIComponent(lammaKey3), {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + kvToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ value: JSON.stringify(lammaRecord3), ex: 2592000 })
+    });
+    console.log('LaMMA saved ' + zk3 + ': ' + lammaAvg3.toFixed(1) + 'kn');
+  }
+  return zoneData;
+}
+
 module.exports = async function handler(req, res) {
 
 // Helper: ora corrente in formato Europe/Rome compatibile con OM hourly.time
@@ -1643,6 +1725,33 @@ var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', yea
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
 // /api/engine?action=cron_snap - lightweight cron: fetch OM only + save snapshot
+if (action === 'cron_lamma') {
+  // Cron 23:50 -- raccoglie dati LaMMA giornalieri e calcola bias
+  try {
+    var lammaResults = await runLammaBiasCron(kvUrl, kvToken);
+    return res.status(200).json({ ok: true, zones: Object.keys(lammaResults).length, results: lammaResults });
+  } catch(e) { return res.status(500).json({ error: e.message }); }
+}
+
+if (action === 'lamma_bias_get') {
+  // Legge bias LaMMA per una zona
+  var zona2 = req.query.zone || 'livorno';
+  try {
+    var biasRaw = await kvGet('lamma_bias:' + zona2, kvUrl, kvToken);
+    if (!biasRaw) return res.status(200).json({ found: false });
+    return res.status(200).json({ found: true, bias: JSON.parse(biasRaw) });
+  } catch(e) { return res.status(500).json({ error: e.message }); }
+}
+
+if (action === 'cron_lamma') {
+  var cronSecretL = process.env.CRON_SECRET || '';
+  if (req.headers['x-cron-secret'] !== cronSecretL) return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    var result = await updateLammaBias(kvUrl, kvToken);
+    return res.status(200).json({ ok: true, action: 'cron_lamma', zones: Object.keys(result).length, ts: Date.now() });
+  } catch(e) { return res.status(500).json({ error: e.message }); }
+}
+
 if (action === 'cron_snap') {
 var csSecret = req.query.secret || '';
 var csExpected = process.env.CRON_SECRET || '';
@@ -2806,9 +2915,128 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.85 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.86 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
 
-// Fine codice - NAUTILUS ENGINE v2.9.85
+//  LAMMA BIAS CRON 
+// Chiamato dal cron 23:50 -- raccoglie dati LaMMA della giornata e calcola bias vs OM
+
+var LAMMA_STATIONS = [
+  { nome: 'BOCCA_D_ARNO',      id: 430,  zona: 'viareggio'       },
+  { nome: 'CAPRAIA',            id: 4652, zona: 'capraia'          },
+  { nome: 'VIAREGGIO',          id: 4636, zona: 'viareggio'        },
+  { nome: 'SAN_VINCENZO',       id: 467,  zona: 'canale_piombino'  },
+  { nome: 'FOLLONICA__LAMMA_',  id: 2420, zona: 'punta_ala'        },
+  { nome: 'GIGLIO_PORTO',       id: 3927, zona: 'giglio'           },
+  { nome: 'GIGLIO_CASTELLO',    id: 3931, zona: 'giglio'           },
+  { nome: 'PORTOFERRAIO',       id: 466,  zona: 'elba_nord'        },
+  { nome: 'GORGONA',            id: 1656, zona: 'livorno'          },
+  { nome: 'MONTECRISTO__LAMMA_',id: 2424, zona: 'giglio'           },
+  { nome: 'MONTE_ARGENTARIO',   id: 1529, zona: 'giglio'           },
+  { nome: 'GROSSETO__LAMMA_',   id: 3954, zona: 'punta_ala'        },
+  { nome: 'CECINA',             id: 462,  zona: 'livorno'          },
+  { nome: 'DONORATICO',         id: 463,  zona: 'canale_piombino'  },
+  { nome: 'QUERCIANELLA',       id: 2475, zona: 'livorno'          },
+  { nome: 'LIDO_DI_CAMAIORE',   id: 507,  zona: 'viareggio'        },
+  { nome: 'FORTE_DEI_MARMI',    id: 2530, zona: 'viareggio'        },
+  { nome: 'TORRE_DEL_LAGO',     id: 363,  zona: 'viareggio'        },
+  { nome: 'CAPALBIO',           id: 531,  zona: 'giglio'           },
+  { nome: 'ALBERESE',           id: 551,  zona: 'punta_ala'        },
+  { nome: 'PIETRASANTA',        id: 9338, zona: 'viareggio'        },
+  { nome: 'AVENZA',             id: 2526, zona: 'la_spezia'        },
+];
+
+async function fetchLammaDayData(stazione) {
+  // Scarica tutti i dati della giornata per una stazione
+  var url = 'https://geoportale.lamma.rete.toscana.it/geoserver/ows' +
+    '?service=WFS&version=2.0.0&request=GetFeature' +
+    '&typeName=lamma_stazioni:vento' +
+    '&outputFormat=application/json' +
+    '&CQL_FILTER=nome=' + encodeURIComponent(stazione.nome);
+  try {
+    var res = await fetch(url);
+    if (!res.ok) return null;
+    var data = await res.json();
+    if (!data.features || data.features.length === 0) return null;
+    // Calcola media vento della giornata
+    var valori = data.features
+      .filter(function(f) { return f.properties.vven_ms != null; })
+      .map(function(f) { return f.properties.vven_ms * 1.944; }); // m/s -> kn
+    if (valori.length === 0) return null;
+    var media = valori.reduce(function(a, b) { return a + b; }, 0) / valori.length;
+    var max = Math.max.apply(null, valori);
+    // Ultima lettura
+    var ultima = data.features[data.features.length - 1].properties;
+    return {
+      nome: stazione.nome,
+      zona: stazione.zona,
+      wind_avg_kn: Math.round(media * 10) / 10,
+      wind_max_kn: Math.round(max * 10) / 10,
+      wind_last_kn: Math.round(ultima.vven_ms * 1.944 * 10) / 10,
+      wind_dir: ultima.dven_gr,
+      samples: valori.length,
+      last_ts: ultima.data_ora
+    };
+  } catch(e) {
+    return null;
+  }
+}
+
+async function runLammaBiasCron(kvUrl, kvToken) {
+  console.log('LAMMA BIAS CRON start');
+  var results = {};
+
+  // Fetch tutte le stazioni in parallelo
+  var fetches = LAMMA_STATIONS.map(function(s) { return fetchLammaDayData(s); });
+  var datas = await Promise.all(fetches);
+
+  // Raggruppa per zona e calcola media
+  var byZona = {};
+  datas.forEach(function(d) {
+    if (!d) return;
+    if (!byZona[d.zona]) byZona[d.zona] = [];
+    byZona[d.zona].push(d);
+  });
+
+  // Per ogni zona calcola media LaMMA e confronta con OM snapshot
+  var zonaKeys = Object.keys(byZona);
+  for (var zi = 0; zi < zonaKeys.length; zi++) {
+    var zona = zonaKeys[zi];
+    var staz = byZona[zona];
+    var lammaAvg = staz.reduce(function(s, d) { return s + d.wind_avg_kn; }, 0) / staz.length;
+    var lammaMax = Math.max.apply(null, staz.map(function(d) { return d.wind_max_kn; }));
+
+    // Legge snapshot OM per confronto
+    try {
+      var snapKey = 'snap:' + zona + ':' + getNowRome().slice(0, 13) + '-00';
+      var snapRaw = await kvGet(snapKey, kvUrl, kvToken);
+      var snap = snapRaw ? JSON.parse(snapRaw) : null;
+      var omAvg = snap ? (snap.wind_speed || 0) : 0;
+      var bias = omAvg > 0 ? Math.round((lammaAvg - omAvg) * 10) / 10 : null;
+
+      // Salva bias in KV
+      var biasKey = 'lamma_bias:' + zona;
+      var biasRecord = {
+        zona: zona,
+        lamma_avg: Math.round(lammaAvg * 10) / 10,
+        lamma_max: Math.round(lammaMax * 10) / 10,
+        om_avg: omAvg,
+        bias_kn: bias,
+        stazioni: staz.map(function(d) { return d.nome; }),
+        samples: staz.reduce(function(s, d) { return s + d.samples; }, 0),
+        updated: new Date().toISOString()
+      };
+      await kvSet(biasKey, JSON.stringify(biasRecord), kvUrl, kvToken);
+      results[zona] = biasRecord;
+      console.log('LAMMA bias ' + zona + ': LaMMA=' + lammaAvg.toFixed(1) + 'kn OM=' + omAvg + 'kn bias=' + bias);
+    } catch(ez) {
+      console.error('LAMMA bias error zona ' + zona + ':', ez.message);
+    }
+  }
+  console.log('LAMMA BIAS CRON done', Object.keys(results).length, 'zone');
+  return results;
+}
+
+// Fine codice - NAUTILUS ENGINE v2.9.86

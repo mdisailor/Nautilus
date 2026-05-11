@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.89 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.92 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1646,8 +1646,7 @@ async function fetchLammaStation(nome) {
     var data2 = await res2.json();
     console.log('LaMMA ' + nome + ' features=' + (data2.features ? data2.features.length : 'null'));
     // Prende tutti i dati disponibili (LaMMA mantiene finestra mobile ~48h)
-    var todayF = data2.features;
-    if (todayF.length === 0) todayF = data2.features;
+    var todayF = data2.features || [];
     var speeds = todayF.map(function(f) { return f.properties.vven_ms; }).filter(function(v) { return v != null && v >= 0; });
     if (speeds.length === 0) return null;
     var avgMs = speeds.reduce(function(a, b) { return a + b; }, 0) / speeds.length;
@@ -1764,7 +1763,9 @@ if (action === 'cron_lamma') {
   if (req.query.secret !== cronSecretL) return res.status(401).json({ error: 'Unauthorized' });
   try {
     var result = await updateLammaBias(kvUrl, kvToken);
-    return res.status(200).json({ ok: true, action: 'cron_lamma', zones: Object.keys(result).length, ts: Date.now() });
+    var summary = {};
+    Object.keys(result).forEach(function(z) { summary[z] = { avg_kn: result[z].readings.reduce(function(a,b){return a+b;},0)/result[z].readings.length, stations: result[z].stations.length }; });
+    return res.status(200).json({ ok: true, action: 'cron_lamma', zones: Object.keys(result).length, summary: summary, ts: Date.now() });
   } catch(e) { return res.status(500).json({ error: e.message }); }
 }
 
@@ -2931,7 +2932,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.89 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.92 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -3055,4 +3056,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.89
+// Fine codice - NAUTILUS ENGINE v2.9.92

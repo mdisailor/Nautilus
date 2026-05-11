@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.2.13 - mdisailor - 2026-04-21 -->
+<!-- NAUTILUS MAPPA v1.2.15 - mdisailor - 2026-05-11 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.2.13</title>
+<title>NAUTILUS Mappa Vento v1.2.15</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -151,7 +151,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.2.14</span>
+    <span id="nav-ver">mappa v1.2.15</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
   <a id="nav-back" href="/">APP</a>
@@ -206,11 +206,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.2.13 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.2.15 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.2.13
+// NAUTILUS MAPPA v1.2.15
 
 var ENGINE_URL = '/api/engine';
 
@@ -624,9 +624,31 @@ document.getElementById('btn-refresh').addEventListener('click', loadAll);
 // Auto-refresh ogni 10 min
 setInterval(loadAll, 600000);
 
+
+//  Boe e stazioni marine (simboli fissi) 
+var buoyIcon = L.divIcon({
+  className: '',
+  html: '<div style="width:18px;height:18px;background:#0af0ff;border:2px solid #0a9090;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;color:#000;font-weight:bold;box-shadow:0 0 8px rgba(10,240,255,0.7)">B</div>',
+  iconSize: [18, 18], iconAnchor: [9, 9]
+});
+var stationIcon = L.divIcon({
+  className: '',
+  html: '<div style="width:16px;height:16px;background:#ffaa00;border:2px solid #cc7700;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#000;font-weight:bold;box-shadow:0 0 8px rgba(255,170,0,0.7)">S</div>',
+  iconSize: [16, 16], iconAnchor: [8, 8]
+});
+BUOYS.forEach(function(b) {
+  var icon = (b.type === 'boa' || b.type === 'corr') ? buoyIcon : stationIcon;
+  var mk2 = L.marker([b.lat, b.lon], { icon: icon, zIndexOffset: 50 }).addTo(map);
+  mk2.bindPopup('<div style="font-family:DM Mono,monospace;font-size:0.7rem;min-width:180px">' +
+    '<div style="font-weight:bold;color:#0af0ff;margin-bottom:4px">' + b.name + '</div>' +
+    '<div style="color:#8ab8d0;font-size:0.6rem;margin-bottom:2px">' + (b.type === 'boa' ? 'Boa ondametrica' : b.type === 'corr' ? 'Correntometro' : 'Stazione meteo') + '</div>' +
+    '<div style="color:#888;font-size:0.58rem">' + b.note + '</div>' +
+    '</div>', { maxWidth: 240 });
+});
+
 loadAll();
 
-// Fine codice - NAUTILUS MAPPA v1.2.13
+// Fine codice - NAUTILUS MAPPA v1.2.15
 </script>
 </body>
 </html>

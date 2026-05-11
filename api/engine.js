@@ -1645,8 +1645,8 @@ async function fetchLammaStation(nome) {
     if (!res2.ok) { console.log('LaMMA ' + nome + ' not ok'); return null; }
     var data2 = await res2.json();
     console.log('LaMMA ' + nome + ' features=' + (data2.features ? data2.features.length : 'null'));
-    var todayUTC = new Date().toISOString().slice(0, 10);
-    var todayF = data2.features.filter(function(f) { return f.properties.data_ora && f.properties.data_ora.startsWith(todayUTC); });
+    // Prende tutti i dati disponibili (LaMMA mantiene finestra mobile ~48h)
+    var todayF = data2.features;
     if (todayF.length === 0) todayF = data2.features;
     var speeds = todayF.map(function(f) { return f.properties.vven_ms; }).filter(function(v) { return v != null && v >= 0; });
     if (speeds.length === 0) return null;

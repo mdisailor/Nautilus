@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.92 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.93 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1728,17 +1728,29 @@ var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', yea
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
 // /api/engine?action=cron_snap - lightweight cron: fetch OM only + save snapshot
 if (action === 'lamma_test') {
-  // Test singola stazione -- restituisce risultato diretto
   try {
     var testUrl = 'https://geoportale.lamma.rete.toscana.it/geoserver/ows?service=WFS&version=2.0.0&request=GetFeature&typeName=lamma_stazioni:vento&outputFormat=application/json&CQL_FILTER=nome=%27GIGLIO_PORTO%27';
     var testRes = await fetch(testUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NAUTILUS/1.0)', 'Accept': 'application/json' } });
-    var testStatus = testRes.status;
-    var testText = await testRes.text();
-    return res.status(200).json({ ok: true, lamma_status: testStatus, lamma_bytes: testText.length, lamma_preview: testText.slice(0, 200) });
+    var testJson = await testRes.json();
+    var features = testJson.features || [];
+    var speeds = features.map(function(f) { return f.properties.vven_ms; }).filter(function(v) { return v != null && v >= 0; });
+    var avgMs = speeds.length > 0 ? speeds.reduce(function(a,b){return a+b;},0)/speeds.length : 0;
+    var last = features.length > 0 ? features[features.length-1].properties : null;
+    return res.status(200).json({
+      ok: true,
+      status: testRes.status,
+      total_features: features.length,
+      valid_speeds: speeds.length,
+      avg_kn: Math.round(avgMs * 1.944 * 10) / 10,
+      last_vven_ms: last ? last.vven_ms : null,
+      last_time: last ? last.data_ora : null,
+      first_time: features.length > 0 ? features[0].properties.data_ora : null
+    });
   } catch(e) {
-    return res.status(200).json({ ok: false, error: e.message, error_type: e.constructor.name });
+    return res.status(200).json({ ok: false, error: e.message });
   }
 }
+
 
 if (action === 'cron_lamma') {
   // Cron 23:50 -- raccoglie dati LaMMA giornalieri e calcola bias
@@ -2932,7 +2944,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.92 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.93 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -3056,4 +3068,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.92
+// Fine codice - NAUTILUS ENGINE v2.9.93

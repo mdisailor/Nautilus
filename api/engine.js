@@ -1728,6 +1728,19 @@ var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', yea
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
 // /api/engine?action=cron_snap - lightweight cron: fetch OM only + save snapshot
+if (action === 'lamma_test') {
+  // Test singola stazione -- restituisce risultato diretto
+  try {
+    var testUrl = 'https://geoportale.lamma.rete.toscana.it/geoserver/ows?service=WFS&version=2.0.0&request=GetFeature&typeName=lamma_stazioni:vento&outputFormat=application/json&CQL_FILTER=nome=%27GIGLIO_PORTO%27';
+    var testRes = await fetch(testUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NAUTILUS/1.0)', 'Accept': 'application/json' } });
+    var testStatus = testRes.status;
+    var testText = await testRes.text();
+    return res.status(200).json({ ok: true, lamma_status: testStatus, lamma_bytes: testText.length, lamma_preview: testText.slice(0, 200) });
+  } catch(e) {
+    return res.status(200).json({ ok: false, error: e.message, error_type: e.constructor.name });
+  }
+}
+
 if (action === 'cron_lamma') {
   // Cron 23:50 -- raccoglie dati LaMMA giornalieri e calcola bias
   try {

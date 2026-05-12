@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.69 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.70 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -1860,6 +1860,16 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   </div>
 </div>
 ```
+
+  <!-- BIAS STAZIONI -->
+  <div id="bias-section" style="margin:12px 20px 0">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;opacity:0.8">Stazioni Reali vs OM</div>
+      <button id="btn-bias-sample" class="btn-history" onclick="biasSample()">📡 Campiona ora</button>
+    </div>
+    <div id="bias-result"></div>
+    <div id="bias-history-display" style="margin-top:8px"></div>
+  </div>
 
   </div><!-- /engine -->
 
@@ -5147,7 +5157,95 @@ function togglePredictItem(idx) {
   el.style.display = 'block';
 }
 
-// Fine codice - NAUTILUS v5.6.69
+// -- BIAS STAZIONI -----------------------------------------------------------------------
+
+async function biasSample() {
+  const btn = document.getElementById('btn-bias-sample');
+  const out = document.getElementById('bias-result');
+  btn.disabled = true;
+  btn.textContent = '⏳ Campionamento...';
+  out.innerHTML = '';
+  try {
+    const r = await fetch(ENGINE_URL + '?action=scrape_stations');
+    const data = await r.json();
+    let html = '<div style="font-size:0.55rem;color:var(--muted);margin-bottom:6px">' +
+      new Date(data.ts).toLocaleString('it-IT') + '</div>';
+    for (const s of data.results) {
+      if (!s.ok || !s.sample.station) {
+        html += '<div style="font-size:0.6rem;color:var(--muted);margin-bottom:4px">📍 ' + s.name +
+          ': ' + (s.mnw_error || 'nessun dato') + '</div>';
+        continue;
+      }
+      const dw = s.sample.delta.wind_kt;
+      const dg = s.sample.delta.gust_kt;
+      const colW = dw === null ? 'var(--muted)' : Math.abs(dw) > 5 ? '#e07070' : '#6dbf6d';
+      const colG = dg === null ? 'var(--muted)' : Math.abs(dg) > 5 ? '#e07070' : '#6dbf6d';
+      html += '<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:6px;font-family:DM Mono,monospace;font-size:0.58rem">' +
+        '<div style="color:var(--accent);margin-bottom:4px">📍 ' + s.name + '</div>' +
+        '<table style="width:100%;border-collapse:collapse">' +
+        '<tr style="color:var(--muted)"><td></td><td>Stazione</td><td>OM</td><td>Δ</td></tr>' +
+        '<tr><td style="color:var(--muted)">Vento</td><td>' + (s.sample.station.wind_kt ?? '—') + ' kn</td>' +
+        '<td>' + (s.sample.om.wind_kt ?? '—') + ' kn</td>' +
+        '<td style="color:' + colW + '">' + (dw !== null ? (dw >= 0 ? '+' : '') + dw : '—') + '</td></tr>' +
+        '<tr><td style="color:var(--muted)">Raffica</td><td>' + (s.sample.station.gust_kt ?? '—') + ' kn</td>' +
+        '<td>' + (s.sample.om.gust_kt ?? '—') + ' kn</td>' +
+        '<td style="color:' + colG + '">' + (dg !== null ? (dg >= 0 ? '+' : '') + dg : '—') + '</td></tr>' +
+        '<tr><td style="color:var(--muted)">Dir.</td><td>' + (s.sample.station.direction ?? '—') + '°</td>' +
+        '<td>' + (s.sample.om.direction ?? '—') + '°</td><td>—</td></tr>' +
+        '<tr><td style="color:var(--muted)">Press.</td><td>' + (s.sample.station.pressure_mb ?? '—') + ' mb</td>' +
+        '<td>' + (s.sample.om.pressure_mb ?? '—') + ' mb</td><td>—</td></tr>' +
+        '</table></div>';
+    }
+    // Mostra statistiche se disponibili
+    if (data.stats) {
+      html += '<div style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--muted);margin-top:4px">';
+      for (const [sid, st] of Object.entries(data.stats)) {
+        if (!st || st.n_wind < 1) continue;
+        const sign = v => v >= 0 ? '+' : '';
+        html += '📊 ' + sid + ': Δ vento ' + sign(st.mean_delta_wind) + st.mean_delta_wind +
+          'kn, Δ raffica ' + sign(st.mean_delta_gust) + st.mean_delta_gust + 'kn (' + st.n_wind + ' campioni)<br>';
+      }
+      html += '</div>';
+    }
+    out.innerHTML = html;
+    biasLoadHistory();
+  } catch(e) {
+    out.innerHTML = '<div style="color:#e07070;font-size:0.6rem">Errore: ' + e.message + '</div>';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '📡 Campiona ora';
+  }
+}
+
+async function biasLoadHistory() {
+  const container = document.getElementById('bias-history-display');
+  const stations = [{id:'livorno',name:'Livorno'},{id:'canale_piombino',name:'Piombino'}];
+  let html = '';
+  for (const st of stations) {
+    const r = await fetch(ENGINE_URL + '?action=bias_history&station=' + st.id + '&limit=10');
+    const data = await r.json();
+    const valid = (data.samples || []).filter(s => s.delta && s.delta.wind_kt !== null);
+    if (!valid.length) continue;
+    html += '<div style="font-family:DM Mono,monospace;font-size:0.55rem;margin-bottom:6px">' +
+      '<div style="color:var(--accent);margin-bottom:3px">' + st.name + ' — ultimi campioni validi</div>' +
+      '<table style="width:100%;border-collapse:collapse;color:var(--text)">' +
+      '<tr style="color:var(--muted)"><td>Data/ora</td><td>Δ Vento</td><td>Δ Raffica</td><td>Dir.</td></tr>';
+    for (const s of valid.slice(0, 5)) {
+      const dw = s.delta.wind_kt;
+      const dg = s.delta.gust_kt;
+      const col = Math.abs(dw) > 5 ? '#e07070' : '#6dbf6d';
+      const dt = new Date(s.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+      html += '<tr><td>' + dt + '</td>' +
+        '<td style="color:' + col + '">' + (dw >= 0 ? '+' : '') + dw + '</td>' +
+        '<td>' + (dg !== null ? (dg >= 0 ? '+' : '') + dg : '—') + '</td>' +
+        '<td>' + (s.station.direction ?? '—') + '°</td></tr>';
+    }
+    html += '</table></div>';
+  }
+  container.innerHTML = html;
+}
+
+// Fine codice - NAUTILUS v5.6.70
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

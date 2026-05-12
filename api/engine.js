@@ -2958,17 +2958,24 @@ if (action === 'scrape_stations') {
       var scSt = scStations[scI];
       try {
         var scHtml = await fetch(scSt.url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NAUTILUS/1.0)' } }).then(function(r){ return r.text(); });
-        var scWindMatch  = scHtml.match(/(\d+\.?\d*)\s*kt[\s\S]{0,30}?\d+\s*km\/h/i);
-        var scDirMatch   = scHtml.match(/Wind direction[\s\S]{0,600}?>\s*(\d{1,3})\s*</i);
-        var scGustMatch  = scHtml.match(/(\d+\.?\d*)\s*Kt\s+at\s+([\d:]+\s*(?:am|pm))/i);
-        var scPressMatch = scHtml.match(/(\d{3,4}\.\d)\s*mb\s+(rising|falling|steady)/i);
+        var scWindMatch  = scHtml.match(/(\d+\.?\d*)\s*kt[\s\S]{0,300}?\d+\s*km\/h/i);
+        var scDirMatch   = scHtml.match(/Wind\s+direction[\s\S]{0,800}?>\s*(\d{1,3})\s*</i)
+                        || scHtml.match(/[Cc]ompass[\s\S]{0,300}?>\s*(\d{1,3})\s*</);
+        var scGustMatch  = scHtml.match(/(\d+\.?\d*)\s*[Kk]t\s+at\s+([\d:]+\s*(?:am|pm))/i);
+        var scPressMatch = scHtml.match(/(\d{3,4}\.\d)\s*mb\s+(rising|falling|steady)/i)
+                        || scHtml.match(/Barometer[\s\S]{0,50}?([\d]{3,4}\.[\d])\s*mb/i);
+        var scKtIdx = scHtml.indexOf('kt');
+        var scDebug = (!scWindMatch || !scDirMatch)
+          ? (scKtIdx > -1 ? scHtml.slice(Math.max(0,scKtIdx-50), scKtIdx+150).replace(/\s+/g,' ') : 'kt_not_found:len='+scHtml.length)
+          : undefined;
         var scStation = {
           wind_kt:        scWindMatch  ? parseFloat(scWindMatch[1])  : null,
           direction:      scDirMatch   ? parseInt(scDirMatch[1])     : null,
           gust_kt:        scGustMatch  ? parseFloat(scGustMatch[1])  : null,
           gust_time:      scGustMatch  ? scGustMatch[2].trim()       : null,
           pressure_mb:    scPressMatch ? parseFloat(scPressMatch[1]) : null,
-          pressure_trend: scPressMatch ? scPressMatch[2]             : null
+          pressure_trend: scPressMatch ? scPressMatch[2]             : null,
+          _debug:         scDebug
         };
         var scOmUrl = 'https://api.open-meteo.com/v1/forecast'
           + '?latitude=' + scSt.lat + '&longitude=' + scSt.lon

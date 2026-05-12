@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.96 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.97 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1411,10 +1411,10 @@ async function fetchMeteoNetwork(zoneKey, mnwToken) {
         'User-Agent': 'NAUTILUS/1.0 meteomarine-app'
       }
     });
-    if (!r.ok) return null;
+    if (!r.ok) return { _error: 'http_' + r.status };
     var d = await r.json();
-    if (!d) return null;
-    if (d.error) return null; // stazione senza licenza distribuzione
+    if (!d) return { _error: 'no_data' };
+    if (d.error) return { _error: 'api_error:' + JSON.stringify(d.error) }; // stazione senza licenza distribuzione
     // Gestisci tutte le strutture possibili: array, {data:...}, oggetto diretto
     var data = null;
     if (Array.isArray(d) && d.length > 0) data = d[0];
@@ -2965,7 +2965,9 @@ if (action === 'scrape_stations') {
       var bsSt = bsStations[bsI];
       try {
         if (bsI > 0) await new Promise(function(r){ setTimeout(r, 1500); });
-        var bsMnw = await fetchMeteoNetwork(bsSt.mnwKey, bsToken);
+        var bsMnwRaw = await fetchMeteoNetwork(bsSt.mnwKey, bsToken);
+        var bsMnwErr = (bsMnwRaw && bsMnwRaw._error) ? bsMnwRaw._error : null;
+        var bsMnw = (bsMnwRaw && !bsMnwRaw._error) ? bsMnwRaw : null;
         var bsOmUrl = 'https://api.open-meteo.com/v1/forecast'
           + '?latitude=' + bsSt.lat + '&longitude=' + bsSt.lon
           + '&current=wind_speed_10m,wind_gusts_10m,wind_direction_10m,surface_pressure'
@@ -3002,7 +3004,7 @@ if (action === 'scrape_stations') {
         bsList.unshift(bsSample);
         if (bsList.length > 100) bsList.length = 100;
         await kvSet(bsKey, bsList, 31536000, kvUrl, kvToken);
-        bsResults.push({ id: bsSt.id, name: bsSt.name, ok: !!bsStation, sample: bsSample });
+        bsResults.push({ id: bsSt.id, name: bsSt.name, ok: !!bsStation, mnw_error: bsMnwErr || undefined, sample: bsSample });
       } catch(bsE) {
         bsResults.push({ id: bsSt.id, name: bsSt.name, ok: false, error: bsE.message });
       }
@@ -3054,7 +3056,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.96 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.97 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -3178,4 +3180,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.96
+// Fine codice - NAUTILUS ENGINE v2.9.97

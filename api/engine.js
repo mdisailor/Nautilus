@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.93 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.96 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1228,13 +1228,8 @@ for (var hi = 0; hi < horizons.length; hi = hi + 1) {
 var h = horizons[hi];
 var pastTime = new Date(now.getTime() - h * 3600000);
 // Calcola ora corretta Europe/Rome per la chiave
-var pastRomeStr = pastTime.toLocaleString('en-CA', {
-  timeZone: 'Europe/Rome', year:'numeric', month:'2-digit', day:'2-digit',
-  hour:'2-digit', minute:'2-digit', hour12: false
-});
-var pastRomeM = pastRomeStr.match(/([0-9]{4})-([0-9]{2})-([0-9]{2}), ([0-9]{2}):([0-9]{2})/) ||
-                pastRomeStr.match(/([0-9]{4})-([0-9]{2})-([0-9]{2}),([0-9]{2}):([0-9]{2})/);
-var pastRomeHour = pastRomeM ? pastRomeM[1]+'-'+pastRomeM[2]+'-'+pastRomeM[3]+'T'+pastRomeM[4] : pastTime.toISOString().slice(0,13);
+var pastRomeHour = pastTime.toLocaleString('sv-SE', {timeZone:'Europe/Rome'})
+  .replace(' ','T').slice(0,13).replace(':','-');
 // Prova tutti i 4 slot da 15 minuti dell'ora passata
 var forecast = null;
 var slots15 = ['00','15','30','45'];
@@ -1395,12 +1390,12 @@ async function getNeighborSnapshots(zoneKey, kvUrl, kvToken) {
 // MeteoNetwork -- solo stazioni con licenza distribuzione verificata
 // Testare con: curl data-realtime/CODICE -- se risponde [{observation_time...}] e ok
 var MNW_STATIONS = {
-  canale_piombino: 'tsc228'
+  canale_piombino: 'tsc228',
+  capraia:         'tsc578',
+  elba_nord:       'tsc621',
+  viareggio:       'tsc431'
   // tsc265 Livorno: licenza revocata 28/04
   // tsc508 Viareggio: no licenza
-  // tsc578 Capraia: da verificare
-  // tsc621 Elba Nord: da verificare
-  // tsc431 Marina di Pisa: da verificare
   // tsc587 Giglio: da verificare
 };
 
@@ -1722,7 +1717,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.93', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.96', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -1751,6 +1746,39 @@ if (action === 'lamma_test') {
   }
 }
 
+
+if (action === 'mnw_test') {
+  // Testa tutte le stazioni MNW e restituisce risultato diretto
+  var mnwTestToken = process.env.METEONETWORK_TOKEN || '';
+  if (!mnwTestToken) return res.status(200).json({ error: 'METEONETWORK_TOKEN non configurato' });
+  try {
+    var mnwResults = {};
+    var mnwKeys = Object.keys(MNW_STATIONS);
+    for (var mki = 0; mki < mnwKeys.length; mki++) {
+      var mkZone = mnwKeys[mki];
+      var mkCode = MNW_STATIONS[mkZone];
+      try {
+        var mkUrl = 'https://api.meteonetwork.it/v3/data-realtime/' + mkCode;
+        var mkRes = await fetch(mkUrl, { headers: { 'Authorization': 'Bearer ' + mnwTestToken, 'User-Agent': 'NAUTILUS/1.0' } });
+        var mkStatus = mkRes.status;
+        if (mkRes.ok) {
+          var mkData = await mkRes.json();
+          var mkObs = Array.isArray(mkData) ? mkData[0] : mkData;
+          mnwResults[mkZone] = { code: mkCode, status: mkStatus, ok: true,
+            wind_speed: mkObs ? mkObs.wind_speed : null,
+            wind_dir: mkObs ? mkObs.wind_direction : null,
+            pressure: mkObs ? mkObs.pressure : null,
+            time: mkObs ? mkObs.observation_time : null };
+        } else {
+          mnwResults[mkZone] = { code: mkCode, status: mkStatus, ok: false };
+        }
+      } catch(mke) {
+        mnwResults[mkZone] = { code: mkCode, ok: false, error: mke.message };
+      }
+    }
+    return res.status(200).json({ ok: true, results: mnwResults });
+  } catch(e) { return res.status(500).json({ error: e.message }); }
+}
 
 if (action === 'cron_lamma') {
   // Cron 23:50 -- raccoglie dati LaMMA giornalieri e calcola bias
@@ -2944,7 +2972,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.93 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.96 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -3068,4 +3096,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.93
+// Fine codice - NAUTILUS ENGINE v2.9.96

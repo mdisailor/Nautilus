@@ -1390,11 +1390,12 @@ async function getNeighborSnapshots(zoneKey, kvUrl, kvToken) {
 // MeteoNetwork -- solo stazioni con licenza distribuzione verificata
 // Testare con: curl data-realtime/CODICE -- se risponde [{observation_time...}] e ok
 var MNW_STATIONS = {
+  livorno:         'tsc265',
   canale_piombino: 'tsc228',
   capraia:         'tsc578',
   elba_nord:       'tsc621',
   viareggio:       'tsc431'
-  // tsc265 Livorno: licenza revocata 28/04
+  // tsc265 Livorno: licenza revocata 28/04 - API potrebbe rispondere lo stesso
   // tsc508 Viareggio: no licenza
   // tsc587 Giglio: da verificare
 };
@@ -2952,6 +2953,7 @@ if (action === 'scrape_stations') {
   try {
     var bsToken = process.env.METEONETWORK_TOKEN || '';
     var bsStations = [
+      { id: 'livorno',         name: 'Livorno',   mnwKey: 'livorno',         lat: 43.548, lon: 10.311 },
       { id: 'canale_piombino', name: 'Piombino',  mnwKey: 'canale_piombino', lat: 42.920, lon: 10.530 },
       { id: 'capraia',         name: 'Capraia',   mnwKey: 'capraia',         lat: 43.053, lon: 9.838  },
       { id: 'elba_nord',       name: 'Elba Nord', mnwKey: 'elba_nord',       lat: 42.850, lon: 10.320 },
@@ -2962,6 +2964,7 @@ if (action === 'scrape_stations') {
     for (var bsI = 0; bsI < bsStations.length; bsI++) {
       var bsSt = bsStations[bsI];
       try {
+        if (bsI > 0) await new Promise(function(r){ setTimeout(r, 1500); });
         var bsMnw = await fetchMeteoNetwork(bsSt.mnwKey, bsToken);
         var bsOmUrl = 'https://api.open-meteo.com/v1/forecast'
           + '?latitude=' + bsSt.lat + '&longitude=' + bsSt.lon

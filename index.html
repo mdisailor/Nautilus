@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.70 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.71 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -37,6 +37,7 @@ body::before { content: ''; position: fixed; inset: 0; background: radial-gradie
 .wave:nth-child(2) { bottom: 35px; animation: wavemove 13s linear infinite reverse; opacity: 0.6; }
 .wave:nth-child(3) { bottom: 55px; animation: wavemove 18s linear infinite; opacity: 0.35; }
 @keyframes wavemove { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+@keyframes spin { to { transform: rotate(360deg); } }
 
 #app { position: relative; z-index: 1; max-width: 780px; margin: 0 auto; padding: 0 0 90px; min-height: 100vh; }
 
@@ -1863,10 +1864,14 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
   <!-- BIAS STAZIONI -->
   <div id="bias-section" style="margin:12px 20px 0">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-      <div style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;opacity:0.8">Stazioni Reali vs OM</div>
-      <button id="btn-bias-sample" class="btn-history" onclick="biasSample()">📡 Campiona ora</button>
+    <div style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;opacity:0.8;margin-bottom:8px">Stazioni Reali vs OM</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+      <button class="btn-history" onclick="biasSample('livorno')">📡 Quercianella</button>
+      <button class="btn-history" onclick="biasSample('canale_piombino')">📡 Piombino</button>
+      <button class="btn-history" onclick="biasSample('elba_nord')">📡 Elba Nord</button>
+      <button class="btn-history" onclick="biasSample('viareggio')">📡 Viareggio</button>
     </div>
+    <div id="bias-status" style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--muted);min-height:14px;margin-bottom:4px"></div>
     <div id="bias-result"></div>
     <div id="bias-history-display" style="margin-top:8px"></div>
   </div>
@@ -5159,14 +5164,15 @@ function togglePredictItem(idx) {
 
 // -- BIAS STAZIONI -----------------------------------------------------------------------
 
-async function biasSample() {
-  const btn = document.getElementById('btn-bias-sample');
+async function biasSample(stationId) {
   const out = document.getElementById('bias-result');
-  btn.disabled = true;
-  btn.textContent = '⏳ Campionamento...';
+  const status = document.getElementById('bias-status');
+  document.querySelectorAll('#bias-section .btn-history').forEach(b => b.disabled = true);
+  status.textContent = 'Campionando...';
   out.innerHTML = '';
+
   try {
-    const r = await fetch(ENGINE_URL + '?action=scrape_stations');
+    const r = await fetch(ENGINE_URL + '?action=scrape_stations&station=' + stationId);
     const data = await r.json();
     let html = '<div style="font-size:0.55rem;color:var(--muted);margin-bottom:6px">' +
       new Date(data.ts).toLocaleString('it-IT') + '</div>';
@@ -5245,7 +5251,7 @@ async function biasLoadHistory() {
   container.innerHTML = html;
 }
 
-// Fine codice - NAUTILUS v5.6.70
+// Fine codice - NAUTILUS v5.6.71
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

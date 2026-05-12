@@ -2945,6 +2945,84 @@ if (action === 'grid') {
   }
 }
 
+// /api/engine?action=scrape_stations - scrape livornometeo e capraiameteo, confronta con OM corrente
+if (action === 'scrape_stations') {
+  try {
+    var scStations = [
+      { id: 'livorno', name: 'Livorno', url: 'https://www.livornometeo.it', lat: 43.548, lon: 10.311 },
+      { id: 'capraia', name: 'Capraia', url: 'https://www.capraiameteo.it', lat: 43.053, lon: 9.838 }
+    ];
+    var scTs = new Date().toISOString();
+    var scResults = [];
+    for (var scI = 0; scI < scStations.length; scI++) {
+      var scSt = scStations[scI];
+      try {
+        var scHtml = await fetch(scSt.url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NAUTILUS/1.0)' } }).then(function(r){ return r.text(); });
+        var scWindMatch  = scHtml.match(/(\d+\.?\d*)\s*kt[\s\S]{0,30}?\d+\s*km\/h/i);
+        var scDirMatch   = scHtml.match(/Wind direction[\s\S]{0,600}?>\s*(\d{1,3})\s*</i);
+        var scGustMatch  = scHtml.match(/(\d+\.?\d*)\s*Kt\s+at\s+([\d:]+\s*(?:am|pm))/i);
+        var scPressMatch = scHtml.match(/(\d{3,4}\.\d)\s*mb\s+(rising|falling|steady)/i);
+        var scStation = {
+          wind_kt:        scWindMatch  ? parseFloat(scWindMatch[1])  : null,
+          direction:      scDirMatch   ? parseInt(scDirMatch[1])     : null,
+          gust_kt:        scGustMatch  ? parseFloat(scGustMatch[1])  : null,
+          gust_time:      scGustMatch  ? scGustMatch[2].trim()       : null,
+          pressure_mb:    scPressMatch ? parseFloat(scPressMatch[1]) : null,
+          pressure_trend: scPressMatch ? scPressMatch[2]             : null
+        };
+        var scOmUrl = 'https://api.open-meteo.com/v1/forecast'
+          + '?latitude=' + scSt.lat + '&longitude=' + scSt.lon
+          + '&current=wind_speed_10m,wind_gusts_10m,wind_direction_10m,surface_pressure'
+          + '&wind_speed_unit=kn';
+        var scOmJson = await fetch(scOmUrl).then(function(r){ return r.json(); });
+        var scOm = {
+          wind_kt:     scOmJson.current ? Math.round(scOmJson.current.wind_speed_10m * 10) / 10 : null,
+          gust_kt:     scOmJson.current ? Math.round(scOmJson.current.wind_gusts_10m * 10) / 10 : null,
+          direction:   scOmJson.current ? scOmJson.current.wind_direction_10m : null,
+          pressure_mb: scOmJson.current ? Math.round(scOmJson.current.surface_pressure * 10) / 10 : null
+        };
+        var scSample = {
+          ts: scTs,
+          station: scStation,
+          om: scOm,
+          delta: {
+            wind_kt: (scStation.wind_kt != null && scOm.wind_kt != null)
+              ? Math.round((scStation.wind_kt - scOm.wind_kt) * 10) / 10 : null,
+            gust_kt: (scStation.gust_kt != null && scOm.gust_kt != null)
+              ? Math.round((scStation.gust_kt - scOm.gust_kt) * 10) / 10 : null
+          }
+        };
+        var scKey = 'bias_samples:' + scSt.id;
+        var scExisting = await kvGet(scKey, kvUrl, kvToken);
+        var scList = Array.isArray(scExisting) ? scExisting : [];
+        scList.unshift(scSample);
+        if (scList.length > 100) scList.length = 100;
+        await kvSet(scKey, scList, 31536000, kvUrl, kvToken);
+        scResults.push({ id: scSt.id, name: scSt.name, ok: true, sample: scSample });
+      } catch(scE) {
+        scResults.push({ id: scSt.id, name: scSt.name, ok: false, error: scE.message });
+      }
+    }
+    return res.status(200).json({ ts: scTs, results: scResults });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+// /api/engine?action=bias_history&station=livorno&limit=20
+if (action === 'bias_history') {
+  try {
+    var bhStation = req.query.station || 'livorno';
+    var bhLimit = Math.min(parseInt(req.query.limit || '20'), 100);
+    var bhKey = 'bias_samples:' + bhStation;
+    var bhList = await kvGet(bhKey, kvUrl, kvToken);
+    var bhSamples = Array.isArray(bhList) ? bhList.slice(0, bhLimit) : [];
+    return res.status(200).json({ station: bhStation, samples: bhSamples });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
 if (action === 'zones') {
 var list = Object.keys(ZONES).filter(function(k) {
 return ZONES[k].enabled !== false;

@@ -2969,10 +2969,15 @@ if (action === 'scrape_stations') {
         var scGustMatch  = scHtmlClean.match(/(\d+\.?\d*)\s*[Kk]t\s+at\s+([\d:]+\s*(?:am|pm))/i);
         var scPressMatch = scHtmlClean.match(/(\d{3,4}\.\d)\s*mb\s+(rising|falling|steady)/i)
                         || scHtmlClean.match(/Barometer[\s\S]{0,50}?([\d]{3,4}\.[\d])\s*mb/i);
-        var scKtIdx = scHtmlClean.indexOf('kt');
-        var scDebug = (!scWindMatch || !scDirMatch)
-          ? (scKtIdx > -1 ? scHtmlClean.slice(Math.max(0,scKtIdx-50), scKtIdx+150).replace(/\s+/g,' ') : 'kt_not_found:len='+scHtmlClean.length)
-          : undefined;
+        var scKtIdx = scHtmlClean.indexOf('Kt');
+        var scKmhIdx = scHtmlClean.indexOf('km/h');
+        var scWindDirIdx = scHtmlClean.indexOf('Wind');
+        var scDebug = (!scWindMatch || !scDirMatch) ? {
+          kmh_ctx:   scKmhIdx   > -1 ? scHtmlClean.slice(Math.max(0,scKmhIdx-150),  scKmhIdx+50).replace(/\s+/g,' ')  : 'kmh_not_found',
+          wind_ctx:  scWindDirIdx > -1 ? scHtmlClean.slice(scWindDirIdx, scWindDirIdx+300).replace(/\s+/g,' ') : 'Wind_not_found',
+          kt_ctx:    scKtIdx   > -1 ? scHtmlClean.slice(Math.max(0,scKtIdx-50),    scKtIdx+100).replace(/\s+/g,' ')   : 'Kt_not_found',
+          clean_len: scHtmlClean.length
+        } : undefined;
         var scStation = {
           wind_kt:        scWindMatch  ? parseFloat(scWindMatch[1])  : null,
           direction:      scDirMatch   ? parseInt(scDirMatch[1])     : null,

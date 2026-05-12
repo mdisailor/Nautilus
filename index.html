@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.71 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.72 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -5218,8 +5218,8 @@ async function biasSample(stationId) {
   } catch(e) {
     out.innerHTML = '<div style="color:#e07070;font-size:0.6rem">Errore: ' + e.message + '</div>';
   } finally {
-    btn.disabled = false;
-    btn.textContent = '📡 Campiona ora';
+    document.querySelectorAll('#bias-section .btn-history').forEach(function(b){ b.disabled = false; });
+    status.textContent = '';
   }
 }
 
@@ -5251,7 +5251,7 @@ async function biasLoadHistory() {
   container.innerHTML = html;
 }
 
-// Fine codice - NAUTILUS v5.6.71
+// Fine codice - NAUTILUS v5.6.72
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

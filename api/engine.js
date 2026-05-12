@@ -2949,7 +2949,7 @@ if (action === 'grid') {
 if (action === 'scrape_stations') {
   try {
     var scStations = [
-      { id: 'livorno', name: 'Livorno', url: 'https://www.livornometeo.it', lat: 43.548, lon: 10.311 },
+        { id: 'livorno', name: 'Livorno', url: 'https://www.livornometeo.it', lat: 43.548, lon: 10.311 },
       { id: 'capraia', name: 'Capraia', url: 'https://www.capraiameteo.it', lat: 43.053, lon: 9.838 }
     ];
     var scTs = new Date().toISOString();
@@ -2957,16 +2957,21 @@ if (action === 'scrape_stations') {
     for (var scI = 0; scI < scStations.length; scI++) {
       var scSt = scStations[scI];
       try {
-        var scHtml = await fetch(scSt.url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NAUTILUS/1.0)' } }).then(function(r){ return r.text(); });
-        var scWindMatch  = scHtml.match(/(\d+\.?\d*)\s*kt[\s\S]{0,300}?\d+\s*km\/h/i);
-        var scDirMatch   = scHtml.match(/Wind\s+direction[\s\S]{0,800}?>\s*(\d{1,3})\s*</i)
-                        || scHtml.match(/[Cc]ompass[\s\S]{0,300}?>\s*(\d{1,3})\s*</);
-        var scGustMatch  = scHtml.match(/(\d+\.?\d*)\s*[Kk]t\s+at\s+([\d:]+\s*(?:am|pm))/i);
-        var scPressMatch = scHtml.match(/(\d{3,4}\.\d)\s*mb\s+(rising|falling|steady)/i)
-                        || scHtml.match(/Barometer[\s\S]{0,50}?([\d]{3,4}\.[\d])\s*mb/i);
-        var scKtIdx = scHtml.indexOf('kt');
+        var scFetchHeaders = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'Accept-Language': 'it-IT,it;q=0.9,en;q=0.8' };
+        var scHtml = await fetch(scSt.url, { headers: scFetchHeaders, redirect: 'follow' }).then(function(r){ return r.text(); });
+        // Wind speed: cerca numero+kt fuori dai commenti HTML e fuori dal pattern raffica (Kt at TIME)
+        // Rimuove commenti HTML prima di cercare
+        var scHtmlClean = scHtml.replace(/<!--[\s\S]*?-->/g, '');
+        var scWindMatch  = scHtmlClean.match(/(\d+\.?\d*)\s*kt[\s\S]{0,500}?\d+\s*km\/h/i)
+                        || scHtmlClean.match(/(\d+\.?\d*)\s*kt(?!\s{0,5}at\b)/i);
+        var scDirMatch   = scHtmlClean.match(/Wind\s+direction[\s\S]{0,800}?>\s*(\d{1,3})\s*</i)
+                        || scHtmlClean.match(/[Cc]ompass[\s\S]{0,300}?>\s*(\d{1,3})\s*</);
+        var scGustMatch  = scHtmlClean.match(/(\d+\.?\d*)\s*[Kk]t\s+at\s+([\d:]+\s*(?:am|pm))/i);
+        var scPressMatch = scHtmlClean.match(/(\d{3,4}\.\d)\s*mb\s+(rising|falling|steady)/i)
+                        || scHtmlClean.match(/Barometer[\s\S]{0,50}?([\d]{3,4}\.[\d])\s*mb/i);
+        var scKtIdx = scHtmlClean.indexOf('kt');
         var scDebug = (!scWindMatch || !scDirMatch)
-          ? (scKtIdx > -1 ? scHtml.slice(Math.max(0,scKtIdx-50), scKtIdx+150).replace(/\s+/g,' ') : 'kt_not_found:len='+scHtml.length)
+          ? (scKtIdx > -1 ? scHtmlClean.slice(Math.max(0,scKtIdx-50), scKtIdx+150).replace(/\s+/g,' ') : 'kt_not_found:len='+scHtmlClean.length)
           : undefined;
         var scStation = {
           wind_kt:        scWindMatch  ? parseFloat(scWindMatch[1])  : null,

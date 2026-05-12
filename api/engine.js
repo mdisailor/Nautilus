@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.97 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.99 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1284,6 +1284,35 @@ if (!kvUrl || !kvToken) return null;
 return await kvGet('bias:' + zoneKey, kvUrl, kvToken);
 }
 
+// Calcola statistiche bias stazione reale vs OM dai campioni raccolti
+async function biasComputeStations(kvUrl, kvToken) {
+  var stations = ['livorno', 'canale_piombino'];
+  var results = {};
+  for (var si = 0; si < stations.length; si++) {
+    var sid = stations[si];
+    try {
+      var samples = await kvGet('bias_samples:' + sid, kvUrl, kvToken);
+      if (!Array.isArray(samples) || samples.length === 0) { results[sid] = null; continue; }
+      var validWind = samples.filter(function(s){ return s.delta && s.delta.wind_kt !== null; });
+      var validGust = samples.filter(function(s){ return s.delta && s.delta.gust_kt !== null; });
+      var meanDeltaWind = validWind.length > 0
+        ? Math.round(validWind.reduce(function(a,s){ return a + s.delta.wind_kt; }, 0) / validWind.length * 10) / 10 : null;
+      var meanDeltaGust = validGust.length > 0
+        ? Math.round(validGust.reduce(function(a,s){ return a + s.delta.gust_kt; }, 0) / validGust.length * 10) / 10 : null;
+      var stats = {
+        n: samples.length,
+        n_wind: validWind.length,
+        mean_delta_wind: meanDeltaWind,
+        mean_delta_gust: meanDeltaGust,
+        last_updated: new Date().toISOString()
+      };
+      await kvSet('bias_stats:' + sid, stats, 31536000, kvUrl, kvToken);
+      results[sid] = stats;
+    } catch(e) { results[sid] = null; }
+  }
+  return results;
+}
+
 function applyBias(forecast, bias) {
 if (!bias || bias.samples < 10) return forecast;
 var corrected = JSON.parse(JSON.stringify(forecast));
@@ -1718,7 +1747,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.96', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.99', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -2368,6 +2397,8 @@ if (action === 'predict') {
     // Get last 14 days of snapshots
     var snapshots14 = await getWindHistory(zoneKey, kvUrl, kvToken, req.query.fast === '1' ? 48 : 336); // fast=48h(96 GET), full=14days(672 GET)
     var bias = await getBias(zoneKey, kvUrl, kvToken);
+    var biasStatLivorno = await kvGet('bias_stats:livorno', kvUrl, kvToken);
+    var biasStatPiombino = await kvGet('bias_stats:canale_piombino', kvUrl, kvToken);
     var rotation = analyzeWindRotation(snapshots14.slice(0, 24)); // rotation from last 24h
 
     // Get current conditions
@@ -2487,6 +2518,24 @@ if (action === 'predict') {
       pLines.push('- MAE vento: ' + bias.wind_mae.toFixed(1) + 'kn');
     } else {
       pLines.push('- Dati insufficienti per bias affidabile');
+    }
+    // Bias stazione reale vs Open-Meteo
+    var bsLiv = biasStatLivorno;
+    var bsPio = biasStatPiombino;
+    if ((bsLiv && bsLiv.n_wind >= 3) || (bsPio && bsPio.n_wind >= 3)) {
+      pLines.push('');
+      pLines.push('BIAS STAZIONE REALE vs Open-Meteo (rilevato da stazioni MeteoNetwork):');
+      if (bsLiv && bsLiv.n_wind >= 3) {
+        var signW = bsLiv.mean_delta_wind >= 0 ? '+' : '';
+        var signG = bsLiv.mean_delta_gust >= 0 ? '+' : '';
+        pLines.push('- Livorno (' + bsLiv.n_wind + ' campioni): vento reale ' + signW + bsLiv.mean_delta_wind + 'kn rispetto a OM, raffiche ' + signG + bsLiv.mean_delta_gust + 'kn');
+      }
+      if (bsPio && bsPio.n_wind >= 3) {
+        var signWp = bsPio.mean_delta_wind >= 0 ? '+' : '';
+        var signGp = bsPio.mean_delta_gust >= 0 ? '+' : '';
+        pLines.push('- Piombino (' + bsPio.n_wind + ' campioni): vento reale ' + signWp + bsPio.mean_delta_wind + 'kn rispetto a OM, raffiche ' + signGp + bsPio.mean_delta_gust + 'kn');
+      }
+      pLines.push('- NOTA: correggi le previsioni OM tenendo conto di questi delta sistematici.');
     }
     if (similarCases.length > 0) {
       pLines.push('');
@@ -2947,17 +2996,14 @@ if (action === 'grid') {
 }
 
 // /api/engine?action=scrape_stations - campiona stazioni MeteoNetwork e confronta con OM
-// Stazioni: canale_piombino (tsc228), capraia (tsc578), elba_nord (tsc621), viareggio (tsc431)
-// Livorno tsc265: licenza revocata 28/04
+// Stazioni attive: livorno (tsc265), canale_piombino (tsc228)
+// Capraia tsc578: no licenza — Elba tsc621, Viareggio tsc431: rate limit
 if (action === 'scrape_stations') {
   try {
     var bsToken = process.env.METEONETWORK_TOKEN || '';
     var bsStations = [
-      { id: 'livorno',         name: 'Livorno',   mnwKey: 'livorno',         lat: 43.548, lon: 10.311 },
-      { id: 'canale_piombino', name: 'Piombino',  mnwKey: 'canale_piombino', lat: 42.920, lon: 10.530 },
-      { id: 'capraia',         name: 'Capraia',   mnwKey: 'capraia',         lat: 43.053, lon: 9.838  },
-      { id: 'elba_nord',       name: 'Elba Nord', mnwKey: 'elba_nord',       lat: 42.850, lon: 10.320 },
-      { id: 'viareggio',       name: 'Viareggio', mnwKey: 'viareggio',       lat: 43.870, lon: 10.230 }
+      { id: 'livorno',         name: 'Livorno',  mnwKey: 'livorno',         lat: 43.548, lon: 10.311 },
+      { id: 'canale_piombino', name: 'Piombino', mnwKey: 'canale_piombino', lat: 42.920, lon: 10.530 }
     ];
     var bsTs = new Date().toISOString();
     var bsResults = [];
@@ -3009,7 +3055,8 @@ if (action === 'scrape_stations') {
         bsResults.push({ id: bsSt.id, name: bsSt.name, ok: false, error: bsE.message });
       }
     }
-    return res.status(200).json({ ts: bsTs, results: bsResults });
+    var bsStats = await biasComputeStations(kvUrl, kvToken);
+    return res.status(200).json({ ts: bsTs, results: bsResults, stats: bsStats });
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }
@@ -3056,7 +3103,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.97 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.99 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -3180,4 +3227,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.97
+// Fine codice - NAUTILUS ENGINE v2.9.99

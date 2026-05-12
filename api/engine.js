@@ -2945,82 +2945,66 @@ if (action === 'grid') {
   }
 }
 
-// /api/engine?action=scrape_stations - scrape livornometeo e capraiameteo, confronta con OM corrente
+// /api/engine?action=scrape_stations - campiona stazioni MeteoNetwork e confronta con OM
+// Stazioni: canale_piombino (tsc228), capraia (tsc578), elba_nord (tsc621), viareggio (tsc431)
+// Livorno tsc265: licenza revocata 28/04
 if (action === 'scrape_stations') {
   try {
-    var scStations = [
-        { id: 'livorno', name: 'Livorno', url: 'https://www.livornometeo.it', lat: 43.548, lon: 10.311 },
-      { id: 'capraia', name: 'Capraia', url: 'https://www.capraiameteo.it', lat: 43.053, lon: 9.838 }
+    var bsToken = process.env.METEONETWORK_TOKEN || '';
+    var bsStations = [
+      { id: 'canale_piombino', name: 'Piombino',  mnwKey: 'canale_piombino', lat: 42.920, lon: 10.530 },
+      { id: 'capraia',         name: 'Capraia',   mnwKey: 'capraia',         lat: 43.053, lon: 9.838  },
+      { id: 'elba_nord',       name: 'Elba Nord', mnwKey: 'elba_nord',       lat: 42.850, lon: 10.320 },
+      { id: 'viareggio',       name: 'Viareggio', mnwKey: 'viareggio',       lat: 43.870, lon: 10.230 }
     ];
-    var scTs = new Date().toISOString();
-    var scResults = [];
-    for (var scI = 0; scI < scStations.length; scI++) {
-      var scSt = scStations[scI];
+    var bsTs = new Date().toISOString();
+    var bsResults = [];
+    for (var bsI = 0; bsI < bsStations.length; bsI++) {
+      var bsSt = bsStations[bsI];
       try {
-        var scFetchHeaders = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'Accept-Language': 'it-IT,it;q=0.9,en;q=0.8' };
-        var scHtml = await fetch(scSt.url, { headers: scFetchHeaders, redirect: 'follow' }).then(function(r){ return r.text(); });
-        // Wind speed: cerca numero+kt fuori dai commenti HTML e fuori dal pattern raffica (Kt at TIME)
-        // Rimuove commenti HTML prima di cercare
-        var scHtmlClean = scHtml.replace(/<!--[\s\S]*?-->/g, '');
-        var scWindMatch  = scHtmlClean.match(/(\d+\.?\d*)\s*kt[\s\S]{0,500}?\d+\s*km\/h/i)
-                        || scHtmlClean.match(/(\d+\.?\d*)\s*kt(?!\s{0,5}at\b)/i);
-        var scDirMatch   = scHtmlClean.match(/Wind\s+direction[\s\S]{0,800}?>\s*(\d{1,3})\s*</i)
-                        || scHtmlClean.match(/[Cc]ompass[\s\S]{0,300}?>\s*(\d{1,3})\s*</);
-        var scGustMatch  = scHtmlClean.match(/(\d+\.?\d*)\s*[Kk]t\s+at\s+([\d:]+\s*(?:am|pm))/i);
-        var scPressMatch = scHtmlClean.match(/(\d{3,4}\.\d)\s*mb\s+(rising|falling|steady)/i)
-                        || scHtmlClean.match(/Barometer[\s\S]{0,50}?([\d]{3,4}\.[\d])\s*mb/i);
-        var scKtIdx = scHtmlClean.indexOf('Kt');
-        var scKmhIdx = scHtmlClean.indexOf('km/h');
-        var scWindDirIdx = scHtmlClean.indexOf('Wind');
-        var scDebug = (!scWindMatch || !scDirMatch) ? {
-          kmh_ctx:   scKmhIdx   > -1 ? scHtmlClean.slice(Math.max(0,scKmhIdx-150),  scKmhIdx+50).replace(/\s+/g,' ')  : 'kmh_not_found',
-          wind_ctx:  scWindDirIdx > -1 ? scHtmlClean.slice(scWindDirIdx, scWindDirIdx+300).replace(/\s+/g,' ') : 'Wind_not_found',
-          kt_ctx:    scKtIdx   > -1 ? scHtmlClean.slice(Math.max(0,scKtIdx-50),    scKtIdx+100).replace(/\s+/g,' ')   : 'Kt_not_found',
-          clean_len: scHtmlClean.length
-        } : undefined;
-        var scStation = {
-          wind_kt:        scWindMatch  ? parseFloat(scWindMatch[1])  : null,
-          direction:      scDirMatch   ? parseInt(scDirMatch[1])     : null,
-          gust_kt:        scGustMatch  ? parseFloat(scGustMatch[1])  : null,
-          gust_time:      scGustMatch  ? scGustMatch[2].trim()       : null,
-          pressure_mb:    scPressMatch ? parseFloat(scPressMatch[1]) : null,
-          pressure_trend: scPressMatch ? scPressMatch[2]             : null,
-          _debug:         scDebug
-        };
-        var scOmUrl = 'https://api.open-meteo.com/v1/forecast'
-          + '?latitude=' + scSt.lat + '&longitude=' + scSt.lon
+        var bsMnw = await fetchMeteoNetwork(bsSt.mnwKey, bsToken);
+        var bsOmUrl = 'https://api.open-meteo.com/v1/forecast'
+          + '?latitude=' + bsSt.lat + '&longitude=' + bsSt.lon
           + '&current=wind_speed_10m,wind_gusts_10m,wind_direction_10m,surface_pressure'
           + '&wind_speed_unit=kn';
-        var scOmJson = await fetch(scOmUrl).then(function(r){ return r.json(); });
-        var scOm = {
-          wind_kt:     scOmJson.current ? Math.round(scOmJson.current.wind_speed_10m * 10) / 10 : null,
-          gust_kt:     scOmJson.current ? Math.round(scOmJson.current.wind_gusts_10m * 10) / 10 : null,
-          direction:   scOmJson.current ? scOmJson.current.wind_direction_10m : null,
-          pressure_mb: scOmJson.current ? Math.round(scOmJson.current.surface_pressure * 10) / 10 : null
+        var bsOmJson = await fetch(bsOmUrl).then(function(r){ return r.json(); });
+        var bsOm = {
+          wind_kt:     bsOmJson.current ? Math.round(bsOmJson.current.wind_speed_10m  * 10) / 10 : null,
+          gust_kt:     bsOmJson.current ? Math.round(bsOmJson.current.wind_gusts_10m  * 10) / 10 : null,
+          direction:   bsOmJson.current ? bsOmJson.current.wind_direction_10m : null,
+          pressure_mb: bsOmJson.current ? Math.round(bsOmJson.current.surface_pressure * 10) / 10 : null
         };
-        var scSample = {
-          ts: scTs,
-          station: scStation,
-          om: scOm,
-          delta: {
-            wind_kt: (scStation.wind_kt != null && scOm.wind_kt != null)
-              ? Math.round((scStation.wind_kt - scOm.wind_kt) * 10) / 10 : null,
-            gust_kt: (scStation.gust_kt != null && scOm.gust_kt != null)
-              ? Math.round((scStation.gust_kt - scOm.gust_kt) * 10) / 10 : null
-          }
+        var bsStation = bsMnw ? {
+          wind_kt:     bsMnw.wind_speed_mnw,
+          direction:   bsMnw.wind_dir_mnw,
+          gust_kt:     bsMnw.wind_gust_mnw,
+          pressure_mb: bsMnw.pressure_mnw,
+          ts_station:  bsMnw.ts_mnw,
+          source:      'meteonetwork'
+        } : null;
+        var bsSample = {
+          ts: bsTs,
+          station: bsStation,
+          om: bsOm,
+          delta: bsStation ? {
+            wind_kt: (bsStation.wind_kt != null && bsOm.wind_kt != null)
+              ? Math.round((bsStation.wind_kt - bsOm.wind_kt) * 10) / 10 : null,
+            gust_kt: (bsStation.gust_kt != null && bsOm.gust_kt != null)
+              ? Math.round((bsStation.gust_kt - bsOm.gust_kt) * 10) / 10 : null
+          } : null
         };
-        var scKey = 'bias_samples:' + scSt.id;
-        var scExisting = await kvGet(scKey, kvUrl, kvToken);
-        var scList = Array.isArray(scExisting) ? scExisting : [];
-        scList.unshift(scSample);
-        if (scList.length > 100) scList.length = 100;
-        await kvSet(scKey, scList, 31536000, kvUrl, kvToken);
-        scResults.push({ id: scSt.id, name: scSt.name, ok: true, sample: scSample });
-      } catch(scE) {
-        scResults.push({ id: scSt.id, name: scSt.name, ok: false, error: scE.message });
+        var bsKey = 'bias_samples:' + bsSt.id;
+        var bsExisting = await kvGet(bsKey, kvUrl, kvToken);
+        var bsList = Array.isArray(bsExisting) ? bsExisting : [];
+        bsList.unshift(bsSample);
+        if (bsList.length > 100) bsList.length = 100;
+        await kvSet(bsKey, bsList, 31536000, kvUrl, kvToken);
+        bsResults.push({ id: bsSt.id, name: bsSt.name, ok: !!bsStation, sample: bsSample });
+      } catch(bsE) {
+        bsResults.push({ id: bsSt.id, name: bsSt.name, ok: false, error: bsE.message });
       }
     }
-    return res.status(200).json({ ts: scTs, results: scResults });
+    return res.status(200).json({ ts: bsTs, results: bsResults });
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }

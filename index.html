@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.78 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.80 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -566,7 +566,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
     <div class="nav-tab" id="nav-tab-mare" onclick="showPage('mare',this)">Mare</div>
     <div class="nav-tab" onclick="showPage('osservazioni',this)">Obs</div>
     <div class="nav-tab" onclick="showPage('nuvole',this)">Nuvole</div>
-    <div class="nav-tab" onclick="showPage('engine',this);loadEngine()">Engine</div>
+    <div class="nav-tab" onclick="showPage('engine',this);loadEngine();biasLoadHistory()">Engine</div>
     <div class="nav-tab" onclick="showPage('agent',this)" id="nav-tab-agent">Agent</div>
   </div>
 
@@ -579,7 +579,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.78  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.80  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1793,7 +1793,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.78  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.80  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -5215,7 +5215,7 @@ async function biasSample(stationId) {
       html += '</div>';
     }
     out.innerHTML = html;
-    biasLoadHistory();
+    biasLoadHistory(stationId);
   } catch(e) {
     out.innerHTML = '<div style="color:#e07070;font-size:0.6rem">Errore: ' + e.message + '</div>';
   } finally {
@@ -5224,38 +5224,58 @@ async function biasSample(stationId) {
   }
 }
 
-async function biasLoadHistory() {
+async function biasLoadHistory(selectedStation) {
   const container = document.getElementById('bias-history-display');
-  const stations = [
-    {id:'livorno',       name:'Calignaia'},
+  const allStations = [
+    {id:'livorno',        name:'Calignaia'},
     {id:'canale_piombino',name:'Piombino'},
-    {id:'viareggio',     name:'Viareggio'},
-    {id:'bocca_arno',    name:'Bocca d Arno'},
-    {id:'capraia_w',     name:'Capraia'}
+    {id:'viareggio',      name:'Viareggio'},
+    {id:'bocca_arno',     name:'Bocca d Arno'},
+    {id:'capraia_w',      name:'Capraia'}
   ];
   let html = '';
-  for (const st of stations) {
-    const r = await fetch(ENGINE_URL + '?action=bias_history&station=' + st.id + '&limit=10');
+  let anyData = false;
+  for (const st of allStations) {
+    const limit = (selectedStation && st.id === selectedStation) ? 10 : 1;
+    const r = await fetch(ENGINE_URL + '?action=bias_history&station=' + st.id + '&limit=' + limit);
     const data = await r.json();
     const valid = (data.samples || []).filter(function(s){ return s.station && s.station.wind_kt !== null; });
     if (!valid.length) continue;
-    html += '<div style="font-family:DM Mono,monospace;font-size:0.55rem;margin-bottom:8px">'
-      + '<div style="color:var(--accent);margin-bottom:3px">' + st.name + '</div>'
-      + '<table style="width:100%;border-collapse:collapse;color:var(--text)"><tr style="color:var(--muted)">'
-      + '<td>Data/ora</td><td>Vel.</td><td>Dir.</td><td>Vs OM</td></tr>';
-    for (const s of valid.slice(0, 5)) {
+    anyData = true;
+    const isSelected = selectedStation && st.id === selectedStation;
+    if (isSelected) {
+      // Vista espansa: nome + ultimi 5 campioni
+      html += '<div style="font-family:DM Mono,monospace;font-size:0.55rem;margin-bottom:8px;border-left:2px solid var(--accent);padding-left:6px">'
+        + '<div style="color:var(--accent);margin-bottom:3px;font-size:0.58rem">' + st.name + '</div>'
+        + '<table style="width:100%;border-collapse:collapse;color:var(--text)"><tr style="color:var(--muted)">'
+        + '<td>Data/ora</td><td>Vel.</td><td>Dir.</td><td>Vs OM</td></tr>';
+      for (const s of valid.slice(0, 5)) {
+        const dw = s.delta ? s.delta.wind_kt : null;
+        const col = dw === null ? 'var(--muted)' : Math.abs(dw) > 5 ? '#e07070' : '#6dbf6d';
+        const dt = new Date(s.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+        const dirTxt = s.station.direction_txt || (s.station.direction !== null ? s.station.direction + 'deg' : '--');
+        html += '<tr><td>' + dt + '</td>'
+          + '<td>' + (s.station.wind_kt ?? '--') + ' kn</td>'
+          + '<td>' + dirTxt + '</td>'
+          + '<td style="color:' + col + '">' + (dw !== null ? (dw >= 0 ? '+' : '') + dw + ' kn' : '--') + '</td></tr>';
+      }
+      html += '</table></div>';
+    } else {
+      // Vista compatta: una riga per stazione
+      const s = valid[0];
       const dw = s.delta ? s.delta.wind_kt : null;
       const col = dw === null ? 'var(--muted)' : Math.abs(dw) > 5 ? '#e07070' : '#6dbf6d';
       const dt = new Date(s.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
       const dirTxt = s.station.direction_txt || (s.station.direction !== null ? s.station.direction + 'deg' : '--');
-      html += '<tr><td>' + dt + '</td>'
-        + '<td>' + (s.station.wind_kt ?? '--') + ' kn</td>'
-        + '<td>' + dirTxt + '</td>'
-        + '<td style="color:' + col + '">' + (dw !== null ? (dw >= 0 ? '+' : '') + dw + ' kn' : '--') + '</td></tr>';
+      html += '<div style="font-family:DM Mono,monospace;font-size:0.55rem;display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid var(--border)">'
+        + '<span style="color:var(--muted);width:80px">' + st.name + '</span>'
+        + '<span>' + (s.station.wind_kt ?? '--') + ' kn ' + dirTxt + '</span>'
+        + '<span style="color:' + col + '">' + (dw !== null ? (dw >= 0 ? '+' : '') + dw : '--') + '</span>'
+        + '<span style="color:var(--muted);font-size:0.5rem">' + dt + '</span>'
+        + '</div>';
     }
-    html += '</table></div>';
   }
-  container.innerHTML = html || '<div style="font-size:0.55rem;color:var(--muted)">Nessun campione ancora</div>';
+  container.innerHTML = anyData ? html : '<div style="font-size:0.55rem;color:var(--muted)">Nessun campione ancora</div>';
 }
 
 async function biasWebSample(stationId) {
@@ -5289,7 +5309,7 @@ async function biasWebSample(stationId) {
         + '</table></div>';
     }
     out.innerHTML = html;
-    biasLoadHistory();
+    biasLoadHistory(stationId);
   } catch(e) {
     out.innerHTML = '<div style="color:#e07070;font-size:0.6rem">Errore: ' + e.message + '</div>';
   } finally {
@@ -5298,7 +5318,7 @@ async function biasWebSample(stationId) {
   }
 }
 
-// Fine codice - NAUTILUS v5.6.78
+// Fine codice - NAUTILUS v5.6.80
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

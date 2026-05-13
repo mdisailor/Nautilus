@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.2.19 - mdisailor - 2026-05-11 -->
+<!-- NAUTILUS MAPPA v1.2.20 - mdisailor - 2026-05-11 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.2.19</title>
+<title>NAUTILUS Mappa Vento v1.2.20</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -151,7 +151,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.2.19</span>
+    <span id="nav-ver">mappa v1.2.20</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
   <a id="nav-back" href="/">APP</a>
@@ -206,11 +206,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.2.19 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.2.20 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.2.19
+// NAUTILUS MAPPA v1.2.20
 
 var ENGINE_URL = '/api/engine';
 
@@ -667,12 +667,16 @@ BUOYS.forEach(function(b) {
     '<div style="color:#888;font-size:0.58rem">' + b.note + '</div>' +
     '</div>', { maxWidth: 240 });
 });
+
+loadAll();
+
+try {
 MNW_LIVE.forEach(function(st) {
   var mk = L.marker([st.lat, st.lon], { icon: mnwIcon, zIndexOffset: 60 }).addTo(map);
   var popupId = 'mnwpop_' + st.key;
   mk.bindPopup('<div id="' + popupId + '" style="font-family:DM Mono,monospace;font-size:0.7rem;min-width:200px">' +
     '<div style="font-weight:bold;color:#00cc66;margin-bottom:4px">' + st.name + '</div>' +
-    '<div style="color:#888;font-size:0.58rem">Caricamento...</div>' +
+    '<div style="color:#bbb;font-size:0.62rem">Caricamento...</div>' +
     '</div>', { maxWidth: 260 });
   mk.on('popupopen', function() {
     fetch(ENGINE_URL + '?action=bias_history&station=' + st.sid + '&limit=1')
@@ -683,35 +687,38 @@ MNW_LIVE.forEach(function(st) {
         var s = data.samples && data.samples[0];
         if (!s || !s.station || !s.station.wind_kt) {
           el.innerHTML = '<div style="font-weight:bold;color:#00cc66;margin-bottom:4px">' + st.name + '</div>' +
-            '<div style="color:#aaa;font-size:0.65rem">Nessun dato disponibile</div>';
+            '<div style="color:#bbb;font-size:0.65rem">Nessun dato disponibile</div>';
           return;
         }
         var dt = new Date(s.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
         var dw = s.delta && s.delta.wind_kt !== null ? s.delta.wind_kt : null;
         var wkt = s.station.wind_kt;
         var windCol = wkt < 15 ? '#4cff91' : wkt < 25 ? '#ffd700' : '#ff6060';
-        var deltaCol = dw === null ? '#aaa' : Math.abs(dw) > 5 ? '#ff6060' : '#4cff91';
-        var dirTxt = s.station.direction_txt || '--';
-        var dirDeg = s.station.direction !== null ? s.station.direction : null;
-        var arrow = dirDeg !== null
-          ? '<span style="display:inline-block;font-size:1.2rem;transform:rotate(' + dirDeg + 'deg);line-height:1">&#8593;</span>'
+        var deltaCol = dw === null ? '#bbb' : Math.abs(dw) > 5 ? '#ff6060' : '#4cff91';
+        var dirTxt = s.station.direction_txt ? s.station.direction_txt : (s.station.direction !== null ? s.station.direction + 'deg' : '--');
+        var dirDeg = (s.station.direction !== undefined && s.station.direction !== null) ? Number(s.station.direction) : null;
+        var arrowSvg = dirDeg !== null
+          ? '<svg width="22" height="22" viewBox="-11 -11 22 22" style="display:inline-block;vertical-align:middle">' +
+            '<g transform="rotate(' + dirDeg + ')">' +
+            '<line x1="0" y1="9" x2="0" y2="-6" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>' +
+            '<polygon points="0,-10 -4,-4 4,-4" fill="#fff"/>' +
+            '</g></svg>'
           : '';
-        el.innerHTML = '<div style="font-weight:bold;color:#00cc66;font-size:0.75rem;margin-bottom:6px">' + st.name + '</div>' +
-          '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">' +
-          '<div style="font-size:1.4rem;font-weight:bold;color:' + windCol + '">' + wkt + '</div>' +
-          '<div style="font-size:0.65rem;color:#ccc">kn</div>' +
-          '<div style="font-size:1.1rem">' + arrow + '</div>' +
-          '<div style="font-size:0.7rem;color:#ccc">' + dirTxt + '</div>' +
+        el.innerHTML = '<div style="font-weight:bold;color:#00cc66;font-size:0.78rem;margin-bottom:6px">' + st.name + '</div>' +
+          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">' +
+          '<span style="font-size:1.5rem;font-weight:bold;color:' + windCol + '">' + wkt + '</span>' +
+          '<span style="font-size:0.65rem;color:#ddd">kn</span>' +
+          arrowSvg +
+          '<span style="font-size:0.72rem;color:#ddd">' + dirTxt + '</span>' +
           '</div>' +
-          (dw !== null ? '<div style="font-size:0.62rem;color:' + deltaCol + ';margin-bottom:4px">Vs OM: ' + (dw >= 0 ? '+' : '') + dw + ' kn</div>' : '') +
-          '<div style="color:#666;font-size:0.55rem">' + dt + '</div>';
+          (dw !== null ? '<div style="font-size:0.65rem;color:' + deltaCol + ';margin-bottom:4px">Vs OM: ' + (dw >= 0 ? '+' : '') + dw + ' kn</div>' : '') +
+          '<div style="color:#bbb;font-size:0.6rem;margin-top:4px">' + dt + '</div>';
       }).catch(function(){ });
   });
 });
+} catch(mnwErr) { console.warn('MNW markers error:', mnwErr); }
 
-loadAll();
-
-// Fine codice - NAUTILUS MAPPA v1.2.19
+// Fine codice - NAUTILUS MAPPA v1.2.20
 </script>
 </body>
 </html>

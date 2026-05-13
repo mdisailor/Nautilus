@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.2.17 - mdisailor - 2026-05-11 -->
+<!-- NAUTILUS MAPPA v1.2.18 - mdisailor - 2026-05-11 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.2.17</title>
+<title>NAUTILUS Mappa Vento v1.2.18</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -151,7 +151,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.2.17</span>
+    <span id="nav-ver">mappa v1.2.18</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
   <a id="nav-back" href="/">APP</a>
@@ -206,11 +206,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.2.17 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.2.18 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.2.17
+// NAUTILUS MAPPA v1.2.18
 
 var ENGINE_URL = '/api/engine';
 
@@ -233,6 +233,14 @@ var BUOYS = [
   { key:'castiglione', name:'Correntometro Castiglione',lat:42.7700, lon:10.8800, type:'corr',     note:'CFR Toscana - accesso in richiesta' },
   { key:'lv_porto',    name:'Livornometeo Porto',       lat:43.5497, lon:10.2950, type:'stazione', note:'Avvisatore Marittimo Porto Livorno - accesso in richiesta' },
   { key:'capraia_st',  name:'Capraiameteo',             lat:43.0527, lon:9.8410,  type:'stazione', note:'Avvisatore Marittimo Porto Livorno - accesso in richiesta' },
+];
+
+var MNW_LIVE = [
+  { key:'livorno',          name:'Quercianella',   lat:43.524,  lon:10.348, sid:'livorno' },
+  { key:'canale_piombino',  name:'Piombino',       lat:42.920,  lon:10.530, sid:'canale_piombino' },
+  { key:'viareggio_mnw',    name:'Viareggio',      lat:43.875,  lon:10.236, sid:'viareggio' },
+  { key:'bocca_arno_mnw',   name:'Bocca d Arno',   lat:43.680,  lon:10.270, sid:'bocca_arno' },
+  { key:'capraia_mnw',      name:'Capraia Monte',  lat:43.046,  lon:9.836,  sid:'capraia_w' },
 ];
 
 // Griglia 0.25 gradi - Liguria Toscana Corsica Nord
@@ -645,6 +653,11 @@ var stationIcon = L.divIcon({
   html: '<div style="width:16px;height:16px;background:#ffaa00;border:2px solid #cc7700;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#000;font-weight:bold;box-shadow:0 0 8px rgba(255,170,0,0.7)">S</div>',
   iconSize: [16, 16], iconAnchor: [8, 8]
 });
+var mnwIcon = L.divIcon({
+  className: '',
+  html: '<div style="width:18px;height:18px;background:#00cc66;border:2px solid #009944;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#000;font-weight:bold;box-shadow:0 0 8px rgba(0,204,102,0.8)">W</div>',
+  iconSize: [18, 18], iconAnchor: [9, 9]
+});
 BUOYS.forEach(function(b) {
   var icon = (b.type === 'boa' || b.type === 'corr') ? buoyIcon : stationIcon;
   var mk2 = L.marker([b.lat, b.lon], { icon: icon, zIndexOffset: 50 }).addTo(map);
@@ -654,10 +667,40 @@ BUOYS.forEach(function(b) {
     '<div style="color:#888;font-size:0.58rem">' + b.note + '</div>' +
     '</div>', { maxWidth: 240 });
 });
+MNW_LIVE.forEach(function(st) {
+  var mk = L.marker([st.lat, st.lon], { icon: mnwIcon, zIndexOffset: 60 }).addTo(map);
+  var popupId = 'mnwpop_' + st.key;
+  mk.bindPopup('<div id="' + popupId + '" style="font-family:DM Mono,monospace;font-size:0.7rem;min-width:200px">' +
+    '<div style="font-weight:bold;color:#00cc66;margin-bottom:4px">' + st.name + '</div>' +
+    '<div style="color:#888;font-size:0.58rem">Caricamento...</div>' +
+    '</div>', { maxWidth: 260 });
+  mk.on('popupopen', function() {
+    fetch(ENGINE_URL + '?action=bias_history&station=' + st.sid + '&limit=1')
+      .then(function(r){ return r.json(); })
+      .then(function(data) {
+        var el = document.getElementById(popupId);
+        if (!el) return;
+        var s = data.samples && data.samples[0];
+        if (!s || !s.station || !s.station.wind_kt) {
+          el.innerHTML = '<div style="font-weight:bold;color:#00cc66;margin-bottom:4px">' + st.name + '</div>' +
+            '<div style="color:#888;font-size:0.58rem">Nessun dato disponibile</div>';
+          return;
+        }
+        var dt = new Date(s.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+        var dw = s.delta && s.delta.wind_kt !== null ? s.delta.wind_kt : null;
+        var col = dw === null ? '#888' : Math.abs(dw) > 5 ? '#e07070' : '#6dbf6d';
+        var dirTxt = s.station.direction_txt || (s.station.direction !== null ? s.station.direction + 'deg' : '--');
+        el.innerHTML = '<div style="font-weight:bold;color:#00cc66;margin-bottom:6px">' + st.name + '</div>' +
+          '<div style="font-size:0.65rem;margin-bottom:2px">Vento: <b>' + s.station.wind_kt + ' kn</b> ' + dirTxt + '</div>' +
+          (dw !== null ? '<div style="font-size:0.6rem;color:' + col + '">Vs OM: ' + (dw >= 0 ? '+' : '') + dw + ' kn</div>' : '') +
+          '<div style="color:#666;font-size:0.55rem;margin-top:4px">' + dt + '</div>';
+      }).catch(function(){ });
+  });
+});
 
 loadAll();
 
-// Fine codice - NAUTILUS MAPPA v1.2.17
+// Fine codice - NAUTILUS MAPPA v1.2.18
 </script>
 </body>
 </html>

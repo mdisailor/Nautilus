@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.111 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.113 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1744,7 +1744,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.111', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.113', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -1773,6 +1773,81 @@ if (action === 'lamma_test') {
   }
 }
 
+
+// /api/engine?action=scrape_web&station=viareggio|bocca_arno&k=mdi
+// Scraping pagine pubbliche MeteoNetwork per stazioni senza licenza API
+if (action === 'scrape_web') {
+  try {
+    var swAdminKey = req.query.k || '';
+    if (swAdminKey !== 'mdi') return res.status(401).json({ error: 'Unauthorized' });
+    var swStations = [
+      { id: 'viareggio',  name: 'Viareggio',    url: 'https://www.meteonetwork.eu/it/weather-station/tsc508-stazione-meteorologica-di-viareggio-lungomare', lat: 43.870, lon: 10.230 },
+      { id: 'bocca_arno', name: 'Bocca d Arno',  url: 'https://www.meteonetwork.eu/it/weather-station/tsc431-stazione-meteorologica-di-bocca-darno',          lat: 43.680, lon: 10.270 },
+      { id: 'capraia_w',  name: 'Capraia Monte', url: 'https://www.meteonetwork.eu/it/weather-station/tsc578-stazione-meteorologica-di-capraia-isola',         lat: 43.053, lon: 9.838  }
+    ];
+    var swFilter = req.query.station || null;
+    if (swFilter) swStations = swStations.filter(function(s){ return s.id === swFilter; });
+    var swTs = new Date().toISOString();
+    var swResults = [];
+    for (var swI = 0; swI < swStations.length; swI++) {
+      var swSt = swStations[swI];
+      try {
+        var swHtml = await fetch(swSt.url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'text/html' } }).then(function(r){ return r.text(); });
+        // Pattern: Vento <br> 3.2 km/h (SSW)
+        var swMatch = swHtml.match(/Vento\s*<br>\s*([\d.]+)\s*km\/h\s*\(([^)]+)\)/i);
+        var swKmh = swMatch ? parseFloat(swMatch[1]) : null;
+        var swDirTxt = swMatch ? swMatch[2].trim() : null;
+        var swKn = swKmh !== null ? Math.round(swKmh / 1.852 * 10) / 10 : null;
+        // Converti direzione testuale in gradi
+        var swDirMap = { 'N':0,'NNE':22,'NE':45,'ENE':67,'E':90,'ESE':112,'SE':135,'SSE':157,'S':180,'SSW':202,'SW':225,'WSW':247,'W':270,'WNW':292,'NW':315,'NNW':337 };
+        var swDir = (swDirTxt && swDirMap[swDirTxt] !== undefined) ? swDirMap[swDirTxt] : null;
+        // Fetch OM per stessa posizione
+        var swOmUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + swSt.lat + '&longitude=' + swSt.lon + '&current=wind_speed_10m,wind_gusts_10m,wind_direction_10m,surface_pressure&wind_speed_unit=kn';
+        var swOmJson = await fetch(swOmUrl).then(function(r){ return r.json(); });
+        var swOm = {
+          wind_kt:     swOmJson.current ? Math.round(swOmJson.current.wind_speed_10m  * 10) / 10 : null,
+          gust_kt:     swOmJson.current ? Math.round(swOmJson.current.wind_gusts_10m  * 10) / 10 : null,
+          direction:   swOmJson.current ? swOmJson.current.wind_direction_10m : null,
+          pressure_mb: swOmJson.current ? Math.round(swOmJson.current.surface_pressure * 10) / 10 : null
+        };
+        var swStation = { wind_kt: swKn, direction: swDir, direction_txt: swDirTxt, source: 'mnw_web' };
+        var swSample = {
+          ts: swTs,
+          station: swKn !== null ? swStation : null,
+          om: swOm,
+          delta: swKn !== null ? {
+            wind_kt: swOm.wind_kt !== null ? Math.round((swKn - swOm.wind_kt) * 10) / 10 : null
+          } : null
+        };
+        // Salva in Redis
+        var swKey = 'bias_samples:' + swSt.id;
+        var swExisting = await kvGet(swKey, kvUrl, kvToken);
+        var swList = Array.isArray(swExisting) ? swExisting : [];
+        swList.unshift(swSample);
+        if (swList.length > 100) swList.length = 100;
+        await kvSet(swKey, swList, 31536000, kvUrl, kvToken);
+        swResults.push({ id: swSt.id, name: swSt.name, ok: swKn !== null, sample: swSample });
+      } catch(swE) {
+        swResults.push({ id: swSt.id, name: swSt.name, ok: false, error: swE.message });
+      }
+    }
+    // Ricalcola stats per stazioni web
+    var swStats = {};
+    for (var swSi = 0; swSi < swStations.length; swSi++) {
+      var swSid = swStations[swSi].id;
+      var swSamples = await kvGet('bias_samples:' + swSid, kvUrl, kvToken);
+      if (!Array.isArray(swSamples)) { swStats[swSid] = null; continue; }
+      var swValid = swSamples.filter(function(s){ return s.delta && s.delta.wind_kt !== null; });
+      swStats[swSid] = swValid.length > 0 ? {
+        n_wind: swValid.length,
+        mean_delta_wind: Math.round(swValid.reduce(function(a,s){ return a + s.delta.wind_kt; }, 0) / swValid.length * 10) / 10
+      } : null;
+    }
+    return res.status(200).json({ ts: swTs, results: swResults, stats: swStats });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
 
 if (action === 'mnw_web_test') {
   // Testa fetch pagine pubbliche MeteoNetwork per stazioni senza licenza API
@@ -2430,6 +2505,8 @@ if (action === 'predict') {
     var bias = await getBias(zoneKey, kvUrl, kvToken);
     var biasStatLivorno = await kvGet('bias_stats:livorno', kvUrl, kvToken);
     var biasStatPiombino = await kvGet('bias_stats:canale_piombino', kvUrl, kvToken);
+    var biasStatViareggio = await kvGet('bias_stats:viareggio', kvUrl, kvToken);
+    var biasStatCapraia = await kvGet('bias_stats:capraia_w', kvUrl, kvToken);
     var rotation = analyzeWindRotation(snapshots14.slice(0, 24)); // rotation from last 24h
 
     // Get current conditions
@@ -2553,7 +2630,9 @@ if (action === 'predict') {
     // Bias stazione reale vs Open-Meteo
     var bsLiv = biasStatLivorno;
     var bsPio = biasStatPiombino;
-    if ((bsLiv && bsLiv.n_wind >= 3) || (bsPio && bsPio.n_wind >= 3)) {
+    var bsVia = biasStatViareggio;
+    var bsCap = biasStatCapraia;
+    if ((bsLiv && bsLiv.n_wind >= 3) || (bsPio && bsPio.n_wind >= 3) || (bsVia && bsVia.n_wind >= 3) || (bsCap && bsCap.n_wind >= 3)) {
       pLines.push('');
       pLines.push('BIAS STAZIONE REALE vs Open-Meteo (rilevato da stazioni MeteoNetwork):');
       if (bsLiv && bsLiv.n_wind >= 3) {
@@ -2563,6 +2642,14 @@ if (action === 'predict') {
       if (bsPio && bsPio.n_wind >= 3) {
         var signWp = bsPio.mean_delta_wind >= 0 ? '+' : '';
         pLines.push('- Piombino (' + bsPio.n_wind + ' campioni): vento reale ' + signWp + bsPio.mean_delta_wind + 'kn rispetto a OM');
+      }
+      if (bsVia && bsVia.n_wind >= 3) {
+        var signWv = bsVia.mean_delta_wind >= 0 ? '+' : '';
+        pLines.push('- Viareggio/web (' + bsVia.n_wind + ' campioni): vento reale ' + signWv + bsVia.mean_delta_wind + 'kn rispetto a OM');
+      }
+      if (bsCap && bsCap.n_wind >= 3) {
+        var signWc = bsCap.mean_delta_wind >= 0 ? '+' : '';
+        pLines.push('- Capraia Monte/web (' + bsCap.n_wind + ' campioni): vento reale ' + signWc + bsCap.mean_delta_wind + 'kn rispetto a OM');
       }
       pLines.push('- NOTA: correggi le previsioni OM tenendo conto di questi delta sistematici.');
     }
@@ -3171,7 +3258,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.111 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.113 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -3295,4 +3382,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.111
+// Fine codice - NAUTILUS ENGINE v2.9.113

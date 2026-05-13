@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.115 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.116 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1744,7 +1744,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.115', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.116', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -2655,7 +2655,7 @@ if (action === 'predict') {
       pLines.push('BIAS STAZIONE REALE vs Open-Meteo (rilevato da stazioni MeteoNetwork):');
       if (bsLiv && bsLiv.n_wind >= 3) {
         var signW = bsLiv.mean_delta_wind >= 0 ? '+' : '';
-        pLines.push('- Quercianella/MNW (' + bsLiv.n_wind + ' campioni): vento reale ' + signW + bsLiv.mean_delta_wind + 'kn rispetto a OM (raffica MNW non affidabile: e massimo giornaliero)');
+        pLines.push('- Calignaia/MNW (' + bsLiv.n_wind + ' campioni): vento reale ' + signW + bsLiv.mean_delta_wind + 'kn rispetto a OM (raffica MNW non affidabile: e massimo giornaliero)');
       }
       if (bsPio && bsPio.n_wind >= 3) {
         var signWp = bsPio.mean_delta_wind >= 0 ? '+' : '';
@@ -3141,7 +3141,7 @@ if (action === 'scrape_stations') {
     if (!bsAdminOk && (!bsCronSecret || bsSecret !== bsCronSecret)) return res.status(401).json({ error: 'Unauthorized' });
     var bsToken = process.env.METEONETWORK_TOKEN || '';
     var bsStations = [
-      { id: 'livorno',         name: 'Quercianella (MNW)',  mnwKey: 'livorno',         lat: 43.548, lon: 10.311 },
+      { id: 'livorno',         name: 'Calignaia (MNW)',  mnwKey: 'livorno',         lat: 43.465, lon: 10.347 },
       { id: 'canale_piombino', name: 'Piombino',            mnwKey: 'canale_piombino', lat: 42.920, lon: 10.530 },
       { id: 'elba_nord',       name: 'Elba Nord',           mnwKey: 'elba_nord',       lat: 42.850, lon: 10.320 },
       { id: 'viareggio',       name: 'Viareggio',           mnwKey: 'viareggio',       lat: 43.870, lon: 10.230 }
@@ -3279,7 +3279,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.115 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.116 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -3403,4 +3403,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.115
+// Fine codice - NAUTILUS ENGINE v2.9.116

@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.109 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.111 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1744,7 +1744,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.109', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.111', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -1793,7 +1793,7 @@ if (action === 'mnw_web_test') {
         // Cerca pattern di vento nel HTML (m/s, km/h, kn, wind)
         var mwtWindIdx = mwtHtml.search(/wind|vento|m\/s|km\/h/i);
         var mwtSnippet = mwtWindIdx > -1
-          ? mwtHtml.slice(Math.max(0, mwtWindIdx - 50), mwtWindIdx + 200).replace(/\s+/g, ' ')
+          ? mwtHtml.slice(Math.max(0, mwtWindIdx - 50), mwtWindIdx + 400).replace(/\s+/g, ' ')
           : 'pattern_not_found';
         mwtResults[mwtKey] = {
           status: mwtRes.status,
@@ -3026,7 +3026,7 @@ if (action === 'grid') {
 
 // /api/engine?action=scrape_stations - campiona stazioni MeteoNetwork e confronta con OM
 // Stazioni attive: livorno (tsc265), canale_piombino (tsc228)
-// Capraia tsc578: no licenza — Elba tsc621, Viareggio tsc431: rate limit
+// Capraia tsc578: no licenza  -  Elba tsc621, Viareggio tsc431: rate limit
 if (action === 'scrape_stations') {
   try {
     var bsSecret = req.query.secret || '';
@@ -3171,7 +3171,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.109 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.111 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -3295,4 +3295,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.109
+// Fine codice - NAUTILUS ENGINE v2.9.111

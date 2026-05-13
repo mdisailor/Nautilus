@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.116 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.117 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1744,7 +1744,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.116', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.117', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -1889,15 +1889,25 @@ if (action === 'mnw_graphs_test') {
     var mgtUrl = 'https://www.meteonetwork.eu/it/weather-station/tsc508-stazione-meteorologica-di-viareggio-lungomare/graphs';
     var mgtRes = await fetch(mgtUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'text/html' } });
     var mgtHtml = await mgtRes.text();
-    // Cerca pattern dati: JSON inline, array numerici, date ISO, canvas data
-    var mgtPatterns = ['chart', 'data', 'labels', 'dataset', 'timestamp', 'wind', 'json', 'var wind'];
-    var mgtSnippets = {};
-    for (var pi = 0; pi < mgtPatterns.length; pi++) {
-      var pat = mgtPatterns[pi];
-      var idx = mgtHtml.toLowerCase().indexOf(pat);
-      if (idx > -1) mgtSnippets[pat] = mgtHtml.slice(Math.max(0, idx - 20), idx + 300).replace(/\s+/g, ' ');
-    }
-    return res.status(200).json({ status: mgtRes.status, html_len: mgtHtml.length, snippets: mgtSnippets });
+    // Cerca variabili JS con dati grafici
+    var mgtOut = {};
+    // coordinatesArray (timestamps)
+    var mgtCoordMatch = mgtHtml.match(/coordinatesArray\s*=\s*(\[[^\]]{0,2000}\])/);
+    mgtOut.coordinatesArray_sample = mgtCoordMatch ? mgtCoordMatch[1].slice(0, 300) : 'not_found';
+    // Array dati vento (cerca array numerico vicino a "wind" o "vento")
+    var mgtWindArr = mgtHtml.match(/(?:wind|vento|Vento)[^;]{0,200}?(\[\s*[\d.,\s]+\])/i);
+    mgtOut.wind_array_sample = mgtWindArr ? mgtWindArr[1].slice(0, 200) : 'not_found';
+    // Cerca pattern "data: [" vicino a wind
+    var mgtDataArr = mgtHtml.match(/data\s*:\s*(\[[\d.,\s\-null]{0,500})/);
+    mgtOut.data_array_sample = mgtDataArr ? mgtDataArr[1].slice(0, 200) : 'not_found';
+    // Cerca var o let/const con array numerico lungo
+    var mgtVarArr = mgtHtml.match(/var\s+(\w+)\s*=\s*(\[[\d.,\s\-]{50,300})/);
+    mgtOut.var_array = mgtVarArr ? { name: mgtVarArr[1], data: mgtVarArr[2].slice(0, 150) } : 'not_found';
+    // Snippet attorno a coordinatesArray per capire struttura
+    var mgtIdx = mgtHtml.indexOf('coordinatesArray');
+    mgtOut.coordinates_context = mgtIdx > -1 ? mgtHtml.slice(mgtIdx, mgtIdx + 500).replace(/\s+/g, ' ') : 'not_found';
+    mgtOut.html_len = mgtHtml.length;
+    return res.status(200).json(mgtOut);
   } catch(e) { return res.status(500).json({ error: e.message }); }
 }
 
@@ -3279,7 +3289,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.116 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.117 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -3403,4 +3413,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.116
+// Fine codice - NAUTILUS ENGINE v2.9.117

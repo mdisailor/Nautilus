@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.125 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.126 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1744,7 +1744,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.125', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.126', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -2825,19 +2825,27 @@ if (action === 'predict') {
     var extractWindVal = function(text, h) {
       // Gestisce: "H3: 6.5kn", "H3: 6-7kn", "H+3 (10:15): 6-7kn", inline e multi-riga
       var patterns = [
-        // Range X-Ykn -- prende la media
-        new RegExp('H\\+?' + h + '[^0-9]*([0-9]+\\.?[0-9]*)\\s*-\\s*([0-9]+\\.?[0-9]*)\\s*kn', 'i'),
-        // Singolo Xkn
-        new RegExp('H\\+?' + h + '[^0-9]*([0-9]+\\.?[0-9]*)\\s*kn', 'i'),
-        // Con orario tra parentesi H3 (10:15): Xkn
-        new RegExp('H\\+?' + h + '\\s*\\([^)]+\\)[^0-9]*([0-9]+\\.?[0-9]*)\\s*kn', 'i')
+        // Con orario H3 (10:15): o H3 (10:15):** -- range X-Y kn
+        new RegExp('H\\+?' + h + '\\s*\\([^)]+\\)\\D*([0-9]+\\.?[0-9]*)\\s*-\\s*([0-9]+\\.?[0-9]*)\\s*kn', 'i'),
+        // Con orario H3 (10:15): o H3 (10:15):** -- singolo X kn
+        new RegExp('H\\+?' + h + '\\s*\\([^)]+\\)\\D*([0-9]+\\.?[0-9]*)\\s*kn', 'i'),
+        // Range X-Ykn senza orario
+        new RegExp('H\\+?' + h + '[^0-9(]*([0-9]+\\.?[0-9]*)\\s*-\\s*([0-9]+\\.?[0-9]*)\\s*kn', 'i'),
+        // Singolo Xkn senza orario
+        new RegExp('H\\+?' + h + '[^0-9(]*([0-9]+\\.?[0-9]*)\\s*kn', 'i')
       ];
-      var m = text.match(patterns[0]);
-      if (m) return Math.round((parseFloat(m[1]) + parseFloat(m[2])) / 2 * 10) / 10;
-      for (var pi = 1; pi < patterns.length; pi++) {
-        var m2 = text.match(patterns[pi]);
-        if (m2) return parseFloat(m2[1]);
-      }
+      // Pattern 0: range con orario
+      var m0 = text.match(patterns[0]);
+      if (m0) return Math.round((parseFloat(m0[1]) + parseFloat(m0[2])) / 2 * 10) / 10;
+      // Pattern 1: singolo con orario
+      var m1 = text.match(patterns[1]);
+      if (m1) return parseFloat(m1[1]);
+      // Pattern 2: range senza orario
+      var m2 = text.match(patterns[2]);
+      if (m2) return Math.round((parseFloat(m2[1]) + parseFloat(m2[2])) / 2 * 10) / 10;
+      // Pattern 3: singolo senza orario
+      var m3 = text.match(patterns[3]);
+      if (m3) return parseFloat(m3[1]);
       return null;
     };
     var predRecord = {
@@ -3342,7 +3350,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.125 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.126 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -3466,4 +3474,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.125
+// Fine codice - NAUTILUS ENGINE v2.9.126

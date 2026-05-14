@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.89 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.90 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -578,7 +578,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.89  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.90  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -893,7 +893,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
   <!-- BIAS STAZIONI in Meteo -->
   <div id="bias-section-m" style="margin:12px 20px 0">
-    <div style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;opacity:0.8;margin-bottom:8px">Stazioni Reali vs OM</div>
+    <div onclick="biasLoadHistory(null,'m')" style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;opacity:0.8;margin-bottom:8px;cursor:pointer">&#9656; Stazioni Reali vs OM</div>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
       <button class="btn-history" onclick="biasSample('livorno','m')">📡 Quercianella</button>
       <button class="btn-history" onclick="biasSample('canale_piombino','m')">📡 Piombino</button>
@@ -1803,7 +1803,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.89  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.90  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -2923,8 +2923,6 @@ document.addEventListener('DOMContentLoaded', () => {
     buildEvoList(id);
     if (d.sic) buildSimpleList(`check-${id}-sic`, d.sic);
   });
-  // Carica ultima lettura stazioni al caricamento pagina (Meteo è tab default)
-  biasLoadHistory(null, 'm');
 });
 });
 
@@ -5342,7 +5340,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.6.89
+// Fine codice - NAUTILUS v5.6.90
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

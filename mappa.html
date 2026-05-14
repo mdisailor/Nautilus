@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.2.21 - mdisailor - 2026-05-11 -->
+<!-- NAUTILUS MAPPA v1.2.22 - mdisailor - 2026-05-11 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.2.21</title>
+<title>NAUTILUS Mappa Vento v1.2.22</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -151,7 +151,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.2.21</span>
+    <span id="nav-ver">mappa v1.2.22</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
   <a id="nav-back" href="/">APP</a>
@@ -206,11 +206,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.2.21 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.2.22 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.2.21
+// NAUTILUS MAPPA v1.2.22
 
 var ENGINE_URL = '/api/engine';
 
@@ -231,8 +231,8 @@ var BUOYS = [
   { key:'giannutri',   name:'Boa Giannutri',            lat:42.2500, lon:11.1200, type:'boa',      note:'CFR Toscana - onda + vento - accesso in richiesta' },
   { key:'gombo',       name:'Correntometro Gombo',      lat:43.6900, lon:10.2800, type:'corr',     note:'CFR Toscana - foce Arno - accesso in richiesta' },
   { key:'castiglione', name:'Correntometro Castiglione',lat:42.7700, lon:10.8800, type:'corr',     note:'CFR Toscana - accesso in richiesta' },
-  { key:'lv_porto',    name:'Livornometeo Porto',       lat:43.5497, lon:10.2950, type:'stazione', note:'Avvisatore Marittimo Porto Livorno - accesso in richiesta' },
-  { key:'capraia_st',  name:'Capraiameteo',             lat:43.0527, lon:9.8410,  type:'stazione', note:'Avvisatore Marittimo Porto Livorno - accesso in richiesta' },
+  { key:'lv_porto',    name:'Livornometeo Porto',       lat:43.5497, lon:10.2950, type:'stazione', note:'Spostato su shipinfo.it a pagamento (maggio 2026). Accesso non disponibile.' },
+  { key:'capraia_st',  name:'Capraiameteo',             lat:43.0527, lon:9.8410,  type:'stazione', note:'Spostato su shipinfo.it a pagamento (maggio 2026). Accesso non disponibile.' },
 ];
 
 var MNW_LIVE = [
@@ -718,7 +718,7 @@ MNW_LIVE.forEach(function(st) {
 });
 } catch(mnwErr) { console.warn('MNW markers error:', mnwErr); }
 
-// Fine codice - NAUTILUS MAPPA v1.2.21
+// Fine codice - NAUTILUS MAPPA v1.2.22
 </script>
 </body>
 </html>

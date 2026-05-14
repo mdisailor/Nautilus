@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.126 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.128 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1744,7 +1744,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.126', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.128', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -1781,9 +1781,13 @@ if (action === 'scrape_web') {
     var swAdminKey = req.query.k || '';
     if (swAdminKey !== 'mdi') return res.status(401).json({ error: 'Unauthorized' });
     var swStations = [
-      { id: 'viareggio',  name: 'Viareggio',    url: 'https://www.meteonetwork.eu/it/weather-station/tsc508-stazione-meteorologica-di-viareggio-lungomare', lat: 43.870, lon: 10.230 },
-      { id: 'bocca_arno', name: 'Bocca d Arno',  url: 'https://www.meteonetwork.eu/it/weather-station/tsc431-stazione-meteorologica-di-bocca-darno',          lat: 43.680, lon: 10.270 },
-      { id: 'capraia_w',  name: 'Capraia Monte', url: 'https://www.meteonetwork.eu/it/weather-station/tsc578-stazione-meteorologica-di-capraia-isola',         lat: 43.053, lon: 9.838  }
+      { id: 'viareggio',    name: 'Viareggio',      url: 'https://www.meteonetwork.eu/it/weather-station/tsc508-stazione-meteorologica-di-viareggio-lungomare', lat: 43.870, lon: 10.230 },
+      { id: 'bocca_arno',   name: 'Bocca d Arno',   url: 'https://www.meteonetwork.eu/it/weather-station/tsc431-stazione-meteorologica-di-bocca-darno',          lat: 43.680, lon: 10.270 },
+      { id: 'capraia_w',    name: 'Capraia Monte',  url: 'https://www.meteonetwork.eu/it/weather-station/tsc578-stazione-meteorologica-di-capraia-isola',         lat: 43.053, lon: 9.838  },
+      { id: 'populonia',    name: 'Populonia',       url: 'https://www.meteonetwork.eu/it/weather-station/tsc539-stazione-meteorologica-di-populonia',             lat: 42.992, lon: 10.640 },
+      { id: 'portoferraio', name: 'Portoferraio',    url: 'https://www.meteonetwork.eu/it/weather-station/tsc621-stazione-meteorologica-di-portoferraio',          lat: 42.813, lon: 10.368 },
+      { id: 'alberese',     name: 'Alberese',        url: 'https://www.meteonetwork.eu/it/weather-station/tsc712-stazione-meteorologica-di-alberese',              lat: 42.671, lon: 11.107 },
+      { id: 'luri',         name: 'Luri (Corsica)',  url: 'https://www.meteonetwork.eu/it/weather-station/fr0370-stazione-meteorologica-di-luri',                  lat: 42.851, lon: 9.403  }
     ];
     var swFilter = req.query.station || null;
     if (swFilter) swStations = swStations.filter(function(s){ return s.id === swFilter; });
@@ -1903,6 +1907,39 @@ if (action === 'mnw_graphs_test') {
     var mgtApiUrls = mgtHtml.match(/['"][^'"]*\/api\/[^'"]{5,80}['"]/g) || [];
     mgtOut.api_urls = mgtApiUrls.slice(0, 5);
     return res.status(200).json(mgtOut);
+  } catch(e) { return res.status(500).json({ error: e.message }); }
+}
+
+// /api/engine?action=buoy_test&k=mdi - test endpoint boe pubblici
+if (action === 'buoy_test') {
+  try {
+    var btEndpoints = [
+      // ISPRA RON - Rete Ondametrica Nazionale
+      { name: 'ISPRA_RON_home',    url: 'https://www.isprambiente.gov.it/it/reti-e-sistemi-di-monitoraggio/dati-ambientali-ai-cittadini/ron-rete-ondametrica-nazionale' },
+      { name: 'ISPRA_RON_data',    url: 'http://sgi2.isprambiente.it/ron/index.php' },
+      { name: 'ISPRA_dati',        url: 'https://dati.isprambiente.it/' },
+      // CMEMS in-situ observations (senza auth - solo verifica accessibilita)
+      { name: 'CMEMS_catalog',     url: 'https://data.marine.copernicus.eu/api/metadata/products' },
+      { name: 'CMEMS_insitu_med',  url: 'https://nrt.cmems-du.eu/motu-web/Motu?action=describeproduct&service=INSITU_MED_PHY_OBSERVATIONS_NRT_013_035-TDS' },
+      // ARPA Toscana
+      { name: 'ARPA_toscana',      url: 'https://www.arpat.toscana.it/dati-e-servizi/servizi-online' },
+      // Protezione Civile meteo
+      { name: 'PROTCIV_dpc',       url: 'https://maree.isprambiente.it/api.php?id=LIV&type=last' }
+    ];
+    var btResults = [];
+    for (var bti = 0; bti < btEndpoints.length; bti++) {
+      try {
+        var btRes = await fetch(btEndpoints[bti].url, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NAUTILUS/1.0)', 'Accept': 'application/json, text/html' },
+          signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined
+        });
+        var btBody = await btRes.text();
+        btResults.push({ name: btEndpoints[bti].name, status: btRes.status, len: btBody.length, snippet: btBody.slice(0, 150).replace(/\s+/g, ' ') });
+      } catch(btE) {
+        btResults.push({ name: btEndpoints[bti].name, error: btE.message });
+      }
+    }
+    return res.status(200).json({ results: btResults });
   } catch(e) { return res.status(500).json({ error: e.message }); }
 }
 
@@ -2712,7 +2749,7 @@ if (action === 'predict') {
       pLines.push('BIAS STAZIONE REALE vs Open-Meteo (rilevato da stazioni MeteoNetwork):');
       if (bsLiv && bsLiv.n_wind >= 3) {
         var signW = bsLiv.mean_delta_wind >= 0 ? '+' : '';
-        pLines.push('- Calignaia/MNW (' + bsLiv.n_wind + ' campioni): vento reale ' + signW + bsLiv.mean_delta_wind + 'kn rispetto a OM (raffica MNW non affidabile: e massimo giornaliero)');
+        pLines.push('- Quercianella/MNW (' + bsLiv.n_wind + ' campioni): vento reale ' + signW + bsLiv.mean_delta_wind + 'kn rispetto a OM (raffica MNW non affidabile: e massimo giornaliero)');
       }
       if (bsPio && bsPio.n_wind >= 3) {
         var signWp = bsPio.mean_delta_wind >= 0 ? '+' : '';
@@ -3212,7 +3249,7 @@ if (action === 'scrape_stations') {
     if (!bsAdminOk && (!bsCronSecret || bsSecret !== bsCronSecret)) return res.status(401).json({ error: 'Unauthorized' });
     var bsToken = process.env.METEONETWORK_TOKEN || '';
     var bsStations = [
-      { id: 'livorno',         name: 'Calignaia (MNW)',  mnwKey: 'livorno',         lat: 43.465, lon: 10.347 },
+      { id: 'livorno',         name: 'Quercianella (MNW)',  mnwKey: 'livorno',         lat: 43.465, lon: 10.347 },
       { id: 'canale_piombino', name: 'Piombino',            mnwKey: 'canale_piombino', lat: 42.920, lon: 10.530 },
       { id: 'elba_nord',       name: 'Elba Nord',           mnwKey: 'elba_nord',       lat: 42.850, lon: 10.320 },
       { id: 'viareggio',       name: 'Viareggio',           mnwKey: 'viareggio',       lat: 43.870, lon: 10.230 }
@@ -3350,7 +3387,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.126 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.128 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -3474,4 +3511,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.126
+// Fine codice - NAUTILUS ENGINE v2.9.128

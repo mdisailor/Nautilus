@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.93 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.95 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -578,7 +578,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.93  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.95  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1799,11 +1799,11 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
   <!--  ENGINE PAGE  -->
 
-  <div id="page-engine" class="page">
+  <div id="page-engine" class="page" style="padding-bottom:90px">
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.93  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.95  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -5335,7 +5335,7 @@ async function biasWebSample(stationId, sfx) {
         + '</table></div>';
     }
     out.innerHTML = html;
-    biasLoadHistory(stationId);
+    biasLoadHistory(stationId, sfx);
   } catch(e) {
     out.innerHTML = '<div style="color:#e07070;font-size:0.6rem">Errore: ' + e.message + '</div>';
   } finally {
@@ -5344,7 +5344,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.6.93
+// Fine codice - NAUTILUS v5.6.95
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

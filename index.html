@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.82 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.83 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -562,7 +562,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 <div id="app">
 
   <div class="nav-tabs">
-    <div class="nav-tab active" onclick="showPage('meteo',this)">Meteo</div>
+    <div class="nav-tab active" onclick="showPage('meteo',this);biasLoadHistory(null,'m')">Meteo</div>
     <div class="nav-tab" id="nav-tab-mare" onclick="showPage('mare',this)">Mare</div>
     <div class="nav-tab" onclick="showPage('osservazioni',this)">Obs</div>
     <div class="nav-tab" onclick="showPage('nuvole',this)">Nuvole</div>
@@ -579,7 +579,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.82  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.83  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -891,9 +891,24 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
     <div class="metric-source" id="m-gust-avg" style="color:#9ac0d8;font-size:0.55rem">media --kn</div>
   </div>
 </div>
-```
-
-<!-- briefing moved to Engine tab -->
+  <!-- BIAS STAZIONI in Meteo -->
+  <div id="bias-section-m" style="margin:12px 20px 0">
+    <div style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;opacity:0.8;margin-bottom:8px">Stazioni Reali vs OM</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+      <button class="btn-history" onclick="biasSample('livorno','m')">📡 Quercianella</button>
+      <button class="btn-history" onclick="biasSample('canale_piombino','m')">📡 Piombino</button>
+      <button class="btn-history" onclick="biasWebSample('viareggio','m')">📡 Viareggio</button>
+      <button class="btn-history" onclick="biasWebSample('bocca_arno','m')">📡 Bocca d Arno</button>
+      <button class="btn-history" onclick="biasWebSample('capraia_w','m')">📡 Capraia</button>
+      <button class="btn-history" onclick="biasWebSample('populonia','m')">📡 Populonia</button>
+      <button class="btn-history" onclick="biasWebSample('portoferraio','m')">📡 Portoferraio</button>
+      <button class="btn-history" onclick="biasWebSample('alberese','m')">📡 Alberese</button>
+      <button class="btn-history" onclick="biasWebSample('luri','m')">📡 Luri</button>
+    </div>
+    <div id="bias-status-m" style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--muted);min-height:14px;margin-bottom:4px"></div>
+    <div id="bias-result-m"></div>
+    <div id="bias-history-display-m" style="margin-top:8px"></div>
+  </div>
 
   </div><!-- /meteo -->
 
@@ -1793,7 +1808,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 ```
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.82  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.83  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -5169,10 +5184,11 @@ function togglePredictItem(idx) {
 
 // -- BIAS STAZIONI -----------------------------------------------------------------------
 
-async function biasSample(stationId) {
-  const out = document.getElementById('bias-result');
-  const status = document.getElementById('bias-status');
-  document.querySelectorAll('#bias-section .btn-history').forEach(b => b.disabled = true);
+async function biasSample(stationId, sfx) {
+  const sfxId = sfx ? '-' + sfx : '';
+  const out = document.getElementById('bias-result' + sfxId);
+  const status = document.getElementById('bias-status' + sfxId);
+  document.querySelectorAll('#bias-section' + sfxId + ' .btn-history').forEach(b => b.disabled = true);
   status.textContent = 'Campionando...';
   out.innerHTML = '';
 
@@ -5219,17 +5235,18 @@ async function biasSample(stationId) {
       html += '</div>';
     }
     out.innerHTML = html;
-    biasLoadHistory(stationId);
+    biasLoadHistory(stationId, sfx);
   } catch(e) {
     out.innerHTML = '<div style="color:#e07070;font-size:0.6rem">Errore: ' + e.message + '</div>';
   } finally {
-    document.querySelectorAll('#bias-section .btn-history').forEach(function(b){ b.disabled = false; });
+    document.querySelectorAll('#bias-section' + sfxId + ' .btn-history').forEach(function(b){ b.disabled = false; });
     status.textContent = '';
   }
 }
 
-async function biasLoadHistory(selectedStation) {
-  const container = document.getElementById('bias-history-display');
+async function biasLoadHistory(selectedStation, sfx) {
+  const sfxId = sfx ? '-' + sfx : '';
+  const container = document.getElementById('bias-history-display' + sfxId);
   const allStations = [
     {id:'livorno',        name:'Quercianella'},
     {id:'canale_piombino',name:'Piombino'},
@@ -5286,10 +5303,11 @@ async function biasLoadHistory(selectedStation) {
   container.innerHTML = anyData ? html : '<div style="font-size:0.55rem;color:var(--muted)">Nessun campione ancora</div>';
 }
 
-async function biasWebSample(stationId) {
-  const out = document.getElementById('bias-result');
-  const status = document.getElementById('bias-status');
-  document.querySelectorAll('#bias-section .btn-history').forEach(function(b){ b.disabled = true; });
+async function biasWebSample(stationId, sfx) {
+  const sfxId = sfx ? '-' + sfx : '';
+  const out = document.getElementById('bias-result' + sfxId);
+  const status = document.getElementById('bias-status' + sfxId);
+  document.querySelectorAll('#bias-section' + sfxId + ' .btn-history').forEach(function(b){ b.disabled = true; });
   status.textContent = 'Campionando...';
   out.innerHTML = '';
   try {
@@ -5321,12 +5339,12 @@ async function biasWebSample(stationId) {
   } catch(e) {
     out.innerHTML = '<div style="color:#e07070;font-size:0.6rem">Errore: ' + e.message + '</div>';
   } finally {
-    document.querySelectorAll('#bias-section .btn-history').forEach(function(b){ b.disabled = false; });
+    document.querySelectorAll('#bias-section' + sfxId + ' .btn-history').forEach(function(b){ b.disabled = false; });
     status.textContent = '';
   }
 }
 
-// Fine codice - NAUTILUS v5.6.82
+// Fine codice - NAUTILUS v5.6.83
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

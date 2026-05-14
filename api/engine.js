@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.121 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.124 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1457,7 +1457,7 @@ async function fetchMeteoNetwork(zoneKey, mnwToken) {
       'NNW':337,'NW':315,'WNW':292,'W':270,'WSW':247,'SW':225,'SSW':202,
       'SSE':157,'SE':135,'ESE':112,'ENE':67,'NE':45,'NNE':22
     };
-    var dirFields = ['wind_direction','wind_dir','wind_degree','wind_bearing','wind_angle','dir','direction'];
+    var dirFields = ['wind_direction_degree','wind_direction','wind_dir','wind_degree','wind_bearing','wind_angle','dir','direction'];
     var windDir = null;
     for (var di = 0; di < dirFields.length; di++) {
       var dval = data[dirFields[di]];
@@ -1480,7 +1480,7 @@ async function fetchMeteoNetwork(zoneKey, mnwToken) {
       pressure_mnw:   data.smlp != null ? parseFloat(data.smlp) : null,
       temp_mnw:       data.temp != null ? parseFloat(data.temp) : null,
       station_mnw:    stationCode,
-      ts_mnw:         data.date || null
+      ts_mnw:         data.observation_time_local || data.observation_time_utc || data.date || null
     };
   } catch(e) {
     return null;
@@ -1744,7 +1744,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.121', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.124', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -2104,6 +2104,32 @@ return res.status(200).json({ ok: true, ts: new Date().toISOString(), zones: cro
 }
 
 // /api/engine?action=diag - test KV connection
+// /api/engine?action=predict_debug&zone=livorno&k=mdi
+if (action === 'predict_debug') {
+  try {
+    if (!zoneKey || !ZONES[zoneKey]) return res.status(404).json({ error: 'zona mancante' });
+    var pdbNow = new Date();
+    var pdbFound = [];
+    // Cerca ultime 48h con chiavi Roma
+    outer: for (var pdd = 0; pdd < 2; pdd++) {
+      for (var phh = 0; phh < 24; phh++) {
+        for (var pqq = 0; pqq < 4; pqq++) {
+          var pdbT = new Date(pdbNow.getTime() - pdd*86400000 - phh*3600000 - pqq*900000);
+          var pdbRome = pdbT.toLocaleString('sv-SE',{timeZone:'Europe/Rome'}).replace(' ','T').slice(0,13);
+          var pdbSlot = ['00','15','30','45'][pqq];
+          var pdbKey = 'predict:' + zoneKey + ':' + pdbRome + '-' + pdbSlot;
+          var pdbVal = await kvGet(pdbKey, kvUrl, kvToken);
+          if (pdbVal) {
+            pdbFound.push({ key: pdbKey, forecast_h3: pdbVal.forecast_h3, forecast_h6: pdbVal.forecast_h6, forecast_h12: pdbVal.forecast_h12, generated_at: pdbVal.generated_at, text_snippet: pdbVal.prediction_text ? pdbVal.prediction_text.slice(0, 200) : null });
+            if (pdbFound.length >= 3) break outer;
+          }
+        }
+      }
+    }
+    return res.status(200).json({ zone: zoneKey, found: pdbFound.length, predictions: pdbFound });
+  } catch(e) { return res.status(500).json({ error: e.message }); }
+}
+
 if (action === 'diag') {
 var diagResult = {
 kv_configured: !!(kvUrl && kvToken),
@@ -2937,11 +2963,17 @@ if (action === 'predict_history') {
           (function(dd, hh, qq) {
             var t = new Date(now4.getTime() - dd*86400000 - hh*3600000 - qq*900000);
             var minStr = qq === 0 ? '00' : qq === 1 ? '15' : qq === 2 ? '30' : '45';
-            var key = 'predict:' + zoneKey + ':' + t.toISOString().slice(0,13) + '-' + minStr;
+            // USA ORA DI ROMA -- le chiavi predict sono salvate con getNowRome()
+            var tRome = t.toLocaleString('sv-SE', {timeZone:'Europe/Rome'})
+              .replace(' ','T').slice(0,13).replace(':','-').replace(':','-');
+            var key = 'predict:' + zoneKey + ':' + tRome + '-' + minStr;
             predPromises.push(kvGet(key, kvUrl, kvToken).then(function(v) {
               return v ? v : null;
             }));
           })(pd4, ph4, pm4);
+        }
+      }
+    }
         }
       }
     }
@@ -2962,20 +2994,23 @@ if (action === 'predict_history') {
     var actualPromises = [];
     top10.forEach(function(p) {
       var genTime = new Date(p.generated_at);
-      // h3 actual
+      // h3 actual -- USA ORA DI ROMA per chiave snap
       var t3 = new Date(genTime.getTime() + 3*3600000);
       var m3 = t3.getMinutes() < 30 ? '00' : '30';
-      var k3 = 'snap:' + zoneKey + ':' + t3.toISOString().slice(0,13) + '-' + m3;
+      var t3r = t3.toLocaleString('sv-SE',{timeZone:'Europe/Rome'}).replace(' ','T').slice(0,13).replace(':','-').replace(':','-');
+      var k3 = 'snap:' + zoneKey + ':' + t3r + '-' + m3;
       actualPromises.push(kvGet(k3, kvUrl, kvToken));
       // h6 actual
       var t6 = new Date(genTime.getTime() + 6*3600000);
       var m6 = t6.getMinutes() < 30 ? '00' : '30';
-      var k6 = 'snap:' + zoneKey + ':' + t6.toISOString().slice(0,13) + '-' + m6;
+      var t6r = t6.toLocaleString('sv-SE',{timeZone:'Europe/Rome'}).replace(' ','T').slice(0,13).replace(':','-').replace(':','-');
+      var k6 = 'snap:' + zoneKey + ':' + t6r + '-' + m6;
       actualPromises.push(kvGet(k6, kvUrl, kvToken));
       // h12 actual
       var t12 = new Date(genTime.getTime() + 12*3600000);
       var m12 = t12.getMinutes() < 30 ? '00' : '30';
-      var k12 = 'snap:' + zoneKey + ':' + t12.toISOString().slice(0,13) + '-' + m12;
+      var t12r = t12.toLocaleString('sv-SE',{timeZone:'Europe/Rome'}).replace(' ','T').slice(0,13).replace(':','-').replace(':','-');
+      var k12 = 'snap:' + zoneKey + ':' + t12r + '-' + m12;
       actualPromises.push(kvGet(k12, kvUrl, kvToken));
     });
     var actuals = await Promise.all(actualPromises);
@@ -3310,7 +3345,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.121 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.124 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -3434,4 +3469,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.121
+// Fine codice - NAUTILUS ENGINE v2.9.124

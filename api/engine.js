@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.128 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.129 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1744,7 +1744,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.128', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.129', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -1911,6 +1911,74 @@ if (action === 'mnw_graphs_test') {
 }
 
 // /api/engine?action=buoy_test&k=mdi - test endpoint boe pubblici
+// /api/engine?action=buoy_cmems_index&k=mdi - cerca boe CMEMS nel Tirreno nord
+if (action === 'buoy_cmems_index') {
+  try {
+    var cmUser = process.env.CMEMS_USER || null;
+    var cmPass = process.env.CMEMS_PASS || null;
+    var authHeader = cmUser ? 'Basic ' + Buffer.from(cmUser + ':' + cmPass).toString('base64') : null;
+
+    // Tirreno nord + Arcipelago Toscano bounding box
+    var LAT_MIN = 41.5, LAT_MAX = 44.5, LON_MIN = 9.0, LON_MAX = 12.5;
+
+    // Index file piattaforme - piccolo CSV pubblico
+    var indexUrls = [
+      'https://nrt.cmems-du.eu/Core/INSITU_MED_PHYBGCWAV_DISCRETE_MYNRT_013_035/index_platform.txt',
+      'https://nrt.cmems-du.eu/Core/INSITU_MED_PHYBGCWAV_DISCRETE_MYNRT_013_035/metadata/index_platform.txt'
+    ];
+
+    var indexText = null;
+    var usedUrl = null;
+    for (var ui = 0; ui < indexUrls.length; ui++) {
+      try {
+        var hdr = { 'User-Agent': 'NAUTILUS/1.0' };
+        if (authHeader) hdr['Authorization'] = authHeader;
+        var ir = await fetch(indexUrls[ui], { headers: hdr, signal: AbortSignal.timeout ? AbortSignal.timeout(10000) : undefined });
+        if (ir.ok) { indexText = await ir.text(); usedUrl = indexUrls[ui]; break; }
+      } catch(e2) {}
+    }
+
+    if (!indexText) return res.status(200).json({ error: 'Index non raggiungibile', auth_configured: !!(cmUser) });
+
+    // Parsa CSV - cerca piattaforme nell'area
+    var lines = indexText.split('\n').filter(function(l){ return l.trim() && !l.startsWith('#'); });
+    var header = lines[0].split(',').map(function(h){ return h.trim().toLowerCase(); });
+    var iLat = header.indexOf('last_latitude_observation') !== -1 ? header.indexOf('last_latitude_observation') : header.indexOf('geospatial_lat_min');
+    var iLon = header.indexOf('last_longitude_observation') !== -1 ? header.indexOf('last_longitude_observation') : header.indexOf('geospatial_lon_min');
+    var iType = header.indexOf('platform_category'); if (iType < 0) iType = header.indexOf('data_type');
+    var iFile = header.indexOf('file_name'); if (iFile < 0) iFile = 0;
+    var iPlatId = header.indexOf('platform_code'); if (iPlatId < 0) iPlatId = header.indexOf('platform_id');
+    var iParam = header.indexOf('parameters');
+
+    var found = [];
+    for (var li = 1; li < lines.length; li++) {
+      var cols = lines[li].split(',');
+      if (cols.length < 3) continue;
+      var lat = parseFloat(cols[iLat]);
+      var lon = parseFloat(cols[iLon]);
+      if (isNaN(lat) || isNaN(lon)) continue;
+      if (lat >= LAT_MIN && lat <= LAT_MAX && lon >= LON_MIN && lon <= LON_MAX) {
+        found.push({
+          id: iPlatId >= 0 ? cols[iPlatId].trim() : '?',
+          lat: lat, lon: lon,
+          type: iType >= 0 ? cols[iType].trim() : '?',
+          params: iParam >= 0 ? cols[iParam].trim() : '?',
+          file: iFile >= 0 ? cols[iFile].trim() : '?'
+        });
+      }
+    }
+
+    return res.status(200).json({
+      source: usedUrl,
+      auth_configured: !!(cmUser),
+      total_platforms: lines.length - 1,
+      found_in_area: found.length,
+      bbox: { lat_min: LAT_MIN, lat_max: LAT_MAX, lon_min: LON_MIN, lon_max: LON_MAX },
+      platforms: found
+    });
+  } catch(e) { return res.status(500).json({ error: e.message }); }
+}
+
 if (action === 'buoy_test') {
   try {
     var btEndpoints = [
@@ -3387,7 +3455,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.128 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.129 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -3511,4 +3579,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.128
+// Fine codice - NAUTILUS ENGINE v2.9.129

@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.2.24 - mdisailor - 2026-05-11 -->
+<!-- NAUTILUS MAPPA v1.2.25 - mdisailor - 2026-05-11 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.2.24</title>
+<title>NAUTILUS Mappa Vento v1.2.25</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -151,7 +151,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.2.24</span>
+    <span id="nav-ver">mappa v1.2.25</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
   <a id="nav-back" href="/">APP</a>
@@ -206,11 +206,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.2.24 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.2.25 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.2.24
+// NAUTILUS MAPPA v1.2.25
 
 var ENGINE_URL = '/api/engine';
 
@@ -577,9 +577,9 @@ async function fetchGridData(){
     var batch = GRID.slice(i, i + batchSize);
     var lats = batch.map(function(p){ return p.lat; }).join(',');
     var lons = batch.map(function(p){ return p.lon; }).join(',');
-    var url = ENGINE_URL + '?action=grid&lats=' + lats + '&lons=' + lons;
+    var url = ENGINE_URL + '?action=grid&lats=' + lats + '&lons=' + lons + '&_t=' + Date.now();
     promises.push(
-      fetch(url)
+      fetch(url, {cache: 'no-store'})
         .then(function(r){ return r.json(); })
         .then(function(d){ return d.points || []; })
         .catch(function(e){ console.warn('Grid batch error:', e.message); return []; })
@@ -722,7 +722,7 @@ MNW_LIVE.forEach(function(st) {
 });
 } catch(mnwErr) { console.warn('MNW markers error:', mnwErr); }
 
-// Fine codice - NAUTILUS MAPPA v1.2.24
+// Fine codice - NAUTILUS MAPPA v1.2.25
 </script>
 </body>
 </html>

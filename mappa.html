@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.2.25 - mdisailor - 2026-05-11 -->
+<!-- NAUTILUS MAPPA v1.2.26 - mdisailor - 2026-05-11 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.2.25</title>
+<title>NAUTILUS Mappa Vento v1.2.26</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -151,7 +151,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.2.25</span>
+    <span id="nav-ver">mappa v1.2.26</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
   <a id="nav-back" href="/">APP</a>
@@ -206,11 +206,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.2.25 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.2.26 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.2.25
+// NAUTILUS MAPPA v1.2.26
 
 var ENGINE_URL = '/api/engine';
 
@@ -716,13 +716,63 @@ MNW_LIVE.forEach(function(st) {
           '<span style="font-size:0.72rem;color:#fff">' + dirTxt + '</span>' +
           '</div>' +
           (dw !== null ? '<div style="font-size:0.65rem;color:' + deltaCol + ';margin-bottom:4px">Vs OM: ' + (dw >= 0 ? '+' : '') + dw + ' kn</div>' : '') +
-          '<div style="color:#fff;font-size:0.62rem;margin-top:4px">' + dt + '</div>';
+          '<div style="color:#fff;font-size:0.62rem;margin-top:4px">' + dt + '</div>' +
+          '<div style="margin-top:8px">' +
+          '<button onclick="refreshMnwStation(\'' + st.sid + '\',\'' + popupId + '\',\'' + st.name + '\')" ' +
+          'style="font-family:DM Mono,monospace;font-size:0.58rem;padding:3px 10px;background:rgba(0,204,102,0.15);border:1px solid #00cc66;border-radius:6px;color:#00cc66;cursor:pointer">&#8635; Aggiorna</button>' +
+          '</div>';
       }).catch(function(){ });
   });
 });
 } catch(mnwErr) { console.warn('MNW markers error:', mnwErr); }
 
-// Fine codice - NAUTILUS MAPPA v1.2.25
+function refreshMnwStation(sid, popupId, name) {
+  var el = document.getElementById(popupId);
+  if (!el) return;
+  var btn = el.querySelector('button');
+  if (btn) { btn.disabled = true; btn.textContent = '...'; }
+  fetch(ENGINE_URL + '?action=station_refresh&station=' + sid, {cache: 'no-store'})
+    .then(function(r){ return r.json(); })
+    .then(function(res) {
+      if (!res.ok || !res.data) {
+        if (btn) { btn.disabled = false; btn.innerHTML = '&#8635; Aggiorna'; }
+        if (res.error && res.error.indexOf('Rate limit') >= 0) {
+          var rld = el.querySelector('.rl-msg');
+          if (!rld) { rld = document.createElement('div'); rld.className = 'rl-msg'; rld.style.cssText = 'font-size:0.55rem;color:#ffaa00;margin-top:4px'; el.appendChild(rld); }
+          rld.textContent = 'Attendi 60s tra un aggiornamento e l\'altro';
+        }
+        return;
+      }
+      // Aggiornamento riuscito — ricarica popup
+      var d = res.data;
+      var wkt = d.wind_kt;
+      var windCol = !wkt ? '#bbb' : wkt < 15 ? '#4cff91' : wkt < 25 ? '#ffd700' : '#ff6060';
+      var dirTxt = d.dir_txt || (d.dir_deg !== null && d.dir_deg !== undefined ? d.dir_deg + 'deg' : '--');
+      var dirDeg = d.dir_deg !== null && d.dir_deg !== undefined ? Number(d.dir_deg) : null;
+      var arrowSvg = dirDeg !== null
+        ? '<svg width=\"22\" height=\"22\" viewBox=\"-11 -11 22 22\" style=\"display:inline-block;vertical-align:middle\">' +
+          '<g transform=\"rotate(' + (dirDeg + 180) + ')\">' +
+          '<line x1=\"0\" y1=\"9\" x2=\"0\" y2=\"-6\" stroke=\"#fff\" stroke-width=\"2.5\" stroke-linecap=\"round\"/>' +
+          '<polygon points=\"0,-10 -4,-4 4,-4\" fill=\"#fff\"/>' +
+          '</g></svg>' : '';
+      var dt = new Date(d.timestamp).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+      el.innerHTML = '<div style=\"font-weight:bold;color:#00cc66;font-size:0.78rem;margin-bottom:6px\">' + name + '</div>' +
+        '<div style=\"display:flex;align-items:center;gap:8px;margin-bottom:5px\">' +
+        (wkt ? '<span style=\"font-size:1.5rem;font-weight:bold;color:' + windCol + '\">' + wkt + '</span><span style=\"font-size:0.65rem;color:#fff;font-weight:bold\">kn</span>' : '<span style=\"color:#bbb\">--</span>') +
+        arrowSvg +
+        '<span style=\"font-size:0.72rem;color:#fff\">' + dirTxt + '</span>' +
+        '</div>' +
+        '<div style=\"color:#4cff91;font-size:0.6rem;margin-bottom:2px\">✓ Aggiornato ora</div>' +
+        '<div style=\"color:#fff;font-size:0.62rem;margin-top:4px\">' + dt + '</div>' +
+        '<div style=\"margin-top:8px\"><button onclick=\"refreshMnwStation(\'' + sid + '\',\'' + popupId + '\',\'' + name + '\')\" ' +
+        'style=\"font-family:DM Mono,monospace;font-size:0.58rem;padding:3px 10px;background:rgba(0,204,102,0.15);border:1px solid #00cc66;border-radius:6px;color:#00cc66;cursor:pointer\">&#8635; Aggiorna</button></div>';
+    })
+    .catch(function() {
+      if (btn) { btn.disabled = false; btn.innerHTML = '&#8635; Aggiorna'; }
+    });
+}
+
+// Fine codice - NAUTILUS MAPPA v1.2.26
 </script>
 </body>
 </html>

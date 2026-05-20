@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.131 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.133 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1744,7 +1744,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.131', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.133', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -2011,6 +2011,37 @@ if (action === 'mnw_graphs_test') {
 
 // /api/engine?action=buoy_test&k=mdi - test endpoint boe pubblici
 // /api/engine?action=buoy_cmems_index&k=mdi - cerca boe CMEMS nel Tirreno nord
+// /api/engine?action=sir_test&k=mdi -- proba endpoint SIR/CFR Toscana anemometria
+if (action === 'sir_test') {
+  try {
+    var sirEndpoints = [
+      // GeoJSON stazioni anemometriche (open data ufficiale)
+      { name: 'geo_sir_anemometri', url: 'https://geo.sir.toscana.it/geoserver/geo/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=geo:cf_anemometri&maxFeatures=300000&outputFormat=application/json' },
+      // Monitoring realtime CFR
+      { name: 'cfr_monitoraggio_anemo', url: 'https://www.cfr.toscana.it/monitoraggio/stazioni.php?type=anemo' },
+      { name: 'cfr_monitoraggio_onda',  url: 'https://www.cfr.toscana.it/monitoraggio/stazioni.php?type=onda' },
+      { name: 'cfr_monitoraggio_mare',  url: 'https://www.cfr.toscana.it/monitoraggio/stazioni.php?type=mare' },
+      // SIR realtime
+      { name: 'sir_anemo_pub',    url: 'https://www.sir.toscana.it/monitoraggio/stazioni.php?type=anemo' },
+      // GeoJSON stazioni ondametriche
+      { name: 'geo_sir_ondametri', url: 'https://geo.sir.toscana.it/geoserver/geo/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=geo:cf_ondametri&maxFeatures=100&outputFormat=application/json' },
+    ];
+    var sirResults = [];
+    for (var si2 = 0; si2 < sirEndpoints.length; si2++) {
+      try {
+        var sr2 = await fetch(sirEndpoints[si2].url, {
+          headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json, text/html, */*' },
+          signal: AbortSignal.timeout ? AbortSignal.timeout(10000) : undefined
+        });
+        var sb2 = await sr2.text();
+        var isJson = sb2.trim().startsWith('{') || sb2.trim().startsWith('[');
+        sirResults.push({ name: sirEndpoints[si2].name, status: sr2.status, len: sb2.length, isJson: isJson, ct: sr2.headers.get('content-type') || '', snippet: sb2.slice(0, 300) });
+      } catch(e2) { sirResults.push({ name: sirEndpoints[si2].name, error: e2.message }); }
+    }
+    return res.status(200).json({ results: sirResults });
+  } catch(e) { return res.status(500).json({ error: e.message }); }
+}
+
 if (action === 'buoy_cmems_index') {
   try {
     var cmUser = process.env.CMEMS_USER || null;
@@ -3554,7 +3585,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.131 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.133 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -3678,4 +3709,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.131
+// Fine codice - NAUTILUS ENGINE v2.9.133

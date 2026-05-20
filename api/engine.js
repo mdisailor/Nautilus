@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.135 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.136 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1744,7 +1744,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.135', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.136', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -2017,43 +2017,43 @@ if (action === 'mnw_graphs_test') {
 if (action === 'cfr_anemo_realtime') {
   try {
     var carRes = await fetch('https://www.cfr.toscana.it/monitoraggio/stazioni.php?type=anemo', {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'text/html' },
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'text/html', 'Cache-Control': 'no-cache' },
       signal: AbortSignal.timeout ? AbortSignal.timeout(12000) : undefined
     });
     var carHtml = await carRes.text();
 
-    // Cerca pattern dati nelle stazioni interessate
-    var carStations = ['TOS11000107','TOS11000513','TOS11000103','TOS01005251','TOS03001963','TOS11000013'];
-    var carFound = [];
-
-    // Pattern 1: array JS tipo [["TOS11000107","Gorgona",velocita,direzione,...]]
-    var carArrMatch = carHtml.match(/\[(\s*\[["']TOS[\s\S]+?)\]/);
-    if (carArrMatch) {
-      carFound.push({ type: 'array', snippet: carArrMatch[0].slice(0, 500) });
+    // Trova TUTTI gli array JS con valori non vuoti (stazioni con dati)
+    var carDataRe = /new Array\("(TOS[^"]+)","([^"]+)","([^"]*)"[^)]*\)/g;
+    var carDataWithValues = [];
+    var carMatch;
+    while ((carMatch = carDataRe.exec(carHtml)) !== null) {
+      if (carMatch[2] !== '') { // ha almeno velocita
+        carDataWithValues.push({ id: carMatch[1], v1: carMatch[2], v2: carMatch[3] });
+      }
     }
 
-    // Pattern 2: oggetto JSON con id stazione
-    carStations.forEach(function(sid) {
-      var re = new RegExp(sid + '[\\s\\S]{0,300}', 'g');
-      var m = re.exec(carHtml);
-      if (m) carFound.push({ station: sid, snippet: m[0].slice(0, 200) });
-    });
+    // Cerca tutti gli array per la stazione Gorgona TOS11000107
+    var carGorgContext = [];
+    var carIdx = 0;
+    while ((carIdx = carHtml.indexOf('TOS11000107', carIdx)) >= 0) {
+      carGorgContext.push(carHtml.slice(Math.max(0, carIdx-30), carIdx+120));
+      carIdx += 10;
+    }
 
-    // Pattern 3: cerca variabili JS con dati stazioni
-    var jsVars = carHtml.match(/var\s+\w+\s*=\s*(\[[\s\S]{0,2000}?\]|\{[\s\S]{0,2000}?\})\s*;/g);
-    var jsVarList = jsVars ? jsVars.slice(0, 5).map(function(v){ return v.slice(0, 300); }) : [];
-
-    // Pattern 4: fetch/ajax calls nella pagina
-    var ajaxCalls = carHtml.match(/(fetch|ajax|XMLHttp|\.get\(|\.post\()[^;]{0,200}/g);
-    var ajaxList = ajaxCalls ? ajaxCalls.slice(0, 8) : [];
+    // Trova quante stazioni hanno valori non vuoti
+    var carAllArraysRe = /new Array\("(TOS[^"]+)","([^"]*)"[^)]*\)/g;
+    var carTotal = 0, carWithData = 0;
+    while ((carMatch = carAllArraysRe.exec(carHtml)) !== null) {
+      carTotal++;
+      if (carMatch[2] !== '') carWithData++;
+    }
 
     return res.status(200).json({
       page_len: carHtml.length,
-      stations_found: carFound,
-      js_vars: jsVarList,
-      ajax_calls: ajaxList,
-      html_snippet_start: carHtml.slice(0, 500),
-      html_snippet_scripts: carHtml.indexOf('TOS11000107') >= 0 ? 'Gorgona trovata in HTML' : 'Gorgona non trovata in HTML'
+      gorgona_contexts: carGorgContext,
+      stations_with_data: carDataWithValues.slice(0, 20),
+      total_array_entries: carTotal,
+      entries_with_values: carWithData
     });
   } catch(e) { return res.status(500).json({ error: e.message }); }
 }
@@ -3675,7 +3675,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.135 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.136 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -3799,4 +3799,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.135
+// Fine codice - NAUTILUS ENGINE v2.9.136

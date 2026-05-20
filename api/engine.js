@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.133 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.134 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1744,7 +1744,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.133', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.134', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -2012,6 +2012,51 @@ if (action === 'mnw_graphs_test') {
 // /api/engine?action=buoy_test&k=mdi - test endpoint boe pubblici
 // /api/engine?action=buoy_cmems_index&k=mdi - cerca boe CMEMS nel Tirreno nord
 // /api/engine?action=sir_test&k=mdi -- proba endpoint SIR/CFR Toscana anemometria
+// /api/engine?action=cfr_anemo_stations&k=mdi -- stazioni anemometriche CFR costiere
+if (action === 'cfr_anemo_stations') {
+  try {
+    var casRes = await fetch('https://geo.sir.toscana.it/geoserver/geo/ows?service=WFS&version=1.0.0&request=GetFeature&typeName=geo:cf_anemometri&maxFeatures=300000&outputFormat=application/json', {
+      headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' },
+      signal: AbortSignal.timeout ? AbortSignal.timeout(15000) : undefined
+    });
+    var casGeo = await casRes.json();
+    if (!casGeo.features) return res.status(200).json({ error: 'no features', raw: JSON.stringify(casGeo).slice(0,200) });
+
+    // Leggi CRS dal GeoJSON
+    var casCrs = casGeo.crs ? JSON.stringify(casGeo.crs) : 'non specificato';
+
+    // Province costiere Tirreno toscano
+    var casCoastProv = ['LI','GR','LU','PI','MS'];
+
+    // Converti coordinate: se Gauss-Boaga Ovest (EPSG:3003) o Web Mercator (EPSG:3857)
+    // Approssimazione per Gauss-Boaga: lon circa (X - 1500000) / 75000 + 9
+    // Per ora restituiamo coordinate raw + provincia per filtrare manualmente
+    var casCoastal = [];
+    casGeo.features.forEach(function(f) {
+      var p = f.properties;
+      var coords = f.geometry ? f.geometry.coordinates : null;
+      if (casCoastProv.indexOf(p.provin) >= 0 || (p.comune && ['Livorno','Piombino','Grosseto','Massa','Carrara','Lucca','Pisa','Livorno'].indexOf(p.comune) >= 0)) {
+        casCoastal.push({
+          id: p.id_stazione,
+          nome: p.nome,
+          comune: p.comune,
+          prov: p.provin,
+          coords_raw: coords,
+          quota: p.quota || null,
+          tipo: p.tipo_stazione || null
+        });
+      }
+    });
+
+    return res.status(200).json({
+      crs: casCrs,
+      total: casGeo.features.length,
+      coastal_count: casCoastal.length,
+      coastal_stations: casCoastal
+    });
+  } catch(e) { return res.status(500).json({ error: e.message }); }
+}
+
 if (action === 'sir_test') {
   try {
     var sirEndpoints = [
@@ -3585,7 +3630,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.133 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.134 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -3709,4 +3754,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.133
+// Fine codice - NAUTILUS ENGINE v2.9.134

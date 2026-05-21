@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.100 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.101 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -579,7 +579,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.100  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.101  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1820,7 +1820,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.100  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.101  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -5280,6 +5280,18 @@ async function biasSample(stationId, sfx) {
   }
 }
 
+function degToCard(d) {
+  if (d === null || d === undefined) return '';
+  var dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+  return dirs[Math.round(Number(d) / 22.5) % 16];
+}
+
+function degToCard(d) {
+  if (d === null || d === undefined) return '';
+  var dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+  return dirs[Math.round(Number(d) / 22.5) % 16];
+}
+
 async function biasLoadHistory(selectedStation, sfx) {
   const sfxId = sfx ? '-' + sfx : '';
   const spinner = document.getElementById('bias-spinner' + sfxId);
@@ -5331,7 +5343,7 @@ async function biasLoadHistory(selectedStation, sfx) {
         const dw = s.delta ? s.delta.wind_kt : null;
         const col = dw === null ? 'var(--muted)' : Math.abs(dw) > 5 ? '#e07070' : '#6dbf6d';
         const dt = new Date(s.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-        const dirTxt = s.station.direction_txt || (s.station.direction !== null ? s.station.direction + 'deg' : '--');
+        const dirTxt = s.station.direction !== null ? (degToCard(s.station.direction) + ' ' + s.station.direction + '°') : (s.station.direction_txt || '--');
         html += '<tr><td>' + dt + '</td>'
           + '<td>' + (s.station.wind_kt ?? '--') + ' kn</td>'
           + '<td>' + dirTxt + '</td>'
@@ -5344,7 +5356,7 @@ async function biasLoadHistory(selectedStation, sfx) {
       const dw = s.delta ? s.delta.wind_kt : null;
       const col = dw === null ? 'var(--muted)' : Math.abs(dw) > 5 ? '#e07070' : '#6dbf6d';
       const dt = new Date(s.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-      const dirTxt = s.station.direction_txt || (s.station.direction !== null ? s.station.direction + 'deg' : '--');
+      const dirTxt = s.station.direction !== null ? (degToCard(s.station.direction) + ' ' + s.station.direction + '°') : (s.station.direction_txt || '--');
       html += '<div style="font-family:DM Mono,monospace;font-size:0.55rem;display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid var(--border)">'
         + '<span style="color:var(--muted);width:80px">' + st.name + '</span>'
         + '<span>' + (s.station.wind_kt ?? '--') + ' kn ' + dirTxt + '</span>'
@@ -5401,7 +5413,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.6.100
+// Fine codice - NAUTILUS v5.6.101
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

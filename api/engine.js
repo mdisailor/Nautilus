@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.141 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.142 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1744,7 +1744,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.141', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.142', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -1953,44 +1953,56 @@ if (action === 'scrape_cfr') {
     }
 
     var scfTs = new Date().toISOString();
-    var scfResults = [];
 
-    // Per ogni stazione: salva in Redis con OM per delta
-    for (var sci = 0; sci < CFR_STATIONS.length; sci++) {
-      var scfSt = CFR_STATIONS[sci];
-      var scfData = scfParsed[scfSt.cfr];
-      if (!scfData || scfData.wind_kt === null) {
-        scfResults.push({ id: scfSt.id, name: scfSt.name, ok: false, error: 'no_data' });
-        continue;
-      }
-      try {
-        // Fetch OM per delta
-        var scfOmUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + scfSt.lat + '&longitude=' + scfSt.lon + '&current=wind_speed_10m,wind_gusts_10m,wind_direction_10m,surface_pressure&wind_speed_unit=kn';
-        var scfOmJ = await fetch(scfOmUrl).then(function(r){ return r.json(); });
-        var scfOm = {
-          wind_kt:     scfOmJ.current ? Math.round(scfOmJ.current.wind_speed_10m  * 10) / 10 : null,
-          gust_kt:     scfOmJ.current ? Math.round(scfOmJ.current.wind_gusts_10m  * 10) / 10 : null,
-          direction:   scfOmJ.current ? scfOmJ.current.wind_direction_10m : null,
-          pressure_mb: scfOmJ.current ? Math.round(scfOmJ.current.surface_pressure * 10) / 10 : null
-        };
-        var scfSample = {
-          ts: scfTs,
-          station: { wind_kt: scfData.wind_kt, gust_kt: scfData.gust_kt, direction: scfData.dir_deg, direction_txt: null, pressure_mb: null, source: 'cfr' },
-          om: scfOm,
-          delta: scfOm.wind_kt !== null ? { wind_kt: Math.round((scfData.wind_kt - scfOm.wind_kt) * 10) / 10 } : null
-        };
-        // Salva in Redis (max 100 campioni)
-        var scfKey2 = 'bias_samples:' + scfSt.id;
-        var scfExist = await kvGet(scfKey2, kvUrl, kvToken);
-        var scfList = Array.isArray(scfExist) ? scfExist : [];
-        scfList.unshift(scfSample);
-        if (scfList.length > 100) scfList.length = 100;
-        await kvSet(scfKey2, scfList, 31536000, kvUrl, kvToken);
-        scfResults.push({ id: scfSt.id, name: scfSt.name, ok: true, wind_kt: scfData.wind_kt, dir: scfData.dir_deg, delta: scfSample.delta });
-      } catch(scfE) {
-        scfResults.push({ id: scfSt.id, name: scfSt.name, ok: false, error: scfE.message });
-      }
-    }
+    // Filtra stazioni con dati validi
+    var scfValid = CFR_STATIONS.filter(function(st) {
+      return scfParsed[st.cfr] && scfParsed[st.cfr].wind_kt !== null;
+    });
+
+    // Fetch OM per tutte le stazioni in PARALLELO
+    var scfOmPromises = scfValid.map(function(st) {
+      var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + st.lat + '&longitude=' + st.lon + '&current=wind_speed_10m,wind_gusts_10m,wind_direction_10m,surface_pressure&wind_speed_unit=kn';
+      return fetch(url).then(function(r){ return r.json(); }).catch(function(){ return null; });
+    });
+    var scfOmResults = await Promise.all(scfOmPromises);
+
+    // Costruisce samples e salva in Redis in PARALLELO
+    var scfSavePromises = scfValid.map(function(st, idx) {
+      var scfData = scfParsed[st.cfr];
+      var omJ = scfOmResults[idx];
+      var scfOm = omJ && omJ.current ? {
+        wind_kt:     Math.round(omJ.current.wind_speed_10m  * 10) / 10,
+        gust_kt:     Math.round(omJ.current.wind_gusts_10m  * 10) / 10,
+        direction:   omJ.current.wind_direction_10m,
+        pressure_mb: Math.round(omJ.current.surface_pressure * 10) / 10
+      } : { wind_kt: null, gust_kt: null, direction: null, pressure_mb: null };
+      var scfSample = {
+        ts: scfTs,
+        station: { wind_kt: scfData.wind_kt, gust_kt: scfData.gust_kt, direction: scfData.dir_deg, direction_txt: null, pressure_mb: null, source: 'cfr' },
+        om: scfOm,
+        delta: scfOm.wind_kt !== null ? { wind_kt: Math.round((scfData.wind_kt - scfOm.wind_kt) * 10) / 10 } : null
+      };
+      var scfKey2 = 'bias_samples:' + st.id;
+      return kvGet(scfKey2, kvUrl, kvToken).then(function(existing) {
+        var list = Array.isArray(existing) ? existing : [];
+        list.unshift(scfSample);
+        if (list.length > 100) list.length = 100;
+        return kvSet(scfKey2, list, 31536000, kvUrl, kvToken).then(function() {
+          return { id: st.id, name: st.name, ok: true, wind_kt: scfData.wind_kt, dir: scfData.dir_deg, delta: scfSample.delta };
+        });
+      }).catch(function(e) {
+        return { id: st.id, name: st.name, ok: false, error: e.message };
+      });
+    });
+
+    // Stazioni senza dati
+    var scfNoData = CFR_STATIONS.filter(function(st) {
+      return !scfParsed[st.cfr] || scfParsed[st.cfr].wind_kt === null;
+    }).map(function(st) { return { id: st.id, name: st.name, ok: false, error: 'no_data' }; });
+
+    var scfResults = await Promise.all(scfSavePromises);
+    scfResults = scfResults.concat(scfNoData);
+
     return res.status(200).json({ ts: scfTs, parsed: Object.keys(scfParsed).length, results: scfResults });
   } catch(e) { return res.status(500).json({ error: e.message }); }
 }
@@ -3798,7 +3810,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.141 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.142 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -3922,4 +3934,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.141
+// Fine codice - NAUTILUS ENGINE v2.9.142

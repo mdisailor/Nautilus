@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.107 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.109 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -579,7 +579,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.107  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.109  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -899,7 +899,6 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
       <button class="btn-history" onclick="biasSample('livorno','m')">📡 Quercianella</button>
       <button class="btn-history" onclick="biasSample('canale_piombino','m')">📡 Piombino</button>
       <button class="btn-history" onclick="biasWebSample('viareggio','m')">📡 Viareggio</button>
-      <button class="btn-history" onclick="biasWebSample('bocca_arno','m')">📡 Bocca d Arno</button>
       <button class="btn-history" onclick="biasWebSample('capraia_w','m')">📡 Capraia</button>
       <button class="btn-history" onclick="biasWebSample('populonia','m')">📡 Populonia</button>
       <button class="btn-history" onclick="biasWebSample('portoferraio','m')">📡 Portoferraio</button>
@@ -914,7 +913,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
       <button class="btn-history" onclick="biasWebSample('portoferraio_cfr','m')">📡 Portoferraio CFR</button>
       <button class="btn-history" onclick="biasWebSample('orbetello','m')">📡 Orbetello</button>
       <button class="btn-history" onclick="biasWebSample('svincenzo_porto','m')">📡 S.Vincenzo Porto</button>
-      <button class="btn-history" onclick="biasWebSample('casotto_pescatori','m')">📡 Foce Ombrone</button>
+      <button class="btn-history" onclick="biasWebSample('casotto_pescatori','m')">📡 Casotto P. (Marina GR)</button>
       <button class="btn-history" onclick="biasWebSample('venturina','m')">📡 Venturina</button>
       <button class="btn-history" onclick="biasWebSample('forte_dei_marmi','m')">📡 Forte dei Marmi</button>
       <button class="btn-history" onclick="biasWebSample('lido_camaiore','m')">📡 Lido di Camaiore</button>
@@ -1820,7 +1819,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.107  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.109  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -1911,7 +1910,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
       <button class="btn-history" onclick="biasWebSample('portoferraio_cfr',undefined)">📡 Portoferraio CFR</button>
       <button class="btn-history" onclick="biasWebSample('orbetello',undefined)">📡 Orbetello</button>
       <button class="btn-history" onclick="biasWebSample('svincenzo_porto',undefined)">📡 S.Vincenzo Porto</button>
-      <button class="btn-history" onclick="biasWebSample('casotto_pescatori',undefined)">📡 Foce Ombrone</button>
+      <button class="btn-history" onclick="biasWebSample('casotto_pescatori',undefined)">📡 Casotto P. (Marina GR)</button>
       <button class="btn-history" onclick="biasWebSample('venturina',undefined)">📡 Venturina</button>
       <button class="btn-history" onclick="biasWebSample('forte_dei_marmi',undefined)">📡 Forte dei Marmi</button>
       <button class="btn-history" onclick="biasWebSample('lido_camaiore',undefined)">📡 Lido di Camaiore</button>
@@ -5229,7 +5228,7 @@ async function biasSample(stationId, sfx) {
   out.innerHTML = '';
 
   try {
-    const r = await fetch(ENGINE_URL + '?action=scrape_stations&station=' + stationId + '&k=mdi');
+    const r = await fetch(ENGINE_URL + '?action=station_refresh&station=' + stationId);
     const data = await r.json();
     if (!data.ok) throw new Error(data.error || 'Errore server');
     const sd = data.data;
@@ -5239,7 +5238,7 @@ async function biasSample(stationId, sfx) {
       + '<div style="font-size:0.72rem;margin-bottom:4px">' + (sd.wind_kt ?? '--') + ' kn  ' + dTxt + '</div>'
       + '<div style="font-size:0.55rem;color:var(--muted)">' + (sd.timestamp ? new Date(sd.timestamp).toLocaleString('it-IT') : '--') + '</div>'
       + '</div>';
-    out.innerHTML = html2;
+    out.innerHTML = '';
     biasLoadHistory(stationId, sfx);
   } catch(e) {
     out.innerHTML = '<div style="color:#e07070;font-size:0.6rem">Errore: ' + e.message + '</div>';
@@ -5257,12 +5256,6 @@ function degToCard(d) {
   return dirs[Math.round(Number(d) / 22.5) % 16];
 }
 
-function degToCard(d) {
-  if (d === null || d === undefined) return '';
-  var dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
-  return dirs[Math.round(Number(d) / 22.5) % 16];
-}
-
 async function biasLoadHistory(selectedStation, sfx) {
   const sfxId = sfx ? '-' + sfx : '';
   const spinner = document.getElementById('bias-spinner' + sfxId);
@@ -5272,7 +5265,6 @@ async function biasLoadHistory(selectedStation, sfx) {
     {id:'livorno',        name:'Quercianella'},
     {id:'canale_piombino',name:'Piombino'},
     {id:'viareggio',      name:'Viareggio'},
-    {id:'bocca_arno',     name:'Bocca d Arno'},
     {id:'capraia_w',      name:'Capraia'},
     {id:'populonia',      name:'Populonia'},
     {id:'portoferraio',   name:'Portoferraio'},
@@ -5286,7 +5278,7 @@ async function biasLoadHistory(selectedStation, sfx) {
     {id:'portoferraio_cfr',  name:'Portoferraio CFR'},
     {id:'orbetello',         name:'Orbetello'},
     {id:'svincenzo_porto',   name:'S.Vincenzo Porto'},
-    {id:'casotto_pescatori', name:'Foce Ombrone'},
+    {id:'casotto_pescatori', name:'Casotto P. (Marina GR)'},
     {id:'venturina',         name:'Venturina'},
     {id:'forte_dei_marmi',   name:'Forte dei Marmi'},
     {id:'lido_camaiore',     name:'Lido di Camaiore'},
@@ -5372,7 +5364,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.6.107
+// Fine codice - NAUTILUS v5.6.109
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

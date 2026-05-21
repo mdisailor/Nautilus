@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.139 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.141 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1744,7 +1744,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.139', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.141', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -1801,7 +1801,23 @@ if (action === 'station_refresh') {
       populonia:       { lat: 42.992, lon: 10.640, api: false, url: 'https://www.meteonetwork.eu/it/weather-station/tsc539-stazione-meteorologica-di-populonia' },
       portoferraio:    { lat: 42.813, lon: 10.368, api: false, url: 'https://www.meteonetwork.eu/it/weather-station/tsc621-stazione-meteorologica-di-portoferraio' },
       alberese:        { lat: 42.671, lon: 11.107, api: false, url: 'https://www.meteonetwork.eu/it/weather-station/tsc712-stazione-meteorologica-di-alberese' },
-      luri:            { lat: 42.851, lon: 9.403,  api: false, url: 'https://www.meteonetwork.eu/it/weather-station/fr0370-stazione-meteorologica-di-luri' }
+      luri:            { lat: 42.851, lon: 9.403,  api: false, url: 'https://www.meteonetwork.eu/it/weather-station/fr0370-stazione-meteorologica-di-luri' },
+      // CFR Toscana - fetch pagina monitoraggio
+      gorgona_cfr:       { lat: 43.433, lon: 9.883,  api: false, cfr: 'TOS11000107' },
+      capraia_cfr:       { lat: 43.050, lon: 9.838,  api: false, cfr: 'TOS03003145' },
+      giglio_porto:      { lat: 42.363, lon: 10.910, api: false, cfr: 'TOS03006000' },
+      giglio_castello:   { lat: 42.364, lon: 10.920, api: false, cfr: 'TOS03003269' },
+      montecristo:       { lat: 42.335, lon: 10.311, api: false, cfr: 'TOS03003267' },
+      portoferraio_cfr:  { lat: 42.816, lon: 10.328, api: false, cfr: 'TOS11000012' },
+      orbetello:         { lat: 42.441, lon: 11.216, api: false, cfr: 'TOS11000508' },
+      svincenzo_porto:   { lat: 43.098, lon: 10.537, api: false, cfr: 'TOS03002283' },
+      casotto_pescatori: { lat: 42.637, lon: 11.090, api: false, cfr: 'TOS11000013' },
+      venturina:         { lat: 42.985, lon: 10.620, api: false, cfr: 'TOS11000004' },
+      forte_dei_marmi:   { lat: 43.963, lon: 10.174, api: false, cfr: 'TOS02004055' },
+      lido_camaiore:     { lat: 43.871, lon: 10.262, api: false, cfr: 'TOS11000011' },
+      bocca_arno_cfr:    { lat: 43.680, lon: 10.270, api: false, cfr: 'TOS01005251' },
+      follonica:         { lat: 42.919, lon: 10.765, api: false, cfr: 'TOS03002459' },
+      capalbio:          { lat: 42.459, lon: 11.269, api: false, cfr: 'TOS11000006' },
     };
     var srSt = srAllStations[srStation];
     if (!srSt) return res.status(404).json({ error: 'Stazione non trovata: ' + srStation });
@@ -1828,8 +1844,20 @@ if (action === 'station_refresh') {
         var srGKt = mnwData2.wind_gust_ms ? Math.round(mnwData2.wind_gust_ms * 1.94384 * 10) / 10 : null;
         srStation_data = { wind_kt: srWKt, gust_kt: srGKt, direction: mnwData2.wind_direction_degree || null, direction_txt: null, pressure_mb: mnwData2.pressure || null, source: 'mnw_api' };
       }
+    } else if (srSt.cfr) {
+      // CFR Toscana - fetch pagina monitoraggio e parsa stazione specifica
+      var srCfrHtml = await fetch('https://www.cfr.toscana.it/monitoraggio/stazioni.php?type=anemo', {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'text/html', 'Cache-Control': 'no-cache' },
+        signal: AbortSignal.timeout ? AbortSignal.timeout(12000) : undefined
+      }).then(function(r){ return r.text(); });
+      var srCfrRe = new RegExp('new Array\\("' + srSt.cfr + '","([^"]+)","([A-Z]{2})","([^"]*)","([^"]*)","(\\d+)","([\\d.]+)","([\\d.]+)","(\\d+)","([\\d.]+)"');
+      var srCfrM = srCfrHtml.match(srCfrRe);
+      if (srCfrM) {
+        var srCfrKt = Math.round(parseFloat(srCfrM[6]) * 1.94384 * 10) / 10;
+        var srCfrGKt = Math.round(parseFloat(srCfrM[7]) * 1.94384 * 10) / 10;
+        srStation_data = { wind_kt: srCfrKt, gust_kt: srCfrGKt, direction: parseInt(srCfrM[8]), direction_txt: null, pressure_mb: null, source: 'cfr' };
+      }
     } else {
-      // Web scraping
       var srHtml = await fetch(srSt.url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'text/html' }, signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined }).then(function(r){ return r.text(); });
       var srMatch = srHtml.match(/Vento\s*<br>\s*([\d.]+)\s*km\/h\s*\(([^)]+)\)/i);
       if (srMatch) {
@@ -1884,7 +1912,7 @@ if (action === 'scrape_cfr') {
   try {
     // CFR stazioni di interesse con coordinate WGS84
     var CFR_STATIONS = [
-      { id:'gorgona_cfr',       cfr:'TOS11000107', name:'Gorgona',           lat:43.433, lon:9.900  },
+      { id:'gorgona_cfr',       cfr:'TOS11000107', name:'Gorgona',           lat:43.433, lon:9.883  },
       { id:'capraia_cfr',       cfr:'TOS03003145', name:'Capraia Isola',     lat:43.050, lon:9.838  },
       { id:'giglio_porto',      cfr:'TOS03006000', name:'Giglio Porto',      lat:42.363, lon:10.910 },
       { id:'giglio_castello',   cfr:'TOS03003269', name:'Giglio Castello',   lat:42.364, lon:10.902 },
@@ -1892,11 +1920,13 @@ if (action === 'scrape_cfr') {
       { id:'portoferraio_cfr',  cfr:'TOS11000012', name:'Portoferraio CFR',  lat:42.816, lon:10.328 },
       { id:'orbetello',         cfr:'TOS11000508', name:'Orbetello',         lat:42.441, lon:11.216 },
       { id:'svincenzo_porto',   cfr:'TOS03002283', name:'S.Vincenzo Porto',  lat:43.098, lon:10.537 },
-      { id:'casotto_pescatori', cfr:'TOS11000013', name:'Casotto Pescatori', lat:42.637, lon:11.090 },
+      { id:'casotto_pescatori', cfr:'TOS11000013', name:'Foce Ombrone',       lat:42.637, lon:11.090 },
       { id:'venturina',         cfr:'TOS11000004', name:'Venturina',         lat:42.985, lon:10.620 },
       { id:'forte_dei_marmi',   cfr:'TOS02004055', name:'Forte dei Marmi',   lat:43.963, lon:10.174 },
       { id:'lido_camaiore',     cfr:'TOS11000011', name:'Lido di Camaiore',  lat:43.871, lon:10.262 },
       { id:'bocca_arno_cfr',    cfr:'TOS01005251', name:'Bocca d Arno CFR',  lat:43.680, lon:10.270 },
+      { id:'follonica',          cfr:'TOS03002459', name:'Follonica',          lat:42.919, lon:10.765 },
+      { id:'capalbio',           cfr:'TOS11000006', name:'Capalbio',           lat:42.459, lon:11.269 },
     ];
 
     // Fetch pagina CFR
@@ -3768,7 +3798,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.139 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.141 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -3892,4 +3922,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.139
+// Fine codice - NAUTILUS ENGINE v2.9.141

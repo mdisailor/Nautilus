@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.2.27 - mdisailor - 2026-05-11 -->
+<!-- NAUTILUS MAPPA v1.2.28 - mdisailor - 2026-05-11 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.2.27</title>
+<title>NAUTILUS Mappa Vento v1.2.28</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -151,7 +151,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.2.27</span>
+    <span id="nav-ver">mappa v1.2.28</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
   <a id="nav-back" href="/">APP</a>
@@ -206,11 +206,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.2.27 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.2.28 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.2.27
+// NAUTILUS MAPPA v1.2.28
 
 var ENGINE_URL = '/api/engine';
 
@@ -258,6 +258,7 @@ var MNW_LIVE = [
   { key:'venturina',        name:'Venturina',       lat:42.985,  lon:10.620, sid:'venturina' },
   { key:'forte_marmi',      name:'Forte dei Marmi', lat:43.963,  lon:10.174, sid:'forte_dei_marmi' },
   { key:'lido_camaiore',    name:'Lido Camaiore',   lat:43.871,  lon:10.262, sid:'lido_camaiore' },
+  { key:'bocca_arno_cfr',   name:'Bocca Arno CFR',  lat:43.680,  lon:10.270, sid:'bocca_arno_cfr' },
 ];
 
 // Griglia 0.25 gradi - Liguria Toscana Corsica Nord
@@ -785,7 +786,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.2.27
+// Fine codice - NAUTILUS MAPPA v1.2.28
 </script>
 </body>
 </html>

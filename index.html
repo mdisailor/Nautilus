@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.105 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.106 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -579,7 +579,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.105  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.106  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1820,7 +1820,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.105  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.106  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -5231,46 +5231,15 @@ async function biasSample(stationId, sfx) {
   try {
     const r = await fetch(ENGINE_URL + '?action=scrape_stations&station=' + stationId + '&k=mdi');
     const data = await r.json();
-    let html = '<div style="font-size:0.55rem;color:var(--muted);margin-bottom:6px">' +
-      new Date(data.ts).toLocaleString('it-IT') + '</div>';
-    for (const s of data.results) {
-      if (!s.ok || !s.sample.station) {
-        html += '<div style="font-size:0.6rem;color:var(--muted);margin-bottom:4px">📍 ' + s.name +
-          ': ' + (s.mnw_error || 'nessun dato') + '</div>';
-        continue;
-      }
-      const dw = s.sample.delta.wind_kt;
-      const dg = s.sample.delta.gust_kt;
-      const colW = dw === null ? 'var(--muted)' : Math.abs(dw) > 5 ? '#e07070' : '#6dbf6d';
-      const colG = dg === null ? 'var(--muted)' : Math.abs(dg) > 5 ? '#e07070' : '#6dbf6d';
-      var dirStr = function(d){ if(d==null) return '—'; var n=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO']; return d+'° '+n[Math.round(d/22.5)%16]; };
-      html += '<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:6px;font-family:DM Mono,monospace;font-size:0.58rem">' +
-        '<div style="color:var(--accent);margin-bottom:6px;font-size:0.6rem">📍 ' + s.name + '</div>' +
-        '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px">' +
-        '<div style="background:rgba(255,255,255,0.04);border-radius:6px;padding:6px 8px"><div style="color:var(--muted);font-size:0.5rem;margin-bottom:2px">VENTO</div><div style="font-size:0.72rem">' + (s.sample.station.wind_kt ?? '—') + ' kn</div></div>' +
-        '<div style="background:rgba(255,255,255,0.04);border-radius:6px;padding:6px 8px"><div style="color:var(--muted);font-size:0.5rem;margin-bottom:2px">RAFFICA</div><div style="font-size:0.72rem">' + (s.sample.station.gust_kt ?? '—') + ' kn</div></div>' +
-        '<div style="background:rgba(255,255,255,0.04);border-radius:6px;padding:6px 8px"><div style="color:var(--muted);font-size:0.5rem;margin-bottom:2px">DIR.</div><div style="font-size:0.72rem">' + dirStr(s.sample.station.direction) + '</div></div>' +
-        '</div>' +
-        '<div style="border-top:1px solid var(--border);padding-top:6px">' +
-        '<table style="width:100%;border-collapse:collapse;font-size:0.55rem">' +
-        '<tr style="color:var(--muted)"><td></td><td>Stazione</td><td>OM</td><td>Δ</td></tr>' +
-        '<tr><td style="color:var(--muted)">Vento</td><td>' + (s.sample.station.wind_kt ?? '—') + ' kn</td><td>' + (s.sample.om.wind_kt ?? '—') + ' kn</td><td style="color:' + colW + '">' + (dw !== null ? (dw >= 0 ? '+' : '') + dw : '—') + '</td></tr>' +
-        '<tr><td style="color:var(--muted)">Raffica</td><td>' + (s.sample.station.gust_kt ?? '—') + ' kn</td><td>' + (s.sample.om.gust_kt ?? '—') + ' kn</td><td style="color:' + colG + '">' + (dg !== null ? (dg >= 0 ? '+' : '') + dg : '—') + '</td></tr>' +
-        '<tr><td style="color:var(--muted)">Press.</td><td>' + (s.sample.station.pressure_mb ?? '—') + ' mb</td><td>' + (s.sample.om.pressure_mb ?? '—') + ' mb</td><td>—</td></tr>' +
-        '</table></div></div>';
-    }
-    // Mostra statistiche se disponibili
-    if (data.stats) {
-      html += '<div style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--muted);margin-top:4px">';
-      for (const [sid, st] of Object.entries(data.stats)) {
-        if (!st || st.n_wind < 1) continue;
-        const sign = v => v >= 0 ? '+' : '';
-        html += '📊 ' + sid + ': Δ vento ' + sign(st.mean_delta_wind) + st.mean_delta_wind +
-          'kn, Δ raffica ' + sign(st.mean_delta_gust) + st.mean_delta_gust + 'kn (' + st.n_wind + ' campioni)<br>';
-      }
-      html += '</div>';
-    }
-    out.innerHTML = html;
+    if (!data.ok) throw new Error(data.error || 'Errore server');
+    const sd = data.data;
+    const dTxt = sd.dir_deg !== null ? (degToCard(sd.dir_deg) + ' ' + sd.dir_deg + String.fromCharCode(176)) : (sd.dir_txt || '--');
+    const html2 = '<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:6px;font-family:DM Mono,monospace;font-size:0.58rem">'
+      + '<div style="color:var(--accent);margin-bottom:4px;font-size:0.6rem">' + stationId + '</div>'
+      + '<div style="font-size:0.72rem;margin-bottom:4px">' + (sd.wind_kt ?? '--') + ' kn  ' + dTxt + '</div>'
+      + '<div style="font-size:0.55rem;color:var(--muted)">' + (sd.timestamp ? new Date(sd.timestamp).toLocaleString('it-IT') : '--') + '</div>'
+      + '</div>';
+    out.innerHTML = html2;
     biasLoadHistory(stationId, sfx);
   } catch(e) {
     out.innerHTML = '<div style="color:#e07070;font-size:0.6rem">Errore: ' + e.message + '</div>';
@@ -5417,7 +5386,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.6.105
+// Fine codice - NAUTILUS v5.6.106
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

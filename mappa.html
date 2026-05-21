@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.2.30 - mdisailor - 2026-05-11 -->
+<!-- NAUTILUS MAPPA v1.2.31 - mdisailor - 2026-05-11 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.2.30</title>
+<title>NAUTILUS Mappa Vento v1.2.31</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -151,7 +151,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.2.30</span>
+    <span id="nav-ver">mappa v1.2.31</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
   <a id="nav-back" href="/">APP</a>
@@ -206,11 +206,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.2.30 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.2.31 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.2.30
+// NAUTILUS MAPPA v1.2.31
 
 var ENGINE_URL = '/api/engine';
 
@@ -254,10 +254,10 @@ var MNW_LIVE = [
   { key:'portoferraio_cfr', name:'Portof. CFR',     lat:42.816,  lon:10.328, sid:'portoferraio_cfr' },
   { key:'orbetello',        name:'Orbetello',       lat:42.441,  lon:11.216, sid:'orbetello' },
   { key:'svincenzo_porto',  name:'S.Vincenzo P.',   lat:43.098,  lon:10.537, sid:'svincenzo_porto' },
-  { key:'casotto_pesc',     name:'Foce Ombrone',    lat:42.637,  lon:11.090, sid:'casotto_pescatori' },
+  { key:'casotto_pesc',     name:'Foce Ombrone',    lat:42.610,  lon:11.075, sid:'casotto_pescatori' },
   { key:'venturina',        name:'Venturina',       lat:42.985,  lon:10.620, sid:'venturina' },
   { key:'forte_marmi',      name:'Forte dei Marmi', lat:43.963,  lon:10.174, sid:'forte_dei_marmi' },
-  { key:'lido_camaiore',    name:'Lido Camaiore',   lat:43.871,  lon:10.262, sid:'lido_camaiore' },
+  { key:'lido_camaiore',    name:'Lido Camaiore',   lat:43.867,  lon:10.248, sid:'lido_camaiore' },
   { key:'bocca_arno_cfr',   name:'Bocca Arno CFR',  lat:43.680,  lon:10.270, sid:'bocca_arno_cfr' },
   { key:'follonica',        name:'Follonica',        lat:42.919,  lon:10.765, sid:'follonica' },
   { key:'capalbio',         name:'Capalbio',         lat:42.459,  lon:11.269, sid:'capalbio' },
@@ -715,7 +715,7 @@ MNW_LIVE.forEach(function(st) {
         var wkt = s.station.wind_kt;
         var windCol = wkt < 15 ? '#4cff91' : wkt < 25 ? '#ffd700' : '#ff6060';
         var deltaCol = dw === null ? '#bbb' : Math.abs(dw) > 5 ? '#ff6060' : '#4cff91';
-        var dirTxt = s.station.direction_txt ? s.station.direction_txt : (s.station.direction !== null ? s.station.direction + 'deg' : '--');
+        var dirTxt = (s.station.direction !== null ? degToCard(s.station.direction) + ' ' + s.station.direction + '°' : '--');
         var dirDeg = (s.station.direction !== undefined && s.station.direction !== null) ? Number(s.station.direction) : null;
         var arrowSvg = dirDeg !== null
           ? '<svg width="22" height="22" viewBox="-11 -11 22 22" style="display:inline-block;vertical-align:middle">' +
@@ -742,11 +742,20 @@ MNW_LIVE.forEach(function(st) {
 });
 } catch(mnwErr) { console.warn('MNW markers error:', mnwErr); }
 
+function degToCard(d) {
+  if (d === null || d === undefined) return '--';
+  var dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+  return dirs[Math.round(Number(d) / 22.5) % 16];
+}
+
 function refreshMnwStation(sid, popupId, name) {
   var el = document.getElementById(popupId);
   if (!el) return;
   var btn = el.querySelector('button');
-  if (btn) { btn.disabled = true; btn.textContent = '...'; }
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span style="display:inline-block;width:10px;height:10px;border:2px solid rgba(0,204,102,0.3);border-top-color:#00cc66;border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle;margin-right:4px"></span>Carico...';
+  }
   fetch(ENGINE_URL + '?action=station_refresh&station=' + sid, {cache: 'no-store'})
     .then(function(r){ return r.json(); })
     .then(function(res) {
@@ -763,7 +772,7 @@ function refreshMnwStation(sid, popupId, name) {
       var d = res.data;
       var wkt = d.wind_kt;
       var windCol = !wkt ? '#bbb' : wkt < 15 ? '#4cff91' : wkt < 25 ? '#ffd700' : '#ff6060';
-      var dirTxt = d.dir_txt || (d.dir_deg !== null && d.dir_deg !== undefined ? d.dir_deg + 'deg' : '--');
+      var dirTxt = (d.dir_deg !== null && d.dir_deg !== undefined ? degToCard(d.dir_deg) + ' ' + d.dir_deg + '°' : '--');
       var dirDeg = d.dir_deg !== null && d.dir_deg !== undefined ? Number(d.dir_deg) : null;
       var arrowSvg = dirDeg !== null
         ? '<svg width=\"22\" height=\"22\" viewBox=\"-11 -11 22 22\" style=\"display:inline-block;vertical-align:middle\">' +
@@ -788,7 +797,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.2.30
+// Fine codice - NAUTILUS MAPPA v1.2.31
 </script>
 </body>
 </html>

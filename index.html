@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.123 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.124 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -579,7 +579,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.123  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.124  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1820,7 +1820,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.123  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.124  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -3552,7 +3552,7 @@ function renderHistoryMatrix(snaps) {
       '<div style="height:'+VAL_H+'px;display:flex;align-items:center;justify-content:center">' +
         '<span style="font-family:DM Mono,monospace;font-size:0.38rem;color:'+(isLast?'#fff':'#8ab8d0')+';font-weight:'+(isLast?'bold':'normal')+';white-space:nowrap">'+(pres!=null?pres.toFixed(0):'')+'</span></div>' +
       '<div style="height:'+BAR_H+'px;display:flex;align-items:flex-end;justify-content:center">' +
-        '<div style="width:'+(COL_W-4)+'px;height:'+hP+'px;background:'+colP+';border-radius:2px 2px 0 0'+(isLast?';box-shadow:0 0 5px '+colP:'')+(s.obs_source==='cfr'?';outline:1px solid rgba(0,240,255,0.6)':'')+'">' +
+        '<div style="width:'+(COL_W-4)+'px;height:'+hP+'px;background:'+colP+';border-radius:2px 2px 0 0'+(isLast?';box-shadow:0 0 5px '+colP:'')+'">' +
         '</div></div>' +
       '<div style="height:'+TIME_H+'px;display:flex;align-items:center;justify-content:center">' +
         '<span style="font-family:DM Mono,monospace;font-size:0.36rem;color:'+(isLast?'#cce8ff':'#4a7090')+';white-space:nowrap">'+(showTime?time:'')+'</span></div>' +
@@ -3578,7 +3578,7 @@ function renderHistoryMatrix(snaps) {
         '<div style="width:'+hw+'px;height:'+hG+'px;background:'+colG+';border-radius:2px 2px 0 0;opacity:'+(isLast?1:0.65)+'"></div>' +
       '</div>' +
       '<div style="height:'+TIME_H+'px;display:flex;align-items:center;justify-content:center">' +
-        '<span style="font-family:DM Mono,monospace;font-size:0.36rem;color:'+(isLast?'#cce8ff':'#4a7090')+';white-space:nowrap">'+(showTime?time:'')+(s.obs_source==='cfr'?' <span style="color:rgba(0,240,255,0.7)">C</span>':'')+'</span></div>' +
+        '<span style="font-family:DM Mono,monospace;font-size:0.36rem;color:'+(isLast?'#cce8ff':'#4a7090')+';white-space:nowrap">'+(showTime?time:'')+'</span></div>' +
       '</div>';
   });
 
@@ -5388,7 +5388,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.6.123
+// Fine codice - NAUTILUS v5.6.124
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

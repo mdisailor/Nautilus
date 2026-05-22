@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.124 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.125 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -579,7 +579,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.124  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.125  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1820,7 +1820,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.124  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.125  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -3476,6 +3476,8 @@ async function loadHistory(zoneKey) {
         (data.bias.wave_bias >= 0 ? '+' : '') + data.bias.wave_bias + 'm</div>';
     }
 
+    // DEBUG: mostra conteggio snapshot
+    html = '<div style="font-family:DM Mono,monospace;font-size:0.45rem;color:var(--muted);margin-bottom:4px">' + snaps.length + ' snapshot (' + snaps.filter(function(s){return s.obs_source==='cfr';}).length + ' CFR)</div>' + html;
     container.innerHTML = html;
     // Scorri a destra per mostrare letture piu recenti
     container.querySelectorAll('.history-scroll').forEach(function(s){ s.scrollLeft = s.scrollWidth; });
@@ -3545,7 +3547,7 @@ function renderHistoryMatrix(snaps) {
   html += makeRow('hPa', VAL_H+BAR_H+TIME_H, function(s, i, isLast){
     var pres = s.pressure != null ? parseFloat(s.pressure) : null;
     var time = s.ts ? new Date(s.ts).toLocaleTimeString('it-IT',{timeZone:'Europe/Rome',hour:'2-digit',minute:'2-digit'}) : '--';
-    var showTime = true;
+    var showTime = (i%2===0)||isLast;
     var hP = pres != null ? Math.max(MIN_H, Math.round(MIN_H+((pres-minP)/rangeP)*(BAR_H-MIN_H))) : MIN_H;
     var colP = isLast ? 'var(--accent)' : 'rgba(0,180,220,0.55)';
     return '<div style="width:'+COL_W+'px;flex-shrink:0;display:flex;flex-direction:column;align-items:center">' +
@@ -3564,7 +3566,7 @@ function renderHistoryMatrix(snaps) {
     var spd  = s.wind_speed != null ? parseFloat(s.wind_speed) : null;
     var gust = s.wind_gust  != null ? parseFloat(s.wind_gust)  : null;
     var time = s.ts ? new Date(s.ts).toLocaleTimeString('it-IT',{timeZone:'Europe/Rome',hour:'2-digit',minute:'2-digit'}) : '--';
-    var showTime = true;
+    var showTime = (i%2===0)||isLast;
     var hS = spd  != null ? Math.max(MIN_H, Math.round(MIN_H+(spd /maxW)*(BAR_H-MIN_H))) : MIN_H;
     var hG = gust != null ? Math.max(MIN_H, Math.round(MIN_H+(gust/maxW)*(BAR_H-MIN_H))) : MIN_H;
     var colS = bftColor(spd), colG = bftColor(gust);
@@ -3587,7 +3589,7 @@ function renderHistoryMatrix(snaps) {
     var dir = s.wind_dir   != null ? parseFloat(s.wind_dir)   : null;
     var spd = s.wind_speed != null ? parseFloat(s.wind_speed) : null;
     var time = s.ts ? new Date(s.ts).toLocaleTimeString('it-IT',{timeZone:'Europe/Rome',hour:'2-digit',minute:'2-digit'}) : '--';
-    var showTime = true;
+    var showTime = (i%2===0)||isLast;
     var colD = dirColor(dir);
     var arrowSz = Math.max(12, Math.min(24, Math.round(12+(spd||0)/Math.max(maxW,1)*12)));
     return '<div style="width:'+COL_W+'px;flex-shrink:0;display:flex;flex-direction:column;align-items:center">' +
@@ -5388,7 +5390,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.6.124
+// Fine codice - NAUTILUS v5.6.125
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

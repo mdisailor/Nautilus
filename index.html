@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.115 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.116 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -579,7 +579,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.115  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.116  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -623,12 +623,12 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
     </optgroup>
     <optgroup label=" Arcipelago Toscano">
       <option value="43.044,9.839">Capraia</option>
-      <option value="43.169,9.921">Gorgona</option>
+      <option value="43.433,9.883">Gorgona</option>
       <option value="42.366,10.912">Giglio Porto</option>
       <option value="42.324,10.869">Giglio Campese</option>
       <option value="42.243,11.355">Giannutri</option>
       <option value="42.560,10.090">Pianosa</option>
-      <option value="42.601,10.475">Montecristo (largo)</option>
+      <option value="42.335,10.311">Montecristo</option>
     </optgroup>
     <optgroup label=" Liguria">
       <option value="44.106,9.828">La Spezia</option>
@@ -1819,7 +1819,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.115  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.116  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -2307,9 +2307,21 @@ function renderWeather() {
   const avgW = wavg(winds).toFixed(0);
   const avgG = wavg(gusts).toFixed(0);
   const avgP = (press.reduce((a,b)=>a+b,0)/press.length).toFixed(0);
-  const avgDir = Math.round(wdirs.reduce((a,b)=>a+b,0)/wdirs.length);
-  const avgPer = wpers.length ? (wpers.reduce((a,b)=>a+b,0)/wpers.length).toFixed(0) : '--';
-  const avgWD = waved.length ? Math.round(waved.reduce((a,b)=>a+b,0)/waved.length) : null;
+  // Vettoriale per le direzioni (evita il bug nord 0/360)
+  const circularMean = dirs => {
+    if (!dirs.length) return 0;
+    const valid = dirs.filter(d => d !== null && d !== undefined);
+    if (!valid.length) return 0;
+    const sinSum = valid.reduce((a,d) => a + Math.sin(d * Math.PI/180), 0);
+    const cosSum = valid.reduce((a,d) => a + Math.cos(d * Math.PI/180), 0);
+    const mean = Math.atan2(sinSum, cosSum) * 180 / Math.PI;
+    return Math.round(mean < 0 ? mean + 360 : mean);
+  };
+  const avgDir = circularMean(wdirs);
+  const avgWD  = waved.length ? circularMean(waved) : null;
+  // Direzione al picco (non media)
+  const peakWindIdx = winds.indexOf(Math.max(...winds));
+  const peakDir = wdirs[peakWindIdx] !== undefined ? wdirs[peakWindIdx] : avgDir;
 
   const col = (id, v, t) => {
     const e = document.getElementById(id);
@@ -2318,7 +2330,7 @@ function renderWeather() {
 
   document.getElementById('m-wind').textContent = maxW;
   var lbl = document.getElementById('lbl-wind');
-  if (lbl) lbl.textContent = 'Vento  ' + h + 'h  ' + degToDir(avgDir);
+  if (lbl) lbl.textContent = 'Vento  ' + h + 'h  ' + degToDir(peakDir);
   // Current wind (idx = current hour)
   var nowSpeed = d.hourly.windspeed_10m[idx];
   var nowGust = d.hourly.windgusts_10m[idx];
@@ -5363,7 +5375,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.6.115
+// Fine codice - NAUTILUS v5.6.116
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

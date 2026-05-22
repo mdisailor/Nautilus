@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.149 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.151 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1814,7 +1814,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.149', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.151', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -2038,6 +2038,15 @@ if (action === 'scrape_cfr') {
     });
     var scfOmResults = await Promise.all(scfOmPromises);
 
+    // Mappa stazione CFR -> zona corrispondente per salvare snapshot
+    var CFR_TO_ZONE = {
+      bocca_arno_cfr: 'bocca_arno', giglio_porto: 'giglio', montecristo: 'montecristo',
+      orbetello: 'orbetello', svincenzo_porto: 'svincenzo', follonica: 'follonica',
+      capalbio: 'capalbio', alberese: 'alberese', forte_dei_marmi: 'forte_marmi',
+      casotto_pescatori: 'casotto_gr', venturina: 'venturina',
+      gorgona_cfr: 'gorgona', capraia_cfr: 'capraia', portoferraio_cfr: 'elba_nord'
+    };
+
     // Costruisce samples e salva in Redis in PARALLELO
     var scfSavePromises = scfValid.map(function(st, idx) {
       var scfData = scfParsed[st.cfr];
@@ -2055,11 +2064,38 @@ if (action === 'scrape_cfr') {
         delta: scfOm.wind_kt !== null ? { wind_kt: Math.round((scfData.wind_kt - scfOm.wind_kt) * 10) / 10, dir_station: scfData.dir_deg, dir_om: scfOm.direction } : null
       };
       var scfKey2 = 'bias_samples:' + st.id;
+
+      // Salva anche snapshot di zona se questa stazione ha una zona corrispondente
+      var zoneSnapshotPromise = Promise.resolve();
+      var mappedZone = CFR_TO_ZONE[st.id];
+      if (mappedZone && scfOm.wind_kt !== null) {
+        var scfNow = new Date(scfTs);
+        var scfMins = scfNow.getMinutes() < 30 ? '00' : '30';
+        var scfSlotKey = 'snap:' + mappedZone + ':' + scfNow.toISOString().slice(0,13) + '-' + scfMins;
+        var scfSnap = {
+          ts: scfTs,
+          wind_speed: scfData.wind_kt,
+          wind_dir: scfData.dir_deg,
+          wind_gust: scfData.gust_kt,
+          pressure: scfOm.pressure_mb,
+          wave_height: null, wave_period: null, wave_direction: null,
+          wind_speed_850: null, wind_dir_850: null,
+          ifs_wind_speed: null, ifs_wind_dir: null,
+          wind_speed_om: scfOm.wind_kt,
+          wind_dir_om: scfOm.direction,
+          obs_source: 'cfr', obs_station: st.id, obs_quota: st.quota || null
+        };
+        zoneSnapshotPromise = kvSet(scfSlotKey, scfSnap, 86400 * 3, kvUrl, kvToken);
+      }
+
       return kvGet(scfKey2, kvUrl, kvToken).then(function(existing) {
         var list = Array.isArray(existing) ? existing : [];
         list.unshift(scfSample);
         if (list.length > 100) list.length = 100;
-        return kvSet(scfKey2, list, 31536000, kvUrl, kvToken).then(function() {
+        return Promise.all([
+          kvSet(scfKey2, list, 31536000, kvUrl, kvToken),
+          zoneSnapshotPromise
+        ]).then(function() {
           return { id: st.id, name: st.name, ok: true, wind_kt: scfData.wind_kt, dir: scfData.dir_deg, delta: scfSample.delta };
         });
       }).catch(function(e) {
@@ -3921,7 +3957,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.149 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.151 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4045,4 +4081,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.149
+// Fine codice - NAUTILUS ENGINE v2.9.151

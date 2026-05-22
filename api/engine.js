@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.142 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.143 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -162,6 +162,72 @@ local_effects: {
 tramontane_corsica: { desc: 'Tramontane accelerata Corsica', active_wind_dirs: [330, 30], amplification: 1.30, note: 'Vento canalizzato tra le montagne corse - raffiche violente' },
 canale_corsica: { desc: 'Canale di Corsica', active_wind_dirs: [330, 60], amplification: 1.25, note: 'Accelerazione nel canale tra Corsica e continente' },
 }
+},
+gorgona: {
+enabled: true, name: 'Gorgona', lat: 43.433, lon: 9.883, bias_station: 'gorgona_cfr',
+ports: { gorgona: { name: 'Gorgona', exposure: 'W', shelter: 'low', swell_threshold: 0.6 } },
+local_effects: { esposizione: { desc: 'Isola esposta', active_wind_dirs: [0,360], note: 'Isola isolata - vento e onda amplificati rispetto alla costa' } }
+},
+giglio: {
+enabled: true, name: 'Giglio', lat: 42.363, lon: 10.910, bias_station: 'giglio_porto',
+ports: {
+giglio_porto:    { name: 'Giglio Porto',    exposure: 'NW', shelter: 'medium', swell_threshold: 0.8 },
+giglio_campese:  { name: 'Campese',         exposure: 'W',  shelter: 'low',    swell_threshold: 0.7 },
+},
+local_effects: { esposizione: { desc: 'Isola esposta Tirreno', active_wind_dirs: [0,360], note: 'Maggiore intensita\' rispetto costa per posizione isolata' } }
+},
+montecristo: {
+enabled: true, name: 'Montecristo', lat: 42.335, lon: 10.311, bias_station: 'montecristo',
+ports: { montecristo: { name: 'Cala Maestra', exposure: 'N', shelter: 'low', swell_threshold: 0.5 } },
+local_effects: { isolamento: { desc: 'Isola isolata centro Tirreno', active_wind_dirs: [0,360], note: 'Nessun ridosso - condizioni spesso piu\' forti rispetto alle isole vicine' } }
+},
+orbetello: {
+enabled: true, name: 'Orbetello - Argentario', lat: 42.441, lon: 11.216, bias_station: 'orbetello',
+ports: {
+porto_s_stefano: { name: 'Porto S.Stefano', exposure: 'W',  shelter: 'medium', swell_threshold: 1.0 },
+porto_ercole:    { name: 'Porto Ercole',    exposure: 'SW', shelter: 'medium', swell_threshold: 1.0 },
+},
+local_effects: { fetch_w: { desc: 'Fetch aperto W', active_wind_dirs: [240,300], note: 'Libeccio genera mare rapidamente in questa zona' } }
+},
+bocca_arno: {
+enabled: true, name: 'Bocca d\'Arno', lat: 43.680, lon: 10.270, bias_station: 'bocca_arno_cfr',
+ports: { bocca_arno: { name: 'Bocca d\'Arno', exposure: 'W', shelter: 'low', swell_threshold: 0.8 } },
+local_effects: { foce_arno: { desc: 'Foce Arno - bassi fondali', active_wind_dirs: [180,300], note: 'Mare corto e ripido per fondali bassi all\'imbocco del fiume' } }
+},
+svincenzo: {
+enabled: true, name: 'S.Vincenzo', lat: 43.098, lon: 10.537, bias_station: 'svincenzo_porto',
+ports: { svincenzo: { name: 'S.Vincenzo Porto', exposure: 'W', shelter: 'medium', swell_threshold: 1.0 } },
+local_effects: { costa_bassa: { desc: 'Costa pianeggiante esposta', active_wind_dirs: [220,300], note: 'Nessun ostacolo naturale a W - mare formato' } }
+},
+follonica: {
+enabled: true, name: 'Follonica', lat: 42.919, lon: 10.765, bias_station: 'follonica',
+ports: { follonica: { name: 'Follonica', exposure: 'W', shelter: 'medium', swell_threshold: 1.0 } },
+local_effects: { golfo_follonica: { desc: 'Golfo di Follonica', active_wind_dirs: [220,300], note: 'Libeccio entra direttamente nel golfo' } }
+},
+capalbio: {
+enabled: true, name: 'Capalbio - Argentario S', lat: 42.459, lon: 11.269, bias_station: 'capalbio',
+ports: { capalbio: { name: 'Capalbio Scalo', exposure: 'W', shelter: 'low', swell_threshold: 0.8 } },
+local_effects: { tramontana_s: { desc: 'Tramontana Lazio nord', active_wind_dirs: [330,30], note: 'Tramontana accelerata tra Argentario e costa laziale' } }
+},
+alberese: {
+enabled: true, name: 'Alberese - Foce Ombrone', lat: 42.638, lon: 11.078, bias_station: 'alberese',
+ports: { alberese: { name: 'Marina di Alberese', exposure: 'W', shelter: 'low', swell_threshold: 0.7 } },
+local_effects: { foce_ombrone: { desc: 'Zona foce Ombrone', active_wind_dirs: [0,360], note: 'Costa bassa del Parco Maremma - vento libero da W' } }
+},
+forte_marmi: {
+enabled: true, name: 'Forte dei Marmi - Versilia N', lat: 43.963, lon: 10.174, bias_station: 'forte_dei_marmi',
+ports: { forte_marmi: { name: 'Forte dei Marmi', exposure: 'W', shelter: 'low', swell_threshold: 1.0 } },
+local_effects: { apuane: { desc: 'Effetto Alpi Apuane', active_wind_dirs: [30,90], note: 'Tramontana accelerata a valle delle Apuane' } }
+},
+casotto_gr: {
+enabled: true, name: 'Casotto P. - Marina di Grosseto', lat: 42.740, lon: 11.040, bias_station: 'casotto_pescatori',
+ports: { casotto: { name: 'Marina di Grosseto', exposure: 'W', shelter: 'low', swell_threshold: 0.8 } },
+local_effects: { diaccia: { desc: 'Zona Diaccia Botrona', active_wind_dirs: [0,360], note: 'Costa del parco - area esposta con correnti lagunari' } }
+},
+venturina: {
+enabled: true, name: 'Venturina - Val di Cornia', lat: 42.985, lon: 10.620, bias_station: 'venturina',
+ports: { venturina: { name: 'Punta Ala area', exposure: 'W', shelter: 'medium', swell_threshold: 1.0 } },
+local_effects: { canale_piombino_s: { desc: 'Influenza canale Piombino', active_wind_dirs: [270,360], note: 'Zona di transizione tra canale Piombino e golfo Follonica' } }
 },
 };
 //  LAMMA STATIONS MAP 
@@ -1286,7 +1352,12 @@ return await kvGet('bias:' + zoneKey, kvUrl, kvToken);
 
 // Calcola statistiche bias stazione reale vs OM dai campioni raccolti
 async function biasComputeStations(kvUrl, kvToken) {
-  var stations = ['livorno', 'canale_piombino'];
+  var stations = [
+    'livorno','canale_piombino','viareggio','bocca_arno','capraia_w','populonia','portoferraio','alberese','luri',
+    'gorgona_cfr','capraia_cfr','giglio_porto','giglio_castello','montecristo','portoferraio_cfr',
+    'orbetello','svincenzo_porto','casotto_pescatori','venturina','forte_dei_marmi','lido_camaiore',
+    'bocca_arno_cfr','follonica','capalbio'
+  ];
   var results = {};
   for (var si = 0; si < stations.length; si++) {
     var sid = stations[si];
@@ -1744,7 +1815,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.142', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.143', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -3042,6 +3113,12 @@ if (action === 'predict') {
     var biasStatPiombino = await kvGet('bias_stats:canale_piombino', kvUrl, kvToken);
     var biasStatViareggio = await kvGet('bias_stats:viareggio', kvUrl, kvToken);
     var biasStatCapraia = await kvGet('bias_stats:capraia_w', kvUrl, kvToken);
+    // Carica bias stazione primaria della zona (CFR o MNW)
+    var zoneObj = ZONES[zoneKey];
+    var biasStatZone = null;
+    if (zoneObj && zoneObj.bias_station) {
+      biasStatZone = await kvGet('bias_stats:' + zoneObj.bias_station, kvUrl, kvToken);
+    }
     var rotation = analyzeWindRotation(snapshots14.slice(0, 24)); // rotation from last 24h
 
     // Get current conditions
@@ -3167,9 +3244,15 @@ if (action === 'predict') {
     var bsPio = biasStatPiombino;
     var bsVia = biasStatViareggio;
     var bsCap = biasStatCapraia;
-    if ((bsLiv && bsLiv.n_wind >= 3) || (bsPio && bsPio.n_wind >= 3) || (bsVia && bsVia.n_wind >= 3) || (bsCap && bsCap.n_wind >= 3)) {
+    var bsZone = biasStatZone;
+    var anyBias = (bsLiv && bsLiv.n_wind >= 3) || (bsPio && bsPio.n_wind >= 3) || (bsVia && bsVia.n_wind >= 3) || (bsCap && bsCap.n_wind >= 3) || (bsZone && bsZone.n_wind >= 3);
+    if (anyBias) {
       pLines.push('');
-      pLines.push('BIAS STAZIONE REALE vs Open-Meteo (rilevato da stazioni MeteoNetwork):');
+      pLines.push('BIAS STAZIONE REALE vs Open-Meteo:');
+      if (bsZone && bsZone.n_wind >= 3 && zoneObj && zoneObj.bias_station) {
+        var signWz = bsZone.mean_delta_wind >= 0 ? '+' : '';
+        pLines.push('- ' + zoneObj.bias_station + '/CFR (' + bsZone.n_wind + ' campioni): vento reale ' + signWz + bsZone.mean_delta_wind + 'kn vs OM -- RIFERIMENTO PRIMARIO');
+      }
       if (bsLiv && bsLiv.n_wind >= 3) {
         var signW = bsLiv.mean_delta_wind >= 0 ? '+' : '';
         pLines.push('- Quercianella/MNW (' + bsLiv.n_wind + ' campioni): vento reale ' + signW + bsLiv.mean_delta_wind + 'kn rispetto a OM (raffica MNW non affidabile: e massimo giornaliero)');
@@ -3810,7 +3893,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.142 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.143 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -3934,4 +4017,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.142
+// Fine codice - NAUTILUS ENGINE v2.9.143

@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.147 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.148 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1821,7 +1821,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.147', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.148', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -1870,8 +1870,8 @@ if (action === 'station_refresh') {
 
     // Tutte le stazioni con lat/lon per fetch OM
     var srAllStations = {
-      livorno:         { lat: 43.465, lon: 10.347, api: true,  sid: 'tsc265' },
-      canale_piombino: { lat: 42.920, lon: 10.530, api: true,  sid: 'tsc228' },
+      livorno:         { lat: 43.465, lon: 10.347, api: true,  sid: 'tsc265', quota: 244 },
+      canale_piombino: { lat: 42.920, lon: 10.530, api: true,  sid: 'tsc228', quota: 8   },
       viareggio:       { lat: 43.870, lon: 10.230, api: false, url: 'https://www.meteonetwork.eu/it/weather-station/tsc508-stazione-meteorologica-di-viareggio-lungomare' },
       bocca_arno:      { lat: 43.680, lon: 10.270, api: false, url: 'https://www.meteonetwork.eu/it/weather-station/tsc431-stazione-meteorologica-di-bocca-darno' },
       capraia_w:       { lat: 43.053, lon: 9.838,  api: false, url: 'https://www.meteonetwork.eu/it/weather-station/tsc578-stazione-meteorologica-di-capraia-isola' },
@@ -1991,21 +1991,21 @@ if (action === 'scrape_cfr') {
   try {
     // CFR stazioni di interesse con coordinate WGS84
     var CFR_STATIONS = [
-      { id:'gorgona_cfr',       cfr:'TOS11000107', name:'Gorgona',           lat:43.433, lon:9.883  },
-      { id:'capraia_cfr',       cfr:'TOS03003145', name:'Capraia Isola',     lat:43.050, lon:9.838  },
-      { id:'giglio_porto',      cfr:'TOS03006000', name:'Giglio Porto',      lat:42.363, lon:10.910 },
-      { id:'giglio_castello',   cfr:'TOS03003269', name:'Giglio Castello',   lat:42.364, lon:10.902 },
-      { id:'montecristo',       cfr:'TOS03003267', name:'Montecristo',       lat:42.335, lon:10.311 },
-      { id:'portoferraio_cfr',  cfr:'TOS11000012', name:'Portoferraio CFR',  lat:42.816, lon:10.328 },
-      { id:'orbetello',         cfr:'TOS11000508', name:'Orbetello',         lat:42.441, lon:11.216 },
-      { id:'svincenzo_porto',   cfr:'TOS03002283', name:'S.Vincenzo Porto',  lat:43.098, lon:10.537 },
-      { id:'casotto_pescatori', cfr:'TOS11000013', name:'Foce Ombrone',       lat:42.637, lon:11.090 },
-      { id:'venturina',         cfr:'TOS11000004', name:'Venturina',         lat:42.985, lon:10.620 },
-      { id:'forte_dei_marmi',   cfr:'TOS02004055', name:'Forte dei Marmi',   lat:43.963, lon:10.174 },
-      { id:'lido_camaiore',     cfr:'TOS11000011', name:'Lido di Camaiore',  lat:43.871, lon:10.262 },
-      { id:'bocca_arno_cfr',    cfr:'TOS01005251', name:'Bocca d Arno CFR',  lat:43.680, lon:10.270 },
-      { id:'follonica',          cfr:'TOS03002459', name:'Follonica',          lat:42.919, lon:10.765 },
-      { id:'capalbio',           cfr:'TOS11000006', name:'Capalbio',           lat:42.459, lon:11.269 },
+      { id:'gorgona_cfr',       cfr:'TOS11000107', name:'Gorgona',           lat:43.433, lon:9.883,  quota:230 },
+      { id:'capraia_cfr',       cfr:'TOS03003145', name:'Capraia Isola',     lat:43.050, lon:9.838,  quota:274 },
+      { id:'giglio_porto',      cfr:'TOS03006000', name:'Giglio Porto',      lat:42.363, lon:10.910, quota:0   },
+      { id:'giglio_castello',   cfr:'TOS03003269', name:'Giglio Castello',   lat:42.364, lon:10.902, quota:470 },
+      { id:'montecristo',       cfr:'TOS03003267', name:'Montecristo',       lat:42.335, lon:10.311, quota:85  },
+      { id:'portoferraio_cfr',  cfr:'TOS11000012', name:'Portoferraio CFR',  lat:42.816, lon:10.328, quota:10  },
+      { id:'orbetello',         cfr:'TOS11000508', name:'Orbetello',         lat:42.441, lon:11.216, quota:0   },
+      { id:'svincenzo_porto',   cfr:'TOS03002283', name:'S.Vincenzo Porto',  lat:43.098, lon:10.537, quota:1   },
+      { id:'casotto_pescatori', cfr:'TOS11000013', name:'Foce Ombrone',       lat:42.637, lon:11.090, quota:2   },
+      { id:'venturina',         cfr:'TOS11000004', name:'Venturina',         lat:42.985, lon:10.620, quota:8   },
+      { id:'forte_dei_marmi',   cfr:'TOS02004055', name:'Forte dei Marmi',   lat:43.963, lon:10.174, quota:0   },
+      { id:'lido_camaiore',     cfr:'TOS11000011', name:'Lido di Camaiore',  lat:43.871, lon:10.262, quota:1   },
+      { id:'bocca_arno_cfr',    cfr:'TOS01005251', name:'Bocca d Arno CFR',  lat:43.680, lon:10.270, quota:1   },
+      { id:'follonica',         cfr:'TOS03002459', name:'Follonica',          lat:42.919, lon:10.765, quota:15  },
+      { id:'capalbio',          cfr:'TOS11000006', name:'Capalbio',           lat:42.459, lon:11.269, quota:12  },
     ];
 
     // Fetch pagina CFR
@@ -2057,7 +2057,7 @@ if (action === 'scrape_cfr') {
       } : { wind_kt: null, gust_kt: null, direction: null, pressure_mb: null };
       var scfSample = {
         ts: scfTs,
-        station: { wind_kt: scfData.wind_kt, gust_kt: scfData.gust_kt, direction: scfData.dir_deg, direction_txt: null, pressure_mb: null, source: 'cfr' },
+        station: { wind_kt: scfData.wind_kt, gust_kt: scfData.gust_kt, direction: scfData.dir_deg, direction_txt: null, pressure_mb: null, source: 'cfr', quota: st.quota || null },
         om: scfOm,
         delta: scfOm.wind_kt !== null ? { wind_kt: Math.round((scfData.wind_kt - scfOm.wind_kt) * 10) / 10, dir_station: scfData.dir_deg, dir_om: scfOm.direction } : null
       };
@@ -3126,6 +3126,16 @@ if (action === 'predict') {
     if (zoneObj && zoneObj.bias_station) {
       biasStatZone = await kvGet('bias_stats:' + zoneObj.bias_station, kvUrl, kvToken);
     }
+    // Quota stazione primaria - stazioni >100m hanno componente altimetrica nel bias
+    var ALL_STATION_QUOTAS = {
+      gorgona_cfr:230, capraia_cfr:274, giglio_porto:0, giglio_castello:470, montecristo:85,
+      portoferraio_cfr:10, orbetello:0, svincenzo_porto:1, casotto_pescatori:2, venturina:8,
+      forte_dei_marmi:0, lido_camaiore:1, bocca_arno_cfr:1, follonica:15, capalbio:12,
+      livorno:244, canale_piombino:8, viareggio:25, capraia_w:274, portoferraio:368,
+      alberese:1, luri:50
+    };
+    var zoneStationQuota = zoneObj && zoneObj.bias_station ? (ALL_STATION_QUOTAS[zoneObj.bias_station] || null) : null;
+    var zoneStationHighAlt = zoneStationQuota !== null && zoneStationQuota > 100;
 
     // Carica ultimi campioni stazione reale (ground truth)
     var stSamples = [];
@@ -3225,12 +3235,13 @@ if (action === 'predict') {
     pLines.push('');
 
     // LIVELLO 1: STAZIONE REALE (ground truth se disponibile)
-    var biasCorr = biasStatZone && biasStatZone.n_wind >= 15 ? biasStatZone.mean_delta_wind : 0;
+    var biasCorr = biasStatZone && biasStatZone.n_wind >= 15 && !zoneStationHighAlt ? biasStatZone.mean_delta_wind : 0;
     if (stIsRecent && lastStSample && lastStSample.station && lastStSample.station.wind_kt !== null) {
       var stData = lastStSample.station;
       var stDirName = stData.direction !== null ? dirs16p[Math.round(stData.direction/22.5)%16] : '--';
       var stTimeStr = new Date(lastStSample.ts).toLocaleString('it-IT',{timeZone:'Europe/Rome',hour:'2-digit',minute:'2-digit'});
-      pLines.push('DATI STAZIONE REALE [' + zoneObj.bias_station + '] (ground truth):');
+      var quotaNote = zoneStationQuota !== null ? ' [quota ' + zoneStationQuota + 'm' + (zoneStationHighAlt ? ' - VENTO AMPLIFICATO DA ALTITUDINE, non usare come riferimento assoluto di superficie' : '') + ']' : '';
+      pLines.push('DATI STAZIONE REALE [' + zoneObj.bias_station + ']' + quotaNote + ':');
       pLines.push('- ' + stTimeStr + ': ' + stData.wind_kt + ' kn da ' + stDirName + ' (' + (stData.direction||'--') + 'deg)' +
         (stData.gust_kt ? ', raffica ' + stData.gust_kt + ' kn' : ''));
 
@@ -3917,7 +3928,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.147 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.148 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4041,4 +4052,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.147
+// Fine codice - NAUTILUS ENGINE v2.9.148

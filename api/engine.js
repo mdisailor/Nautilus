@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.144 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.145 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1821,7 +1821,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.144', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.145', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -3865,6 +3865,14 @@ if (action === 'bias_reset') {
 }
 
 // /api/engine?action=bias_stats - mostra statistiche calcolate per tutte le stazioni
+if (action === 'compute_bias') {
+  if (req.query.k !== 'mdi') return res.status(401).json({ error: 'Unauthorized' });
+  try {
+    var cbResults = await biasComputeStations(kvUrl, kvToken);
+    return res.status(200).json({ ok: true, results: cbResults });
+  } catch(e) { return res.status(500).json({ error: e.message }); }
+}
+
 if (action === 'bias_stats') {
   try {
     var btsLiv = await kvGet('bias_stats:livorno', kvUrl, kvToken);
@@ -3905,7 +3913,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.144 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.145 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4029,4 +4037,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.144
+// Fine codice - NAUTILUS ENGINE v2.9.145

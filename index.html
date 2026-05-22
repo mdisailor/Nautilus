@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.116 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.117 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -579,7 +579,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.116  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.117  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1819,7 +1819,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.116  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.117  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -2319,6 +2319,7 @@ function renderWeather() {
   };
   const avgDir = circularMean(wdirs);
   const avgWD  = waved.length ? circularMean(waved) : null;
+  const avgPer = wpers.length ? (wpers.reduce((a,b)=>a+b,0)/wpers.length).toFixed(0) : '--';
   // Direzione al picco (non media)
   const peakWindIdx = winds.indexOf(Math.max(...winds));
   const peakDir = wdirs[peakWindIdx] !== undefined ? wdirs[peakWindIdx] : avgDir;
@@ -5375,7 +5376,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.6.116
+// Fine codice - NAUTILUS v5.6.117
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

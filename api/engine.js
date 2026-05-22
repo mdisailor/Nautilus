@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.148 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.149 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -102,6 +102,7 @@ giglio: {
 enabled: true,
 name: 'Isola del Giglio',
 lat: 42.3614, lon: 10.9206,
+bias_station: 'giglio_porto',
 ports: {
 giglio_porto:   { name: 'Giglio Porto',   exposure: 'NE', shelter: 'medium', swell_threshold: 1.0 },
 giglio_campese: { name: 'Giglio Campese', exposure: 'W',  shelter: 'low',    swell_threshold: 0.8 },
@@ -167,14 +168,6 @@ gorgona: {
 enabled: true, name: 'Gorgona', lat: 43.433, lon: 9.883, bias_station: 'gorgona_cfr',
 ports: { gorgona: { name: 'Gorgona', exposure: 'W', shelter: 'low', swell_threshold: 0.6 } },
 local_effects: { esposizione: { desc: 'Isola esposta', active_wind_dirs: [0,360], note: 'Isola isolata - vento e onda amplificati rispetto alla costa' } }
-},
-giglio: {
-enabled: true, name: 'Giglio', lat: 42.363, lon: 10.910, bias_station: 'giglio_porto',
-ports: {
-giglio_porto:    { name: 'Giglio Porto',    exposure: 'NW', shelter: 'medium', swell_threshold: 0.8 },
-giglio_campese:  { name: 'Campese',         exposure: 'W',  shelter: 'low',    swell_threshold: 0.7 },
-},
-local_effects: { esposizione: { desc: 'Isola esposta Tirreno', active_wind_dirs: [0,360], note: 'Maggiore intensita\' rispetto costa per posizione isolata' } }
 },
 montecristo: {
 enabled: true, name: 'Montecristo', lat: 42.335, lon: 10.311, bias_station: 'montecristo',
@@ -1821,7 +1814,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.148', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.149', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -3928,7 +3921,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.148 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.149 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4052,4 +4045,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.148
+// Fine codice - NAUTILUS ENGINE v2.9.149

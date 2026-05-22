@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.112 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.113 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -560,9 +560,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 <body>
 <div class="ocean-bg"><div class="wave"></div><div class="wave"></div><div class="wave"></div></div>
 
-<div id="app">
-
-  <div class="nav-tabs">
+<div class="nav-tabs">
     <div class="nav-tab active" onclick="showPage('meteo',this);biasLoadHistory(null,'m')">Meteo</div>
     <div class="nav-tab" id="nav-tab-mare" onclick="showPage('mare',this)">Mare</div>
     <div class="nav-tab" onclick="showPage('osservazioni',this)">Obs</div>
@@ -570,6 +568,8 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
     <div class="nav-tab" onclick="showPage('engine',this);loadEngine();biasLoadHistory()">Engine</div>
     <div class="nav-tab" onclick="showPage('agent',this)" id="nav-tab-agent">Agent</div>
   </div>
+
+<div id="app">
 
   <!--  PAGE METEO  -->
 
@@ -579,7 +579,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.112  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.113  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1819,7 +1819,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.112  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.113  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -2986,17 +2986,27 @@ const ENGINE_URL = 'https://nautilus-red.vercel.app/api/engine';
 
 const ALL_ZONES = [
   { key: 'canale_piombino',  name: 'Canale di Piombino',       sub: 'Elba, Piombino, Punta Ala',          checked: true,  lat: 42.92, lon: 10.53 },
-  { key: 'livorno',          name: 'Livorno',                   sub: 'Castiglioncello, Livorno Porto',     checked: true,  lat: 43.55, lon: 10.31 },
-  { key: 'viareggio',        name: 'Viareggio - Versilia',      sub: 'Viareggio, Marina di Pisa',          checked: true,  lat: 43.87, lon: 10.23 },
-  { key: 'capraia',          name: 'Capraia',                   sub: 'Capraia Porto',                      checked: false, lat: 43.05, lon: 9.84  },
-  { key: 'elba_nord',        name: 'Elba Nord - Portoferraio',  sub: 'Portoferraio, Cavo, Rio Marina',     checked: false, lat: 42.82, lon: 10.33 },
-  { key: 'elba_sud',         name: 'Elba Sud - Porto Azzurro',  sub: 'Porto Azzurro, Marina di Campo',     checked: false, lat: 42.75, lon: 10.40 },
-  { key: 'gorgona',          name: 'Gorgona',                   sub: 'Isola di Gorgona',                   checked: false, lat: 43.43, lon: 9.90  },
-  { key: 'giglio',           name: 'Isola del Giglio',          sub: 'Giglio Porto, Giglio Campese',        checked: false, lat: 42.37, lon: 10.90 },
+  { key: 'livorno',          name: 'Livorno',                   sub: 'Castiglioncello, Livorno Porto',      checked: true,  lat: 43.55, lon: 10.31 },
+  { key: 'viareggio',        name: 'Viareggio - Versilia',      sub: 'Viareggio, Marina di Pisa',           checked: true,  lat: 43.87, lon: 10.23 },
+  { key: 'capraia',          name: 'Capraia',                   sub: 'Capraia Porto',                       checked: false, lat: 43.05, lon: 9.84  },
+  { key: 'elba_nord',        name: 'Elba Nord - Portoferraio',  sub: 'Portoferraio, Cavo, Rio Marina',      checked: false, lat: 42.82, lon: 10.33 },
+  { key: 'elba_sud',         name: 'Elba Sud - Porto Azzurro',  sub: 'Porto Azzurro, Marina di Campo',      checked: false, lat: 42.75, lon: 10.40 },
+  { key: 'gorgona',          name: 'Gorgona',                   sub: 'Isola di Gorgona',                    checked: false, lat: 43.43, lon: 9.88  },
+  { key: 'giglio',           name: 'Isola del Giglio',          sub: 'Giglio Porto, Giglio Campese',         checked: false, lat: 42.37, lon: 10.90 },
+  { key: 'montecristo',      name: 'Montecristo',               sub: 'Cala Maestra',                        checked: false, lat: 42.34, lon: 10.31 },
+  { key: 'orbetello',        name: 'Orbetello - Argentario',    sub: 'Porto S.Stefano, Porto Ercole',        checked: false, lat: 42.44, lon: 11.22 },
+  { key: 'bocca_arno',       name: 'Bocca d\'Arno',             sub: 'Foce Arno, Costa Pisana',             checked: false, lat: 43.68, lon: 10.27 },
+  { key: 'svincenzo',        name: 'S.Vincenzo',                sub: 'S.Vincenzo Porto, Costa Etrusca',     checked: false, lat: 43.10, lon: 10.54 },
+  { key: 'follonica',        name: 'Follonica',                 sub: 'Golfo di Follonica',                  checked: false, lat: 42.92, lon: 10.77 },
+  { key: 'capalbio',         name: 'Capalbio - Argentario S',   sub: 'Capalbio Scalo, Costa Laziale N',     checked: false, lat: 42.46, lon: 11.27 },
+  { key: 'alberese',         name: 'Alberese - Foce Ombrone',   sub: 'Marina di Alberese, Parco Maremma',   checked: false, lat: 42.64, lon: 11.08 },
+  { key: 'forte_marmi',      name: 'Forte dei Marmi',           sub: 'Versilia Nord, Apuane',               checked: false, lat: 43.96, lon: 10.17 },
+  { key: 'casotto_gr',       name: 'Marina di Grosseto',        sub: 'Diaccia Botrona, Bruna',              checked: false, lat: 42.74, lon: 11.04 },
+  { key: 'venturina',        name: 'Venturina - Val di Cornia', sub: 'Val di Cornia, Costa tra Piombino e Punta Ala', checked: false, lat: 42.99, lon: 10.62 },
   { key: 'castiglioncello',  name: 'Castiglioncello - Cecina',  sub: 'Castiglioncello, Cecina, S.Vincenzo', checked: false, lat: 43.40, lon: 10.49 },
-  { key: 'punta_ala',        name: 'Punta Ala - Follonica',     sub: 'Punta Ala, Follonica',               checked: false, lat: 42.80, lon: 10.73 },
-  { key: 'la_spezia',        name: 'La Spezia - Lerici',        sub: 'La Spezia, Lerici, Portovenere',     checked: false, lat: 44.10, lon: 9.82  },
-  { key: 'bastia',           name: 'Bastia - Nord Corsica',     sub: 'Bastia, Saint-Florent',              checked: false, lat: 42.70, lon: 9.45  },
+  { key: 'punta_ala',        name: 'Punta Ala - Follonica',     sub: 'Punta Ala, Follonica',                checked: false, lat: 42.80, lon: 10.73 },
+  { key: 'la_spezia',        name: 'La Spezia - Lerici',        sub: 'La Spezia, Lerici, Portovenere',      checked: false, lat: 44.10, lon: 9.82  },
+  { key: 'bastia',           name: 'Bastia - Nord Corsica',     sub: 'Bastia, Saint-Florent',               checked: false, lat: 42.70, lon: 9.45  },
 ];
 
 function loadEngine() {
@@ -5353,7 +5363,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.6.112
+// Fine codice - NAUTILUS v5.6.113
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

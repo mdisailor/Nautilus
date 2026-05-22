@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.146 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.147 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1821,7 +1821,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.146', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.147', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -3115,21 +3115,61 @@ if (action === 'predict') {
     if (!anthropicKey) return res.status(500).json({ error: 'ANTHROPIC_KEY non configurata' });
 
     // Get last 14 days of snapshots
-    var snapshots14 = await getWindHistory(zoneKey, kvUrl, kvToken, req.query.fast === '1' ? 48 : 336); // fast=48h(96 GET), full=14days(672 GET)
+    var snapshots14 = await getWindHistory(zoneKey, kvUrl, kvToken, req.query.fast === '1' ? 48 : 336);
     var bias = await getBias(zoneKey, kvUrl, kvToken);
     var biasStatLivorno = await kvGet('bias_stats:livorno', kvUrl, kvToken);
     var biasStatPiombino = await kvGet('bias_stats:canale_piombino', kvUrl, kvToken);
     var biasStatViareggio = await kvGet('bias_stats:viareggio', kvUrl, kvToken);
     var biasStatCapraia = await kvGet('bias_stats:capraia_w', kvUrl, kvToken);
-    // Carica bias stazione primaria della zona (CFR o MNW)
     var zoneObj = ZONES[zoneKey];
     var biasStatZone = null;
     if (zoneObj && zoneObj.bias_station) {
       biasStatZone = await kvGet('bias_stats:' + zoneObj.bias_station, kvUrl, kvToken);
     }
-    var rotation = analyzeWindRotation(snapshots14.slice(0, 24)); // rotation from last 24h
 
-    // Get current conditions
+    // Carica ultimi campioni stazione reale (ground truth)
+    var stSamples = [];
+    var lastStSample = null;
+    var stIsRecent = false;
+    if (zoneObj && zoneObj.bias_station) {
+      stSamples = await kvGet('bias_samples:' + zoneObj.bias_station, kvUrl, kvToken) || [];
+      // campioni ordinati dal piu recente (indice 0) al piu vecchio
+      if (stSamples.length > 0) {
+        lastStSample = stSamples[0];
+        var stAge = (new Date() - new Date(lastStSample.ts)) / 60000; // minuti
+        stIsRecent = stAge < 45;
+      }
+    }
+
+    // Fetch OM forecast H+3 H+6 H+12 bias-corretti
+    var omForecastHours = {};
+    try {
+      var omFcUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + zoneObj.lat +
+        '&longitude=' + zoneObj.lon +
+        '&hourly=windspeed_10m,winddirection_10m,windgusts_10m&wind_speed_unit=kn&timezone=Europe%2FRome&forecast_days=1';
+      var omFcJ = await fetch(omFcUrl).then(function(r){ return r.json(); });
+      if (omFcJ && omFcJ.hourly) {
+        var omTimes = omFcJ.hourly.time; // formato "2026-05-22T15:00"
+        var nowMs = Date.now();
+        [3,6,12].forEach(function(th) {
+          var targetMs = nowMs + th * 3600000;
+          var bestIdx = 0, bestDiff = Infinity;
+          for (var ti = 0; ti < omTimes.length; ti++) {
+            var tMs = new Date(omTimes[ti] + ':00+02:00').getTime(); // Rome timezone
+            var diff2 = Math.abs(tMs - targetMs);
+            if (diff2 < bestDiff) { bestDiff = diff2; bestIdx = ti; }
+          }
+          omForecastHours['h' + th] = {
+            wind_kt:  Math.round(omFcJ.hourly.windspeed_10m[bestIdx] * 10) / 10,
+            dir:      omFcJ.hourly.winddirection_10m[bestIdx],
+            gust_kt:  Math.round(omFcJ.hourly.windgusts_10m[bestIdx] * 10) / 10,
+            time:     omTimes[bestIdx]
+          };
+        });
+      }
+    } catch(omFcErr) { /* silenzioso */ }
+
+    var rotation = analyzeWindRotation(snapshots14.slice(0, 24));
     var currentSnap = snapshots14[snapshots14.length - 1] || null;
 
     // Build statistical summary of historical data
@@ -3183,105 +3223,68 @@ if (action === 'predict') {
     pLines.push('ZONA: ' + ZONES[zoneKey].name);
     pLines.push('ORA: ' + new Date().toLocaleString('it-IT', {timeZone:'Europe/Rome'}));
     pLines.push('');
-    pLines.push('SITUAZIONE ATTUALE:');
-    if (currentSnap) {
-      var dirNameP = currentSnap.wind_dir !== null ? dirs16p[Math.round(currentSnap.wind_dir/22.5)%16] : '--';
-      pLines.push('- Vento: ' + (currentSnap.wind_speed||'--') + 'kn da ' + dirNameP + ' (' + (currentSnap.wind_dir||'--') + 'deg)');
-      if (currentSnap.wind_speed_850 != null) {
-        var dir850 = currentSnap.wind_dir_850 != null ? dirs16p[Math.round(currentSnap.wind_dir_850/22.5)%16] : '--';
-        var diverg = (currentSnap.wind_dir_850 != null && currentSnap.wind_dir != null) ?
-          Math.round(Math.abs(currentSnap.wind_dir_850 - currentSnap.wind_dir)) : null;
-        pLines.push('- Vento 850hPa: ' + currentSnap.wind_speed_850 + 'kn da ' + dir850 +
-          (diverg !== null ? ' (divergenza sup/quota ' + diverg + 'gradi)' : ''));
-        // Fornisce contesto interpretativo divergenza per l'AI
-        if (diverg !== null) {
-          if (diverg > 90) {
-            pLines.push('  [NOTA 850hPa] Divergenza elevata (>' + diverg + 'gradi): flusso in quota disaccoppiato dalla superficie.');
-            pLines.push('  Possibili cause: fronte in avvicinamento, inversione termica, rotazione imminente del vento superficiale.');
-            pLines.push('  Il vento superficiale tendera ad allinearsi con quello in quota nelle prossime 3-12h.');
-            pLines.push('  Valuta in combinazione con tendenza barica e rotazione recente.');
-          } else if (diverg > 45) {
-            pLines.push('  [NOTA 850hPa] Divergenza moderata (' + diverg + 'gradi): transizione in corso tra flusso sinottico e locale.');
-            pLines.push('  Situazione instabile, monitorare tendenza barica e direzione vento nelle prossime 3-6h.');
-          } else {
-            pLines.push('  [NOTA 850hPa] Buon accoppiamento sup/quota (divergenza ' + diverg + 'gradi): situazione stabile e coerente.');
-          }
-        }
+
+    // LIVELLO 1: STAZIONE REALE (ground truth se disponibile)
+    var biasCorr = biasStatZone && biasStatZone.n_wind >= 15 ? biasStatZone.mean_delta_wind : 0;
+    if (stIsRecent && lastStSample && lastStSample.station && lastStSample.station.wind_kt !== null) {
+      var stData = lastStSample.station;
+      var stDirName = stData.direction !== null ? dirs16p[Math.round(stData.direction/22.5)%16] : '--';
+      var stTimeStr = new Date(lastStSample.ts).toLocaleString('it-IT',{timeZone:'Europe/Rome',hour:'2-digit',minute:'2-digit'});
+      pLines.push('DATI STAZIONE REALE [' + zoneObj.bias_station + '] (ground truth):');
+      pLines.push('- ' + stTimeStr + ': ' + stData.wind_kt + ' kn da ' + stDirName + ' (' + (stData.direction||'--') + 'deg)' +
+        (stData.gust_kt ? ', raffica ' + stData.gust_kt + ' kn' : ''));
+
+      // Trend recente ultimi 4 campioni (ultime ~2h)
+      var trendSamples = stSamples.slice(0, 5).filter(function(s){ return s.station && s.station.wind_kt !== null; });
+      if (trendSamples.length >= 3) {
+        var trendStr = trendSamples.slice(0,4).reverse().map(function(s) {
+          var td = s.station.direction !== null ? dirs16p[Math.round(s.station.direction/22.5)%16] : '--';
+          return s.station.wind_kt + 'kn ' + td;
+        }).join(' -> ');
+        pLines.push('- Trend ultime 2h: ' + trendStr + ' (piu recente a destra)');
       }
-      pLines.push('- Pressione: ' + (currentSnap.pressure||'--') + 'hPa - ' + pressureTrend);
-      pLines.push('- Onda: ' + (currentSnap.wave_height||'--') + 'm');
-      if (currentSnap.cape != null && currentSnap.cape > 100) {
-        pLines.push('- CAPE: ' + Math.round(currentSnap.cape) + ' J/kg' + (currentSnap.cape > 500 ? ' -- instabilita significativa, temporali possibili' : ' -- lieve instabilita'));
-      }
-      if (currentSnap.precip_prob != null && currentSnap.precip_prob > 20) {
-        pLines.push('- Probabilita precipitazioni: ' + Math.round(currentSnap.precip_prob) + '%');
-      }
-      if (currentSnap.weather_code != null && currentSnap.weather_code > 49) {
-        var wc2 = currentSnap.weather_code;
-        pLines.push('- Condizioni: ' + (wc2 <= 67 ? 'pioggia' : wc2 <= 82 ? 'rovesci' : 'TEMPORALE') + ' (WMO ' + wc2 + ')');
-      }
-      if (currentSnap.cloudcover_high != null && currentSnap.cloudcover_high > 30) {
-        pLines.push('- Cirri alti: ' + Math.round(currentSnap.cloudcover_high) + '% -- possibile fronte 12-24h');
-      }
-      if (currentSnap.wind_speed_obs) {
-        pLines.push('- OWM osservato: ' + currentSnap.wind_speed_obs + 'kn da ' + dirs16p[Math.round((currentSnap.wind_dir_obs||0)/22.5)%16]);
-      }
-      if (currentSnap.ifs_wind_speed !== null && currentSnap.ifs_wind_speed !== undefined) {
-        var ifsDirName = currentSnap.ifs_wind_dir !== null ? dirs16p[Math.round(currentSnap.ifs_wind_dir/22.5)%16] : '--';
-        pLines.push('- IFS ECMWF: ' + currentSnap.ifs_wind_speed + 'kn da ' + ifsDirName + ' (modello globale ad alta risoluzione)');
-      }
-    }
-    pLines.push('');
-    if (currentSnap && (currentSnap.wave_height || currentSnap.wave_period)) {
-      pLines.push('- Onda: ' + (currentSnap.wave_height||'--') + 'm, periodo: ' + (currentSnap.wave_period||'--') + 's');
-    }
-    pLines.push('STATISTICHE ULTIME 24H:');
-    pLines.push('- Vento medio: ' + avgWind24 + 'kn, max: ' + maxWind24 + 'kn');
-    pLines.push('- Rotazione vento: ' + rotation.trend + ' (' + (rotation.rotation ? rotation.rotation.toFixed(0) + ' gradi in ' + rotation.hours + 'h' : 'dati insufficienti') + ')');
-    pLines.push('');
-    pLines.push('BIAS MODELLO (errore storico Open-Meteo per questa zona):');
-    if (bias && bias.samples > 10) {
-      pLines.push('- Campioni: ' + bias.samples);
-      pLines.push('- Bias vento: ' + bias.wind_bias.toFixed(1) + 'kn');
-      pLines.push('- MAE vento: ' + bias.wind_mae.toFixed(1) + 'kn');
-    } else {
-      pLines.push('- Dati insufficienti per bias affidabile');
-    }
-    // Bias stazione reale vs Open-Meteo
-    var bsLiv = biasStatLivorno;
-    var bsPio = biasStatPiombino;
-    var bsVia = biasStatViareggio;
-    var bsCap = biasStatCapraia;
-    var bsZone = biasStatZone;
-    var anyBias = (bsLiv && bsLiv.n_wind >= 3) || (bsPio && bsPio.n_wind >= 3) || (bsVia && bsVia.n_wind >= 3) || (bsCap && bsCap.n_wind >= 3) || (bsZone && bsZone.n_wind >= 3);
-    if (anyBias) {
       pLines.push('');
-      pLines.push('BIAS STAZIONE REALE vs Open-Meteo:');
-      if (bsZone && bsZone.n_wind >= 3 && zoneObj && zoneObj.bias_station) {
-        var signWz = bsZone.mean_delta_wind >= 0 ? '+' : '';
-        var dirNote = '';
-        if (bsZone.mean_dir_station !== null && bsZone.mean_dir_om !== null) {
-          dirNote = ' | dir stazione ' + bsZone.mean_dir_station + 'deg vs OM ' + bsZone.mean_dir_om + 'deg';
-        }
-        pLines.push('- ' + zoneObj.bias_station + '/CFR (' + bsZone.n_wind + ' campioni): vento reale ' + signWz + bsZone.mean_delta_wind + 'kn vs OM' + dirNote + ' -- RIFERIMENTO PRIMARIO');
+      pLines.push('PREVISIONE OM' + (biasCorr !== 0 ? ' BIAS-CORRETTA' : ' (no stazione, dati OM grezzi)') + ':');
+    } else {
+      // Nessuna stazione recente: usa OM come prima
+      pLines.push('SITUAZIONE ATTUALE (Open-Meteo' + (zoneObj && zoneObj.bias_station ? ' - stazione ' + zoneObj.bias_station + ' non recente' : '') + '):');
+      if (currentSnap) {
+        var dirNameP = currentSnap.wind_dir !== null ? dirs16p[Math.round(currentSnap.wind_dir/22.5)%16] : '--';
+        pLines.push('- Vento OM: ' + (currentSnap.wind_speed||'--') + 'kn da ' + dirNameP + ' (' + (currentSnap.wind_dir||'--') + 'deg)');
+        pLines.push('- Pressione: ' + (currentSnap.pressure||'--') + 'hPa - ' + pressureTrend);
       }
-      if (bsLiv && bsLiv.n_wind >= 3) {
-        var signW = bsLiv.mean_delta_wind >= 0 ? '+' : '';
-        pLines.push('- Quercianella/MNW (' + bsLiv.n_wind + ' campioni): vento reale ' + signW + bsLiv.mean_delta_wind + 'kn rispetto a OM (raffica MNW non affidabile: e massimo giornaliero)');
+      pLines.push('');
+      pLines.push('PREVISIONE OM' + (biasCorr !== 0 ? ' BIAS-CORRETTA' : '') + ':');
+    }
+
+    // LIVELLO 3: OM forecast bias-corretto
+    var fcDirs = dirs16p;
+    [3,6,12].forEach(function(th) {
+      var fc = omForecastHours['h' + th];
+      if (fc) {
+        var rawW = fc.wind_kt;
+        var corrW = biasCorr !== 0 ? Math.round((rawW + biasCorr) * 10) / 10 : rawW;
+        var fcDirN = fc.dir !== null ? fcDirs[Math.round(fc.dir/22.5)%16] : '--';
+        var conf = th >= 12 ? ' [confidenza minore]' : '';
+        var corrNote = biasCorr !== 0 ? ' (OM raw: ' + rawW + ' kn, bias: ' + (biasCorr>=0?'+':'') + biasCorr + ' kn, n=' + biasStatZone.n_wind + ')' : '';
+        pLines.push('- H+' + th + ': ' + corrW + ' kn da ' + fcDirN + corrNote + conf);
       }
-      if (bsPio && bsPio.n_wind >= 3) {
-        var signWp = bsPio.mean_delta_wind >= 0 ? '+' : '';
-        pLines.push('- Piombino (' + bsPio.n_wind + ' campioni): vento reale ' + signWp + bsPio.mean_delta_wind + 'kn rispetto a OM');
+    });
+    pLines.push('');
+
+    // Pressione e onde da currentSnap (OM)
+    if (currentSnap) {
+      pLines.push('DATI OM AGGIUNTIVI:');
+      pLines.push('- Pressione: ' + (currentSnap.pressure||'--') + 'hPa - ' + pressureTrend);
+      if (currentSnap.wave_height) pLines.push('- Onda: ' + currentSnap.wave_height + 'm, periodo: ' + (currentSnap.wave_period||'--') + 's');
+      if (currentSnap.ifs_wind_speed !== null && currentSnap.ifs_wind_speed !== undefined) {
+        var ifsDirName2 = currentSnap.ifs_wind_dir !== null ? dirs16p[Math.round(currentSnap.ifs_wind_dir/22.5)%16] : '--';
+        pLines.push('- IFS ECMWF: ' + currentSnap.ifs_wind_speed + 'kn da ' + ifsDirName2);
       }
-      if (bsVia && bsVia.n_wind >= 3) {
-        var signWv = bsVia.mean_delta_wind >= 0 ? '+' : '';
-        pLines.push('- Viareggio/web (' + bsVia.n_wind + ' campioni): vento reale ' + signWv + bsVia.mean_delta_wind + 'kn rispetto a OM');
+      if (currentSnap.cape != null && currentSnap.cape > 100) {
+        pLines.push('- CAPE: ' + Math.round(currentSnap.cape) + ' J/kg' + (currentSnap.cape > 500 ? ' -- instabilita significativa' : ''));
       }
-      if (bsCap && bsCap.n_wind >= 3) {
-        var signWc = bsCap.mean_delta_wind >= 0 ? '+' : '';
-        pLines.push('- Capraia Monte/web (' + bsCap.n_wind + ' campioni): vento reale ' + signWc + bsCap.mean_delta_wind + 'kn rispetto a OM');
-      }
-      pLines.push('- NOTA: correggi le previsioni OM tenendo conto di questi delta sistematici.');
+      pLines.push('');
     }
     if (similarCases.length > 0) {
       pLines.push('');
@@ -3914,7 +3917,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.146 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.147 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4038,4 +4041,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.146
+// Fine codice - NAUTILUS ENGINE v2.9.147

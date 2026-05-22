@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.143 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.144 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1368,10 +1368,16 @@ async function biasComputeStations(kvUrl, kvToken) {
       // NOTA: gust_kt MNW e' il massimo giornaliero, non raffica istantanea -- escluso dal bias
       var meanDeltaWind = validWind.length > 0
         ? Math.round(validWind.reduce(function(a,s){ return a + s.delta.wind_kt; }, 0) / validWind.length * 10) / 10 : null;
+      // Calcola direzione media stazione vs OM (solo campioni con entrambe le direzioni)
+      var validDir = validWind.filter(function(s){ return s.delta && s.delta.dir_station !== null && s.delta.dir_om !== null; });
+      var meanDirStation = validDir.length > 0 ? Math.round(validDir.reduce(function(a,s){ return a + s.delta.dir_station; }, 0) / validDir.length) : null;
+      var meanDirOm = validDir.length > 0 ? Math.round(validDir.reduce(function(a,s){ return a + s.delta.dir_om; }, 0) / validDir.length) : null;
       var stats = {
         n: samples.length,
         n_wind: validWind.length,
         mean_delta_wind: meanDeltaWind,
+        mean_dir_station: meanDirStation,
+        mean_dir_om: meanDirOm,
         last_updated: new Date().toISOString()
       };
       await kvSet('bias_stats:' + sid, stats, 31536000, kvUrl, kvToken);
@@ -1815,7 +1821,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.143', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.144', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -1945,7 +1951,9 @@ if (action === 'station_refresh') {
       station: srStation_data,
       om: srOm,
       delta: srStation_data && srStation_data.wind_kt !== null && srOm.wind_kt !== null ? {
-        wind_kt: Math.round((srStation_data.wind_kt - srOm.wind_kt) * 10) / 10
+        wind_kt: Math.round((srStation_data.wind_kt - srOm.wind_kt) * 10) / 10,
+        dir_station: srStation_data.direction || null,
+        dir_om: srOm.direction || null
       } : null
     };
 
@@ -2051,7 +2059,7 @@ if (action === 'scrape_cfr') {
         ts: scfTs,
         station: { wind_kt: scfData.wind_kt, gust_kt: scfData.gust_kt, direction: scfData.dir_deg, direction_txt: null, pressure_mb: null, source: 'cfr' },
         om: scfOm,
-        delta: scfOm.wind_kt !== null ? { wind_kt: Math.round((scfData.wind_kt - scfOm.wind_kt) * 10) / 10 } : null
+        delta: scfOm.wind_kt !== null ? { wind_kt: Math.round((scfData.wind_kt - scfOm.wind_kt) * 10) / 10, dir_station: scfData.dir_deg, dir_om: scfOm.direction } : null
       };
       var scfKey2 = 'bias_samples:' + st.id;
       return kvGet(scfKey2, kvUrl, kvToken).then(function(existing) {
@@ -3251,7 +3259,11 @@ if (action === 'predict') {
       pLines.push('BIAS STAZIONE REALE vs Open-Meteo:');
       if (bsZone && bsZone.n_wind >= 3 && zoneObj && zoneObj.bias_station) {
         var signWz = bsZone.mean_delta_wind >= 0 ? '+' : '';
-        pLines.push('- ' + zoneObj.bias_station + '/CFR (' + bsZone.n_wind + ' campioni): vento reale ' + signWz + bsZone.mean_delta_wind + 'kn vs OM -- RIFERIMENTO PRIMARIO');
+        var dirNote = '';
+        if (bsZone.mean_dir_station !== null && bsZone.mean_dir_om !== null) {
+          dirNote = ' | dir stazione ' + bsZone.mean_dir_station + 'deg vs OM ' + bsZone.mean_dir_om + 'deg';
+        }
+        pLines.push('- ' + zoneObj.bias_station + '/CFR (' + bsZone.n_wind + ' campioni): vento reale ' + signWz + bsZone.mean_delta_wind + 'kn vs OM' + dirNote + ' -- RIFERIMENTO PRIMARIO');
       }
       if (bsLiv && bsLiv.n_wind >= 3) {
         var signW = bsLiv.mean_delta_wind >= 0 ? '+' : '';
@@ -3893,7 +3905,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.143 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.144 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4017,4 +4029,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.143
+// Fine codice - NAUTILUS ENGINE v2.9.144

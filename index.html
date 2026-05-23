@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.126 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.128 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -579,7 +579,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.126  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.128  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1820,7 +1820,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.126  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.128  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -2998,9 +2998,11 @@ function buildSimpleList(containerId, items) {
 const ENGINE_URL = 'https://nautilus-red.vercel.app/api/engine';
 
 const ALL_ZONES = [
-  { key: 'canale_piombino',  name: 'Canale di Piombino',       sub: 'Elba, Piombino, Punta Ala',          checked: true,  lat: 42.92, lon: 10.53 },
-  { key: 'livorno',          name: 'Livorno',                   sub: 'Castiglioncello, Livorno Porto',      checked: true,  lat: 43.55, lon: 10.31 },
-  { key: 'viareggio',        name: 'Viareggio - Versilia',      sub: 'Viareggio, Marina di Pisa',           checked: true,  lat: 43.87, lon: 10.23 },
+
+  { key: 'bocca_arno',       name: 'Bocca d\'Arno',             sub: 'Foce Arno, Costa Pisana',             checked: true,  lat: 43.68, lon: 10.27 },
+  { key: 'canale_piombino',  name: 'Canale di Piombino',       sub: 'Elba, Piombino, Punta Ala',          checked: false, lat: 42.92, lon: 10.53 },
+  { key: 'livorno',          name: 'Livorno',                   sub: 'Castiglioncello, Livorno Porto',      checked: false, lat: 43.55, lon: 10.31 },
+  { key: 'viareggio',        name: 'Viareggio - Versilia',      sub: 'Viareggio, Marina di Pisa',           checked: false, lat: 43.87, lon: 10.23 },
   { key: 'capraia',          name: 'Capraia',                   sub: 'Capraia Porto',                       checked: false, lat: 43.05, lon: 9.84  },
   { key: 'elba_nord',        name: 'Elba Nord - Portoferraio',  sub: 'Portoferraio, Cavo, Rio Marina',      checked: false, lat: 42.82, lon: 10.33 },
   { key: 'elba_sud',         name: 'Elba Sud - Porto Azzurro',  sub: 'Porto Azzurro, Marina di Campo',      checked: false, lat: 42.75, lon: 10.40 },
@@ -3008,7 +3010,6 @@ const ALL_ZONES = [
   { key: 'giglio',           name: 'Isola del Giglio',          sub: 'Giglio Porto, Giglio Campese',         checked: false, lat: 42.37, lon: 10.90 },
   { key: 'montecristo',      name: 'Montecristo',               sub: 'Cala Maestra',                        checked: false, lat: 42.34, lon: 10.31 },
   { key: 'orbetello',        name: 'Orbetello - Argentario',    sub: 'Porto S.Stefano, Porto Ercole',        checked: false, lat: 42.44, lon: 11.22 },
-  { key: 'bocca_arno',       name: 'Bocca d\'Arno',             sub: 'Foce Arno, Costa Pisana',             checked: false, lat: 43.68, lon: 10.27 },
   { key: 'svincenzo',        name: 'S.Vincenzo',                sub: 'S.Vincenzo Porto, Costa Etrusca',     checked: false, lat: 43.10, lon: 10.54 },
   { key: 'follonica',        name: 'Follonica',                 sub: 'Golfo di Follonica',                  checked: false, lat: 42.92, lon: 10.77 },
   { key: 'capalbio',         name: 'Capalbio - Argentario S',   sub: 'Capalbio Scalo, Costa Laziale N',     checked: false, lat: 42.46, lon: 11.27 },
@@ -3425,9 +3426,6 @@ async function loadHistory(zoneKey) {
     }
 
     var snaps = data.snapshots;
-    // Per zone con dati reali CFR, mostra solo quelli (non mescolare con OM manuale)
-    var cfrSnaps = snaps.filter(function(s){ return s.obs_source === 'cfr'; });
-    if (cfrSnaps.length > 0) snaps = cfrSnaps;
     var html = '';
     html += renderHistoryMatrix(snaps);
 
@@ -5391,7 +5389,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.6.126
+// Fine codice - NAUTILUS v5.6.128
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

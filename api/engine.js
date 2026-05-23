@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.155 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.156 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1825,7 +1825,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.155', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.156', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -3130,7 +3130,7 @@ if (action === 'situazione') {
       rotation_trend: rotSit.trend,
       rotation_path: rotSit.total_path
     };
-    if (kvUrl && kvToken) await kvSet(sitKey, sitRecord, 86400, kvUrl, kvToken); // TTL 24h
+    if (kvUrl && kvToken) await kvSet(sitKey, sitRecord, 86400 * 7, kvUrl, kvToken); // TTL 7 giorni
 
     return res.status(200).json({
       zone: zoneKey,
@@ -3548,7 +3548,7 @@ if (action === 'situazione_get') {
     // Cerca nelle ultime 24 ore usando sv-SE (stesso formato di getNowRome)
     var slots4 = ['00','15','30','45'];
     var sitFound = null;
-    for (var hh = 0; hh <= 23 && !sitFound; hh++) {
+    for (var hh = 0; hh <= 167 && !sitFound; hh++) {
       var searchTime = new Date(new Date().getTime() - hh * 3600000);
       var searchHour = searchTime.toLocaleString('sv-SE', {timeZone:'Europe/Rome'})
         .replace(' ','T').slice(0,13).replace(':','-');
@@ -3989,7 +3989,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.155 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.156 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4113,4 +4113,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.155
+// Fine codice - NAUTILUS ENGINE v2.9.156

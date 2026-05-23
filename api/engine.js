@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.153 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.155 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1036,14 +1036,12 @@ swell_height: data.swell_height,
 swell_dir: data.swell_dir,
 temp_air: data.temp_air,
 humidity: data.humidity,
-// OWM observed data if present
 wind_speed_obs: data.wind_speed_obs || null,
 wind_dir_obs: data.wind_dir_obs || null,
 wind_gust_obs: data.wind_gust_obs || null,
 pressure_obs: data.pressure_obs || null,
 obs_source: data.obs_source || null,
 obs_station: data.obs_station || null,
-// ICON model data for future comparison
 wind_speed_icon: data.icon_wind_speed !== undefined ? data.icon_wind_speed : null,
 wind_dir_icon: data.icon_wind_dir !== undefined ? data.icon_wind_dir : null,
 wind_gust_icon: data.icon_wind_gust !== undefined ? data.icon_wind_gust : null,
@@ -1052,6 +1050,19 @@ ifs_wind_dir: data.ifs_wind_dir !== undefined ? data.ifs_wind_dir : null,
 ifs_wind_gust: data.ifs_wind_gust !== undefined ? data.ifs_wind_gust : null,
 ifs_pressure: data.ifs_pressure !== undefined ? data.ifs_pressure : null
 };
+// Se esiste gia uno snap CFR in questo slot, preserva vento/dir reali e aggiunge onde/pressione OM
+try {
+  var existing = await kvGet(key, restUrl, restToken);
+  if (existing && existing.obs_source === 'cfr') {
+    snapshot.wind_speed    = existing.wind_speed;
+    snapshot.wind_dir      = existing.wind_dir;
+    snapshot.wind_gust     = existing.wind_gust;
+    snapshot.obs_source    = 'cfr';
+    snapshot.obs_station   = existing.obs_station;
+    snapshot.wind_speed_om = data.wind_speed_om !== undefined ? data.wind_speed_om : data.wind_speed;
+    snapshot.wind_dir_om   = data.wind_dir_om   !== undefined ? data.wind_dir_om   : data.wind_dir;
+  }
+} catch(e) {}
 await kvSet(key, snapshot, 1209600, restUrl, restToken);
 }
 
@@ -1814,7 +1825,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.153', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.155', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -1909,7 +1920,7 @@ if (action === 'station_refresh') {
       if (!mnwToken) return res.status(500).json({ error: 'METEONETWORK_TOKEN mancante' });
       var mnwRes2 = await fetch('https://api.meteonetwork.it/public/stazione/' + srSt.sid + '/misure', { headers: { 'Authorization': 'Bearer ' + mnwToken } });
       var mnwData2 = await mnwRes2.json();
-      if (mnwData2 && mnwData2.wind_speed_ms) {
+      if (mnwData2 && mnwData2.wind_speed_ms !== undefined && mnwData2.wind_speed_ms !== null) {
         var srWKt = Math.round(mnwData2.wind_speed_ms * 1.94384 * 10) / 10;
         var srGKt = mnwData2.wind_gust_ms ? Math.round(mnwData2.wind_gust_ms * 1.94384 * 10) / 10 : null;
         srStation_data = { wind_kt: srWKt, gust_kt: srGKt, direction: mnwData2.wind_direction_degree || null, direction_txt: null, pressure_mb: mnwData2.pressure || null, source: 'mnw_api' };
@@ -3978,7 +3989,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.153 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.155 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4102,4 +4113,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.153
+// Fine codice - NAUTILUS ENGINE v2.9.155

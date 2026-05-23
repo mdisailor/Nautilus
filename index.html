@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.129 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.132 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -579,7 +579,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.129  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.132  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1820,7 +1820,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.129  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.132  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -2967,6 +2967,27 @@ function buildEvoList(id) {
 
 //  Init all clouds 
 document.addEventListener('DOMContentLoaded', () => {
+  // Auto-carica situazione salvata per zone checked all'avvio
+  setTimeout(function() {
+    ALL_ZONES.filter(function(z){ return z.checked; }).forEach(function(z) {
+      var container = document.getElementById('sit-container-' + z.key);
+      if (container) container.innerHTML = '<div class="sit-panel"><div style="padding:10px 16px;background:var(--card);border:1px solid var(--border);border-radius:10px;font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted)">Caricamento in corso...</div></div>';
+      fetch(ENGINE_URL + '?action=situazione_get&zone=' + z.key)
+        .then(function(r){ return r.json(); })
+        .then(function(data) {
+          if (!container) return;
+          if (data.found && data.situazione) {
+            state.situazione[z.key] = data;
+            container.innerHTML = renderSituazionePanel(z.key, data);
+          } else {
+            container.innerHTML = renderSituazionePanel(z.key, null);
+          }
+        }).catch(function(){
+          if (container) container.innerHTML = renderSituazionePanel(z.key, null);
+        });
+    });
+  }, 1200);
+
   Object.keys(CLOUD_DATA).forEach(id => {
     const d = CLOUD_DATA[id];
     buildChecklist(`check-${id}-id`, `score-${id}-id`, d.id, d.thresholds, d.labels);
@@ -3136,7 +3157,7 @@ function renderZone(z) {
   const dirName = function(d) {
     return ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'][Math.round(d/22.5)%16];
   };
-  var _engTs = new Date(z.updated).toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
+  var _engTs = new Date(z.updated).toLocaleString('it-IT', {timeZone:'Europe/Rome',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
   var _engSrc = z.reliability_note || 'Open-Meteo best_match';
   var _srcBadge = '<div class="src-ts-engine">Fonte: ' + _engSrc + '  Letti alle ' + _engTs + '  Coordinate fisse zona</div>';
   var _dataTimeStr = r.data_time ? ' (ore ' + new Date(r.data_time).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'}) + ')' : '';
@@ -4879,7 +4900,7 @@ function renderSituazionePanel(zoneKey, data) {
   var secConsiglio  = extractSection(text, 'CONSIGLIO NAVIGAZIONE');
   var secMonitorare = extractSection(text, 'MONITORARE');
 
-  var ts = sit.generated_at ? new Date(sit.generated_at).toLocaleTimeString('it-IT',{timeZone:'Europe/Rome',hour:'2-digit',minute:'2-digit'}) : '--';
+  var ts = sit.generated_at ? new Date(sit.generated_at).toLocaleString('it-IT',{timeZone:'Europe/Rome',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '--';
   var badge = allerta === 'rosso' ? '' : allerta === 'giallo' ? '' : '';
 
   var html = '<div class="sit-panel">';
@@ -5429,7 +5450,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.6.129
+// Fine codice - NAUTILUS v5.6.132
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

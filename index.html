@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.132 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.133 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -579,7 +579,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.132  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.133  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1820,7 +1820,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.132  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.133  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -5056,14 +5056,19 @@ async function loadPredictMini(zoneKey) {
       return;
     }
     var html = '';
-    data.predictions.slice(0, 5).forEach(function(item, idx) {
+    var prevPreds = data.predictions.slice(1, 6); // salta la più recente (già visualizzata)
+    if (prevPreds.length === 0) {
+      btnsEl.innerHTML = '<span style="font-family:DM Mono,monospace;font-size:0.45rem;color:var(--muted)">Nessuna previsione precedente</span>';
+      return;
+    }
+    prevPreds.forEach(function(item, idx) {
       var p = item.prediction;
       var ts = new Date(p.generated_at).toLocaleString('it-IT',{timeZone:'Europe/Rome',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
       html += '<button onclick="showPredictMiniItem(' + idx + ')" style="font-family:DM Mono,monospace;font-size:0.44rem;padding:3px 8px;background:rgba(0,180,220,0.1);border:1px solid rgba(0,180,220,0.3);border-radius:10px;color:var(--accent);cursor:pointer">' + ts + '</button>';
     });
     btnsEl.innerHTML = html;
-    // Salva per uso successivo
-    window._predictMiniData = data.predictions.slice(0, 5);
+    // Salva per uso successivo (slice(1) = solo precedenti)
+    window._predictMiniData = data.predictions.slice(1, 6);
   } catch(e) {}
 }
 
@@ -5450,7 +5455,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.6.132
+// Fine codice - NAUTILUS v5.6.133
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

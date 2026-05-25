@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.159 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.160 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1825,7 +1825,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.159', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.160', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -2118,7 +2118,9 @@ if (action === 'scrape_cfr') {
 if (action === 'scrape_web') {
   try {
     var swAdminKey = req.query.k || '';
-    if (swAdminKey !== 'mdi') return res.status(401).json({ error: 'Unauthorized' });
+    var swSec = req.query.secret || '';
+    var swCronSecret = process.env.CRON_SECRET || null;
+    if (swAdminKey !== 'mdi' && (!swCronSecret || swSec !== swCronSecret)) return res.status(401).json({ error: 'Unauthorized' });
     var swStations = [
       { id: 'viareggio',    name: 'Viareggio',      url: 'https://www.meteonetwork.eu/it/weather-station/tsc508-stazione-meteorologica-di-viareggio-lungomare', lat: 43.870, lon: 10.230 },
       { id: 'bocca_arno',   name: 'Bocca d Arno',   url: 'https://www.meteonetwork.eu/it/weather-station/tsc431-stazione-meteorologica-di-bocca-darno',          lat: 43.680, lon: 10.270 },
@@ -4014,7 +4016,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.159 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.160 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4138,4 +4140,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.159
+// Fine codice - NAUTILUS ENGINE v2.9.160

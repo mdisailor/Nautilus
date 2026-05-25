@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.2.39 - mdisailor - 2026-05-11 -->
+<!-- NAUTILUS MAPPA v1.2.40 - mdisailor - 2026-05-11 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.2.39</title>
+<title>NAUTILUS Mappa Vento v1.2.40</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -152,7 +152,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.2.39</span>
+    <span id="nav-ver">mappa v1.2.40</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
   <a id="nav-back" href="/">APP</a>
@@ -207,11 +207,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.2.39 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.2.40 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.2.39
+// NAUTILUS MAPPA v1.2.40
 
 var ENGINE_URL = '/api/engine';
 
@@ -239,9 +239,9 @@ var BUOYS = [
 var MNW_LIVE = [
   { key:'livorno',          name:'Quercianella',   lat:43.465,  lon:10.347, sid:'livorno' },
   { key:'canale_piombino',  name:'Piombino',       lat:42.920,  lon:10.530, sid:'canale_piombino' },
-  { key:'viareggio_mnw',    name:'Viareggio',      lat:43.875,  lon:10.236, sid:'viareggio' },
+  { key:'viareggio_cfr',    name:'Viareggio CFR',  lat:43.875,  lon:10.236, sid:'viareggio_cfr' },
   { key:'capraia_mnw',      name:'Capraia Monte',  lat:43.058,  lon:9.822,  sid:'capraia_w' },
-  { key:'populonia_mnw',    name:'Populonia',       lat:42.990,  lon:10.618, sid:'populonia' },
+  { key:'populonia_cfr',    name:'Populonia CFR',   lat:42.990,  lon:10.618, sid:'populonia_cfr' },
   { key:'portoferraio_mnw', name:'Portoferraio',    lat:42.813,  lon:10.368, sid:'portoferraio' },
   { key:'alberese_mnw',     name:'Alberese',        lat:42.638,  lon:11.078, sid:'alberese' },
   { key:'luri_mnw',         name:'Luri (Corsica)',  lat:42.818,  lon:9.441,  sid:'luri' },
@@ -797,7 +797,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.2.39
+// Fine codice - NAUTILUS MAPPA v1.2.40
 </script>
 </body>
 </html>

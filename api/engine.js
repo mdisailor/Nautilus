@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.156 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.159 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1825,7 +1825,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.156', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.159', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -2049,23 +2049,40 @@ if (action === 'scrape_cfr') {
     });
     var scfOmResults = await Promise.all(scfOmPromises);
 
-    // Mappa stazione CFR -> zona corrispondente per salvare snapshot
-    var CFR_TO_ZONE = {
-      bocca_arno_cfr: 'bocca_arno', giglio_porto: 'giglio', montecristo: 'montecristo',
-      orbetello: 'orbetello', svincenzo_porto: 'svincenzo', follonica: 'follonica',
-      capalbio: 'capalbio', alberese: 'alberese', forte_dei_marmi: 'forte_marmi',
-      casotto_pescatori: 'casotto_gr', venturina: 'venturina',
-      gorgona_cfr: 'gorgona', capraia_cfr: 'capraia', portoferraio_cfr: 'elba_nord'
-    };
+    // 1) Salva prima tutti gli snapshot di zona (priorita alta, operazioni semplici)
+    var snapSavePromises = scfValid.map(function(st, idx) {
+      var scfData = scfParsed[st.cfr];
+      var omJ = scfOmResults[idx];
+      var scfOm = omJ && omJ.current ? {
+        wind_kt: Math.round(omJ.current.wind_speed_10m  * 10) / 10,
+        gust_kt: Math.round(omJ.current.wind_gusts_10m  * 10) / 10,
+        direction: omJ.current.wind_direction_10m,
+        pressure_mb: Math.round(omJ.current.surface_pressure * 10) / 10
+      } : { wind_kt: null, gust_kt: null, direction: null, pressure_mb: null };
+      var mappedZone = CFR_TO_ZONE[st.id];
+      if (!mappedZone || scfOm.wind_kt === null) return Promise.resolve();
+      var scfNow2 = new Date(scfTs);
+      var scfMins2 = scfNow2.getMinutes() < 30 ? '00' : '30';
+      var scfSlotKey2 = 'snap:' + mappedZone + ':' + scfNow2.toISOString().slice(0,13) + '-' + scfMins2;
+      var scfSnap2 = {
+        ts: scfTs, wind_speed: scfData.wind_kt, wind_dir: scfData.dir_deg, wind_gust: scfData.gust_kt,
+        pressure: scfOm.pressure_mb, wave_height: null, wave_period: null, wave_direction: null,
+        wind_speed_850: null, wind_dir_850: null, ifs_wind_speed: null, ifs_wind_dir: null,
+        wind_speed_om: scfOm.wind_kt, wind_dir_om: scfOm.direction,
+        obs_source: 'cfr', obs_station: st.id, obs_quota: st.quota || null
+      };
+      return kvSet(scfSlotKey2, scfSnap2, 86400 * 3, kvUrl, kvToken).catch(function(){});
+    });
+    await Promise.all(snapSavePromises);
 
-    // Costruisce samples e salva in Redis in PARALLELO
+    // 2) Costruisce samples e salva in Redis (bias_samples, secondaria)
     var scfSavePromises = scfValid.map(function(st, idx) {
       var scfData = scfParsed[st.cfr];
       var omJ = scfOmResults[idx];
       var scfOm = omJ && omJ.current ? {
-        wind_kt:     Math.round(omJ.current.wind_speed_10m  * 10) / 10,
-        gust_kt:     Math.round(omJ.current.wind_gusts_10m  * 10) / 10,
-        direction:   omJ.current.wind_direction_10m,
+        wind_kt: Math.round(omJ.current.wind_speed_10m  * 10) / 10,
+        gust_kt: Math.round(omJ.current.wind_gusts_10m  * 10) / 10,
+        direction: omJ.current.wind_direction_10m,
         pressure_mb: Math.round(omJ.current.surface_pressure * 10) / 10
       } : { wind_kt: null, gust_kt: null, direction: null, pressure_mb: null };
       var scfSample = {
@@ -2075,45 +2092,17 @@ if (action === 'scrape_cfr') {
         delta: scfOm.wind_kt !== null ? { wind_kt: Math.round((scfData.wind_kt - scfOm.wind_kt) * 10) / 10, dir_station: scfData.dir_deg, dir_om: scfOm.direction } : null
       };
       var scfKey2 = 'bias_samples:' + st.id;
-
-      // Salva anche snapshot di zona se questa stazione ha una zona corrispondente
-      var zoneSnapshotPromise = Promise.resolve();
-      var mappedZone = CFR_TO_ZONE[st.id];
-      if (mappedZone && scfOm.wind_kt !== null) {
-        var scfNow = new Date(scfTs);
-        var scfMins = scfNow.getMinutes() < 30 ? '00' : '30';
-        var scfSlotKey = 'snap:' + mappedZone + ':' + scfNow.toISOString().slice(0,13) + '-' + scfMins;
-        var scfSnap = {
-          ts: scfTs,
-          wind_speed: scfData.wind_kt,
-          wind_dir: scfData.dir_deg,
-          wind_gust: scfData.gust_kt,
-          pressure: scfOm.pressure_mb,
-          wave_height: null, wave_period: null, wave_direction: null,
-          wind_speed_850: null, wind_dir_850: null,
-          ifs_wind_speed: null, ifs_wind_dir: null,
-          wind_speed_om: scfOm.wind_kt,
-          wind_dir_om: scfOm.direction,
-          obs_source: 'cfr', obs_station: st.id, obs_quota: st.quota || null
-        };
-        zoneSnapshotPromise = kvSet(scfSlotKey, scfSnap, 86400 * 3, kvUrl, kvToken);
-      }
-
       return kvGet(scfKey2, kvUrl, kvToken).then(function(existing) {
         var list = Array.isArray(existing) ? existing : [];
         list.unshift(scfSample);
         if (list.length > 100) list.length = 100;
-        return Promise.all([
-          kvSet(scfKey2, list, 31536000, kvUrl, kvToken),
-          zoneSnapshotPromise
-        ]).then(function() {
+        return kvSet(scfKey2, list, 31536000, kvUrl, kvToken).then(function() {
           return { id: st.id, name: st.name, ok: true, wind_kt: scfData.wind_kt, dir: scfData.dir_deg, delta: scfSample.delta };
         });
       }).catch(function(e) {
         return { id: st.id, name: st.name, ok: false, error: e.message };
       });
     });
-
     // Stazioni senza dati
     var scfNoData = CFR_STATIONS.filter(function(st) {
       return !scfParsed[st.cfr] || scfParsed[st.cfr].wind_kt === null;
@@ -2849,23 +2838,51 @@ return res.status(404).json({ error: 'Zona non trovata' });
 }
 try {
 var hours = parseInt(req.query.hours) || 24;
-// Per richieste brevi dalla mappa (hours=1), leggi almeno 3 slot (90min)
-// per avere dati anche durante il cron quando lo slot corrente non e' ancora scritto
 var minSlots = req.query.min_slots ? parseInt(req.query.min_slots) : 0;
 var effectiveHours = (hours <= 1 && minSlots === 0) ? 1.5 : hours;
-var snapshots = await getWindHistory(zoneKey, kvUrl, kvToken, effectiveHours);
-// Ritorna solo gli ultimi N snapshot se hours era specificato piccolo
-if (hours <= 1 && snapshots.length > 3) snapshots = snapshots.slice(-3);
+var cutoffH = new Date(Date.now() - effectiveHours * 3600000);
+var snapshots = [];
+
+// Per zone con stazione CFR usa bias_samples (dati reali stazione)
+var zoneObjH = ZONES[zoneKey];
+var usedBiasSamples = false;
+if (zoneObjH && zoneObjH.bias_station) {
+  var bsSamples = await kvGet('bias_samples:' + zoneObjH.bias_station, kvUrl, kvToken) || [];
+  var cfrSamples = bsSamples.filter(function(bs) {
+    return bs.ts && bs.station && bs.station.wind_kt !== null &&
+           bs.station.source === 'cfr' && new Date(bs.ts) >= cutoffH;
+  });
+  if (cfrSamples.length >= 3) {
+    usedBiasSamples = true;
+    snapshots = cfrSamples.map(function(bs) {
+      return {
+        ts: bs.ts,
+        wind_speed: bs.station.wind_kt,
+        wind_dir: bs.station.direction,
+        wind_gust: bs.station.gust_kt || null,
+        pressure: bs.om ? bs.om.pressure_mb : null,
+        wave_height: null, wave_period: null,
+        wind_speed_om: bs.om ? bs.om.wind_kt : null,
+        wind_dir_om: bs.om ? bs.om.direction : null,
+        obs_source: 'cfr', obs_station: zoneObjH.bias_station
+      };
+    }).sort(function(a,b){ return new Date(a.ts) - new Date(b.ts); });
+  }
+}
+
+// Fallback: zone senza stazione CFR usano snap OM
+if (!usedBiasSamples) {
+  snapshots = await getWindHistory(zoneKey, kvUrl, kvToken, effectiveHours);
+  if (hours <= 1 && snapshots.length > 3) snapshots = snapshots.slice(-3);
+}
+
 var bias = await getBias(zoneKey, kvUrl, kvToken);
 var rotation = analyzeWindRotation(snapshots);
 return res.status(200).json({
-zone: zoneKey,
-name: ZONES[zoneKey].name,
-hours_requested: hours,
-hours_available: snapshots.length,
-snapshots: snapshots,
-rotation: rotation,
-bias: bias
+zone: zoneKey, name: ZONES[zoneKey].name,
+hours_requested: hours, hours_available: snapshots.length,
+snapshots: snapshots, rotation: rotation, bias: bias,
+data_source: usedBiasSamples ? 'cfr_station' : 'om_model'
 });
 } catch(e) {
 return res.status(500).json({ error: e.message });
@@ -3611,31 +3628,39 @@ if (action === 'predict_history') {
     var actualPromises = [];
     top10.forEach(function(p) {
       var genTime = new Date(p.generated_at);
-      // h3 actual -- USA ORA DI ROMA per chiave snap
-      var t3 = new Date(genTime.getTime() + 3*3600000);
-      var m3 = t3.getMinutes() < 30 ? '00' : '30';
-      var t3r = t3.toLocaleString('sv-SE',{timeZone:'Europe/Rome'}).replace(' ','T').slice(0,13).replace(':','-').replace(':','-');
-      var k3 = 'snap:' + zoneKey + ':' + t3r + '-' + m3;
-      actualPromises.push(kvGet(k3, kvUrl, kvToken));
-      // h6 actual
-      var t6 = new Date(genTime.getTime() + 6*3600000);
-      var m6 = t6.getMinutes() < 30 ? '00' : '30';
-      var t6r = t6.toLocaleString('sv-SE',{timeZone:'Europe/Rome'}).replace(' ','T').slice(0,13).replace(':','-').replace(':','-');
-      var k6 = 'snap:' + zoneKey + ':' + t6r + '-' + m6;
-      actualPromises.push(kvGet(k6, kvUrl, kvToken));
-      // h12 actual
-      var t12 = new Date(genTime.getTime() + 12*3600000);
-      var m12 = t12.getMinutes() < 30 ? '00' : '30';
-      var t12r = t12.toLocaleString('sv-SE',{timeZone:'Europe/Rome'}).replace(' ','T').slice(0,13).replace(':','-').replace(':','-');
-      var k12 = 'snap:' + zoneKey + ':' + t12r + '-' + m12;
-      actualPromises.push(kvGet(k12, kvUrl, kvToken));
+      // Legge da bias_samples per zone CFR, altrimenti da snap
+      actualPromises.push((async function(zone, gen) {
+        var results = [null, null, null];
+        var zObjV = ZONES[zone];
+        if (zObjV && zObjV.bias_station) {
+          var bsSamplesV = await kvGet('bias_samples:' + zObjV.bias_station, kvUrl, kvToken) || [];
+          var cfrV = bsSamplesV.filter(function(b){ return b.station && b.station.source === 'cfr' && b.station.wind_kt !== null; });
+          [3,6,12].forEach(function(hh, idx) {
+            var target = new Date(gen.getTime() + hh * 3600000);
+            var best = null, bestDiff = 25 * 60 * 1000; // max 25 min
+            cfrV.forEach(function(b) {
+              var diff = Math.abs(new Date(b.ts) - target);
+              if (diff < bestDiff) { bestDiff = diff; best = b; }
+            });
+            if (best) results[idx] = { wind_speed: best.station.wind_kt, wind_dir: best.station.direction };
+          });
+          return results;
+        }
+        // Fallback snap
+        var snapResults = await Promise.all([3,6,12].map(function(hh) {
+          var t = new Date(gen.getTime() + hh * 3600000);
+          var m = t.getMinutes() < 30 ? '00' : '30';
+          var tr = t.toLocaleString('sv-SE',{timeZone:'Europe/Rome'}).replace(' ','T').slice(0,13).replace(':','-').replace(':','-');
+          return kvGet('snap:' + zone + ':' + tr + '-' + m, kvUrl, kvToken);
+        }));
+        return snapResults.map(function(s){ return s ? {wind_speed: s.wind_speed, wind_dir: s.wind_dir} : null; });
+      })(zoneKey, genTime));
     });
     var actuals = await Promise.all(actualPromises);
 
     var withActual = top10.map(function(p, i) {
-      var snap3 = actuals[i*3];
-      var snap6 = actuals[i*3+1];
-      var snap12 = actuals[i*3+2];
+      var res = actuals[i] || [null, null, null];
+      var snap3 = res[0], snap6 = res[1], snap12 = res[2];
       return {
         prediction: p,
         actual_3h: snap3 ? snap3.wind_speed : null,
@@ -3989,7 +4014,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.156 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.159 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4113,4 +4138,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.156
+// Fine codice - NAUTILUS ENGINE v2.9.159

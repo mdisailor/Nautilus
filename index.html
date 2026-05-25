@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.136 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.138 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -579,7 +579,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.136  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.138  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1820,7 +1820,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.136  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.138  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -3376,6 +3376,17 @@ function renderEngineResults() {
   if (psec) {
     psec.style.display = 'block';
     renderPredictZoneButtons();
+    // Aggiunge link diretto nella summary bar
+    var sumLink = document.getElementById('predict-jump-link');
+    if (!sumLink) {
+      var sumEl2 = document.getElementById('engine-summary');
+      if (sumEl2) {
+        var lnk = document.createElement('div');
+        lnk.id = 'predict-jump-link';
+        lnk.innerHTML = '<div onclick="document.getElementById(\'predict-section\').scrollIntoView({behavior:\'smooth\'})" style="cursor:pointer;font-family:DM Mono,monospace;font-size:0.5rem;color:var(--accent);text-align:right;padding:4px 20px 8px;letter-spacing:0.05em"> Previsione AI ↓</div>';
+        sumEl2.parentNode.insertBefore(lnk, sumEl2.nextSibling);
+      }
+    }
   }
   var refreshBtn = document.getElementById('btn-compare-refresh');
   if (refreshBtn && state.isAdmin) refreshBtn.style.display = 'block';
@@ -4875,6 +4886,43 @@ function toggleSituazione(zoneKey) {
   var isOpen = body.classList.contains('open');
   body.classList.toggle('open', !isOpen);
   toggle.textContent = isOpen ? '' : '';
+  // Carica storico previsioni quando si apre
+  if (!isOpen) loadSitPredictHistory(zoneKey);
+}
+
+async function loadSitPredictHistory(zoneKey) {
+  var btnsEl = document.getElementById('sit-predict-btns-' + zoneKey);
+  if (!btnsEl) return;
+  try {
+    var res = await fetch(ENGINE_URL + '?action=predict_history&zone=' + zoneKey);
+    var data = await res.json();
+    if (!data.predictions || data.predictions.length === 0) {
+      btnsEl.innerHTML = '<span style="font-family:DM Mono,monospace;font-size:0.44rem;color:var(--muted)">Nessuna previsione salvata</span>';
+      return;
+    }
+    var html = '';
+    data.predictions.slice(0, 5).forEach(function(item, idx) {
+      var p = item.prediction;
+      var ts2 = new Date(p.generated_at).toLocaleString('it-IT',{timeZone:'Europe/Rome',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+      html += '<button onclick="showSitPredict(\'' + zoneKey + '\',' + idx + ')" style="font-family:DM Mono,monospace;font-size:0.44rem;padding:3px 8px;background:rgba(0,180,220,0.1);border:1px solid rgba(0,180,220,0.3);border-radius:10px;color:var(--accent);cursor:pointer">' + ts2 + '</button>';
+    });
+    btnsEl.innerHTML = html;
+    window._sitPredictData = window._sitPredictData || {};
+    window._sitPredictData[zoneKey] = data.predictions.slice(0, 5);
+  } catch(e) { btnsEl.innerHTML = '<span style="font-family:DM Mono,monospace;font-size:0.44rem;color:var(--muted)">Errore caricamento</span>'; }
+}
+
+function showSitPredict(zoneKey, idx) {
+  var el = document.getElementById('sit-predict-text-' + zoneKey);
+  if (!el || !window._sitPredictData || !window._sitPredictData[zoneKey]) return;
+  var item = window._sitPredictData[zoneKey][idx];
+  if (!item || !item.prediction) return;
+  var p = item.prediction;
+  var ts2 = new Date(p.generated_at).toLocaleString('it-IT',{timeZone:'Europe/Rome',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+  var text = (p.prediction_text || '').replace(/\*\*(.*?)\*\*/g,'<strong style="color:var(--accent)">$1</strong>').replace(/\n/g,'<br>');
+  el.innerHTML = '<div style="border-top:1px solid rgba(255,255,255,0.06);padding-top:8px;margin-top:6px">' +
+    '<div style="font-family:DM Mono,monospace;font-size:0.44rem;color:var(--muted);margin-bottom:6px">' + ts2 + '</div>' +
+    '<div style="font-size:0.68rem;color:var(--text);line-height:1.6">' + text + '</div></div>';
 }
 function renderSituazionePanel(zoneKey, data) {
   if (!data || !data.found || !data.situazione) {
@@ -4926,6 +4974,12 @@ function renderSituazionePanel(zoneKey, data) {
   html += '<div class="sit-footer">';
   html += '<span>Generata: ' + ts + (sit.rotation_trend ? ' &mdash; ' + sit.rotation_trend : '') + '</span>';
   html += '<span class="sit-regen" data-action="regen-sit" data-zone="' + zoneKey + '" style="margin-left:12px;padding:6px 10px;border:1px solid var(--accent);border-radius:6px;cursor:pointer">&#8635; Rigenera</span>';
+  html += '</div>';
+  // Storico previsioni AI inline
+  html += '<div id="sit-predict-hist-' + zoneKey + '" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">';
+  html += '<div style="font-family:DM Mono,monospace;font-size:0.45rem;color:var(--muted);margin-bottom:6px;letter-spacing:0.05em">PREVISIONI PRECEDENTI</div>';
+  html += '<div id="sit-predict-btns-' + zoneKey + '" style="display:flex;flex-wrap:wrap;gap:5px"><span style="font-family:DM Mono,monospace;font-size:0.44rem;color:var(--muted)">Caricamento...</span></div>';
+  html += '<div id="sit-predict-text-' + zoneKey + '" style="margin-top:8px"></div>';
   html += '</div>';
   html += '</div></div>';
   return html;
@@ -5039,8 +5093,6 @@ async function loadPredict(zoneKey) {
       return;
     }
     renderPredictContent(data, el);
-    // Carica storico ultime 5 in background
-    loadPredictMini(zoneKey);
   } catch(err) {
     el.innerHTML = '<div class="verify-empty" style="color:var(--danger)">Errore: ' + err.message + '</div>';
   }
@@ -5097,12 +5149,6 @@ function renderPredictContent(data, el) {
   }
   html += '<div class="predict-meta-item" style="margin-left:auto;color:var(--muted)">Generato: ' + new Date(data.generated_at).toLocaleString('it-IT',{timeZone:'Europe/Rome',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) + '</div>';
   html += '</div>';
-
-  // Previsioni precedenti (in cima, visibile subito)
-  html += '<div id="predict-history-mini" style="margin-bottom:14px;padding:8px 10px;border:1px solid rgba(0,180,220,0.25);border-radius:8px;background:rgba(0,180,220,0.04)">';
-  html += '<div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--accent);margin-bottom:6px;letter-spacing:0.04em">📋 PREVISIONI PRECEDENTI <span style="font-size:0.42rem;opacity:0.6">— clicca una data</span></div>';
-  html += '<div id="predict-history-btns" style="display:flex;flex-wrap:wrap;gap:5px"><span style="font-family:DM Mono,monospace;font-size:0.45rem;color:var(--muted)">Caricamento...</span></div>';
-  html += '<div id="predict-history-text" style="margin-top:8px"></div></div>';
 
   // Prediction text
   if (data.prediction) {
@@ -5457,7 +5503,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.6.136
+// Fine codice - NAUTILUS v5.6.138
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

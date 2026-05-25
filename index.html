@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.138 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.140 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -579,7 +579,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.138  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.140  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -900,8 +900,10 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
       <button class="btn-history" onclick="biasSample('livorno','m')">📡 Quercianella <small style="color:#e07070;opacity:0.8">244m</small></button>
       <button class="btn-history" onclick="biasSample('canale_piombino','m')">📡 Piombino</button>
       <button class="btn-history" onclick="biasWebSample('viareggio','m')">📡 Viareggio</button>
+      <button class="btn-history" onclick="biasWebSample('viareggio_cfr','m')">📡 Viareggio CFR</button>
       <button class="btn-history" onclick="biasWebSample('capraia_w','m')">📡 Capraia</button>
       <button class="btn-history" onclick="biasWebSample('populonia','m')">📡 Populonia</button>
+      <button class="btn-history" onclick="biasWebSample('populonia_cfr','m')">📡 Populonia CFR <small style='color:#e07070'>164m</small></button>
       <button class="btn-history" onclick="biasWebSample('portoferraio','m')">📡 Portoferraio</button>
       <button class="btn-history" onclick="biasWebSample('alberese','m')">📡 Alberese</button>
       <button class="btn-history" onclick="biasWebSample('luri','m')">📡 Luri</button>
@@ -1820,7 +1822,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.138  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.140  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -5398,8 +5400,10 @@ async function biasLoadHistory(selectedStation, sfx) {
     {id:'livorno',        name:'Quercianella'},
     {id:'canale_piombino',name:'Piombino'},
     {id:'viareggio',      name:'Viareggio'},
+    {id:'viareggio_cfr',  name:'Viareggio CFR'},
     {id:'capraia_w',      name:'Capraia'},
     {id:'populonia',      name:'Populonia'},
+    {id:'populonia_cfr',  name:'Populonia CFR'},
     {id:'portoferraio',   name:'Portoferraio'},
     {id:'alberese',       name:'Alberese'},
     {id:'luri',           name:'Luri'},
@@ -5421,7 +5425,7 @@ async function biasLoadHistory(selectedStation, sfx) {
   ];
   // Quota stazioni (m slm) -- >100m = bias non affidabile per navigazione
   var STATION_QUOTAS = {
-    livorno:244, canale_piombino:8, viareggio:25, capraia_w:274, populonia:164,
+    livorno:244, canale_piombino:8, viareggio:25, viareggio_cfr:2, populonia_cfr:164, capraia_w:274, populonia:164,
     portoferraio:368, alberese:1, luri:50,
     gorgona_cfr:230, capraia_cfr:274, giglio_porto:0, giglio_castello:470,
     montecristo:85, portoferraio_cfr:10, orbetello:0, svincenzo_porto:1,
@@ -5503,7 +5507,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.6.138
+// Fine codice - NAUTILUS v5.6.140
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.165 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.166 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -25,6 +25,7 @@ livorno: {
 enabled: true,
 name: 'Livorno',
 lat: 43.5497, lon: 10.2950,
+bias_station: 'livorno_cfr',
 ports: {
 livorno:        { name: 'Livorno',        exposure: 'SW', shelter: 'high', swell_threshold: 2.0 },
 
@@ -1827,7 +1828,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.165', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.166', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -1879,6 +1880,7 @@ if (action === 'station_refresh') {
       livorno:         { lat: 43.465, lon: 10.347, api: true,  sid: 'tsc265', quota: 244 },
       canale_piombino: { lat: 42.920, lon: 10.530, api: true,  sid: 'tsc228', quota: 8   },
       viareggio:       { lat: 43.870, lon: 10.230, api: false, url: 'https://www.meteonetwork.eu/it/weather-station/tsc508-stazione-meteorologica-di-viareggio-lungomare' },
+      livorno_cfr:     { lat: 43.546, lon: 10.300, api: false, cfr: 'TOS01005981' },
       viareggio_cfr:   { lat: 43.875, lon: 10.236, api: false, cfr: 'TOS03000481' },
       populonia_cfr:   { lat: 42.992, lon: 10.640, api: false, cfr: 'TOS03002300' },
       bocca_arno:      { lat: 43.680, lon: 10.270, api: false, url: 'https://www.meteonetwork.eu/it/weather-station/tsc431-stazione-meteorologica-di-bocca-darno' },
@@ -2011,6 +2013,7 @@ if (action === 'scrape_cfr') {
       { id:'venturina',         cfr:'TOS11000004', name:'Venturina',         lat:42.985, lon:10.620, quota:8   },
       { id:'forte_dei_marmi',   cfr:'TOS02004055', name:'Forte dei Marmi',   lat:43.963, lon:10.174, quota:0   },
       { id:'lido_camaiore',     cfr:'TOS11000011', name:'Lido di Camaiore',  lat:43.871, lon:10.262, quota:1   },
+      { id:'livorno_cfr',       cfr:'TOS01005981', name:'Livorno Mareografo', lat:43.546, lon:10.300, quota:2   },
       { id:'bocca_arno_cfr',    cfr:'TOS01005251', name:'Bocca d Arno CFR',  lat:43.680, lon:10.270, quota:1   },
       { id:'viareggio_cfr',     cfr:'TOS03000481', name:'Viareggio CFR',     lat:43.870, lon:10.230, quota:2   },
       { id:'populonia_cfr',     cfr:'TOS03002300', name:'Populonia CFR',     lat:42.992, lon:10.640, quota:164 },
@@ -2062,7 +2065,7 @@ if (action === 'scrape_cfr') {
       capalbio:'capalbio', alberese:'alberese', forte_dei_marmi:'forte_marmi',
       casotto_pescatori:'casotto_gr', venturina:'venturina',
       gorgona_cfr:'gorgona', capraia_cfr:'capraia', portoferraio_cfr:'elba_nord',
-      viareggio_cfr:'viareggio', populonia_cfr:'canale_piombino'
+      livorno_cfr:'livorno', viareggio_cfr:'viareggio', populonia_cfr:'canale_piombino'
     };
     var snapSavePromises = scfValid.map(function(st, idx) {
       var scfData = scfParsed[st.cfr];
@@ -3206,7 +3209,7 @@ if (action === 'predict') {
     var ALL_STATION_QUOTAS = {
       gorgona_cfr:230, capraia_cfr:274, giglio_porto:0, giglio_castello:470, montecristo:85,
       portoferraio_cfr:10, orbetello:0, svincenzo_porto:1, casotto_pescatori:2, venturina:8,
-      forte_dei_marmi:0, lido_camaiore:1, bocca_arno_cfr:1, follonica:15, capalbio:12, viareggio_cfr:2, populonia_cfr:164,
+      forte_dei_marmi:0, lido_camaiore:1, bocca_arno_cfr:1, follonica:15, capalbio:12, livorno_cfr:2, viareggio_cfr:2, populonia_cfr:164,
       livorno:244, canale_piombino:8, viareggio:25, capraia_w:274, portoferraio:368,
       alberese:1, luri:50
     };
@@ -4030,7 +4033,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.165 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.166 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4154,4 +4157,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.165
+// Fine codice - NAUTILUS ENGINE v2.9.166

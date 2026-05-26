@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.168 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.170 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1822,12 +1822,60 @@ var sgKey = process.env.STORMGLASS_KEY || null;
 var kvUrl = process.env.UPSTASH_REDIS_REST_URL || null;
 var kvToken = process.env.UPSTASH_REDIS_REST_TOKEN || null;
 
-if (action === 'ping') {
+if (action === 'triple_wind') {
+var twZones = (req.query.zones || 'viareggio,bocca_arno,livorno').split(',');
+var twResults = await Promise.all(twZones.map(async function(zk) {
+  zk = zk.trim();
+  var zObj = ZONES[zk];
+  if (!zObj) return { zone: zk, ok: false };
+  var bs = zObj.bias_station;
+  var usedCfr = false;
+  // Prova a leggere da bias_samples se la stazione ha fonte CFR
+  if (bs) {
+    var samples = await kvGet('bias_samples:' + bs, kvUrl, kvToken) || [];
+    var latest = samples[0];
+    if (latest && latest.station && latest.station.wind_kt !== null &&
+        latest.station.source === 'cfr' &&
+        (Date.now() - new Date(latest.ts).getTime()) < 2 * 3600 * 1000) {
+      return {
+        zone: zk, ok: true, source: 'cfr',
+        wind_kt: latest.station.wind_kt,
+        wind_dir: latest.station.direction,
+        wind_gust: latest.station.gust_kt,
+        quota: latest.station.quota,
+        ts: latest.ts
+      };
+    }
+  }
+  // Fallback OM
+  var lat = zObj.lat, lon = zObj.lon;
+  try {
+    var omUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon +
+      '&current=wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=kn&timezone=Europe/Rome';
+    var omRes = await fetch(omUrl);
+    var omJson = await omRes.json();
+    var c = omJson.current || {};
+    return {
+      zone: zk, ok: true, source: 'om',
+      wind_kt: c.wind_speed_10m || null,
+      wind_dir: c.wind_direction_10m || null,
+      wind_gust: c.wind_gusts_10m || null,
+      quota: null,
+      ts: new Date().toISOString()
+    };
+  } catch(e) {
+    return { zone: zk, ok: false, source: 'error' };
+  }
+}));
+return res.status(200).json({ ok: true, results: twResults, ts: Date.now() });
+}
+
+
 var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled !== false; }).length;
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.168', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.170', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -4032,7 +4080,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.168 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.170 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4156,4 +4204,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.168
+// Fine codice - NAUTILUS ENGINE v2.9.170

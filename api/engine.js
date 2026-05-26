@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.167 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.168 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1827,7 +1827,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.167', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.168', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -1887,7 +1887,7 @@ if (action === 'station_refresh') {
       populonia:       { lat: 42.992, lon: 10.640, api: false, url: 'https://www.meteonetwork.eu/it/weather-station/tsc539-stazione-meteorologica-di-populonia' },
       portoferraio:    { lat: 42.813, lon: 10.368, api: false, url: 'https://www.meteonetwork.eu/it/weather-station/tsc621-stazione-meteorologica-di-portoferraio' },
       alberese:        { lat: 42.671, lon: 11.107, api: false, url: 'https://www.meteonetwork.eu/it/weather-station/tsc712-stazione-meteorologica-di-alberese' },
-      luri:            { lat: 42.851, lon: 9.403,  api: false, url: 'https://www.meteonetwork.eu/it/weather-station/fr0370-stazione-meteorologica-di-luri' },
+      luri:            { lat: 42.982, lon: 9.389,  api: false, url: 'https://www.meteonetwork.eu/it/weather-station/fr0370-stazione-meteorologica-di-luri' },
       // CFR Toscana - fetch pagina monitoraggio
       gorgona_cfr:       { lat: 43.433, lon: 9.883,  api: false, cfr: 'TOS11000107' },
       capraia_cfr:       { lat: 43.050, lon: 9.838,  api: false, cfr: 'TOS03003145' },
@@ -2144,7 +2144,7 @@ if (action === 'scrape_web') {
       { id: 'populonia',    name: 'Populonia',       url: 'https://www.meteonetwork.eu/it/weather-station/tsc539-stazione-meteorologica-di-populonia',             lat: 42.992, lon: 10.640 },
       { id: 'portoferraio', name: 'Portoferraio',    url: 'https://www.meteonetwork.eu/it/weather-station/tsc621-stazione-meteorologica-di-portoferraio',          lat: 42.813, lon: 10.368 },
       { id: 'alberese',     name: 'Alberese',        url: 'https://www.meteonetwork.eu/it/weather-station/tsc712-stazione-meteorologica-di-alberese',              lat: 42.671, lon: 11.107 },
-      { id: 'luri',         name: 'Luri (Corsica)',  url: 'https://www.meteonetwork.eu/it/weather-station/fr0370-stazione-meteorologica-di-luri',                  lat: 42.851, lon: 9.403  }
+      { id: 'luri',         name: 'Luri (Corsica)',  url: 'https://www.meteonetwork.eu/it/weather-station/fr0370-stazione-meteorologica-di-luri',                  lat: 42.982, lon: 9.389  }
     ];
     var swFilter = req.query.station || null;
     if (swFilter) swStations = swStations.filter(function(s){ return s.id === swFilter; });
@@ -2868,7 +2868,7 @@ if (zoneObjH && zoneObjH.bias_station) {
   var bsSamples = await kvGet('bias_samples:' + zoneObjH.bias_station, kvUrl, kvToken) || [];
   var cfrSamples = bsSamples.filter(function(bs) {
     return bs.ts && bs.station && bs.station.wind_kt !== null &&
-           bs.station.source === 'cfr' && new Date(bs.ts) >= cutoffH;
+           new Date(bs.ts) >= cutoffH;
   });
   if (cfrSamples.length >= 3) {
     usedBiasSamples = true;
@@ -3652,7 +3652,7 @@ if (action === 'predict_history') {
         var zObjV = ZONES[zone];
         if (zObjV && zObjV.bias_station) {
           var bsSamplesV = await kvGet('bias_samples:' + zObjV.bias_station, kvUrl, kvToken) || [];
-          var cfrV = bsSamplesV.filter(function(b){ return b.station && b.station.source === 'cfr' && b.station.wind_kt !== null; });
+          var cfrV = bsSamplesV.filter(function(b){ return b.station && b.station.wind_kt !== null; });
           [3,6,12].forEach(function(hh, idx) {
             var target = new Date(gen.getTime() + hh * 3600000);
             var best = null, bestDiff = 25 * 60 * 1000; // max 25 min
@@ -4032,7 +4032,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.167 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.168 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4156,4 +4156,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.167
+// Fine codice - NAUTILUS ENGINE v2.9.168

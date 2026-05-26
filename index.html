@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.165 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.166 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -594,7 +594,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.165  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.166  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -668,59 +668,99 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 
 <div id="triple-compass-section">
-  <div style="display:flex;justify-content:space-around;align-items:flex-start;padding:4px 4px 0;gap:4px">
+  <div style="display:flex;justify-content:space-around;align-items:flex-start;padding:6px 8px 0;gap:8px">
 
     <!-- Viareggio CFR -->
-    <div id="tc-item-0" onclick="selectTripleCompass(0)" style="display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:6px 6px;border-radius:12px;border:1px solid rgba(0,240,255,0.5);background:rgba(0,240,255,0.07);flex:1;transition:all 0.2s">
-      <div style="font-family:DM Mono,monospace;font-size:0.46rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.08em">Viareggio</div>
-      <svg class="wind-compass" viewBox="0 0 100 100">
-        <defs><filter id="tc-glow-0"><feGaussianBlur stdDeviation="2.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
-        <circle cx="50" cy="50" r="47" fill="none" stroke="#0af0ff" stroke-width="2.5" opacity="0.6"/>
-        <circle cx="50" cy="50" r="43" fill="#030e1c"/>
-        <g stroke="#0af0ff" stroke-width="2" opacity="0.9"><line x1="50" y1="3" x2="50" y2="12"/><line x1="50" y1="88" x2="50" y2="97"/><line x1="3" y1="50" x2="12" y2="50"/><line x1="88" y1="50" x2="97" y2="50"/></g>
-        <text x="50" y="16" text-anchor="middle" fill="#ffffff" font-size="12" font-family="DM Mono,monospace" font-weight="bold">N</text>
-        <g id="tc-needle-0" transform="rotate(0,50,50)"><polygon points="50,14 45,53 50,49 55,53" fill="#0af0ff" filter="url(#tc-glow-0)"/><polygon points="50,86 45,51 50,55 55,51" fill="#3a7090"/><circle cx="50" cy="50" r="5" fill="#020c18" stroke="#0af0ff" stroke-width="2.5"/></g>
-      </svg>
-      <div style="font-family:Bebas Neue,sans-serif;font-size:1.5rem;line-height:1;color:var(--accent)"><span id="tc-speed-0">--</span><span style="font-family:DM Mono,monospace;font-size:0.42rem;color:var(--muted)">kn</span></div>
-      <div style="font-family:Bebas Neue,sans-serif;font-size:1rem;line-height:1;color:var(--text)" id="tc-dir-0">--</div>
-      <div style="font-family:DM Mono,monospace;font-size:0.38rem;color:rgba(0,240,255,0.5)" id="tc-src-0">--</div>
+    <div id="tc-item-0" onclick="selectTripleCompass(0)" style="display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:8px 8px 6px;border-radius:12px;border:1px solid rgba(0,240,255,0.5);background:rgba(0,240,255,0.07);flex:1;transition:all 0.2s">
+      <div style="font-family:DM Mono,monospace;font-size:0.46rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.1em">Viareggio</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:1px">
+          <svg class="wind-compass-sm" viewBox="0 0 100 100">
+            <defs><filter id="tc-glow-0"><feGaussianBlur stdDeviation="2.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+            <circle cx="50" cy="50" r="47" fill="none" stroke="#0af0ff" stroke-width="2.5" opacity="0.6"/>
+            <circle cx="50" cy="50" r="44" fill="none" stroke="#0af0ff" stroke-width="0.8" opacity="0.25"/>
+            <circle cx="50" cy="50" r="43" fill="#030e1c"/>
+            <g stroke="#0af0ff" stroke-width="2" opacity="0.9"><line x1="50" y1="3" x2="50" y2="12"/><line x1="50" y1="88" x2="50" y2="97"/><line x1="3" y1="50" x2="12" y2="50"/><line x1="88" y1="50" x2="97" y2="50"/></g>
+            <g stroke="#4dd8e8" stroke-width="1.2" opacity="0.7"><line x1="19" y1="19" x2="24" y2="24"/><line x1="81" y1="19" x2="76" y2="24"/><line x1="19" y1="81" x2="24" y2="76"/><line x1="81" y1="81" x2="76" y2="76"/></g>
+            <text x="50" y="16" text-anchor="middle" fill="#fff" font-size="11" font-family="DM Mono,monospace" font-weight="bold">N</text>
+            <text x="50" y="98" text-anchor="middle" fill="#a0d8f0" font-size="9" font-family="DM Mono,monospace">S</text>
+            <text x="7" y="54" text-anchor="middle" fill="#a0d8f0" font-size="9" font-family="DM Mono,monospace">W</text>
+            <text x="93" y="54" text-anchor="middle" fill="#a0d8f0" font-size="9" font-family="DM Mono,monospace">E</text>
+            <g id="tc-needle-0" transform="rotate(0,50,50)"><polygon points="50,14 45,53 50,49 55,53" fill="#0af0ff" filter="url(#tc-glow-0)"/><polygon points="50,86 45,51 50,55 55,51" fill="#3a7090"/><circle cx="50" cy="50" r="5" fill="#020c18" stroke="#0af0ff" stroke-width="2.5"/></g>
+          </svg>
+          <div id="tc-deg-0" style="font-family:Bebas Neue,sans-serif;font-size:0.8rem;color:var(--muted);line-height:1">-- gradi</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <div style="display:flex;align-items:baseline;gap:2px"><span id="tc-speed-0" style="font-family:Bebas Neue,sans-serif;font-size:1.6rem;line-height:1;color:var(--accent)">--</span><span style="font-family:DM Mono,monospace;font-size:0.42rem;color:var(--muted)">kn</span></div>
+          <div id="tc-dir-0" style="font-family:Bebas Neue,sans-serif;font-size:1.2rem;line-height:1;color:var(--text)">--</div>
+          <div id="tc-gust-0" style="font-family:DM Mono,monospace;font-size:0.4rem;color:var(--muted)">raffica --kn</div>
+          <div id="tc-src-0" style="font-family:DM Mono,monospace;font-size:0.38rem;color:rgba(0,240,255,0.5)">--</div>
+        </div>
+      </div>
     </div>
 
     <!-- Bocca d Arno CFR -->
-    <div id="tc-item-1" onclick="selectTripleCompass(1)" style="display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:6px 6px;border-radius:12px;border:1px solid transparent;flex:1;transition:all 0.2s">
-      <div style="font-family:DM Mono,monospace;font-size:0.46rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.08em">Bocca Arno</div>
-      <svg class="wind-compass" viewBox="0 0 100 100">
-        <defs><filter id="tc-glow-1"><feGaussianBlur stdDeviation="2.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
-        <circle cx="50" cy="50" r="47" fill="none" stroke="#0af0ff" stroke-width="2.5" opacity="0.6"/>
-        <circle cx="50" cy="50" r="43" fill="#030e1c"/>
-        <g stroke="#0af0ff" stroke-width="2" opacity="0.9"><line x1="50" y1="3" x2="50" y2="12"/><line x1="50" y1="88" x2="50" y2="97"/><line x1="3" y1="50" x2="12" y2="50"/><line x1="88" y1="50" x2="97" y2="50"/></g>
-        <text x="50" y="16" text-anchor="middle" fill="#ffffff" font-size="12" font-family="DM Mono,monospace" font-weight="bold">N</text>
-        <g id="tc-needle-1" transform="rotate(0,50,50)"><polygon points="50,14 45,53 50,49 55,53" fill="#0af0ff" filter="url(#tc-glow-1)"/><polygon points="50,86 45,51 50,55 55,51" fill="#3a7090"/><circle cx="50" cy="50" r="5" fill="#020c18" stroke="#0af0ff" stroke-width="2.5"/></g>
-      </svg>
-      <div style="font-family:Bebas Neue,sans-serif;font-size:1.5rem;line-height:1;color:var(--accent)"><span id="tc-speed-1">--</span><span style="font-family:DM Mono,monospace;font-size:0.42rem;color:var(--muted)">kn</span></div>
-      <div style="font-family:Bebas Neue,sans-serif;font-size:1rem;line-height:1;color:var(--text)" id="tc-dir-1">--</div>
-      <div style="font-family:DM Mono,monospace;font-size:0.38rem;color:rgba(0,240,255,0.5)" id="tc-src-1">--</div>
+    <div id="tc-item-1" onclick="selectTripleCompass(1)" style="display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:8px 8px 6px;border-radius:12px;border:1px solid transparent;flex:1;transition:all 0.2s">
+      <div style="font-family:DM Mono,monospace;font-size:0.46rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.1em">Bocca Arno</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:1px">
+          <svg class="wind-compass-sm" viewBox="0 0 100 100">
+            <defs><filter id="tc-glow-1"><feGaussianBlur stdDeviation="2.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+            <circle cx="50" cy="50" r="47" fill="none" stroke="#0af0ff" stroke-width="2.5" opacity="0.6"/>
+            <circle cx="50" cy="50" r="44" fill="none" stroke="#0af0ff" stroke-width="0.8" opacity="0.25"/>
+            <circle cx="50" cy="50" r="43" fill="#030e1c"/>
+            <g stroke="#0af0ff" stroke-width="2" opacity="0.9"><line x1="50" y1="3" x2="50" y2="12"/><line x1="50" y1="88" x2="50" y2="97"/><line x1="3" y1="50" x2="12" y2="50"/><line x1="88" y1="50" x2="97" y2="50"/></g>
+            <g stroke="#4dd8e8" stroke-width="1.2" opacity="0.7"><line x1="19" y1="19" x2="24" y2="24"/><line x1="81" y1="19" x2="76" y2="24"/><line x1="19" y1="81" x2="24" y2="76"/><line x1="81" y1="81" x2="76" y2="76"/></g>
+            <text x="50" y="16" text-anchor="middle" fill="#fff" font-size="11" font-family="DM Mono,monospace" font-weight="bold">N</text>
+            <text x="50" y="98" text-anchor="middle" fill="#a0d8f0" font-size="9" font-family="DM Mono,monospace">S</text>
+            <text x="7" y="54" text-anchor="middle" fill="#a0d8f0" font-size="9" font-family="DM Mono,monospace">W</text>
+            <text x="93" y="54" text-anchor="middle" fill="#a0d8f0" font-size="9" font-family="DM Mono,monospace">E</text>
+            <g id="tc-needle-1" transform="rotate(0,50,50)"><polygon points="50,14 45,53 50,49 55,53" fill="#0af0ff" filter="url(#tc-glow-1)"/><polygon points="50,86 45,51 50,55 55,51" fill="#3a7090"/><circle cx="50" cy="50" r="5" fill="#020c18" stroke="#0af0ff" stroke-width="2.5"/></g>
+          </svg>
+          <div id="tc-deg-1" style="font-family:Bebas Neue,sans-serif;font-size:0.8rem;color:var(--muted);line-height:1">-- gradi</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <div style="display:flex;align-items:baseline;gap:2px"><span id="tc-speed-1" style="font-family:Bebas Neue,sans-serif;font-size:1.6rem;line-height:1;color:var(--accent)">--</span><span style="font-family:DM Mono,monospace;font-size:0.42rem;color:var(--muted)">kn</span></div>
+          <div id="tc-dir-1" style="font-family:Bebas Neue,sans-serif;font-size:1.2rem;line-height:1;color:var(--text)">--</div>
+          <div id="tc-gust-1" style="font-family:DM Mono,monospace;font-size:0.4rem;color:var(--muted)">raffica --kn</div>
+          <div id="tc-src-1" style="font-family:DM Mono,monospace;font-size:0.38rem;color:rgba(0,240,255,0.5)">--</div>
+        </div>
+      </div>
     </div>
 
     <!-- Livorno -->
-    <div id="tc-item-2" onclick="selectTripleCompass(2)" style="display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:6px 6px;border-radius:12px;border:1px solid transparent;flex:1;transition:all 0.2s">
-      <div style="font-family:DM Mono,monospace;font-size:0.46rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.08em">Livorno</div>
-      <svg class="wind-compass" viewBox="0 0 100 100">
-        <defs><filter id="tc-glow-2"><feGaussianBlur stdDeviation="2.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
-        <circle cx="50" cy="50" r="47" fill="none" stroke="#0af0ff" stroke-width="2.5" opacity="0.6"/>
-        <circle cx="50" cy="50" r="43" fill="#030e1c"/>
-        <g stroke="#0af0ff" stroke-width="2" opacity="0.9"><line x1="50" y1="3" x2="50" y2="12"/><line x1="50" y1="88" x2="50" y2="97"/><line x1="3" y1="50" x2="12" y2="50"/><line x1="88" y1="50" x2="97" y2="50"/></g>
-        <text x="50" y="16" text-anchor="middle" fill="#ffffff" font-size="12" font-family="DM Mono,monospace" font-weight="bold">N</text>
-        <g id="tc-needle-2" transform="rotate(0,50,50)"><polygon points="50,14 45,53 50,49 55,53" fill="#0af0ff" filter="url(#tc-glow-2)"/><polygon points="50,86 45,51 50,55 55,51" fill="#3a7090"/><circle cx="50" cy="50" r="5" fill="#020c18" stroke="#0af0ff" stroke-width="2.5"/></g>
-      </svg>
-      <div style="font-family:Bebas Neue,sans-serif;font-size:1.5rem;line-height:1;color:var(--accent)"><span id="tc-speed-2">--</span><span style="font-family:DM Mono,monospace;font-size:0.42rem;color:var(--muted)">kn</span></div>
-      <div style="font-family:Bebas Neue,sans-serif;font-size:1rem;line-height:1;color:var(--text)" id="tc-dir-2">--</div>
-      <div style="font-family:DM Mono,monospace;font-size:0.38rem;color:rgba(0,240,255,0.5)" id="tc-src-2">--</div>
+    <div id="tc-item-2" onclick="selectTripleCompass(2)" style="display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:8px 8px 6px;border-radius:12px;border:1px solid transparent;flex:1;transition:all 0.2s">
+      <div style="font-family:DM Mono,monospace;font-size:0.46rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.1em">Livorno</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:1px">
+          <svg class="wind-compass-sm" viewBox="0 0 100 100">
+            <defs><filter id="tc-glow-2"><feGaussianBlur stdDeviation="2.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+            <circle cx="50" cy="50" r="47" fill="none" stroke="#0af0ff" stroke-width="2.5" opacity="0.6"/>
+            <circle cx="50" cy="50" r="44" fill="none" stroke="#0af0ff" stroke-width="0.8" opacity="0.25"/>
+            <circle cx="50" cy="50" r="43" fill="#030e1c"/>
+            <g stroke="#0af0ff" stroke-width="2" opacity="0.9"><line x1="50" y1="3" x2="50" y2="12"/><line x1="50" y1="88" x2="50" y2="97"/><line x1="3" y1="50" x2="12" y2="50"/><line x1="88" y1="50" x2="97" y2="50"/></g>
+            <g stroke="#4dd8e8" stroke-width="1.2" opacity="0.7"><line x1="19" y1="19" x2="24" y2="24"/><line x1="81" y1="19" x2="76" y2="24"/><line x1="19" y1="81" x2="24" y2="76"/><line x1="81" y1="81" x2="76" y2="76"/></g>
+            <text x="50" y="16" text-anchor="middle" fill="#fff" font-size="11" font-family="DM Mono,monospace" font-weight="bold">N</text>
+            <text x="50" y="98" text-anchor="middle" fill="#a0d8f0" font-size="9" font-family="DM Mono,monospace">S</text>
+            <text x="7" y="54" text-anchor="middle" fill="#a0d8f0" font-size="9" font-family="DM Mono,monospace">W</text>
+            <text x="93" y="54" text-anchor="middle" fill="#a0d8f0" font-size="9" font-family="DM Mono,monospace">E</text>
+            <g id="tc-needle-2" transform="rotate(0,50,50)"><polygon points="50,14 45,53 50,49 55,53" fill="#0af0ff" filter="url(#tc-glow-2)"/><polygon points="50,86 45,51 50,55 55,51" fill="#3a7090"/><circle cx="50" cy="50" r="5" fill="#020c18" stroke="#0af0ff" stroke-width="2.5"/></g>
+          </svg>
+          <div id="tc-deg-2" style="font-family:Bebas Neue,sans-serif;font-size:0.8rem;color:var(--muted);line-height:1">-- gradi</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <div style="display:flex;align-items:baseline;gap:2px"><span id="tc-speed-2" style="font-family:Bebas Neue,sans-serif;font-size:1.6rem;line-height:1;color:var(--accent)">--</span><span style="font-family:DM Mono,monospace;font-size:0.42rem;color:var(--muted)">kn</span></div>
+          <div id="tc-dir-2" style="font-family:Bebas Neue,sans-serif;font-size:1.2rem;line-height:1;color:var(--text)">--</div>
+          <div id="tc-gust-2" style="font-family:DM Mono,monospace;font-size:0.4rem;color:var(--muted)">raffica --kn</div>
+          <div id="tc-src-2" style="font-family:DM Mono,monospace;font-size:0.38rem;color:rgba(0,240,255,0.5)">--</div>
+        </div>
+      </div>
     </div>
 
   </div>
-  <div id="tc-detail" style="margin:6px 16px 8px;padding:8px 12px;background:rgba(0,240,255,0.04);border:1px solid rgba(0,240,255,0.15);border-radius:10px;display:grid;grid-template-columns:1fr 1fr;gap:3px 14px">
-    <div style="grid-column:1/-1;font-family:DM Mono,monospace;font-size:0.5rem;color:var(--accent);margin-bottom:3px" id="tc-detail-name">Viareggio CFR</div>
+  <!-- Dati CFR stazione selezionata -->
+  <div id="tc-detail" style="margin:8px 16px;border-top:1px solid var(--border);padding-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:2px 16px">
+    <div style="grid-column:1/-1;font-family:DM Mono,monospace;font-size:0.5rem;color:var(--accent);margin-bottom:4px;letter-spacing:0.08em" id="tc-detail-name">VIAREGGIO CFR</div>
     <div class="wind-detail-row"><span class="wd-label">VENTO</span><span class="wd-value" id="tc-d-speed">--</span></div>
     <div class="wind-detail-row"><span class="wd-label">DIREZIONE</span><span class="wd-value" id="tc-d-dir">--</span></div>
     <div class="wind-detail-row"><span class="wd-label">RAFFICA</span><span class="wd-value" id="tc-d-gust">--</span></div>
@@ -728,7 +768,6 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
     <div class="wind-detail-row"><span class="wd-label">SORGENTE</span><span class="wd-value" id="tc-d-src">--</span></div>
   </div>
 </div>
-
 
 <div id="single-compass-section" style="display:none;padding:8px 12px 0">
   <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
@@ -1937,7 +1976,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.165  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.166  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -5773,7 +5812,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.6.165
+// Fine codice - NAUTILUS v5.6.166
 // ===== TRIPLE COMPASS =====
 var tcData = [null, null, null];
 var tcSelected = 0;
@@ -5799,6 +5838,10 @@ function updateTripleCompass(idx, r) {
   if (sEl) sEl.textContent = spd !== null ? Math.round(spd) : '--';
   var dEl = document.getElementById('tc-dir-' + idx);
   if (dEl) dEl.textContent = dirToText(dir);
+  var degEl = document.getElementById('tc-deg-' + idx);
+  if (degEl) degEl.textContent = dir !== null ? Math.round(dir) + ' gradi' : '-- gradi';
+  var gustEl = document.getElementById('tc-gust-' + idx);
+  if (gustEl) gustEl.textContent = gust !== null ? 'raffica ' + Math.round(gust) + 'kn' : 'raffica --kn';
   var srcEl = document.getElementById('tc-src-' + idx);
   if (srcEl) srcEl.textContent = tcData[idx].src;
   if (idx === tcSelected) renderTripleDetail(idx);

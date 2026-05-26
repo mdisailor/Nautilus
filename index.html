@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.145 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.147 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -579,7 +579,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.145  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.147  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -596,14 +596,14 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <select id="loc-select" onchange="selectLocation(this.value)" style="width:100%;padding:8px 10px;background:var(--deep);border:1px solid var(--border);border-radius:9px;color:var(--white);font-family:'DM Mono',monospace;font-size:0.65rem;appearance:none;-webkit-appearance:none;cursor:pointer;">
     <option value="">-- Scegli una localita --</option>
     <optgroup label=" Costa Toscana Nord">
-      <option value="44.003,10.031">Viareggio</option>
+      <option value="43.875,10.236">Viareggio CFR</option>
       <option value="43.800,10.243">Marina di Pisa</option>
-      <option value="43.548,10.310">Livorno</option>
-      <option value="43.546,10.300" selected>Livorno Mareografo CFR</option>
+      <option value="43.546,10.300">Livorno Porto CFR</option>
       <option value="43.680,10.270">Bocca d'Arno</option>
       <option value="43.418,10.468">Castiglioncello</option>
       <option value="43.313,10.528">Marina di Cecina</option>
       <option value="43.158,10.535">San Vincenzo</option>
+      <option value="42.992,10.640">Populonia CFR</option>
     </optgroup>
     <optgroup label=" Costa Toscana Sud">
       <option value="42.922,10.534">Piombino</option>
@@ -628,7 +628,6 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
       <option value="43.433,9.883">Gorgona</option>
       <option value="42.366,10.912">Giglio Porto</option>
       <option value="42.324,10.869">Giglio Campese</option>
-      <option value="42.243,11.355">Giannutri</option>
       <option value="42.560,10.090">Pianosa</option>
       <option value="42.335,10.311">Montecristo</option>
     </optgroup>
@@ -636,9 +635,6 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
       <option value="44.106,9.828">La Spezia</option>
       <option value="44.048,9.681">Lerici</option>
       <option value="44.100,9.530">Sestri Levante</option>
-      <option value="44.203,8.771">Savona</option>
-      <option value="43.833,7.800">Imperia</option>
-      <option value="43.781,7.641">Sanremo</option>
     </optgroup>
     <optgroup label=" Nord Corsica">
       <option value="42.699,9.451">Bastia</option>
@@ -897,34 +893,36 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <!-- BIAS STAZIONI in Meteo -->
   <div id="bias-section-m" style="margin:12px 20px 0">
     <div onclick="biasLoadHistory(null,'m')" style="font-family:DM Mono,monospace;font-size:0.65rem;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;opacity:0.9;margin-bottom:8px;cursor:pointer;display:flex;align-items:center;gap:8px">&#9656; Stazioni Reali vs OM <span id="bias-spinner-m" style="display:none;width:12px;height:12px;border:2px solid rgba(0,240,255,0.3);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;flex-shrink:0"></span></div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px">
+      <div style="width:100%;font-family:DM Mono,monospace;font-size:0.6rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:2px">MeteoNetwork</div>
       <button class="btn-history" onclick="biasSample('livorno','m')">📡 Quercianella <small style="color:#e07070;opacity:0.8">244m</small></button>
       <button class="btn-history" onclick="biasSample('canale_piombino','m')">📡 Piombino</button>
       <button class="btn-history" onclick="biasWebSample('viareggio','m')">📡 Viareggio</button>
-      <button class="btn-history" onclick="biasWebSample('viareggio_cfr','m')">📡 Viareggio CFR</button>
       <button class="btn-history" onclick="biasWebSample('capraia_w','m')">📡 Capraia</button>
       <button class="btn-history" onclick="biasWebSample('populonia','m')">📡 Populonia</button>
-      <button class="btn-history" onclick="biasWebSample('populonia_cfr','m')">📡 Populonia CFR <small style='color:#e07070'>164m</small></button>
       <button class="btn-history" onclick="biasWebSample('portoferraio','m')">📡 Portoferraio</button>
       <button class="btn-history" onclick="biasWebSample('alberese','m')">📡 Alberese</button>
       <button class="btn-history" onclick="biasWebSample('luri','m')">📡 Luri</button>
-      <div style="font-family:DM Mono,monospace;font-size:0.65rem;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;opacity:0.9;margin:18px 0 8px;border-top:2px solid rgba(0,240,255,0.35);padding-top:12px">CFR Toscana</div>
+      <div style="width:100%;font-family:DM Mono,monospace;font-size:0.6rem;color:var(--accent);letter-spacing:0.1em;text-transform:uppercase;margin:10px 0 4px;border-top:1px solid rgba(0,240,255,0.25);padding-top:8px">CFR Toscana — Costa</div>
+      <button class="btn-history" onclick="biasWebSample('livorno_cfr','m')">📡 Livorno Porto</button>
+      <button class="btn-history" onclick="biasWebSample('bocca_arno_cfr','m')">📡 Bocca d'Arno</button>
+      <button class="btn-history" onclick="biasWebSample('viareggio_cfr','m')">📡 Viareggio CFR</button>
+      <button class="btn-history" onclick="biasWebSample('lido_camaiore','m')">📡 Lido Camaiore</button>
+      <button class="btn-history" onclick="biasWebSample('forte_dei_marmi','m')">📡 Forte dei Marmi</button>
+      <button class="btn-history" onclick="biasWebSample('populonia_cfr','m')">📡 Populonia CFR <small style='color:#e07070'>164m</small></button>
+      <button class="btn-history" onclick="biasWebSample('svincenzo_porto','m')">📡 S.Vincenzo Porto</button>
+      <button class="btn-history" onclick="biasWebSample('venturina','m')">📡 Venturina</button>
+      <button class="btn-history" onclick="biasWebSample('follonica','m')">📡 Follonica</button>
+      <button class="btn-history" onclick="biasWebSample('casotto_pescatori','m')">📡 Casotto (Marina GR)</button>
+      <button class="btn-history" onclick="biasWebSample('orbetello','m')">📡 Orbetello</button>
+      <button class="btn-history" onclick="biasWebSample('capalbio','m')">📡 Capalbio</button>
+      <div style="width:100%;font-family:DM Mono,monospace;font-size:0.6rem;color:var(--accent);letter-spacing:0.1em;text-transform:uppercase;margin:8px 0 4px;border-top:1px solid rgba(0,240,255,0.15);padding-top:6px">CFR Toscana — Isole</div>
       <button class="btn-history" onclick="biasWebSample('gorgona_cfr','m')">📡 Gorgona <small style='color:#e07070'>230m</small></button>
-      <button class="btn-history" onclick="biasWebSample('capraia_cfr','m')">📡 Capraia CFR <small style="color:#e07070;opacity:0.8">274m</small></button>
+      <button class="btn-history" onclick="biasWebSample('capraia_cfr','m')">📡 Capraia CFR <small style='color:#e07070'>274m</small></button>
       <button class="btn-history" onclick="biasWebSample('giglio_porto','m')">📡 Giglio Porto</button>
-      <button class="btn-history" onclick="biasWebSample('giglio_castello','m')">📡 Giglio Castello <small style="color:#e07070;opacity:0.8">470m</small></button>
+      <button class="btn-history" onclick="biasWebSample('giglio_castello','m')">📡 Giglio Castello <small style='color:#e07070'>470m</small></button>
       <button class="btn-history" onclick="biasWebSample('montecristo','m')">📡 Montecristo</button>
       <button class="btn-history" onclick="biasWebSample('portoferraio_cfr','m')">📡 Portoferraio CFR</button>
-      <button class="btn-history" onclick="biasWebSample('orbetello','m')">📡 Orbetello</button>
-      <button class="btn-history" onclick="biasWebSample('svincenzo_porto','m')">📡 S.Vincenzo Porto</button>
-      <button class="btn-history" onclick="biasWebSample('casotto_pescatori','m')">📡 Casotto P. (Marina GR)</button>
-      <button class="btn-history" onclick="biasWebSample('venturina','m')">📡 Venturina</button>
-      <button class="btn-history" onclick="biasWebSample('forte_dei_marmi','m')">📡 Forte dei Marmi</button>
-      <button class="btn-history" onclick="biasWebSample('lido_camaiore','m')">📡 Lido di Camaiore</button>
-      <button class="btn-history" onclick="biasWebSample('livorno_cfr','m')">📡 Livorno Porto CFR</button>
-      <button class="btn-history" onclick="biasWebSample('bocca_arno_cfr','m')">📡 Bocca d Arno CFR</button>
-      <button class="btn-history" onclick="biasWebSample('follonica','m')">📡 Follonica</button>
-      <button class="btn-history" onclick="biasWebSample('capalbio','m')">📡 Capalbio</button>
     </div>
     <div id="bias-status-m" style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--muted);min-height:14px;margin-bottom:4px"></div>
     <div id="bias-result-m"></div>
@@ -1824,7 +1822,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.145  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.147  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -1896,7 +1894,8 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <!-- BIAS STAZIONI -->
   <div id="bias-section" style="margin:12px 20px 0">
     <div style="font-family:DM Mono,monospace;font-size:0.65rem;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;opacity:0.9;margin-bottom:8px;cursor:pointer;display:flex;align-items:center;gap:8px" onclick="biasLoadHistory(null)">&#9656; Stazioni Reali vs OM <span id="bias-spinner" style="display:none;width:12px;height:12px;border:2px solid rgba(0,240,255,0.3);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;flex-shrink:0"></span></div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px">
+      <div style="width:100%;font-family:DM Mono,monospace;font-size:0.6rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:2px">MeteoNetwork</div>
       <button class="btn-history" onclick="biasSample('livorno',undefined)">📡 Quercianella <small style="color:#e07070;opacity:0.8">244m</small></button>
       <button class="btn-history" onclick="biasSample('canale_piombino',undefined)">📡 Piombino</button>
       <button class="btn-history" onclick="biasWebSample('viareggio',undefined)">📡 Viareggio</button>
@@ -1905,25 +1904,26 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
       <button class="btn-history" onclick="biasWebSample('portoferraio',undefined)">📡 Portoferraio</button>
       <button class="btn-history" onclick="biasWebSample('alberese',undefined)">📡 Alberese</button>
       <button class="btn-history" onclick="biasWebSample('luri',undefined)">📡 Luri</button>
-      <div style="font-family:DM Mono,monospace;font-size:0.65rem;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;opacity:0.9;margin:18px 0 8px;border-top:2px solid rgba(0,240,255,0.35);padding-top:12px">CFR Toscana</div>
+      <div style="width:100%;font-family:DM Mono,monospace;font-size:0.6rem;color:var(--accent);letter-spacing:0.1em;text-transform:uppercase;margin:10px 0 4px;border-top:1px solid rgba(0,240,255,0.25);padding-top:8px">CFR Toscana — Costa</div>
+      <button class="btn-history" onclick="biasWebSample('livorno_cfr',undefined)">📡 Livorno Porto</button>
+      <button class="btn-history" onclick="biasWebSample('bocca_arno_cfr',undefined)">📡 Bocca d'Arno</button>
+      <button class="btn-history" onclick="biasWebSample('viareggio_cfr',undefined)">📡 Viareggio CFR</button>
+      <button class="btn-history" onclick="biasWebSample('lido_camaiore',undefined)">📡 Lido Camaiore</button>
+      <button class="btn-history" onclick="biasWebSample('forte_dei_marmi',undefined)">📡 Forte dei Marmi</button>
+      <button class="btn-history" onclick="biasWebSample('populonia_cfr',undefined)">📡 Populonia CFR <small style='color:#e07070'>164m</small></button>
+      <button class="btn-history" onclick="biasWebSample('svincenzo_porto',undefined)">📡 S.Vincenzo Porto</button>
+      <button class="btn-history" onclick="biasWebSample('venturina',undefined)">📡 Venturina</button>
+      <button class="btn-history" onclick="biasWebSample('follonica',undefined)">📡 Follonica</button>
+      <button class="btn-history" onclick="biasWebSample('casotto_pescatori',undefined)">📡 Casotto (Marina GR)</button>
+      <button class="btn-history" onclick="biasWebSample('orbetello',undefined)">📡 Orbetello</button>
+      <button class="btn-history" onclick="biasWebSample('capalbio',undefined)">📡 Capalbio</button>
+      <div style="width:100%;font-family:DM Mono,monospace;font-size:0.6rem;color:var(--accent);letter-spacing:0.1em;text-transform:uppercase;margin:8px 0 4px;border-top:1px solid rgba(0,240,255,0.15);padding-top:6px">CFR Toscana — Isole</div>
       <button class="btn-history" onclick="biasWebSample('gorgona_cfr',undefined)">📡 Gorgona <small style='color:#e07070'>230m</small></button>
-      <button class="btn-history" onclick="biasWebSample('capraia_cfr',undefined)">📡 Capraia CFR <small style="color:#e07070;opacity:0.8">274m</small></button>
+      <button class="btn-history" onclick="biasWebSample('capraia_cfr',undefined)">📡 Capraia CFR <small style='color:#e07070'>274m</small></button>
       <button class="btn-history" onclick="biasWebSample('giglio_porto',undefined)">📡 Giglio Porto</button>
-      <button class="btn-history" onclick="biasWebSample('giglio_castello',undefined)">📡 Giglio Castello <small style="color:#e07070;opacity:0.8">470m</small></button>
+      <button class="btn-history" onclick="biasWebSample('giglio_castello',undefined)">📡 Giglio Castello <small style='color:#e07070'>470m</small></button>
       <button class="btn-history" onclick="biasWebSample('montecristo',undefined)">📡 Montecristo</button>
       <button class="btn-history" onclick="biasWebSample('portoferraio_cfr',undefined)">📡 Portoferraio CFR</button>
-      <button class="btn-history" onclick="biasWebSample('orbetello',undefined)">📡 Orbetello</button>
-      <button class="btn-history" onclick="biasWebSample('svincenzo_porto',undefined)">📡 S.Vincenzo Porto</button>
-      <button class="btn-history" onclick="biasWebSample('casotto_pescatori',undefined)">📡 Casotto P. (Marina GR)</button>
-      <button class="btn-history" onclick="biasWebSample('venturina',undefined)">📡 Venturina</button>
-      <button class="btn-history" onclick="biasWebSample('forte_dei_marmi',undefined)">📡 Forte dei Marmi</button>
-      <button class="btn-history" onclick="biasWebSample('lido_camaiore',undefined)">📡 Lido di Camaiore</button>
-      <button class="btn-history" onclick="biasWebSample('livorno_cfr',undefined)">📡 Livorno Porto CFR</button>
-      <button class="btn-history" onclick="biasWebSample('viareggio_cfr',undefined)">📡 Viareggio CFR</button>
-      <button class="btn-history" onclick="biasWebSample('populonia_cfr',undefined)">📡 Populonia CFR <small style='color:#e07070'>164m</small></button>
-      <button class="btn-history" onclick="biasWebSample('bocca_arno_cfr',undefined)">📡 Bocca d Arno CFR</button>
-      <button class="btn-history" onclick="biasWebSample('follonica',undefined)">📡 Follonica</button>
-      <button class="btn-history" onclick="biasWebSample('capalbio',undefined)">📡 Capalbio</button>
     </div>
     <div id="bias-status" style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--muted);min-height:14px;margin-bottom:4px"></div>
     <div id="bias-result"></div>
@@ -3029,7 +3029,7 @@ const ALL_ZONES = [
 
   { key: 'bocca_arno',       name: 'Bocca d\'Arno',             sub: 'Foce Arno, Costa Pisana',             checked: true,  lat: 43.68, lon: 10.27 },
   { key: 'canale_piombino',  name: 'Canale di Piombino',       sub: 'Elba, Piombino, Punta Ala',          checked: false, lat: 42.92, lon: 10.53 },
-  { key: 'livorno',          name: 'Livorno',                   sub: 'Castiglioncello, Livorno Porto',      checked: true,  lat: 43.55, lon: 10.31 },
+  { key: 'livorno',          name: 'Livorno',                   sub: 'Castiglioncello, Livorno Porto',      checked: false, lat: 43.55, lon: 10.31 },
   { key: 'viareggio',        name: 'Viareggio - Versilia',      sub: 'Viareggio, Marina di Pisa',           checked: false, lat: 43.87, lon: 10.23 },
   { key: 'capraia',          name: 'Capraia',                   sub: 'Capraia Porto',                       checked: false, lat: 43.05, lon: 9.84  },
   { key: 'elba_nord',        name: 'Elba Nord - Portoferraio',  sub: 'Portoferraio, Cavo, Rio Marina',      checked: false, lat: 42.82, lon: 10.33 },
@@ -5028,6 +5028,8 @@ async function loadSituazioneVerify(zoneKey) {
 
 async function loadSituazione(zoneKey) {
   try {
+    var container = document.getElementById('sit-container-' + zoneKey);
+    if (container) container.innerHTML = '<div class="sit-panel"><div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--card);border:1px solid var(--border);border-radius:10px"><span style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--white)">Ricerca dati in corso, attendere...</span><span style="width:12px;height:12px;border:2px solid rgba(0,240,255,0.3);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;flex-shrink:0;display:inline-block"></span></div></div>';
     var res = await fetch(ENGINE_URL + '?action=situazione_get&zone=' + zoneKey);
     var data = await res.json();
     state.situazione[zoneKey] = data;
@@ -5513,7 +5515,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.6.145
+// Fine codice - NAUTILUS v5.6.147
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.158 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.165 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -594,7 +594,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.158  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.165  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -673,7 +673,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
     <!-- Viareggio CFR -->
     <div id="tc-item-0" onclick="selectTripleCompass(0)" style="display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:6px 6px;border-radius:12px;border:1px solid rgba(0,240,255,0.5);background:rgba(0,240,255,0.07);flex:1;transition:all 0.2s">
       <div style="font-family:DM Mono,monospace;font-size:0.46rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.08em">Viareggio</div>
-      <svg class="wind-compass-sm" viewBox="0 0 100 100">
+      <svg class="wind-compass" viewBox="0 0 100 100">
         <defs><filter id="tc-glow-0"><feGaussianBlur stdDeviation="2.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
         <circle cx="50" cy="50" r="47" fill="none" stroke="#0af0ff" stroke-width="2.5" opacity="0.6"/>
         <circle cx="50" cy="50" r="43" fill="#030e1c"/>
@@ -689,7 +689,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
     <!-- Bocca d Arno CFR -->
     <div id="tc-item-1" onclick="selectTripleCompass(1)" style="display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:6px 6px;border-radius:12px;border:1px solid transparent;flex:1;transition:all 0.2s">
       <div style="font-family:DM Mono,monospace;font-size:0.46rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.08em">Bocca Arno</div>
-      <svg class="wind-compass-sm" viewBox="0 0 100 100">
+      <svg class="wind-compass" viewBox="0 0 100 100">
         <defs><filter id="tc-glow-1"><feGaussianBlur stdDeviation="2.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
         <circle cx="50" cy="50" r="47" fill="none" stroke="#0af0ff" stroke-width="2.5" opacity="0.6"/>
         <circle cx="50" cy="50" r="43" fill="#030e1c"/>
@@ -705,7 +705,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
     <!-- Livorno -->
     <div id="tc-item-2" onclick="selectTripleCompass(2)" style="display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:6px 6px;border-radius:12px;border:1px solid transparent;flex:1;transition:all 0.2s">
       <div style="font-family:DM Mono,monospace;font-size:0.46rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.08em">Livorno</div>
-      <svg class="wind-compass-sm" viewBox="0 0 100 100">
+      <svg class="wind-compass" viewBox="0 0 100 100">
         <defs><filter id="tc-glow-2"><feGaussianBlur stdDeviation="2.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
         <circle cx="50" cy="50" r="47" fill="none" stroke="#0af0ff" stroke-width="2.5" opacity="0.6"/>
         <circle cx="50" cy="50" r="43" fill="#030e1c"/>
@@ -729,8 +729,45 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   </div>
 </div>
 
+
+<div id="single-compass-section" style="display:none;padding:8px 12px 0">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+    <div id="sc-loc-name" style="font-family:DM Mono,monospace;font-size:0.52rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:2px"></div>
+    <div style="display:flex;align-items:center;gap:14px">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+        <svg class="wind-compass" viewBox="0 0 100 100">
+          <defs><filter id="sc-glow"><feGaussianBlur stdDeviation="2.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+          <circle cx="50" cy="50" r="47" fill="none" stroke="#0af0ff" stroke-width="2.5" opacity="0.6"/>
+          <circle cx="50" cy="50" r="44" fill="none" stroke="#0af0ff" stroke-width="0.8" opacity="0.25"/>
+          <circle cx="50" cy="50" r="43" fill="#030e1c"/>
+          <g stroke="#0af0ff" stroke-width="2" opacity="0.9"><line x1="50" y1="3" x2="50" y2="12"/><line x1="50" y1="88" x2="50" y2="97"/><line x1="3" y1="50" x2="12" y2="50"/><line x1="88" y1="50" x2="97" y2="50"/></g>
+          <g stroke="#4dd8e8" stroke-width="1.2" opacity="0.7"><line x1="19" y1="19" x2="24" y2="24"/><line x1="81" y1="19" x2="76" y2="24"/><line x1="19" y1="81" x2="24" y2="76"/><line x1="81" y1="81" x2="76" y2="76"/></g>
+          <text x="50" y="16" text-anchor="middle" fill="#ffffff" font-size="12" font-family="DM Mono,monospace" font-weight="bold">N</text>
+          <text x="50" y="98" text-anchor="middle" fill="#a0d8f0" font-size="10" font-family="DM Mono,monospace">S</text>
+          <text x="7" y="54" text-anchor="middle" fill="#a0d8f0" font-size="10" font-family="DM Mono,monospace">W</text>
+          <text x="93" y="54" text-anchor="middle" fill="#a0d8f0" font-size="10" font-family="DM Mono,monospace">E</text>
+          <g id="sc-needle" transform="rotate(0,50,50)">
+            <polygon points="50,14 45,53 50,49 55,53" fill="#0af0ff" filter="url(#sc-glow)"/>
+            <polygon points="50,86 45,51 50,55 55,51" fill="#3a7090"/>
+            <circle cx="50" cy="50" r="5" fill="#020c18" stroke="#0af0ff" stroke-width="2.5"/>
+          </g>
+        </svg>
+        <div id="sc-deg" style="font-family:Bebas Neue,sans-serif;font-size:1rem;color:var(--muted);line-height:1">-- gradi</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <div style="display:flex;align-items:baseline;gap:3px">
+          <span id="sc-speed" style="font-family:Bebas Neue,sans-serif;font-size:2rem;line-height:1;color:var(--accent)">--</span>
+          <span style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted)">kn</span>
+        </div>
+        <div id="sc-dir" style="font-family:Bebas Neue,sans-serif;font-size:1.6rem;line-height:1;color:var(--text)">--</div>
+        <div id="sc-gust" style="font-family:DM Mono,monospace;font-size:0.45rem;color:var(--muted)">raffica --kn</div>
+        <div id="sc-src" style="font-family:DM Mono,monospace;font-size:0.42rem;color:rgba(0,240,255,0.5)">OM</div>
+      </div>
+    </div>
+  </div>
+</div>
 <div class="wind-card">
-  <div class="wind-card-top" style="display:flex;justify-content:center;">
+  <div class="wind-card-top" id="wind-card-top" style="display:none">
   <div style="display:flex;align-items:flex-start;gap:16px;width:100%;justify-content:center;padding:0 8px">
 
   <!-- OM compass -->
@@ -1900,7 +1937,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.158  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.165  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -2175,6 +2212,16 @@ async function fetchWeather() {
     }
   } catch(e) {}
   renderWeather(); renderTimeline(); renderBaroHistory(); renderTempHistory();
+  // Aggiorna singola bussola con dato OM solo se CFR non ha gia caricato
+  if (!scCfrLoaded) {
+    try {
+      var _idx = getCurrentIdx();
+      var _spd = state.weatherData.hourly.windspeed_10m[_idx];
+      var _dir = state.weatherData.hourly.winddirection_10m[_idx];
+      var _gust = state.weatherData.hourly.windgusts_10m[_idx];
+      updateSingleCompass(_spd, _dir, _gust, 'OM');
+    } catch(e) {}
+  }
   } catch(err) {
     document.getElementById('src-openmeteo').className = 'src-badge err';
     document.getElementById('src-openmeteo').textContent = ' Open-Meteo';
@@ -2885,12 +2932,107 @@ function refreshData() { if (state.lat) fetchAll(); else requestGPS(); }
 
 function showSingleMeteo() {
   var t = document.getElementById('triple-compass-section');
+  var s = document.getElementById('single-compass-section');
+  var wct = document.getElementById('wind-card-top');
   if (t) t.style.display = 'none';
+  if (s) s.style.display = 'block';
+  if (wct) wct.style.display = 'none';
+  loadSingleCompass();
 }
 function showTripleMeteo() {
   var t = document.getElementById('triple-compass-section');
+  var s = document.getElementById('single-compass-section');
+  var wct = document.getElementById('wind-card-top');
   if (t) t.style.display = 'block';
+  if (s) s.style.display = 'none';
+  if (wct) wct.style.display = 'none';
   loadTripleCompasses();
+}
+var scCfrLoaded = false;
+
+// Mappa coordinate dropdown -> stazione CFR esatta
+var LOC_TO_CFR = {
+  '43.875,10.236': 'viareggio_cfr',
+  '43.680,10.270': 'bocca_arno_cfr',
+  '42.992,10.640': 'populonia_cfr',
+  '43.433,9.883':  'gorgona_cfr',
+  '43.044,9.839':  'capraia_cfr',
+  '42.366,10.912': 'giglio_porto',
+  '42.813,10.315': 'portoferraio_cfr',
+  '43.158,10.535': 'svincenzo_porto',
+  '42.838,10.536': 'follonica',
+  '42.647,10.889': 'venturina',
+  '43.963,10.174': 'forte_dei_marmi',
+  '43.871,10.262': 'lido_camaiore',
+  '42.335,10.311': 'montecristo',
+  '42.433,11.155': 'orbetello',
+  '42.378,11.167': 'capalbio'
+};
+
+async function loadSingleCompass() {
+  scCfrLoaded = false;
+  var nameEl = document.getElementById('sc-loc-name');
+  if (nameEl) nameEl.textContent = state.locationName || '';
+
+  // Cerca stazione CFR esatta per le coordinate selezionate
+  var key = state.lat.toFixed(3) + ',' + state.lon.toFixed(3);
+  var cfrId = LOC_TO_CFR[key];
+
+  if (cfrId) {
+    try {
+      var res = await fetch(ENGINE_URL + '?action=station_refresh&station=' + cfrId + '&k=mdi');
+      var data = await res.json();
+      if (data && data.wind_kt !== null && data.wind_kt !== undefined) {
+        updateSingleCompass(data.wind_kt, data.wind_dir, data.wind_gust, 'CFR');
+        scCfrLoaded = true;
+        return;
+      }
+    } catch(e) {}
+  }
+  // Nessuna stazione CFR esatta o errore: OM tramite renderWeather
+}
+
+
+async function loadSingleCompass() {
+  scCfrLoaded = false;
+  var nameEl = document.getElementById('sc-loc-name');
+  if (nameEl) nameEl.textContent = state.locationName || '';
+
+  // Trova stazione CFR piu vicina
+  var nearest = null, nearestDist = Infinity;
+  CFR_STATIONS_LOC.forEach(function(st) {
+    var d = distKm(state.lat, state.lon, st.lat, st.lon);
+    if (d < nearestDist) { nearestDist = d; nearest = st; }
+  });
+
+  // Solo se entro 40 km
+  if (nearest && nearestDist <= 10) {
+    try {
+      var res = await fetch(ENGINE_URL + '?action=station_refresh&station=' + nearest.id + '&k=mdi');
+      var data = await res.json();
+      if (data && data.wind_kt !== null && data.wind_kt !== undefined) {
+        updateSingleCompass(data.wind_kt, data.wind_dir, data.wind_gust, 'CFR ' + nearestDist.toFixed(0) + 'km');
+        scCfrLoaded = true;
+        return;
+      }
+    } catch(e) {}
+  }
+  // Se > 40km o stazione non risponde: OM gestira l'update tramite renderWeather
+}
+
+function updateSingleCompass(spd, dir, gust, src) {
+  var needle = document.getElementById('sc-needle');
+  if (needle && dir !== null && dir !== undefined) needle.setAttribute('transform', 'rotate(' + dir + ',50,50)');
+  var speedEl = document.getElementById('sc-speed');
+  if (speedEl) speedEl.textContent = spd !== null && spd !== undefined ? Math.round(spd) : '--';
+  var degEl = document.getElementById('sc-deg');
+  if (degEl) degEl.textContent = dir !== null && dir !== undefined ? Math.round(dir) + ' gradi' : '-- gradi';
+  var dirEl = document.getElementById('sc-dir');
+  if (dirEl) dirEl.textContent = dir !== null && dir !== undefined ? (function(d){var dirs=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];return dirs[Math.round(d/22.5)%16];})(dir) : '--';
+  var gustEl = document.getElementById('sc-gust');
+  if (gustEl) gustEl.textContent = gust !== null && gust !== undefined ? 'raffica ' + Math.round(gust) + 'kn' : 'raffica --kn';
+  var srcEl = document.getElementById('sc-src');
+  if (srcEl) srcEl.textContent = src || 'OM';
 }
 
 function selectLocation(val) {
@@ -2940,7 +3082,7 @@ window.addEventListener('load', () => {
     if (bb) bb.style.display = 'inline-block';
   }
   fetchAll();
-  loadTripleCompasses();
+  showTripleMeteo();
   setTimeout(function(){ window.scrollTo(0, 0); }, 100);
 });
 
@@ -5631,7 +5773,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.6.158
+// Fine codice - NAUTILUS v5.6.165
 // ===== TRIPLE COMPASS =====
 var tcData = [null, null, null];
 var tcSelected = 0;

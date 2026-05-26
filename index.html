@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.153 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.154 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -594,7 +594,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.153  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.154  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -744,7 +744,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 </div>
 <!-- END TRIPLE COMPASS -->
 
-<div id="single-meteo-section"><div class="wind-card">
+<div class="wind-card">
   <div class="wind-card-top" style="display:flex;justify-content:center;">
   <div style="display:flex;align-items:flex-start;gap:16px;width:100%;justify-content:center;padding:0 8px">
 
@@ -895,9 +895,9 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
     <div class="wind-detail-row"><span class="wd-label">PERIODO</span><span class="wd-value" id="wd-period">--</span></div>
     <div class="wind-detail-row"><span class="wd-label">DIREZIONE</span><span class="wd-value" id="wd-wavedir">--</span></div>
   </div>
-</div></div><!-- /single-meteo-section -->
+</div>
 
-<div id="single-meteo-metrics"><div class="metrics-row-2">
+<div class="metrics-row-2">
   <div class="metric-sm">
     <div class="metric-sm-value" id="m-temp">--</div>
     <div class="metric-sm-label"> gradiC Aria</div>
@@ -914,7 +914,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
     <div class="metric-sm-value" id="m-cloud">--</div>
     <div class="metric-sm-label">% Nuvole</div>
   </div>
-</div></div><!-- /single-meteo-metrics -->
+</div>
 
 <div class="baro-card">
   <div class="baro-header">
@@ -1915,7 +1915,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.153  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.154  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -5647,7 +5647,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.6.153
+// Fine codice - NAUTILUS v5.6.154
 // ===== TRIPLE COMPASS =====
 var tcData = [null, null, null];
 var tcSelected = 0;

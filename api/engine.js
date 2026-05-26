@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.171 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.172 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1875,7 +1875,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.171', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.172', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -1958,12 +1958,16 @@ if (action === 'station_refresh') {
 
     // Fetch OM per delta (stesso formato scrape_web/scrape_stations)
     var srOmUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + srSt.lat + '&longitude=' + srSt.lon + '&current=wind_speed_10m,wind_gusts_10m,wind_direction_10m,surface_pressure&wind_speed_unit=kn';
-    var srOmJson = await fetch(srOmUrl).then(function(r){ return r.json(); });
+    var srOmJson = null;
+    try {
+      var srOmRes = await fetch(srOmUrl);
+      if (srOmRes.ok) srOmJson = await srOmRes.json();
+    } catch(e) { srOmJson = null; }
     var srOm = {
-      wind_kt:     srOmJson.current ? Math.round(srOmJson.current.wind_speed_10m  * 10) / 10 : null,
-      gust_kt:     srOmJson.current ? Math.round(srOmJson.current.wind_gusts_10m  * 10) / 10 : null,
-      direction:   srOmJson.current ? srOmJson.current.wind_direction_10m : null,
-      pressure_mb: srOmJson.current ? Math.round(srOmJson.current.surface_pressure * 10) / 10 : null
+      wind_kt:     srOmJson && srOmJson.current ? Math.round(srOmJson.current.wind_speed_10m  * 10) / 10 : null,
+      gust_kt:     srOmJson && srOmJson.current ? Math.round(srOmJson.current.wind_gusts_10m  * 10) / 10 : null,
+      direction:   srOmJson && srOmJson.current ? srOmJson.current.wind_direction_10m : null,
+      pressure_mb: srOmJson && srOmJson.current ? Math.round(srOmJson.current.surface_pressure * 10) / 10 : null
     };
 
     var srStation_data = null;
@@ -4080,7 +4084,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.171 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.172 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4204,4 +4208,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.171
+// Fine codice - NAUTILUS ENGINE v2.9.172

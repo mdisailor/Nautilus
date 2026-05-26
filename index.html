@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.157 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.148 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -273,21 +273,6 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 .cloud-ul { margin:0; padding-left:16px; }
 .cloud-ul li { font-size:0.72rem; color:#e8f4ff; line-height:1.65; margin-bottom:4px; }
 @keyframes spin { to { transform: rotate(360deg); } }
-
-/* Triple compass default state */
-.tc-row { display:flex; justify-content:space-around; align-items:flex-start; padding:4px 8px 0; gap:6px; }
-.tc-item { display:flex; flex-direction:column; align-items:center; gap:3px; cursor:pointer; padding:6px 8px; border-radius:12px; border:1px solid transparent; transition:all 0.2s; flex:1; }
-.tc-item.selected { border-color:rgba(0,240,255,0.5); background:rgba(0,240,255,0.07); }
-.tc-item:active { background:rgba(0,240,255,0.12); }
-.tc-name { font-family:'DM Mono',monospace; font-size:0.48rem; color:var(--accent); text-transform:uppercase; letter-spacing:0.08em; text-align:center; }
-.tc-data { display:flex; align-items:baseline; gap:3px; }
-.tc-speed { font-family:'Bebas Neue',sans-serif; font-size:1.6rem; line-height:1; color:var(--accent); }
-.tc-unit { font-family:'DM Mono',monospace; font-size:0.45rem; color:var(--muted); }
-.tc-dir { font-family:'DM Mono',monospace; font-size:0.5rem; color:var(--text); }
-.tc-gust { font-family:'DM Mono',monospace; font-size:0.42rem; color:var(--muted); }
-.tc-src { font-family:'DM Mono',monospace; font-size:0.38rem; color:rgba(0,240,255,0.45); text-transform:uppercase; }
-.tc-detail { margin:8px 16px 0; padding:10px 14px; background:rgba(0,240,255,0.04); border:1px solid rgba(0,240,255,0.15); border-radius:10px; display:grid; grid-template-columns:1fr 1fr; gap:3px 14px; }
-
 </style>
 
 <style>
@@ -594,7 +579,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.157  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.148  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -665,9 +650,6 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <span class="src-badge" id="src-stormglass"> Stormglass</span>
 </div>
 <div id="meteo-src-ts" class="src-ts" style="display:none;margin:4px 20px 0">In attesa di dati</div>
-
-
-
 
 <div class="wind-card">
   <div class="wind-card-top" style="display:flex;justify-content:center;">
@@ -1840,7 +1822,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.157  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.148  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -2033,7 +2015,6 @@ function requestGPS() {
       state.locationName = d.address?.town || d.address?.village || d.address?.city || 'Posizione rilevata';
       document.getElementById('loc-text').textContent = `${state.locationName}  ${state.lat.toFixed(4)} gradiN ${state.lon.toFixed(4)} gradiE`;
     } catch { document.getElementById('loc-text').textContent = `${state.lat.toFixed(4)} gradiN  ${state.lon.toFixed(4)} gradiE`; }
-    showSingleMeteo();
     fetchAll();
   }, () => {
     btn.textContent = ' GPS'; btn.disabled = false;
@@ -2823,24 +2804,13 @@ function testWorker() {
 
 function refreshData() { if (state.lat) fetchAll(); else requestGPS(); }
 
-function showSingleMeteo() {
-  var t = document.getElementById('triple-compass-section');
-  if (t) t.style.display = 'none';
-}
-function showTripleMeteo() {
-  var t = document.getElementById('triple-compass-section');
-  if (t) t.style.display = 'block';
-  loadTripleCompasses();
-}
-
 function selectLocation(val) {
   if (!val) {
     state.lat = 43.680; state.lon = 10.270; state.locationName = '';
-    document.getElementById('loc-text').textContent = 'Scegli una localita o premi GPS per la tua posizione';
+    document.getElementById('loc-text').textContent = 'Premi GPS per la tua posizione';
     document.getElementById('loc-dot').classList.remove('active');
     document.getElementById('dot-gps').classList.remove('ok');
     document.getElementById('stat-gps').textContent = 'GPS';
-    showTripleMeteo();
     return;
   }
   const parts = val.split(',');
@@ -2852,7 +2822,6 @@ function selectLocation(val) {
   document.getElementById('loc-dot').classList.add('active');
   document.getElementById('dot-gps').classList.add('ok');
   document.getElementById('stat-gps').textContent = 'POS OK';
-  showSingleMeteo();
   fetchAll();
 }
 
@@ -2874,7 +2843,7 @@ function toggleCloud2(id) {
 
 window.addEventListener('load', () => {
   state.lat = 43.680; state.lon = 10.270; state.locationName = '';
-  document.getElementById('loc-text').textContent = 'Scegli una localita o premi GPS per la tua posizione';
+  document.getElementById('loc-text').textContent = 'Premi GPS per la tua posizione';
   if (state.isAdmin) {
     var bb = document.getElementById('btn-backfill');
     if (bb) bb.style.display = 'inline-block';
@@ -4020,7 +3989,7 @@ async function requestEngineBriefing() {
       ts: Date.now()
     };
     briefingHistory.push(entry);
-    if (briefingHistory.length > 10) briefingHistory.shift();
+    if (briefingHistory.length > 20) briefingHistory.shift();
     try { localStorage.setItem('nautilus_briefing_history', JSON.stringify(briefingHistory)); } catch(e) {}
     updateBriefingBadge();
 
@@ -4050,7 +4019,7 @@ function displayBriefingHistory() {
   if (!histEl || briefingHistory.length < 2) return;
   var html = '<div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px">Storico briefing (' + briefingHistory.length + ')</div>';
   // Show all except last (which is displayed above)
-  var older = briefingHistory.slice(0, -1).reverse().slice(0, 9);
+  var older = briefingHistory.slice(0, -1).reverse();
   older.forEach(function(b) {
     html += '<details style="margin-bottom:6px">' +
       '<summary style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--muted);cursor:pointer;padding:6px 0">' +
@@ -5571,76 +5540,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.6.157
-// ===== TRIPLE COMPASS =====
-var tcData = [null, null, null];
-var tcSelected = 0;
-var TC_ZONES = ['viareggio', 'bocca_arno', 'livorno'];
-var TC_NAMES = ['Viareggio', 'Bocca d\'Arno', 'Livorno'];
-
-function dirToText(deg) {
-  if (deg === null || deg === undefined) return '--';
-  var dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
-  return dirs[Math.round(deg/22.5) % 16];
-}
-
-function updateTripleCompass(idx, r) {
-  var spd = r && r.ok ? r.wind_kt : null;
-  var dir = r && r.ok ? r.wind_dir : null;
-  var gust = r && r.ok ? r.wind_gust : null;
-  var src = r && r.ok ? (r.source || 'cfr') : '--';
-  var ts = r && r.ok && r.ts ? new Date(r.ts).toLocaleString('it-IT',{timeZone:'Europe/Rome',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '--';
-  tcData[idx] = { spd: spd !== null ? Math.round(spd) : null, dir: dir, gust: gust !== null ? Math.round(gust) : null, src: src.toUpperCase().replace('MNW_API','MNW').replace('MNW_WEB','MNW'), ts: ts, name: TC_NAMES[idx] };
-  var needle = document.getElementById('tc-needle-' + idx);
-  if (needle && dir !== null) needle.setAttribute('transform', 'rotate(' + dir + ',50,50)');
-  var sEl = document.getElementById('tc-speed-' + idx);
-  if (sEl) sEl.textContent = spd !== null ? Math.round(spd) : '--';
-  var dEl = document.getElementById('tc-dir-' + idx);
-  if (dEl) dEl.textContent = dirToText(dir);
-  var srcEl = document.getElementById('tc-src-' + idx);
-  if (srcEl) srcEl.textContent = tcData[idx].src;
-  if (idx === tcSelected) renderTripleDetail(idx);
-}
-
-function renderTripleDetail(idx) {
-  var d = tcData[idx];
-  if (!d) return;
-  var nameEl = document.getElementById('tc-detail-name');
-  var speedEl = document.getElementById('tc-d-speed');
-  var dirEl = document.getElementById('tc-d-dir');
-  var gustEl = document.getElementById('tc-d-gust');
-  var tsEl = document.getElementById('tc-d-ts');
-  var srcEl = document.getElementById('tc-d-src');
-  if (nameEl) nameEl.textContent = d.name;
-  if (speedEl) speedEl.textContent = d.spd !== null ? d.spd + ' kn' : '--';
-  if (dirEl) dirEl.textContent = dirToText(d.dir) + (d.dir !== null ? ' ' + Math.round(d.dir) + '\u00b0' : '');
-  if (gustEl) gustEl.textContent = d.gust !== null ? d.gust + ' kn' : '--';
-  if (tsEl) tsEl.textContent = d.ts;
-  if (srcEl) srcEl.textContent = d.src;
-}
-
-function selectTripleCompass(idx) {
-  tcSelected = idx;
-  for (var i = 0; i < 3; i++) {
-    var el = document.getElementById('tc-item-' + i);
-    if (el) el.classList.toggle('selected', i === idx);
-  }
-  renderTripleDetail(idx);
-}
-
-async function loadTripleCompasses() {
-  try {
-    var res = await fetch(ENGINE_URL + '?action=triple_wind&zones=' + TC_ZONES.join(','));
-    var data = await res.json();
-    if (data.ok && data.results) {
-      data.results.forEach(function(r, idx) { updateTripleCompass(idx, r); });
-    }
-  } catch(e) {
-    TC_ZONES.forEach(function(_, idx) { updateTripleCompass(idx, null); });
-  }
-}
-// ===== END TRIPLE COMPASS =====
-
+// Fine codice - NAUTILUS v5.6.148
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

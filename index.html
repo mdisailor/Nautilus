@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.147 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.148 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -579,7 +579,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.147  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.148  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -892,7 +892,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
   <!-- BIAS STAZIONI in Meteo -->
   <div id="bias-section-m" style="margin:12px 20px 0">
-    <div onclick="biasLoadHistory(null,'m')" style="font-family:DM Mono,monospace;font-size:0.65rem;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;opacity:0.9;margin-bottom:8px;cursor:pointer;display:flex;align-items:center;gap:8px">&#9656; Stazioni Reali vs OM <span id="bias-spinner-m" style="display:none;width:12px;height:12px;border:2px solid rgba(0,240,255,0.3);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;flex-shrink:0"></span></div>
+    <div onclick="biasLoadHistory(null,'m')" style="font-family:DM Mono,monospace;font-size:0.72rem;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:8px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:rgba(0,240,255,0.06);border:1px solid rgba(0,240,255,0.25);border-radius:8px;padding:8px 12px;user-select:none"><span style="display:flex;align-items:center;gap:8px">&#9660; Stazioni Reali vs OM <span id="bias-spinner-m" style="display:none;width:12px;height:12px;border:2px solid rgba(0,240,255,0.3);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;flex-shrink:0"></span></span><span style="font-size:0.55rem;opacity:0.7;font-style:italic">tocca per espandere</span></div>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px">
       <div style="width:100%;font-family:DM Mono,monospace;font-size:0.6rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:2px">MeteoNetwork</div>
       <button class="btn-history" onclick="biasSample('livorno','m')">📡 Quercianella <small style="color:#e07070;opacity:0.8">244m</small></button>
@@ -1822,7 +1822,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.147  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.148  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -1893,7 +1893,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
   <!-- BIAS STAZIONI -->
   <div id="bias-section" style="margin:12px 20px 0">
-    <div style="font-family:DM Mono,monospace;font-size:0.65rem;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;opacity:0.9;margin-bottom:8px;cursor:pointer;display:flex;align-items:center;gap:8px" onclick="biasLoadHistory(null)">&#9656; Stazioni Reali vs OM <span id="bias-spinner" style="display:none;width:12px;height:12px;border:2px solid rgba(0,240,255,0.3);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;flex-shrink:0"></span></div>
+    <div onclick="biasLoadHistory(null)" style="font-family:DM Mono,monospace;font-size:0.72rem;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:8px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;background:rgba(0,240,255,0.06);border:1px solid rgba(0,240,255,0.25);border-radius:8px;padding:8px 12px;user-select:none"><span style="display:flex;align-items:center;gap:8px">&#9660; Stazioni Reali vs OM <span id="bias-spinner" style="display:none;width:12px;height:12px;border:2px solid rgba(0,240,255,0.3);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;flex-shrink:0"></span></span><span style="font-size:0.55rem;opacity:0.7;font-style:italic">tocca per espandere</span></div>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px">
       <div style="width:100%;font-family:DM Mono,monospace;font-size:0.6rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:2px">MeteoNetwork</div>
       <button class="btn-history" onclick="biasSample('livorno',undefined)">📡 Quercianella <small style="color:#e07070;opacity:0.8">244m</small></button>
@@ -2019,8 +2019,8 @@ function requestGPS() {
   }, () => {
     btn.textContent = ' GPS'; btn.disabled = false;
     document.getElementById('dot-gps').classList.add('err');
-    state.lat = 43.546; state.lon = 10.300; state.locationName = 'Livorno Porto CFR (default)';
-    document.getElementById('loc-text').textContent = 'GPS negato -- uso Livorno Porto CFR come default';
+    state.lat = 43.680; state.lon = 10.270; state.locationName = '';
+    document.getElementById('loc-text').textContent = 'GPS non disponibile -- premi GPS o scegli una localita';
     fetchAll();
   }, { enableHighAccuracy: true, timeout: 10000 });
 }
@@ -2805,7 +2805,14 @@ function testWorker() {
 function refreshData() { if (state.lat) fetchAll(); else requestGPS(); }
 
 function selectLocation(val) {
-  if (!val) return;
+  if (!val) {
+    state.lat = 43.680; state.lon = 10.270; state.locationName = '';
+    document.getElementById('loc-text').textContent = 'Premi GPS per la tua posizione';
+    document.getElementById('loc-dot').classList.remove('active');
+    document.getElementById('dot-gps').classList.remove('ok');
+    document.getElementById('stat-gps').textContent = 'GPS';
+    return;
+  }
   const parts = val.split(',');
   state.lat = parseFloat(parts[0]);
   state.lon = parseFloat(parts[1]);
@@ -2835,8 +2842,8 @@ function toggleCloud2(id) {
 }
 
 window.addEventListener('load', () => {
-  state.lat = 43.546; state.lon = 10.300; state.locationName = 'Livorno Porto CFR (default)';
-  document.getElementById('loc-text').textContent = 'Default: Livorno Porto CFR  premi GPS per la tua posizione';
+  state.lat = 43.680; state.lon = 10.270; state.locationName = '';
+  document.getElementById('loc-text').textContent = 'Premi GPS per la tua posizione';
   if (state.isAdmin) {
     var bb = document.getElementById('btn-backfill');
     if (bb) bb.style.display = 'inline-block';
@@ -3243,7 +3250,25 @@ async function runEngine() {
     return;
   }
 
+  // Reset completo tutte le sezioni zona-specifiche
   engineResults = {};
+  ALL_ZONES.forEach(function(z) {
+    var sc = document.getElementById('sit-container-' + z.key);
+    if (sc) sc.innerHTML = '';
+    var bh = document.getElementById('bias-history-display-' + z.key);
+    if (bh) bh.innerHTML = '';
+  });
+  var verSec = document.getElementById('verify-section');
+  if (verSec) { var vzs = document.getElementById('verify-zone-select'); if (vzs) vzs.innerHTML = ''; }
+  var predSec = document.getElementById('predict-history-zone-select');
+  if (predSec) predSec.innerHTML = '';
+  var cmpSec = document.getElementById('compare-zone-select');
+  if (cmpSec) cmpSec.innerHTML = '';
+  var briefSec = document.getElementById('engine-briefing-section');
+  if (briefSec) briefSec.style.display = 'none';
+  document.getElementById('engine-summary').innerHTML = '';
+  document.getElementById('engine-summary').style.display = 'none';
+
   const btn = document.getElementById('btn-engine-run');
   const cont = document.getElementById('engine-content');
   btn.disabled = true;
@@ -5515,7 +5540,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.6.147
+// Fine codice - NAUTILUS v5.6.148
 </script>
 
   <div class="bhp-overlay" id="bhp-overlay" onclick="closeBriefingHistory()"></div>

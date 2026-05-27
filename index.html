@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.174 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.175 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -594,7 +594,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.174  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.175  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1976,7 +1976,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.174  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.175  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -3673,12 +3673,15 @@ function renderEngineResults() {
   divEl.style.display = summaryHtml ? 'block' : 'none';
 
   cont.innerHTML = detailHtml || '<div class="engine-empty">Nessun dato disponibile</div>';
-  // Caricamento situazione in CODA (sequenziale) per evitare timeout Vercel
+  // Caricamento situazione in CODA con timeout per zona (non blocca il queue)
   var sitZones = Object.keys(engineResults).filter(function(zk){ return !engineResults[zk].error; });
   (async function loadSitQueue() {
     for (var qi = 0; qi < sitZones.length; qi++) {
-      await loadSituazione(sitZones[qi]);
-      if (qi < sitZones.length - 1) await new Promise(function(r){ setTimeout(r, 400); });
+      await Promise.race([
+        loadSituazione(sitZones[qi]),
+        new Promise(function(r){ setTimeout(r, 9000); })
+      ]);
+      if (qi < sitZones.length - 1) await new Promise(function(r){ setTimeout(r, 300); });
     }
   })();
 
@@ -4547,10 +4550,15 @@ function toggleBhpItem(idx) {
 var verifyCurrentZone = null;
 
 function renderVerifyZoneButtons() {
+  var ENGINE_ZONE_KEYS = ['canale_piombino','livorno','viareggio','capraia','elba_nord','elba_sud',
+    'gorgona','giglio','castiglioncello','punta_ala','la_spezia','bastia',
+    'montecristo','orbetello','bocca_arno','svincenzo','follonica','capalbio',
+    'alberese','forte_marmi','casotto_gr','venturina'];
   var container = document.getElementById('verify-zone-select');
   if (!container || !engineResults) return;
   var html = '';
   Object.keys(engineResults).forEach(function(zk) {
+    if (ENGINE_ZONE_KEYS.indexOf(zk) === -1) return; // salta zone non-engine (es. luri)
     var z = engineResults[zk];
     if (z && !z.error) {
       var isActive = zk === verifyCurrentZone;
@@ -5878,7 +5886,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.6.174
+// Fine codice - NAUTILUS v5.6.175
 // ===== TRIPLE COMPASS =====
 var tcData = [null, null, null];
 var tcSelected = 0;

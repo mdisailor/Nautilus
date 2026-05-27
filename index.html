@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.182 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.183 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -594,7 +594,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.182  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.183  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1976,7 +1976,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.182  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.183  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -5365,7 +5365,7 @@ function renderSituazionePanel(zoneKey, data) {
   if (secMonitorare) {
     html += '<div class="sit-section"><div class="sit-section-title">Monitorare</div><div class="sit-section-text">' + secMonitorare + '</div></div>';
   }
-  html += '<div id="sit-verify-' + zoneKey + '"></div>';
+  
   html += '<div class="sit-footer">';
   html += '<span>Generata: ' + ts + (sit.rotation_trend ? ' &mdash; ' + sit.rotation_trend : '') + '</span>';
   html += '<span class="sit-regen" data-action="regen-sit" data-zone="' + zoneKey + '" style="margin-left:12px;padding:6px 10px;border:1px solid var(--accent);border-radius:6px;cursor:pointer">&#8635; Rigenera</span>';
@@ -5448,13 +5448,7 @@ async function loadSituazione(zoneKey) {
           if (togEl)  togEl.textContent = '';
         }
       }
-      // Carica verifiche in background
-      if (data && data.found) {
-        loadSituazioneVerify(zoneKey).then(function(verHtml) {
-          var verEl = document.getElementById('sit-verify-' + zoneKey);
-          if (verEl) verEl.innerHTML = verHtml;
-        });
-      }
+
     }
   } catch(e) {
     sitDone = true;
@@ -5921,7 +5915,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.6.182
+// Fine codice - NAUTILUS v5.6.183
 // ===== TRIPLE COMPASS =====
 var tcData = [null, null, null];
 var tcSelected = 0;

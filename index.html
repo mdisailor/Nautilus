@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.171 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.172 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -594,7 +594,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.171  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.172  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1976,7 +1976,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.171  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.172  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -3673,10 +3673,14 @@ function renderEngineResults() {
   divEl.style.display = summaryHtml ? 'block' : 'none';
 
   cont.innerHTML = detailHtml || '<div class="engine-empty">Nessun dato disponibile</div>';
-  // Carica schede situazione per tutte le zone visualizzate
-  Object.keys(engineResults).forEach(function(zk) {
-    if (!engineResults[zk].error) loadSituazione(zk);
-  });
+  // Caricamento situazione in CODA (sequenziale) per evitare timeout Vercel
+  var sitZones = Object.keys(engineResults).filter(function(zk){ return !engineResults[zk].error; });
+  (async function loadSitQueue() {
+    for (var qi = 0; qi < sitZones.length; qi++) {
+      await loadSituazione(sitZones[qi]);
+      if (qi < sitZones.length - 1) await new Promise(function(r){ setTimeout(r, 400); });
+    }
+  })();
 
   // Show briefing section and enable button
   var bsec = document.getElementById('engine-briefing-section');
@@ -5381,14 +5385,7 @@ async function loadSituazione(zoneKey) {
   try {
     var container = document.getElementById('sit-container-' + zoneKey);
     if (container) container.innerHTML = '<div class="sit-panel"><div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--card);border:1px solid var(--border);border-radius:10px"><span style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--white)">Ricerca dati in corso, attendere...</span><span style="width:12px;height:12px;border:2px solid rgba(0,240,255,0.3);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;flex-shrink:0;display:inline-block"></span></div></div>';
-    var controller = new AbortController();
-    var timeout = setTimeout(function(){
-      controller.abort();
-      var cEl = document.getElementById('sit-container-' + zoneKey);
-      if (cEl) cEl.innerHTML = renderSituazionePanel(zoneKey, null);
-    }, 6000);
-    var res = await fetch(ENGINE_URL + '?action=situazione_get&zone=' + zoneKey, { signal: controller.signal });
-    clearTimeout(timeout);
+    var res = await fetch(ENGINE_URL + '?action=situazione_get&zone=' + zoneKey);
     var data = await res.json();
     state.situazione[zoneKey] = data;
     var container = document.getElementById('sit-container-' + zoneKey);
@@ -5873,7 +5870,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.6.171
+// Fine codice - NAUTILUS v5.6.172
 // ===== TRIPLE COMPASS =====
 var tcData = [null, null, null];
 var tcSelected = 0;

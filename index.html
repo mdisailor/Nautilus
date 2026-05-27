@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.166 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.168 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -594,7 +594,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.166  by mdisailor</div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.168  by mdisailor</div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -675,7 +675,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
       <div style="font-family:DM Mono,monospace;font-size:0.46rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.1em">Viareggio</div>
       <div style="display:flex;align-items:center;gap:8px">
         <div style="display:flex;flex-direction:column;align-items:center;gap:1px">
-          <svg class="wind-compass-sm" viewBox="0 0 100 100">
+          <svg class="wind-compass" viewBox="0 0 100 100">
             <defs><filter id="tc-glow-0"><feGaussianBlur stdDeviation="2.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
             <circle cx="50" cy="50" r="47" fill="none" stroke="#0af0ff" stroke-width="2.5" opacity="0.6"/>
             <circle cx="50" cy="50" r="44" fill="none" stroke="#0af0ff" stroke-width="0.8" opacity="0.25"/>
@@ -704,7 +704,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
       <div style="font-family:DM Mono,monospace;font-size:0.46rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.1em">Bocca Arno</div>
       <div style="display:flex;align-items:center;gap:8px">
         <div style="display:flex;flex-direction:column;align-items:center;gap:1px">
-          <svg class="wind-compass-sm" viewBox="0 0 100 100">
+          <svg class="wind-compass" viewBox="0 0 100 100">
             <defs><filter id="tc-glow-1"><feGaussianBlur stdDeviation="2.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
             <circle cx="50" cy="50" r="47" fill="none" stroke="#0af0ff" stroke-width="2.5" opacity="0.6"/>
             <circle cx="50" cy="50" r="44" fill="none" stroke="#0af0ff" stroke-width="0.8" opacity="0.25"/>
@@ -733,7 +733,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
       <div style="font-family:DM Mono,monospace;font-size:0.46rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.1em">Livorno</div>
       <div style="display:flex;align-items:center;gap:8px">
         <div style="display:flex;flex-direction:column;align-items:center;gap:1px">
-          <svg class="wind-compass-sm" viewBox="0 0 100 100">
+          <svg class="wind-compass" viewBox="0 0 100 100">
             <defs><filter id="tc-glow-2"><feGaussianBlur stdDeviation="2.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
             <circle cx="50" cy="50" r="47" fill="none" stroke="#0af0ff" stroke-width="2.5" opacity="0.6"/>
             <circle cx="50" cy="50" r="44" fill="none" stroke="#0af0ff" stroke-width="0.8" opacity="0.25"/>
@@ -1976,7 +1976,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.166  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.168  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -2972,19 +2972,19 @@ function refreshData() { if (state.lat) fetchAll(); else requestGPS(); }
 function showSingleMeteo() {
   var t = document.getElementById('triple-compass-section');
   var s = document.getElementById('single-compass-section');
-  var wct = document.getElementById('wind-card-top');
+  var src = document.getElementById('meteo-src-ts');
   if (t) t.style.display = 'none';
   if (s) s.style.display = 'block';
-  if (wct) wct.style.display = 'none';
+  if (src) src.style.display = 'block';
   loadSingleCompass();
 }
 function showTripleMeteo() {
   var t = document.getElementById('triple-compass-section');
   var s = document.getElementById('single-compass-section');
-  var wct = document.getElementById('wind-card-top');
+  var src = document.getElementById('meteo-src-ts');
   if (t) t.style.display = 'block';
   if (s) s.style.display = 'none';
-  if (wct) wct.style.display = 'none';
+  if (src) src.style.display = 'none';
   loadTripleCompasses();
 }
 var scCfrLoaded = false;
@@ -4553,7 +4553,7 @@ async function loadVerify(zoneKey) {
   content.innerHTML = '<div class="verify-empty"><div class="loading" style="display:inline-flex;margin-right:6px"><div class="spinner"></div></div>Carico dati verifica...</div>';
 
   try {
-    var res = await fetch(ENGINE_URL + '?action=verify&zone=' + zoneKey);
+    var res = await fetch(ENGINE_URL + '?action=predict_history&zone=' + zoneKey);
     var data = await res.json();
 
     if (data.error) {
@@ -4561,7 +4561,47 @@ async function loadVerify(zoneKey) {
       return;
     }
 
-    renderVerifyContent(data, content);
+    // Trasforma predict_history nel formato atteso da renderVerifyContent
+    var predictions = data.predictions || [];
+
+    // Costruisce records da ogni previsione (H+3, H+6, H+12)
+    var records = [];
+    var windErrors = [];
+    predictions.forEach(function(item) {
+      var p = item.prediction;
+      var gen = new Date(p.generated_at);
+      [
+        { hh:3,  forecast: p.forecast_h3,  actual: item.actual_3h,  dir: item.actual_3h_dir,  fdir: p.current_wind_dir },
+        { hh:6,  forecast: p.forecast_h6,  actual: item.actual_6h,  dir: item.actual_6h_dir,  fdir: p.current_wind_dir },
+        { hh:12, forecast: p.forecast_h12, actual: item.actual_12h, dir: item.actual_12h_dir, fdir: p.current_wind_dir }
+      ].forEach(function(row) {
+        if (row.actual !== null && row.actual !== undefined && row.forecast !== null) {
+          var err = row.actual - row.forecast;
+          windErrors.push(err);
+          records.push({
+            forecast_time: new Date(gen.getTime() + row.hh * 3600000).toISOString(),
+            predicted_wind: row.forecast,
+            actual_wind: row.actual,
+            actual_wind_dir: row.dir,
+            predicted_wind_dir: row.fdir,
+            wind_error: err,
+            horizon: 'H+' + row.hh
+          });
+        }
+      });
+    });
+    records.sort(function(a,b){ return new Date(b.forecast_time)-new Date(a.forecast_time); });
+
+    var windMae = windErrors.length ? windErrors.reduce(function(s,e){ return s+Math.abs(e); },0)/windErrors.length : 0;
+    var windBias = windErrors.length ? windErrors.reduce(function(s,e){ return s+e; },0)/windErrors.length : 0;
+
+    var syntheticData = {
+      zone: data.zone, name: data.name,
+      bias: { samples: records.length, wind_mae: windMae, wind_bias: windBias, wave_mae: 0, wave_bias: 0 },
+      records: records
+    };
+
+    renderVerifyContent(syntheticData, content);
 
   } catch(err) {
     content.innerHTML = '<div class="verify-empty" style="color:var(--danger)">Errore: ' + err.message + '</div>';
@@ -4614,9 +4654,9 @@ function renderVerifyContent(data, el) {
 
   // Records table
   if (records.length > 0) {
-    html += '<div class="verify-chart-title">Ultime verifiche (previsione h6)</div>';
+    html += '<div class="verify-chart-title">Ultime verifiche</div>';
     html += '<table class="verify-table">' +
-      '<tr><th>Data/ora</th><th>Prev. vento</th><th>Reale</th><th>Errore</th><th>Dir. prev.</th><th>Dir. reale</th></tr>';
+      '<tr><th>Data/ora</th><th>Orizz.</th><th>Prev.</th><th>Reale</th><th>Errore</th><th>Dir. prev.</th><th>Dir. reale</th></tr>';
     records.slice(0, 15).forEach(function(r) {
       var dt = r.forecast_time ? new Date(r.forecast_time).toLocaleString('it-IT', {timeZone:'Europe/Rome',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}) : '--';
       var err = r.wind_error || 0;
@@ -4628,6 +4668,7 @@ function renderVerifyContent(data, el) {
       var realDir = r.actual_wind_dir !== null && r.actual_wind_dir !== undefined ? dirs16v[Math.round(r.actual_wind_dir / 22.5) % 16] : '--';
       html += '<tr>' +
         '<td>' + dt + '</td>' +
+        '<td style="color:var(--accent)">' + (r.horizon || '--') + '</td>' +
         '<td>' + prevWind + '</td>' +
         '<td>' + realWind + '</td>' +
         '<td class="' + errClass + '">' + (err >= 0 ? '+' : '') + parseFloat(err).toFixed(1) + 'kn</td>' +
@@ -5812,7 +5853,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.6.166
+// Fine codice - NAUTILUS v5.6.168
 // ===== TRIPLE COMPASS =====
 var tcData = [null, null, null];
 var tcSelected = 0;
@@ -5868,7 +5909,10 @@ function selectTripleCompass(idx) {
   tcSelected = idx;
   for (var i = 0; i < 3; i++) {
     var el = document.getElementById('tc-item-' + i);
-    if (el) el.classList.toggle('selected', i === idx);
+    if (el) {
+      el.style.borderColor = i === idx ? 'rgba(0,240,255,0.5)' : 'transparent';
+      el.style.background = i === idx ? 'rgba(0,240,255,0.07)' : 'transparent';
+    }
   }
   renderTripleDetail(idx);
 }

@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.178 -- 2026-04-14  -->
+<!-- NAUTILUS v5.6.180 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -594,7 +594,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.178  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.180  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1976,7 +1976,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.178  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.180  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -3378,10 +3378,13 @@ function limitCheckboxes() {
   }
 }
 
+// Zone non presenti come oggetto ZONES nell'engine
+var NON_ENGINE_ZONES = ['luri'];
+
 function getSelectedZones() {
   return ALL_ZONES.filter(function(z) {
     const cb = document.getElementById('ez-' + z.key);
-    return cb && cb.checked;
+    return cb && cb.checked && NON_ENGINE_ZONES.indexOf(z.key) === -1;
   }).map(function(z) { return z.key; });
 }
 
@@ -5371,37 +5374,40 @@ function renderSituazionePanel(zoneKey, data) {
 
 async function loadSituazioneVerify(zoneKey) {
   try {
-    var res = await fetch(ENGINE_URL + '?action=situazione_verify&zone=' + zoneKey);
+    var controller = new AbortController();
+    setTimeout(function(){ controller.abort(); }, 5000);
+    var res = await fetch(ENGINE_URL + '?action=predict_history&zone=' + zoneKey, { signal: controller.signal });
     var data = await res.json();
-    if (!data.verifications || data.verifications.length === 0) return '';
-    var verifs = data.verifications.slice(0, 8); // max 8 righe
+    if (!data.predictions || data.predictions.length === 0) return '';
+    var verifs = data.predictions.filter(function(item) {
+      return item.actual_3h != null || item.actual_6h != null || item.actual_12h != null;
+    }).slice(0, 5);
+    if (verifs.length === 0) return '';
     var html = '<div class="sit-verify-section">';
-    html += '<div class="sit-verify-title">Verifiche recenti (previsione vs reale)</div>';
-    verifs.forEach(function(v) {
-      var ts = v.generated_at ? new Date(v.generated_at).toLocaleString('it-IT',{
-        timeZone:'Europe/Rome', month:'2-digit', day:'2-digit',
-        hour:'2-digit', minute:'2-digit'
+    html += '<div class="sit-verify-title">Previsioni precedenti verificate</div>';
+    verifs.forEach(function(item) {
+      var p = item.prediction;
+      var ts = p.generated_at ? new Date(p.generated_at).toLocaleString('it-IT',{
+        timeZone:'Europe/Rome', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'
       }) : '--';
-      var hLabel = 'H+' + v.horizon_h;
-      var allertaColor = v.allerta_predicted === 'ROSSO' ? 'var(--danger)' : v.allerta_predicted === 'GIALLO' ? 'var(--warn)' : 'var(--safe)';
-      var windPrev = (v.wind_predicted_min != null && v.wind_predicted_max != null) ?
-        v.wind_predicted_min + '-' + v.wind_predicted_max + 'kn' : '--';
-      var windReal = v.actual_wind != null ? Math.round(v.actual_wind) + 'kn' : '--';
-      var statusClass = v.wind_in_range === true ? 'sit-verify-ok' :
-                        v.wind_in_range === false ? 'sit-verify-miss' : 'sit-verify-nd';
-      var statusText = v.wind_in_range === true ? 'OK' :
-                       v.wind_in_range === false ? 'FUORI' : '--';
-      html += '<div class="sit-verify-row">';
-      html += '<span style="color:var(--muted)">' + ts + '</span>';
-      html += '<span style="color:' + allertaColor + '">' + (v.allerta_predicted||'?') + '</span>';
-      html += '<span>' + hLabel + ': prev ' + windPrev + ' / reale ' + windReal + '</span>';
-      html += '<span class="' + statusClass + '">' + statusText + '</span>';
-      html += '</div>';
+      [['H+3', p.forecast_h3, item.actual_3h], ['H+6', p.forecast_h6, item.actual_6h], ['H+12', p.forecast_h12, item.actual_12h]].forEach(function(row) {
+        if (row[2] == null) return;
+        var err = row[2] - row[1];
+        var statusClass = Math.abs(err) <= 2 ? 'sit-verify-ok' : Math.abs(err) <= 4 ? 'sit-verify-nd' : 'sit-verify-miss';
+        var statusText = Math.abs(err) <= 2 ? 'OK' : (err > 0 ? '+' : '') + err.toFixed(1) + 'kn';
+        html += '<div class="sit-verify-row">';
+        html += '<span style="color:var(--muted)">' + ts + '</span>';
+        html += '<span style="color:var(--accent)">' + row[0] + '</span>';
+        html += '<span>prev ' + (row[1] != null ? row[1].toFixed(1) : '--') + 'kn / reale ' + row[2].toFixed(1) + 'kn</span>';
+        html += '<span class="' + statusClass + '">' + statusText + '</span>';
+        html += '</div>';
+      });
     });
     html += '</div>';
     return html;
   } catch(e) { return ''; }
 }
+
 
 async function loadSituazione(zoneKey) {
   if (zoneKey === 'luri') return;
@@ -5907,7 +5913,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.6.178
+// Fine codice - NAUTILUS v5.6.180
 // ===== TRIPLE COMPASS =====
 var tcData = [null, null, null];
 var tcSelected = 0;

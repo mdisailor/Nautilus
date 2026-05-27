@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.172 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.173 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1875,7 +1875,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.172', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.173', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -3218,6 +3218,7 @@ if (action === 'situazione') {
       rotation_path: rotSit.total_path
     };
     if (kvUrl && kvToken) await kvSet(sitKey, sitRecord, 86400 * 7, kvUrl, kvToken); // TTL 7 giorni
+    if (kvUrl && kvToken) await kvSet('situazione_latest:' + zoneKey, sitRecord, 86400 * 7, kvUrl, kvToken); // indice rapido
 
     return res.status(200).json({
       zone: zoneKey,
@@ -3632,7 +3633,12 @@ if (action === 'situazione_get') {
     return res.status(404).json({ error: 'Zona non trovata' });
   }
   try {
-    // Cerca nelle ultime 24 ore usando sv-SE (stesso formato di getNowRome)
+    // Prima cerca l'indice rapido (1 chiamata)
+    var latestSit = await kvGet('situazione_latest:' + zoneKey, kvUrl, kvToken);
+    if (latestSit) {
+      return res.status(200).json({ zone: zoneKey, found: true, situazione: latestSit });
+    }
+    // Fallback: scan backward (per dati precedenti all'aggiornamento)
     var slots4 = ['00','15','30','45'];
     var sitFound = null;
     for (var hh = 0; hh <= 167 && !sitFound; hh++) {
@@ -3643,7 +3649,11 @@ if (action === 'situazione_get') {
       for (var si4 = slots4.length - 1; si4 >= 0 && !sitFound; si4--) {
         var sk = 'situazione:' + zoneKey + ':' + searchHour + '-' + slots4[si4];
         var rec = await kvGet(sk, kvUrl, kvToken);
-        if (rec) { sitFound = rec; sitFound._key = sk; }
+        if (rec) {
+          sitFound = rec; sitFound._key = sk;
+          // Salva indice per la prossima volta
+          if (kvUrl && kvToken) kvSet('situazione_latest:' + zoneKey, sitFound, 86400 * 7, kvUrl, kvToken);
+        }
       }
     }
     if (!sitFound) return res.status(200).json({ zone: zoneKey, found: false });
@@ -4084,7 +4094,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.172 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.173 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4208,4 +4218,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.172
+// Fine codice - NAUTILUS ENGINE v2.9.173

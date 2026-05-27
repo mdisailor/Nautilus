@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.183 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.185 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -594,7 +594,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.183  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.185  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1976,7 +1976,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.183  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.185  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -3032,32 +3032,6 @@ async function loadSingleCompass() {
 }
 
 
-async function loadSingleCompass() {
-  scCfrLoaded = false;
-  var nameEl = document.getElementById('sc-loc-name');
-  if (nameEl) nameEl.textContent = state.locationName || '';
-
-  // Trova stazione CFR piu vicina
-  var nearest = null, nearestDist = Infinity;
-  CFR_STATIONS_LOC.forEach(function(st) {
-    var d = distKm(state.lat, state.lon, st.lat, st.lon);
-    if (d < nearestDist) { nearestDist = d; nearest = st; }
-  });
-
-  // Solo se entro 40 km
-  if (nearest && nearestDist <= 10) {
-    try {
-      var res = await fetch(ENGINE_URL + '?action=station_refresh&station=' + nearest.id + '&k=mdi');
-      var data = await res.json();
-      if (data && data.wind_kt !== null && data.wind_kt !== undefined) {
-        updateSingleCompass(data.wind_kt, data.wind_dir, data.wind_gust, 'CFR ' + nearestDist.toFixed(0) + 'km');
-        scCfrLoaded = true;
-        return;
-      }
-    } catch(e) {}
-  }
-  // Se > 40km o stazione non risponde: OM gestira l'update tramite renderWeather
-}
 
 function updateSingleCompass(spd, dir, gust, src) {
   var needle = document.getElementById('sc-needle');
@@ -5281,16 +5255,20 @@ function toggleSituazione(zoneKey) {
 }
 
 async function loadSitPredictHistory(zoneKey) {
-  var btnsEl = document.getElementById('sit-predict-btns-' + zoneKey);
-  if (!btnsEl) return;
   var done = false;
+  var getEl = function(){ return document.getElementById('sit-predict-btns-' + zoneKey); };
   setTimeout(function() {
-    if (!done && btnsEl) btnsEl.innerHTML = '<span style="font-family:DM Mono,monospace;font-size:0.44rem;color:var(--muted)">Nessuna previsione disponibile</span>';
+    if (!done) {
+      var el = getEl();
+      if (el) el.innerHTML = '<span style="font-family:DM Mono,monospace;font-size:0.44rem;color:var(--muted)">Nessuna previsione disponibile</span>';
+    }
   }, 6000);
   try {
     var res = await fetch(ENGINE_URL + '?action=predict_history&zone=' + zoneKey);
     var data = await res.json();
     done = true;
+    var btnsEl = getEl();
+    if (!btnsEl) return;
     if (!data.predictions || data.predictions.length === 0) {
       btnsEl.innerHTML = '<span style="font-family:DM Mono,monospace;font-size:0.44rem;color:var(--muted)">Nessuna previsione salvata</span>';
       return;
@@ -5304,7 +5282,7 @@ async function loadSitPredictHistory(zoneKey) {
     btnsEl.innerHTML = html;
     window._sitPredictData = window._sitPredictData || {};
     window._sitPredictData[zoneKey] = data.predictions.slice(0, 5);
-  } catch(e) { done = true; btnsEl.innerHTML = '<span style="font-family:DM Mono,monospace;font-size:0.44rem;color:var(--muted)">Errore caricamento</span>'; }
+  } catch(e) { done = true; var el = getEl(); if (el) el.innerHTML = '<span style="font-family:DM Mono,monospace;font-size:0.44rem;color:var(--muted)">Errore caricamento</span>'; }
 }
 
 function showSitPredict(zoneKey, idx) {
@@ -5915,7 +5893,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.6.183
+// Fine codice - NAUTILUS v5.6.185
 // ===== TRIPLE COMPASS =====
 var tcData = [null, null, null];
 var tcSelected = 0;

@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.175 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.177 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1896,7 +1896,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.175', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.177', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -3241,6 +3241,35 @@ if (action === 'situazione') {
     if (kvUrl && kvToken) await kvSet(sitKey, sitRecord, 86400 * 7, kvUrl, kvToken); // TTL 7 giorni
     if (kvUrl && kvToken) await kvSet('situazione_latest:' + zoneKey, sitRecord, 86400 * 7, kvUrl, kvToken); // indice rapido
 
+    // Salva in lista unificata predict_history:zona (stessa di action=predict)
+    var sitExtractWind = function(text, h) {
+      var pats = [
+        new RegExp('H\+?' + h + '[^0-9(]*([0-9]+\.?[0-9]*)\s*-\s*([0-9]+\.?[0-9]*)\s*kn', 'i'),
+        new RegExp('H\+?' + h + '[^0-9(]*([0-9]+\.?[0-9]*)\s*kn', 'i')
+      ];
+      for (var pi = 0; pi < pats.length; pi++) {
+        var m = text.match(pats[pi]);
+        if (m) return pi === 0 ? Math.round((parseFloat(m[1]) + parseFloat(m[2])) / 2 * 10) / 10 : parseFloat(m[1]);
+      }
+      return null;
+    };
+    if (kvUrl && kvToken) {
+      var sitPredRecord = {
+        zone: zoneKey, generated_at: now3s.toISOString(),
+        prediction_text: sitText, source: 'situazione',
+        current_wind: currentSit.wind_speed, current_wind_dir: currentSit.wind_dir,
+        current_pressure: currentSit.pressure, current_wave: currentSit.wave_height || null,
+        forecast_h3: sitExtractWind(sitText, '3'),
+        forecast_h6: sitExtractWind(sitText, '6'),
+        forecast_h12: sitExtractWind(sitText, '12')
+      };
+      var phListSit = await kvGet('predict_history:' + zoneKey, kvUrl, kvToken) || [];
+      phListSit = Array.isArray(phListSit) ? phListSit : [];
+      phListSit.unshift(sitPredRecord);
+      if (phListSit.length > 20) phListSit.length = 20;
+      await kvSet('predict_history:' + zoneKey, phListSit, 2592000, kvUrl, kvToken);
+    }
+
     return res.status(200).json({
       zone: zoneKey,
       name: ZONES[zoneKey].name,
@@ -3588,6 +3617,12 @@ if (action === 'predict') {
     if (kvUrl && kvToken) {
       var saveOk = await kvSet(predKey, predRecord, 2592000, kvUrl, kvToken); // 30 days TTL
       if (!saveOk) console.error('predict: kvSet failed for key', predKey);
+      // Salva anche in lista unificata predict_history:zona
+      var phList = await kvGet('predict_history:' + zoneKey, kvUrl, kvToken) || [];
+      phList = Array.isArray(phList) ? phList : [];
+      phList.unshift(Object.assign({}, predRecord, { source: 'predict' }));
+      if (phList.length > 20) phList.length = 20;
+      await kvSet('predict_history:' + zoneKey, phList, 2592000, kvUrl, kvToken);
     }
 
     var result = {
@@ -3686,39 +3721,9 @@ if (action === 'predict_history') {
     return res.status(404).json({ error: 'Zona non trovata' });
   }
   try {
-    var now4 = new Date();
-    // Search last 14 days, every hour = 336 slots but batch in groups
-    // Use a smarter approach: check every hour for last 14 days
-    // Search last 7 days x 24 hours x 2 slots = 336 keys max
-    // Split into predict keys: check both :00 and :30 for each hour
-    var predPromises = [];
-    for (var pd4 = 0; pd4 < 7; pd4++) {
-      for (var ph4 = 0; ph4 < 24; ph4++) {
-        for (var pm4 = 0; pm4 < 4; pm4++) {
-          (function(dd, hh, qq) {
-            var t = new Date(now4.getTime() - dd*86400000 - hh*3600000 - qq*900000);
-            var minStr = qq === 0 ? '00' : qq === 1 ? '15' : qq === 2 ? '30' : '45';
-            // USA ORA DI ROMA -- le chiavi predict sono salvate con getNowRome()
-            var tRome = t.toLocaleString('sv-SE', {timeZone:'Europe/Rome'})
-              .replace(' ','T').slice(0,13).replace(':','-').replace(':','-');
-            var key = 'predict:' + zoneKey + ':' + tRome + '-' + minStr;
-            predPromises.push(kvGet(key, kvUrl, kvToken).then(function(v) {
-              return v ? v : null;
-            }));
-          })(pd4, ph4, pm4);
-        }
-      }
-    }
-    var allPreds4 = await Promise.all(predPromises);
-    // Deduplicate by generated_at
-    var seen = {};
-    var predictions4 = allPreds4.filter(function(p) {
-      if (!p || !p.generated_at) return false;
-      var key = p.generated_at;
-      if (seen[key]) return false;
-      seen[key] = true;
-      return true;
-    });
+    // Legge dalla lista unificata predict_history:zona (1 GET invece di 672)
+    var phRaw = await kvGet('predict_history:' + zoneKey, kvUrl, kvToken) || [];
+    var predictions4 = Array.isArray(phRaw) ? phRaw : [];
     predictions4.sort(function(a,b) { return new Date(b.generated_at) - new Date(a.generated_at); });
 
     // For each prediction, find actual snapshot at h6 and h12
@@ -4112,7 +4117,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.175 - by mdisailor engine',
+engine: 'nautilus-engine v2.9.177 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4236,4 +4241,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.175
+// Fine codice - NAUTILUS ENGINE v2.9.177

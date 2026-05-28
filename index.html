@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.6.185 -- 2026-04-14 -->
+<!-- NAUTILUS v5.6.187 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -594,7 +594,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.185  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.6.187  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1976,7 +1976,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.185  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.6.187  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -5249,7 +5249,7 @@ function toggleSituazione(zoneKey) {
   if (!body) return;
   var isOpen = body.classList.contains('open');
   body.classList.toggle('open', !isOpen);
-  toggle.textContent = isOpen ? '' : '';
+  toggle.textContent = isOpen ? 'Espandi sezione ↓' : 'Chiudi ↑';
   // Carica storico previsioni quando si apre
   if (!isOpen) loadSitPredictHistory(zoneKey);
 }
@@ -5328,7 +5328,7 @@ function renderSituazionePanel(zoneKey, data) {
   html += '<div class="sit-header ' + allerta + '" data-action="toggle-sit" data-zone="' + zoneKey + '">';
   html += '<div><span class="sit-badge ' + allerta + '">' + badge + ' ' + (sit.allerta||'VERDE') + '</span>';
   html += ' <span class="sit-title">Evoluzione attesa &mdash; ore ' + ts + '</span></div>';
-  html += '<span class="sit-toggle" id="sit-toggle-' + zoneKey + '">' + (autoOpen ? '' : '') + '</span>';
+  html += '<span class="sit-toggle" id="sit-toggle-' + zoneKey + '">' + (autoOpen ? 'Chiudi ↑' : 'Espandi sezione ↓') + '</span>';
   html += '</div>';
   html += '<div class="sit-body" id="sit-body-' + zoneKey + '">';
   if (secSituazione) {
@@ -5426,6 +5426,8 @@ async function loadSituazione(zoneKey) {
           if (togEl)  togEl.textContent = '';
         }
       }
+      // Carica storico previsioni automaticamente (non aspetta apertura manuale)
+      setTimeout(function() { loadSitPredictHistory(zoneKey); }, 300);
 
     }
   } catch(e) {
@@ -5893,7 +5895,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.6.185
+// Fine codice - NAUTILUS v5.6.187
 // ===== TRIPLE COMPASS =====
 var tcData = [null, null, null];
 var tcSelected = 0;

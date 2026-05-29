@@ -1896,7 +1896,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.10.1', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.10.2', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -3289,7 +3289,7 @@ if (action === 'situazione') {
     // Salva in lista unificata predict_history:zona (stessa di action=predict)
     var sitExtractWind = function(text, h) {
       var pats = [
-        new RegExp('H\+?' + h + '[^0-9(]*([0-9]+\.?[0-9]*)\s*-\s*([0-9]+\.?[0-9]*)\s*kn', 'i'),
+        new RegExp('H\+?' + h + '[^0-9(]*([0-9]+\.?[0-9]*)\s*[-\u2013\u2014]\s*([0-9]+\.?[0-9]*)\s*kn', 'i'),
         new RegExp('H\+?' + h + '[^0-9(]*([0-9]+\.?[0-9]*)\s*kn', 'i')
       ];
       for (var pi = 0; pi < pats.length; pi++) {
@@ -3621,11 +3621,11 @@ if (action === 'predict') {
       // Gestisce: "H3: 6.5kn", "H3: 6-7kn", "H+3 (10:15): 6-7kn", inline e multi-riga
       var patterns = [
         // Con orario H3 (10:15): o H3 (10:15):** -- range X-Y kn
-        new RegExp('H\\+?' + h + '\\s*\\([^)]+\\)\\D*([0-9]+\\.?[0-9]*)\\s*-\\s*([0-9]+\\.?[0-9]*)\\s*kn', 'i'),
+        new RegExp('H\\+?' + h + '\\s*\\([^)]+\\)\\D*([0-9]+\\.?[0-9]*)\\s*[-\u2013\u2014]\\s*([0-9]+\\.?[0-9]*)\\s*kn', 'i'),
         // Con orario H3 (10:15): o H3 (10:15):** -- singolo X kn
         new RegExp('H\\+?' + h + '\\s*\\([^)]+\\)\\D*([0-9]+\\.?[0-9]*)\\s*kn', 'i'),
         // Range X-Ykn senza orario
-        new RegExp('H\\+?' + h + '[^0-9(]*([0-9]+\\.?[0-9]*)\\s*-\\s*([0-9]+\\.?[0-9]*)\\s*kn', 'i'),
+        new RegExp('H\\+?' + h + '[^0-9(]*([0-9]+\\.?[0-9]*)\\s*[-\u2013\u2014]\\s*([0-9]+\\.?[0-9]*)\\s*kn', 'i'),
         // Singolo Xkn senza orario
         new RegExp('H\\+?' + h + '[^0-9(]*([0-9]+\\.?[0-9]*)\\s*kn', 'i')
       ];

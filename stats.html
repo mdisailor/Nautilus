@@ -15,7 +15,7 @@
     --warn: #ffaa00;
     --danger: #ff4444;
     --safe: #22dd88;
-    --muted: rgba(255,255,255,0.35);
+    --muted: rgba(255,255,255,0.9);
     --text: rgba(255,255,255,0.85);
   }
 
@@ -251,7 +251,7 @@
 </header>
 
 <div class="zone-bar" id="zone-bar">
-  <span style="font-size:0.48rem;color:var(--muted);align-self:center">Caricamento zone...</span>
+  <span style="font-size:0.96rem;color:var(--muted);align-self:center">Caricamento zone...</span>
 </div>
 
 <main id="main">
@@ -326,7 +326,7 @@ function render(key, name, hist, stats) {
     .map(p=>Math.abs(p.actual_6h-p.prediction.forecast_h6));
   const maeH6 = mae(allH6);
 
-  let html = `<h2 style="font-family:Bebas Neue,sans-serif;font-size:1.4rem;color:#fff;margin-bottom:16px;letter-spacing:0.06em">${name.toUpperCase()}</h2>`;
+  let html = `<h2 style="font-family:Bebas Neue,sans-serif;font-size:2.8rem;color:#fff;margin-bottom:16px;letter-spacing:0.06em">${name.toUpperCase()}</h2>`;
 
   // Summary cards
   html += `<div class="stats-grid">
@@ -342,7 +342,7 @@ function render(key, name, hist, stats) {
     </div>
     <div class="stat-card">
       <div class="stat-label">Trend accuratezza</div>
-      <div class="stat-value" style="font-size:1.4rem;padding-top:6px">
+      <div class="stat-value" style="font-size:2.8rem;padding-top:6px">
         ${trend.improving===true?'<span style="color:var(--safe)">↓ IN MIGLIORAMENTO</span>':
           trend.improving===false?'<span style="color:var(--danger)">↑ IN PEGGIORAMENTO</span>':
           '<span style="color:var(--muted)">DATI INSUFFICIENTI</span>'}
@@ -387,8 +387,8 @@ function render(key, name, hist, stats) {
     // Grid
     for(let i=0;i<=4;i++){
       const y=yScale(maxMae*i/4);
-      svg+=`<line x1="${padL}" y1="${y}" x2="${svgW-8}" y2="${y}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`;
-      svg+=`<text x="${padL-4}" y="${y+3}" text-anchor="end" font-size="7" fill="rgba(255,255,255,0.3)" font-family="DM Mono,monospace">${(maxMae*i/4).toFixed(1)}</text>`;
+      svg+=`<line x1="${padL}" y1="${y}" x2="${svgW-8}" y2="${y}" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>`;
+      svg+=`<text x="${padL-4}" y="${y+3}" text-anchor="end" font-size="7" fill="rgba(255,255,255,0.85)" font-family="DM Mono,monospace">${(maxMae*i/4).toFixed(1)}</text>`;
     }
     // Lines
     const series = [['h3_mae','#00ccff'],['h6_mae','#ffaa00'],['h12_mae','#ff6688']];
@@ -404,7 +404,7 @@ function render(key, name, hist, stats) {
     });
     // X labels
     weekly.forEach((w,i)=>{
-      svg+=`<text x="${xScale(i)}" y="${svgH-2}" text-anchor="middle" font-size="6.5" fill="rgba(255,255,255,0.4)" font-family="DM Mono,monospace">${w.week.replace(/.*-W/,'W')}</text>`;
+      svg+=`<text x="${xScale(i)}" y="${svgH-2}" text-anchor="middle" font-size="6.5" fill="rgba(255,255,255,0.85)" font-family="DM Mono,monospace">${w.week.replace(/.*-W/,'W')}</text>`;
     });
     svg+=`</svg>`;
     html+=svg+`</div>`;
@@ -446,10 +446,10 @@ function render(key, name, hist, stats) {
       const src = p.source==='situazione'?'🔵 analisi':'⚪ cron';
       html+=`<tr>
         <td style="color:var(--muted)">${dt}</td>
-        <td style="font-size:0.42rem">${src}</td>
-        <td style="font-size:0.44rem">${fmtRow(p.forecast_h3,item.actual_3h)}</td>
-        <td style="font-size:0.44rem">${fmtRow(p.forecast_h6,item.actual_6h)}</td>
-        <td style="font-size:0.44rem">${fmtRow(p.forecast_h12,item.actual_12h)}</td>
+        <td style="font-size:0.84rem">${src}</td>
+        <td style="font-size:0.88rem">${fmtRow(p.forecast_h3,item.actual_3h)}</td>
+        <td style="font-size:0.88rem">${fmtRow(p.forecast_h6,item.actual_6h)}</td>
+        <td style="font-size:0.88rem">${fmtRow(p.forecast_h12,item.actual_12h)}</td>
       </tr>`;
     });
     html += `</table></div>`;

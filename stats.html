@@ -6,462 +6,248 @@
 <title>NAUTILUS — Accuratezza Previsioni</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Bebas+Neue&display=swap');
-
   :root {
-    --bg: #020d1a;
-    --card: #071828;
-    --border: rgba(0,180,220,0.15);
-    --accent: #00f0ff;
-    --warn: #ffaa00;
-    --danger: #ff4444;
-    --safe: #22dd88;
-    --muted: rgba(255,255,255,0.9);
-    --text: rgba(255,255,255,0.85);
+    --bg:#020d1a; --card:#071828; --border:rgba(0,180,220,0.15);
+    --accent:#00f0ff; --warn:#ffaa00; --danger:#ff4444; --safe:#22dd88;
+    --muted:rgba(255,255,255,0.9); --text:rgba(255,255,255,0.9);
   }
-
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'DM Mono', monospace;
-    min-height: 100vh;
-    padding: 0 0 40px;
-  }
-
-  header {
-    padding: 20px 24px 16px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: baseline;
-    gap: 16px;
-    flex-wrap: wrap;
-  }
-
-  .logo {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 1.6rem;
-    letter-spacing: 0.08em;
-    color: #fff;
-  }
-
-  .logo span { color: var(--accent); }
-
-  .subtitle {
-    font-size: 0.48rem;
-    color: var(--muted);
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-  }
-
-  .back-link {
-    margin-left: auto;
-    font-size: 0.5rem;
-    color: var(--accent);
-    text-decoration: none;
-    letter-spacing: 0.1em;
-    opacity: 0.7;
-    transition: opacity 0.2s;
-  }
-  .back-link:hover { opacity: 1; }
-
-  .zone-bar {
-    padding: 12px 24px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    border-bottom: 1px solid var(--border);
-    background: rgba(0,240,255,0.02);
-  }
-
-  .zone-btn {
-    font-family: 'DM Mono', monospace;
-    font-size: 0.48rem;
-    padding: 5px 12px;
-    background: transparent;
-    border: 1px solid var(--border);
-    border-radius: 20px;
-    color: var(--muted);
-    cursor: pointer;
-    transition: all 0.15s;
-    letter-spacing: 0.08em;
-  }
-  .zone-btn:hover { border-color: var(--accent); color: var(--accent); }
-  .zone-btn.active { background: rgba(0,240,255,0.12); border-color: var(--accent); color: var(--accent); }
-
-  main { padding: 20px 24px; max-width: 900px; margin: 0 auto; }
-
-  .empty-state {
-    text-align: center;
-    padding: 60px 20px;
-    color: var(--muted);
-    font-size: 0.55rem;
-    letter-spacing: 0.1em;
-  }
-
-  .stats-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-    margin-bottom: 20px;
-  }
-
-  .stat-card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 14px;
-  }
-
-  .stat-label {
-    font-size: 0.42rem;
-    color: var(--muted);
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    margin-bottom: 6px;
-  }
-
-  .stat-value {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 1.8rem;
-    line-height: 1;
-    color: var(--accent);
-  }
-
-  .stat-sub {
-    font-size: 0.42rem;
-    color: var(--muted);
-    margin-top: 3px;
-  }
-
-  .section-title {
-    font-size: 0.48rem;
-    color: var(--accent);
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    margin: 20px 0 10px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .chart-wrap {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 16px;
-    margin-bottom: 14px;
-  }
-
-  .chart-legend {
-    display: flex;
-    gap: 16px;
-    margin-bottom: 12px;
-    flex-wrap: wrap;
-  }
-
-  .legend-item {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 0.44rem;
-    color: var(--muted);
-  }
-
-  .legend-dot {
-    width: 8px; height: 8px;
-    border-radius: 50%;
-  }
-
-  .trend-indicator {
-    font-size: 0.52rem;
-    padding: 3px 10px;
-    border-radius: 20px;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-  }
-
-  .trend-good { background: rgba(34,221,136,0.1); color: var(--safe); border: 1px solid rgba(34,221,136,0.3); }
-  .trend-bad  { background: rgba(255,68,68,0.1);  color: var(--danger); border: 1px solid rgba(255,68,68,0.3); }
-  .trend-na   { background: rgba(255,255,255,0.05); color: var(--muted); border: 1px solid var(--border); }
-
-  .bias-row {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-top: 12px;
-  }
-
-  .bias-chip {
-    font-size: 0.46rem;
-    padding: 4px 10px;
-    border-radius: 6px;
-    border: 1px solid;
-  }
-
-  .bias-ok   { color: var(--safe);   border-color: rgba(34,221,136,0.3); background: rgba(34,221,136,0.07); }
-  .bias-warn { color: var(--warn);   border-color: rgba(255,170,0,0.3);  background: rgba(255,170,0,0.07); }
-  .bias-bad  { color: var(--danger); border-color: rgba(255,68,68,0.3);  background: rgba(255,68,68,0.07); }
-  .bias-na   { color: var(--muted);  border-color: var(--border);        background: transparent; }
-
-  .weekly-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.46rem;
-  }
-
-  .weekly-table th {
-    color: var(--muted);
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    padding: 6px 10px;
-    text-align: left;
-    border-bottom: 1px solid var(--border);
-    font-weight: 400;
-  }
-
-  .weekly-table td {
-    padding: 7px 10px;
-    border-bottom: 1px solid rgba(255,255,255,0.04);
-  }
-
-  .weekly-table tr:last-child td { border-bottom: none; }
-
-  .improving { color: var(--safe); }
-  .worsening { color: var(--danger); }
-
-  .spinner {
-    width: 20px; height: 20px;
-    border: 2px solid rgba(0,240,255,0.2);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-    margin: 40px auto;
-  }
-
-  @keyframes spin { to { transform: rotate(360deg); } }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;padding:0 0 40px;}
+  header{padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;}
+  .logo{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:0.08em;color:#fff;}
+  .logo span{color:var(--accent);}
+  .subtitle{font-size:0.85rem;color:var(--muted);letter-spacing:0.1em;}
+  .back-link{margin-left:auto;font-size:0.85rem;color:var(--accent);text-decoration:none;opacity:0.8;}
+  .back-link:hover{opacity:1;}
+  .zone-bar{padding:12px 24px;display:flex;flex-wrap:wrap;gap:8px;border-bottom:1px solid var(--border);}
+  .zone-btn{font-family:'DM Mono',monospace;font-size:0.85rem;padding:6px 14px;background:transparent;border:1px solid var(--border);border-radius:20px;color:var(--muted);cursor:pointer;transition:all 0.15s;}
+  .zone-btn:hover{border-color:var(--accent);color:var(--accent);}
+  .zone-btn.active{background:rgba(0,240,255,0.12);border-color:var(--accent);color:var(--accent);}
+  main{padding:20px 24px;max-width:900px;margin:0 auto;}
+  .empty-state{text-align:center;padding:60px 20px;color:var(--muted);font-size:0.9rem;letter-spacing:0.08em;}
+  .stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px;}
+  .stat-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;}
+  .stat-label{font-size:0.75rem;color:var(--muted);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:6px;}
+  .stat-value{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;line-height:1;color:var(--accent);}
+  .stat-sub{font-size:0.75rem;color:var(--muted);margin-top:3px;}
+  .section-title{font-size:0.85rem;color:var(--accent);letter-spacing:0.12em;text-transform:uppercase;margin:20px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border);}
+  .chart-wrap{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:14px;}
+  .chart-legend{display:flex;gap:16px;margin-bottom:12px;flex-wrap:wrap;}
+  .legend-item{display:flex;align-items:center;gap:5px;font-size:0.8rem;color:var(--muted);}
+  .legend-dot{width:10px;height:10px;border-radius:50%;}
+  .bias-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;}
+  .bias-chip{font-size:0.8rem;padding:5px 12px;border-radius:6px;border:1px solid;}
+  .bias-ok{color:var(--safe);border-color:rgba(34,221,136,0.3);background:rgba(34,221,136,0.07);}
+  .bias-warn{color:var(--warn);border-color:rgba(255,170,0,0.3);background:rgba(255,170,0,0.07);}
+  .bias-bad{color:var(--danger);border-color:rgba(255,68,68,0.3);background:rgba(255,68,68,0.07);}
+  .bias-na{color:var(--muted);border-color:var(--border);background:transparent;}
+  .weekly-table{width:100%;border-collapse:collapse;font-size:0.8rem;}
+  .weekly-table th{color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);font-weight:400;}
+  .weekly-table td{padding:9px 10px;border-bottom:1px solid rgba(255,255,255,0.04);}
+  .weekly-table tr:last-child td{border-bottom:none;}
+  .improving{color:var(--safe);} .worsening{color:var(--danger);}
+  .spinner{width:22px;height:22px;border:2px solid rgba(0,240,255,0.2);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:40px auto;}
+  @keyframes spin{to{transform:rotate(360deg);}}
 </style>
 </head>
 <body>
-
 <header>
   <div class="logo">NAUTI<span>LUS</span></div>
-  <div class="subtitle">Accuratezza previsioni AI nel tempo &nbsp;·&nbsp; v2.10.1 / stats v1.0</div>
-  <a href="/" class="back-link">← torna all'app</a>
+  <div class="subtitle">Accuratezza previsioni AI &nbsp;·&nbsp; v2.10.1 / stats v1.0</div>
+  <a href="/" class="back-link">← app</a>
 </header>
-
 <div class="zone-bar" id="zone-bar">
-  <span style="font-size:0.96rem;color:var(--muted);align-self:center">Caricamento zone...</span>
+  <span style="font-size:0.85rem;color:var(--muted);align-self:center">Caricamento zone...</span>
 </div>
-
 <main id="main">
   <div class="empty-state">Seleziona una zona per vedere le statistiche di accuratezza</div>
 </main>
-
 <script>
 const ENGINE = 'https://nautilus-red.vercel.app/api/engine';
-
 const ZONES = [
-  {key:'bocca_arno',   name:'Bocca d\'Arno'},
-  {key:'viareggio',    name:'Viareggio'},
-  {key:'livorno',      name:'Livorno'},
-  {key:'capraia',      name:'Capraia'},
-  {key:'elba_nord',    name:'Elba Nord'},
-  {key:'elba_sud',     name:'Elba Sud'},
-  {key:'giglio',       name:'Giglio'},
+  {key:'bocca_arno',      name:'Bocca d\'Arno'},
+  {key:'viareggio',       name:'Viareggio'},
+  {key:'livorno',         name:'Livorno'},
+  {key:'capraia',         name:'Capraia'},
+  {key:'elba_nord',       name:'Elba Nord'},
+  {key:'elba_sud',        name:'Elba Sud'},
+  {key:'giglio',          name:'Giglio'},
   {key:'canale_piombino', name:'Canale Piombino'},
-  {key:'gorgona',      name:'Gorgona'},
-  {key:'montecristo',  name:'Montecristo'},
-  {key:'orbetello',    name:'Orbetello'},
-  {key:'punta_ala',    name:'Punta Ala'},
-  {key:'svincenzo',    name:'S.Vincenzo'},
-  {key:'follonica',    name:'Follonica'},
-  {key:'capalbio',     name:'Capalbio'},
-  {key:'alberese',     name:'Alberese'},
-  {key:'forte_marmi',  name:'Forte dei Marmi'},
-  {key:'casotto_gr',   name:'Casotto GR'},
-  {key:'venturina',    name:'Venturina'}
+  {key:'gorgona',         name:'Gorgona'},
+  {key:'montecristo',     name:'Montecristo'},
+  {key:'orbetello',       name:'Orbetello'},
+  {key:'punta_ala',       name:'Punta Ala'},
+  {key:'svincenzo',       name:'S.Vincenzo'},
+  {key:'follonica',       name:'Follonica'},
+  {key:'capalbio',        name:'Capalbio'},
+  {key:'alberese',        name:'Alberese'},
+  {key:'forte_marmi',     name:'Forte dei Marmi'},
+  {key:'casotto_gr',      name:'Casotto GR'},
+  {key:'venturina',       name:'Venturina'}
 ];
 
-// Build zone buttons
-const bar = document.getElementById('zone-bar');
-bar.innerHTML = ZONES.map(z =>
-  `<button class="zone-btn" onclick="loadZone('${z.key}','${z.name}')">${z.name}</button>`
-).join('');
+document.getElementById('zone-bar').innerHTML =
+  ZONES.map(z => '<button class="zone-btn" onclick="loadZone(\'' + z.key + '\',\'' + z.name.replace("'","\\'") + '\')">' + z.name + '</button>').join('');
 
 async function loadZone(key, name) {
   document.querySelectorAll('.zone-btn').forEach(b => b.classList.remove('active'));
   event.target.classList.add('active');
   const main = document.getElementById('main');
   main.innerHTML = '<div class="spinner"></div>';
-
   try {
     const [histRes, statsRes] = await Promise.allSettled([
-      fetch(ENGINE + '?action=predict_history&zone=' + key).then(r=>r.json()),
-      fetch(ENGINE + '?action=forecast_stats&zone=' + key).then(r=>r.json())
+      fetch(ENGINE + '?action=predict_history&zone=' + key).then(r => r.json()),
+      fetch(ENGINE + '?action=forecast_stats&zone=' + key).then(r => r.json())
     ]);
     const hist  = histRes.status  === 'fulfilled' ? histRes.value  : {predictions:[]};
     const stats = statsRes.status === 'fulfilled' ? statsRes.value : {weekly_mae:[]};
     render(key, name, hist, stats);
   } catch(e) {
-    main.innerHTML = `<div class="empty-state" style="color:var(--danger)">Errore: ${e.message}</div>`;
+    main.innerHTML = '<div class="empty-state" style="color:var(--danger)">Errore: ' + e.message + '</div>';
   }
 }
 
-function mae(arr) {
+function avg(arr) {
   if (!arr || !arr.length) return null;
   return Math.round(arr.reduce((a,b)=>a+b,0)/arr.length*10)/10;
 }
 
+function fmtErr(f, a) {
+  if (f == null || a == null) return '<span style="color:var(--muted)">--</span>';
+  const err = a - f;
+  const col = Math.abs(err)<=2 ? 'var(--safe)' : Math.abs(err)<=4 ? 'var(--warn)' : 'var(--danger)';
+  return f + ' &rarr; ' + a + ' <span style="color:' + col + '">(' + (err>0?'+':'') + err.toFixed(1) + ')</span>';
+}
+
 function render(key, name, hist, stats) {
   const main = document.getElementById('main');
-  const predictions = (hist.predictions || []);
+  const predictions = hist.predictions || [];
   const verified = predictions.filter(p => p.actual_3h!=null || p.actual_6h!=null || p.actual_12h!=null);
-  const weekly = (stats.weekly_mae || []);
+  const weekly = stats.weekly_mae || [];
   const bias = stats.current_bias || {};
   const trend = stats.trend || {};
 
-  // Summary stats
   const getPred = item => item.prediction || item;
-  const allH6 = verified.filter(p=>{ const pr=getPred(p); return p.actual_6h!=null&&pr.forecast_h6!=null; })
-    .map(p=>{ const pr=getPred(p); return Math.abs(p.actual_6h-pr.forecast_h6); });
-  const maeH6 = mae(allH6);
+  const allH6 = verified
+    .filter(p => { const pr=getPred(p); return p.actual_6h!=null && pr.forecast_h6!=null; })
+    .map(p => { const pr=getPred(p); return Math.abs(p.actual_6h - pr.forecast_h6); });
+  const maeH6 = avg(allH6);
+  const maeCol = maeH6===null ? 'var(--muted)' : maeH6<=2 ? 'var(--safe)' : maeH6<=4 ? 'var(--warn)' : 'var(--danger)';
 
-  let html = `<h2 style="font-family:Bebas Neue,sans-serif;font-size:2.8rem;color:#fff;margin-bottom:16px;letter-spacing:0.06em">${name.toUpperCase()}</h2>`;
+  let trendHtml = '<span style="color:var(--muted)">DATI INSUFFICIENTI</span>';
+  let trendSub = '';
+  if (trend.improving === true) {
+    trendHtml = '<span style="color:var(--safe)">&#8595; IN MIGLIORAMENTO</span>';
+    trendSub = 'da ' + trend.early_h6_mae + 'kn &rarr; ' + trend.late_h6_mae + 'kn';
+  } else if (trend.improving === false) {
+    trendHtml = '<span style="color:var(--danger)">&#8593; IN PEGGIORAMENTO</span>';
+    trendSub = 'da ' + trend.early_h6_mae + 'kn &rarr; ' + trend.late_h6_mae + 'kn';
+  }
 
-  // Summary cards
-  html += `<div class="stats-grid">
-    <div class="stat-card">
-      <div class="stat-label">Previsioni totali</div>
-      <div class="stat-value">${predictions.length}</div>
-      <div class="stat-sub">${verified.length} verificate</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">MAE corrente H+6</div>
-      <div class="stat-value" style="color:${maeH6===null?'var(--muted)':maeH6<=2?'var(--safe)':maeH6<=4?'var(--warn)':'var(--danger)'}">${maeH6!==null?maeH6+'kn':'--'}</div>
-      <div class="stat-sub">errore medio assoluto</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">Trend accuratezza</div>
-      <div class="stat-value" style="font-size:2.8rem;padding-top:6px">
-        ${trend.improving===true?'<span style="color:var(--safe)">↓ IN MIGLIORAMENTO</span>':
-          trend.improving===false?'<span style="color:var(--danger)">↑ IN PEGGIORAMENTO</span>':
-          '<span style="color:var(--muted)">DATI INSUFFICIENTI</span>'}
-      </div>
-      <div class="stat-sub">${trend.early_h6_mae!=null?'da '+trend.early_h6_mae+'kn → '+trend.late_h6_mae+'kn':''}</div>
-    </div>
-  </div>`;
+  let html = '<h2 style="font-family:Bebas Neue,sans-serif;font-size:1.6rem;color:#fff;margin-bottom:16px;letter-spacing:0.06em">' + name.toUpperCase() + '</h2>';
 
-  // Bias per orizzonte
-  if (Object.keys(bias).length > 0) {
-    html += `<div class="section-title">Bias sistematico per orizzonte</div>`;
-    html += `<div class="chart-wrap"><div class="bias-row">`;
+  html += '<div class="stats-grid">' +
+    '<div class="stat-card"><div class="stat-label">Previsioni</div><div class="stat-value">' + predictions.length + '</div><div class="stat-sub">' + verified.length + ' verificate</div></div>' +
+    '<div class="stat-card"><div class="stat-label">MAE corrente H+6</div><div class="stat-value" style="color:' + maeCol + '">' + (maeH6!==null?maeH6+'kn':'--') + '</div><div class="stat-sub">errore medio assoluto</div></div>' +
+    '<div class="stat-card"><div class="stat-label">Trend accuratezza</div><div style="margin-top:4px;font-size:0.85rem">' + trendHtml + '</div><div class="stat-sub">' + trendSub + '</div></div>' +
+    '</div>';
+
+  // Bias
+  const bKeys = Object.keys(bias);
+  if (bKeys.length) {
+    html += '<div class="section-title">Bias sistematico per orizzonte</div><div class="chart-wrap"><div class="bias-row">';
     ['h3','h6','h12'].forEach(h => {
       const b = bias[h];
-      if (!b || b.mean === null) {
-        html += `<span class="bias-chip bias-na">H+${h.slice(1)}: dati insuff. (n=${b?b.n:0})</span>`;
+      const label = 'H+' + h.slice(1);
+      if (!b || b.mean===null) {
+        html += '<span class="bias-chip bias-na">' + label + ': dati insuff. (n=' + (b?b.n:0) + ')</span>';
         return;
       }
       const cls = Math.abs(b.mean)<=1?'bias-ok':Math.abs(b.mean)<=2.5?'bias-warn':'bias-bad';
       const dir = b.mean>0?'sottostima':'sovrastima';
-      html += `<span class="bias-chip ${cls}">H+${h.slice(1)}: ${b.mean>0?'+':''}${b.mean}kn ${dir} · n=${b.n} · σ=${b.std}kn</span>`;
+      html += '<span class="bias-chip ' + cls + '">' + label + ': ' + (b.mean>0?'+':'') + b.mean + 'kn ' + dir + ' &middot; n=' + b.n + ' &middot; &sigma;=' + b.std + 'kn</span>';
     });
-    html += `</div></div>`;
+    html += '</div></div>';
   }
 
-  // MAE trend chart (SVG)
+  // Chart
   if (weekly.length >= 2) {
-    html += `<div class="section-title">Errore medio (MAE) per settimana</div>`;
-    html += `<div class="chart-wrap">`;
-    html += `<div class="chart-legend">
-      <div class="legend-item"><div class="legend-dot" style="background:#00ccff"></div>H+3</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#ffaa00"></div>H+6</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#ff6688"></div>H+12</div>
-    </div>`;
+    const maxMae = Math.ceil(Math.max(...weekly.map(w => Math.max(w.h3_mae||0, w.h6_mae||0, w.h12_mae||0))) + 1);
+    const pL=36, pH=20, svgW=500, svgH=110;
+    const cW=svgW-pL-8, cH=svgH-pH-20;
+    const xS = i => pL + (i+0.5)*(cW/weekly.length);
+    const yS = v => pH + cH - (v/maxMae)*cH;
 
-    const maxMae = Math.ceil(Math.max(...weekly.map(w=>Math.max(w.h3_mae||0,w.h6_mae||0,w.h12_mae||0)))+1);
-    const svgW = 500, svgH = 100, padL = 32, padB = 18, chartW = svgW-padL-8, chartH = svgH-padB-8;
-    const xScale = i => padL + (i+0.5)*(chartW/weekly.length);
-    const yScale = v => 8 + chartH - (v/maxMae)*chartH;
-
-    let svg = `<svg viewBox="0 0 ${svgW} ${svgH}" style="width:100%;height:100px;overflow:visible">`;
-    // Grid
+    html += '<div class="section-title">Errore medio (MAE) per settimana</div><div class="chart-wrap">';
+    html += '<div class="chart-legend">' +
+      '<div class="legend-item"><div class="legend-dot" style="background:#00ccff"></div>H+3</div>' +
+      '<div class="legend-item"><div class="legend-dot" style="background:#ffaa00"></div>H+6</div>' +
+      '<div class="legend-item"><div class="legend-dot" style="background:#ff6688"></div>H+12</div>' +
+      '</div>';
+    let svg = '<svg viewBox="0 0 ' + svgW + ' ' + svgH + '" style="width:100%;height:' + svgH + 'px;overflow:visible">';
     for(let i=0;i<=4;i++){
-      const y=yScale(maxMae*i/4);
-      svg+=`<line x1="${padL}" y1="${y}" x2="${svgW-8}" y2="${y}" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>`;
-      svg+=`<text x="${padL-4}" y="${y+3}" text-anchor="end" font-size="7" fill="rgba(255,255,255,0.85)" font-family="DM Mono,monospace">${(maxMae*i/4).toFixed(1)}</text>`;
+      const y=yS(maxMae*i/4);
+      svg+='<line x1="'+pL+'" y1="'+y+'" x2="'+(svgW-8)+'" y2="'+y+'" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>';
+      svg+='<text x="'+(pL-4)+'" y="'+(y+3)+'" text-anchor="end" font-size="9" fill="rgba(255,255,255,0.7)" font-family="DM Mono,monospace">'+(maxMae*i/4).toFixed(1)+'</text>';
     }
-    // Lines
-    const series = [['h3_mae','#00ccff'],['h6_mae','#ffaa00'],['h12_mae','#ff6688']];
-    series.forEach(([key,col])=>{
-      const pts=weekly.map((w,i)=>w[key]!=null?`${xScale(i)},${yScale(w[key])}`:null).filter(Boolean);
-      if(pts.length>=2) svg+=`<polyline points="${pts.join(' ')}" fill="none" stroke="${col}" stroke-width="1.8" opacity="0.85"/>`;
-      pts.forEach((pt,pi)=>{
-        const [x,y]=pt.split(',');
-        svg+=`<circle cx="${x}" cy="${y}" r="2.5" fill="${col}"/>`;
-        const w=weekly.filter((_,i)=>weekly[i][key]!=null)[pi];
-        if(w) svg+=`<text x="${x}" y="${parseFloat(y)-6}" text-anchor="middle" font-size="6" fill="${col}" font-family="DM Mono,monospace">${w[key]}</text>`;
+    [['h3_mae','#00ccff'],['h6_mae','#ffaa00'],['h12_mae','#ff6688']].forEach(function(s){
+      const pts=weekly.map(function(w,i){ return w[s[0]]!=null ? xS(i)+','+yS(w[s[0]]) : null; }).filter(Boolean);
+      if(pts.length>=2) svg+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+s[1]+'" stroke-width="1.8" opacity="0.85"/>';
+      weekly.forEach(function(w,i){
+        if(w[s[0]]==null) return;
+        svg+='<circle cx="'+xS(i)+'" cy="'+yS(w[s[0]])+'" r="3" fill="'+s[1]+'"/>';
+        svg+='<text x="'+xS(i)+'" y="'+(yS(w[s[0]])-7)+'" text-anchor="middle" font-size="8" fill="'+s[1]+'" font-family="DM Mono,monospace">'+w[s[0]]+'</text>';
       });
     });
-    // X labels
-    weekly.forEach((w,i)=>{
-      svg+=`<text x="${xScale(i)}" y="${svgH-2}" text-anchor="middle" font-size="6.5" fill="rgba(255,255,255,0.85)" font-family="DM Mono,monospace">${w.week.replace(/.*-W/,'W')}</text>`;
+    weekly.forEach(function(w,i){
+      svg+='<text x="'+xS(i)+'" y="'+(svgH-4)+'" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.7)" font-family="DM Mono,monospace">'+w.week.replace(/.*-W/,'W')+'</text>';
     });
-    svg+=`</svg>`;
-    html+=svg+`</div>`;
+    svg+='</svg>';
+    html+=svg+'</div>';
   }
 
   // Weekly table
-  if (weekly.length > 0) {
-    html += `<div class="section-title">Dettaglio settimanale</div>`;
-    html += `<div class="chart-wrap"><table class="weekly-table">
-      <tr><th>Settimana</th><th>Previsioni</th><th>MAE H+3</th><th>MAE H+6</th><th>MAE H+12</th></tr>`;
-    weekly.slice().reverse().forEach((w,i,arr) => {
-      const prev = arr[i+1];
-      const h6trend = prev && prev.h6_mae && w.h6_mae ? (w.h6_mae < prev.h6_mae ? '↓':'↑') : '';
-      const cls = h6trend==='↓'?'improving':h6trend==='↑'?'worsening':'';
-      html+=`<tr>
-        <td style="color:var(--accent)">${w.week}</td>
-        <td>${w.n}</td>
-        <td>${w.h3_mae!=null?w.h3_mae+'kn':'--'}</td>
-        <td class="${cls}">${w.h6_mae!=null?w.h6_mae+'kn '+h6trend:'--'}</td>
-        <td>${w.h12_mae!=null?w.h12_mae+'kn':'--'}</td>
-      </tr>`;
-      } catch(e){}
+  if (weekly.length) {
+    html += '<div class="section-title">Dettaglio settimanale</div><div class="chart-wrap"><table class="weekly-table">' +
+      '<tr><th>Settimana</th><th>N</th><th>MAE H+3</th><th>MAE H+6</th><th>MAE H+12</th></tr>';
+    weekly.slice().reverse().forEach(function(w,i,arr) {
+      const prev=arr[i+1];
+      const h6t = prev&&prev.h6_mae&&w.h6_mae ? (w.h6_mae<prev.h6_mae?'improving':'worsening') : '';
+      html+='<tr>' +
+        '<td style="color:var(--accent)">'+w.week+'</td>' +
+        '<td>'+w.n+'</td>' +
+        '<td>'+(w.h3_mae!=null?w.h3_mae+'kn':'--')+'</td>' +
+        '<td class="'+h6t+'">'+(w.h6_mae!=null?w.h6_mae+'kn':'--')+'</td>' +
+        '<td>'+(w.h12_mae!=null?w.h12_mae+'kn':'--')+'</td>' +
+        '</tr>';
     });
-    html += `</table></div>`;
+    html+='</table></div>';
   }
 
-  // Recent predictions table
-  if (verified.length > 0) {
-    html += `<div class="section-title">Ultime verifiche</div>`;
-    html += `<div class="chart-wrap"><table class="weekly-table">
-      <tr><th>Data</th><th>Fonte</th><th>H+3 prev/reale</th><th>H+6 prev/reale</th><th>H+12 prev/reale</th></tr>`;
-    verified.slice(0,10).forEach(item => {
+  // Recent predictions
+  if (verified.length) {
+    html += '<div class="section-title">Ultime verifiche</div><div class="chart-wrap"><table class="weekly-table">' +
+      '<tr><th>Data</th><th>Fonte</th><th>H+3 prev&rarr;reale</th><th>H+6 prev&rarr;reale</th><th>H+12 prev&rarr;reale</th></tr>';
+    verified.slice(0,10).forEach(function(item) {
       try {
-      const p = item.prediction || item;
-      if (!p || !p.generated_at) return;
-      const dt = new Date(p.generated_at).toLocaleString('it-IT',{timeZone:'Europe/Rome',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-      const fmtRow = (f,a) => {
-        if(f==null||a==null) return '<span style="color:var(--muted)">--</span>';
-        const err=a-f; const col=Math.abs(err)<=2?'var(--safe)':Math.abs(err)<=4?'var(--warn)':'var(--danger)';
-        return `${f}→${a} <span style="color:${col}">(${err>0?'+':''}${err.toFixed(1)})</span>`;
-      };
-      const src = p.source==='situazione'?'🔵 analisi':'⚪ cron';
-      html+=`<tr>
-        <td style="color:var(--muted)">${dt}</td>
-        <td style="font-size:0.84rem">${src}</td>
-        <td style="font-size:0.88rem">${fmtRow(p.forecast_h3,item.actual_3h)}</td>
-        <td style="font-size:0.88rem">${fmtRow(p.forecast_h6,item.actual_6h)}</td>
-        <td style="font-size:0.88rem">${fmtRow(p.forecast_h12,item.actual_12h)}</td>
-      </tr>`;
-      } catch(e){}
+        const p = item.prediction || item;
+        if (!p || !p.generated_at) return;
+        const dt = new Date(p.generated_at).toLocaleString('it-IT',{timeZone:'Europe/Rome',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+        const src = p.source==='situazione' ? '&#128309; analisi' : '&#9898; cron';
+        html+='<tr>' +
+          '<td style="color:var(--muted)">'+dt+'</td>' +
+          '<td style="font-size:0.75rem">'+src+'</td>' +
+          '<td style="font-size:0.75rem">'+fmtErr(p.forecast_h3,item.actual_3h)+'</td>' +
+          '<td style="font-size:0.75rem">'+fmtErr(p.forecast_h6,item.actual_6h)+'</td>' +
+          '<td style="font-size:0.75rem">'+fmtErr(p.forecast_h12,item.actual_12h)+'</td>' +
+          '</tr>';
+      } catch(e) {}
     });
-    html += `</table></div>`;
+    html+='</table></div>';
   }
 
-  if(!html.includes('stat-card')&&verified.length===0) {
-    html += `<div class="empty-state">Nessun dato verificato ancora — i backfill cron inizieranno a popolare i dati dalle 10:30</div>`;
+  if (!verified.length && !predictions.length) {
+    html += '<div class="empty-state">Nessun dato ancora &mdash; i cron backfill popoleranno i dati dalle 10:30</div>';
   }
 
   main.innerHTML = html;

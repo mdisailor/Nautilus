@@ -246,7 +246,7 @@
 
 <header>
   <div class="logo">NAUTI<span>LUS</span></div>
-  <div class="subtitle">Accuratezza previsioni AI nel tempo</div>
+  <div class="subtitle">Accuratezza previsioni AI nel tempo &nbsp;·&nbsp; v2.10.1 / stats v1.0</div>
   <a href="/" class="back-link">← torna all'app</a>
 </header>
 
@@ -296,12 +296,12 @@ async function loadZone(key, name) {
   main.innerHTML = '<div class="spinner"></div>';
 
   try {
-    const [histRes, statsRes] = await Promise.all([
-      fetch(ENGINE + '?action=predict_history&zone=' + key),
-      fetch(ENGINE + '?action=forecast_stats&zone=' + key)
+    const [histRes, statsRes] = await Promise.allSettled([
+      fetch(ENGINE + '?action=predict_history&zone=' + key).then(r=>r.json()),
+      fetch(ENGINE + '?action=forecast_stats&zone=' + key).then(r=>r.json())
     ]);
-    const hist = await histRes.json();
-    const stats = await statsRes.json();
+    const hist  = histRes.status  === 'fulfilled' ? histRes.value  : {predictions:[]};
+    const stats = statsRes.status === 'fulfilled' ? statsRes.value : {weekly_mae:[]};
     render(key, name, hist, stats);
   } catch(e) {
     main.innerHTML = `<div class="empty-state" style="color:var(--danger)">Errore: ${e.message}</div>`;
@@ -322,8 +322,9 @@ function render(key, name, hist, stats) {
   const trend = stats.trend || {};
 
   // Summary stats
-  const allH6 = verified.filter(p=>p.actual_6h!=null&&p.prediction&&p.prediction.forecast_h6!=null)
-    .map(p=>Math.abs(p.actual_6h-p.prediction.forecast_h6));
+  const getPred = item => item.prediction || item;
+  const allH6 = verified.filter(p=>{ const pr=getPred(p); return p.actual_6h!=null&&pr.forecast_h6!=null; })
+    .map(p=>{ const pr=getPred(p); return Math.abs(p.actual_6h-pr.forecast_h6); });
   const maeH6 = mae(allH6);
 
   let html = `<h2 style="font-family:Bebas Neue,sans-serif;font-size:2.8rem;color:#fff;margin-bottom:16px;letter-spacing:0.06em">${name.toUpperCase()}</h2>`;
@@ -426,6 +427,7 @@ function render(key, name, hist, stats) {
         <td class="${cls}">${w.h6_mae!=null?w.h6_mae+'kn '+h6trend:'--'}</td>
         <td>${w.h12_mae!=null?w.h12_mae+'kn':'--'}</td>
       </tr>`;
+      } catch(e){}
     });
     html += `</table></div>`;
   }
@@ -436,7 +438,9 @@ function render(key, name, hist, stats) {
     html += `<div class="chart-wrap"><table class="weekly-table">
       <tr><th>Data</th><th>Fonte</th><th>H+3 prev/reale</th><th>H+6 prev/reale</th><th>H+12 prev/reale</th></tr>`;
     verified.slice(0,10).forEach(item => {
+      try {
       const p = item.prediction || item;
+      if (!p || !p.generated_at) return;
       const dt = new Date(p.generated_at).toLocaleString('it-IT',{timeZone:'Europe/Rome',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
       const fmtRow = (f,a) => {
         if(f==null||a==null) return '<span style="color:var(--muted)">--</span>';
@@ -451,6 +455,7 @@ function render(key, name, hist, stats) {
         <td style="font-size:0.88rem">${fmtRow(p.forecast_h6,item.actual_6h)}</td>
         <td style="font-size:0.88rem">${fmtRow(p.forecast_h12,item.actual_12h)}</td>
       </tr>`;
+      } catch(e){}
     });
     html += `</table></div>`;
   }

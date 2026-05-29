@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.9.178 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.10.0 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -54,7 +54,7 @@ convergenza_arno: { desc: 'Convergenza termica Arno', active_wind_dirs: [0, 360]
 capraia: {
 enabled: true,
 name: 'Capraia',
-lat: 43.0527, lon: 9.8410,
+lat: 43.0527, lon: 9.8410, bias_station: 'capraia_cfr', bias_quota: 274,
 ports: {
 capraia: { name: 'Capraia Porto', exposure: 'NW', shelter: 'low', swell_threshold: 0.7 },
 },
@@ -66,7 +66,7 @@ esposizione_totale: { desc: 'Isola esposta su tutti i lati', active_wind_dirs: [
 elba_nord: {
 enabled: true,
 name: 'Elba Nord - Portoferraio',
-lat: 42.8138, lon: 10.3457,
+lat: 42.8138, lon: 10.3457, bias_station: 'portoferraio_cfr', bias_quota: 10,
 ports: {
 portoferraio: { name: 'Portoferraio', exposure: 'NE', shelter: 'high',   swell_threshold: 1.5 },
 cavo:         { name: 'Cavo',         exposure: 'N',  shelter: 'low',    swell_threshold: 0.8 },
@@ -80,7 +80,7 @@ venturi_piombino: { desc: 'Influenza Venturi Piombino', active_wind_dirs: [270, 
 elba_sud: {
 enabled: true,
 name: 'Elba Sud - Porto Azzurro',
-lat: 42.7604, lon: 10.4024,
+lat: 42.7604, lon: 10.4024, bias_station: 'portoferraio_cfr', bias_quota: 10,
 ports: {
 porto_azzurro: { name: 'Porto Azzurro',  exposure: 'SE', shelter: 'high',   swell_threshold: 1.8 },
 marina_campo:  { name: 'Marina di Campo',exposure: 'S',  shelter: 'medium', swell_threshold: 1.0 },
@@ -130,7 +130,7 @@ fetch_sw: { desc: 'Fetch aperto SW', active_wind_dirs: [210, 270], note: 'Costa 
 punta_ala: {
 enabled: true,
 name: 'Punta Ala - Follonica',
-lat: 42.8088, lon: 10.7357,
+lat: 42.8088, lon: 10.7357, bias_station: 'follonica', bias_quota: 15,
 ports: {
 punta_ala: { name: 'Punta Ala', exposure: 'SW', shelter: 'medium', swell_threshold: 1.2 },
 follonica:  { name: 'Follonica', exposure: 'SW', shelter: 'low',    swell_threshold: 0.9 },
@@ -1896,7 +1896,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.9.178', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.10.0', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -3185,6 +3185,51 @@ if (action === 'situazione') {
       }
       sLines.push('Usa questi dati per calibrare la tua valutazione attuale.');
     }
+
+    // === TREND CFR (ultime 3 ore) ===
+    if (zObj.bias_station && kvUrl && kvToken) {
+      var trendSamples = await kvGet('bias_samples:' + zObj.bias_station, kvUrl, kvToken) || [];
+      var trendQuota = zObj.bias_quota || 0;
+      var trendWeight = trendQuota <= 15 ? 1.0 : trendQuota <= 100 ? 0.85 : trendQuota <= 200 ? 0.65 : 0.45;
+      var now3h = new Date(Date.now() - 3 * 3600000);
+      var recentTrend = (trendSamples || []).filter(function(s) {
+        return s && s.ts && s.station && s.station.wind_kt !== null && new Date(s.ts) >= now3h;
+      }).slice(0, 8).reverse();
+      if (recentTrend.length >= 2) {
+        sLines.push('');
+        sLines.push('OSSERVAZIONI REALI ULTIME 3 ORE (stazione ' + zObj.bias_station + (trendWeight < 1 ? ', quota ' + trendQuota + 'm, peso ' + trendWeight + ')' : ')'));
+        recentTrend.forEach(function(s) {
+          var t = new Date(s.ts).toLocaleTimeString('it-IT',{timeZone:'Europe/Rome',hour:'2-digit',minute:'2-digit'});
+          var wkt = Math.round(s.station.wind_kt * trendWeight * 10) / 10;
+          var dir = s.station.direction_txt || '--';
+          sLines.push(t + ': ' + wkt + 'kn ' + dir);
+        });
+        sLines.push('Usa il trend osservato per ancorare le previsioni H+3/H+6 alla realta misurata.');
+      }
+    }
+
+    // === BIAS PREVISIONALE (errori sistematici AI) ===
+    if (kvUrl && kvToken) {
+      var biasPred = await kvGet('predict_bias:' + zoneKey, kvUrl, kvToken);
+      if (biasPred && biasPred.bias) {
+        var bp = biasPred.bias;
+        var bpLines = [];
+        ['h3','h6','h12'].forEach(function(h) {
+          var b = bp[h];
+          if (!b || b.n < 5 || b.mean === null) return;
+          var label = h === 'h3' ? 'H+3' : h === 'h6' ? 'H+6' : 'H+12';
+          var dir2 = b.mean > 0 ? 'sottostima' : 'sovrastima';
+          bpLines.push(label + ': errore medio ' + (b.mean > 0 ? '+' : '') + b.mean + 'kn (' + dir2 + ', n=' + b.n + ')');
+        });
+        if (bpLines.length > 0) {
+          sLines.push('');
+          sLines.push('ACCURATEZZA STORICA TUE PREVISIONI PER QUESTA ZONA:');
+          bpLines.forEach(function(l){ sLines.push('- ' + l); });
+          sLines.push('Applica questi bias come correzione automatica ai valori OM di partenza.');
+        }
+      }
+    }
+
     sLines.push('');
     sLines.push('Rispondi ESATTAMENTE in questo formato (usa questi titoli in maiuscolo):');
     sLines.push('');
@@ -3716,6 +3761,76 @@ if (action === 'situazione_get') {
   }
 }
 
+// action=backfill_actuals -- riempie actual_3h/6h/12h in predict_history per tutte le zone
+if (action === 'backfill_actuals') {
+  var bfSecret = req.query.secret || '';
+  if (bfSecret !== (process.env.CRON_SECRET || '') && req.query.k !== 'mdi') return res.status(401).json({ error: 'Unauthorized' });
+  var bfZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled !== false && ZONES[k].bias_station; });
+  var bfResults = [];
+  for (var bfi = 0; bfi < bfZones.length; bfi++) {
+    var bfZk = bfZones[bfi];
+    var bfZone = ZONES[bfZk];
+    try {
+      var bfList = await kvGet('predict_history:' + bfZk, kvUrl, kvToken) || [];
+      if (!Array.isArray(bfList) || bfList.length === 0) { bfResults.push({zone:bfZk, skipped:'no_predictions'}); continue; }
+      // Carica bias_samples per questa zona (ultime 100 osservazioni)
+      var bfSamples = await kvGet('bias_samples:' + bfZone.bias_station, kvUrl, kvToken) || [];
+      // Peso quota: riduce affidabilita stazioni in quota
+      var bfQuota = bfZone.bias_quota || 0;
+      var bfWeight = bfQuota <= 15 ? 1.0 : bfQuota <= 100 ? 0.85 : bfQuota <= 200 ? 0.65 : 0.45;
+      var bfUpdated = 0;
+      bfList = bfList.map(function(item) {
+        if (!item.generated_at) return item;
+        var gen = new Date(item.generated_at);
+        [['actual_3h','actual_3h_dir',3], ['actual_6h','actual_6h_dir',6], ['actual_12h','actual_12h_dir',12]].forEach(function(hor) {
+          if (item[hor[0]] !== undefined && item[hor[0]] !== null) return; // gia presente
+          var target = new Date(gen.getTime() + hor[2] * 3600000);
+          if (target > new Date()) return; // futuro
+          var best = null, bestDiff = 25 * 60 * 1000;
+          (bfSamples || []).forEach(function(s) {
+            if (!s || !s.ts || !s.station || s.station.wind_kt === null || s.station.wind_kt === undefined) return;
+            var diff = Math.abs(new Date(s.ts) - target);
+            if (diff < bestDiff) { bestDiff = diff; best = s; }
+          });
+          if (best) {
+            item[hor[0]] = Math.round(best.station.wind_kt * bfWeight * 10) / 10;
+            item[hor[1]] = best.station.direction;
+            bfUpdated++;
+          }
+        });
+        return item;
+      });
+      if (bfUpdated > 0) {
+        await kvSet('predict_history:' + bfZk, bfList, 2592000, kvUrl, kvToken);
+      }
+      bfResults.push({zone:bfZk, updated:bfUpdated, samples:bfSamples.length, weight:bfWeight});
+    } catch(e) { bfResults.push({zone:bfZk, error:e.message}); }
+  }
+  // Dopo backfill ricalcola bias per tutte le zone aggiornate
+  for (var bfi2 = 0; bfi2 < bfZones.length; bfi2++) {
+    var bfZk2 = bfZones[bfi2];
+    try {
+      var bfList2 = await kvGet('predict_history:' + bfZk2, kvUrl, kvToken) || [];
+      var bfErrors = {h3:[], h6:[], h12:[]};
+      (bfList2 || []).forEach(function(item) {
+        if (item.actual_3h !== null && item.actual_3h !== undefined && item.forecast_h3 !== null && item.forecast_h3 !== undefined) bfErrors.h3.push(item.actual_3h - item.forecast_h3);
+        if (item.actual_6h !== null && item.actual_6h !== undefined && item.forecast_h6 !== null && item.forecast_h6 !== undefined) bfErrors.h6.push(item.actual_6h - item.forecast_h6);
+        if (item.actual_12h !== null && item.actual_12h !== undefined && item.forecast_h12 !== null && item.forecast_h12 !== undefined) bfErrors.h12.push(item.actual_12h - item.forecast_h12);
+      });
+      var bfBias = {};
+      ['h3','h6','h12'].forEach(function(h) {
+        var errs = bfErrors[h];
+        if (errs.length < 3) { bfBias[h] = {n:errs.length, mean:null, std:null}; return; }
+        var mean = errs.reduce(function(a,b){return a+b;},0) / errs.length;
+        var std = Math.sqrt(errs.map(function(e){return (e-mean)*(e-mean);}).reduce(function(a,b){return a+b;},0) / errs.length);
+        bfBias[h] = {n:errs.length, mean:Math.round(mean*10)/10, std:Math.round(std*10)/10};
+      });
+      await kvSet('predict_bias:' + bfZk2, {zone:bfZk2, bias:bfBias, ts:new Date().toISOString()}, 2592000, kvUrl, kvToken);
+    } catch(e) {}
+  }
+  return res.status(200).json({ok:true, zones_processed:bfZones.length, results:bfResults});
+}
+
 if (action === 'predict_history') {
   if (!zoneKey || !ZONES[zoneKey]) {
     return res.status(404).json({ error: 'Zona non trovata' });
@@ -4145,7 +4260,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.9.178 - by mdisailor engine',
+engine: 'nautilus-engine v2.10.0 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4269,4 +4384,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.9.178
+// Fine codice - NAUTILUS ENGINE v2.10.0

@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.10.0 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.10.1 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1896,7 +1896,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.10.0', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.10.1', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -3762,6 +3762,59 @@ if (action === 'situazione_get') {
 }
 
 // action=backfill_actuals -- riempie actual_3h/6h/12h in predict_history per tutte le zone
+if (action === 'forecast_stats') {
+  if (!zoneKey || !ZONES[zoneKey]) return res.status(404).json({ error: 'Zona non trovata' });
+  try {
+    var fsList = await kvGet('predict_history:' + zoneKey, kvUrl, kvToken) || [];
+    if (!Array.isArray(fsList)) fsList = [];
+    var verified = fsList.filter(function(p) {
+      return p && p.generated_at && (p.actual_3h != null || p.actual_6h != null || p.actual_12h != null);
+    });
+    // Raggruppa per settimana ISO
+    var weekMap = {};
+    verified.forEach(function(p) {
+      var d = new Date(p.generated_at);
+      var jan1 = new Date(d.getFullYear(), 0, 1);
+      var week = Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+      var wk = d.getFullYear() + '-W' + String(week).padStart(2, '0');
+      if (!weekMap[wk]) weekMap[wk] = { week: wk, h3: [], h6: [], h12: [], n: 0 };
+      var w = weekMap[wk];
+      w.n++;
+      if (p.actual_3h != null && p.forecast_h3 != null) w.h3.push(Math.abs(p.actual_3h - p.forecast_h3));
+      if (p.actual_6h != null && p.forecast_h6 != null) w.h6.push(Math.abs(p.actual_6h - p.forecast_h6));
+      if (p.actual_12h != null && p.forecast_h12 != null) w.h12.push(Math.abs(p.actual_12h - p.forecast_h12));
+    });
+    var avg = function(arr) { return arr.length ? Math.round(arr.reduce(function(a,b){return a+b;},0)/arr.length*10)/10 : null; };
+    var weekly = Object.keys(weekMap).sort().map(function(wk) {
+      var w = weekMap[wk];
+      return { week: wk, h3_mae: avg(w.h3), h6_mae: avg(w.h6), h12_mae: avg(w.h12), n: w.n };
+    });
+    // Trend generale (prima meta vs seconda meta)
+    var half = Math.floor(verified.length / 2);
+    var calcMae = function(arr, key, fkey) {
+      var errs = arr.filter(function(p){ return p[key]!=null && p[fkey]!=null; }).map(function(p){ return Math.abs(p[key]-p[fkey]); });
+      return avg(errs);
+    };
+    var early = verified.slice(half), late = verified.slice(0, half);
+    var trend = {
+      early_h6_mae: calcMae(early, 'actual_6h', 'forecast_h6'),
+      late_h6_mae: calcMae(late, 'actual_6h', 'forecast_h6'),
+      improving: null
+    };
+    if (trend.early_h6_mae !== null && trend.late_h6_mae !== null) {
+      trend.improving = trend.late_h6_mae < trend.early_h6_mae;
+    }
+    var biasPred = await kvGet('predict_bias:' + zoneKey, kvUrl, kvToken);
+    return res.status(200).json({
+      zone: zoneKey, name: ZONES[zoneKey].name,
+      total: fsList.length, verified: verified.length,
+      weekly_mae: weekly,
+      current_bias: biasPred ? biasPred.bias : null,
+      trend: trend
+    });
+  } catch(e) { return res.status(500).json({ error: e.message }); }
+}
+
 if (action === 'backfill_actuals') {
   var bfSecret = req.query.secret || '';
   if (bfSecret !== (process.env.CRON_SECRET || '') && req.query.k !== 'mdi') return res.status(401).json({ error: 'Unauthorized' });
@@ -3874,7 +3927,16 @@ if (action === 'predict_history') {
     var actualPromises = [];
     top10.forEach(function(p) {
       var genTime = new Date(p.generated_at);
-      // Legge da bias_samples per zone CFR, altrimenti da snap
+      // Se actuals gia presenti nel record (da backfill_actuals) non fare lookup Redis
+      if (p.actual_3h !== undefined || p.actual_6h !== undefined || p.actual_12h !== undefined) {
+        actualPromises.push(Promise.resolve([
+          p.actual_3h !== null && p.actual_3h !== undefined ? {wind_speed: p.actual_3h, wind_dir: p.actual_3h_dir} : null,
+          p.actual_6h !== null && p.actual_6h !== undefined ? {wind_speed: p.actual_6h, wind_dir: p.actual_6h_dir} : null,
+          p.actual_12h !== null && p.actual_12h !== undefined ? {wind_speed: p.actual_12h, wind_dir: p.actual_12h_dir} : null
+        ]));
+        return;
+      }
+      // Lookup Redis solo per items senza actuals
       actualPromises.push((async function(zone, gen) {
         var results = [null, null, null];
         var zObjV = ZONES[zone];
@@ -3883,7 +3945,7 @@ if (action === 'predict_history') {
           var cfrV = bsSamplesV.filter(function(b){ return b.station && b.station.wind_kt !== null; });
           [3,6,12].forEach(function(hh, idx) {
             var target = new Date(gen.getTime() + hh * 3600000);
-            var best = null, bestDiff = 25 * 60 * 1000; // max 25 min
+            var best = null, bestDiff = 25 * 60 * 1000;
             cfrV.forEach(function(b) {
               var diff = Math.abs(new Date(b.ts) - target);
               if (diff < bestDiff) { bestDiff = diff; best = b; }
@@ -4260,7 +4322,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.10.0 - by mdisailor engine',
+engine: 'nautilus-engine v2.10.1 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4384,4 +4446,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
   return results;
 }
 
-// Fine codice - NAUTILUS ENGINE v2.10.0
+// Fine codice - NAUTILUS ENGINE v2.10.1

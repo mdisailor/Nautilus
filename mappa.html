@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.3.7 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS MAPPA v1.3.8 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.3.7</title>
+<title>NAUTILUS Mappa Vento v1.3.8</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -31,7 +31,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 }
 #nav-logo{font-family:'Bebas Neue',cursive;font-size:1.4rem;color:var(--white);letter-spacing:0.12em}
 #nav-logo span{color:var(--accent)}
-#nav-ver{font-size:0.5rem;color:var(--muted);margin-left:8px;letter-spacing:0.05em}
+#nav-ver{font-size:0.5rem;color:#ffffff;margin-left:8px;letter-spacing:0.05em}
 #nav-back{font-size:0.6rem;color:var(--muted);text-decoration:none;letter-spacing:0.1em;border:1px solid var(--border);border-radius:6px;padding:4px 10px}
 #nav-back:hover{color:var(--accent);border-color:var(--accent)}
 
@@ -71,14 +71,15 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 #flow-mode-btns.visible{ display:flex; }
 .btn-fmode{
   width:46px;height:42px;border-radius:10px;
-  background:rgba(6,24,46,0.97);border:1px solid var(--border);
-  color:var(--muted);cursor:pointer;
+  background:rgba(6,24,46,0.97);border:1px solid rgba(255,255,255,0.4);
+  color:#ffffff;cursor:pointer;
   display:flex;align-items:center;justify-content:center;
   backdrop-filter:blur(8px);transition:all 0.2s;
-  font-size:0.62rem;font-family:'DM Mono',monospace;letter-spacing:0.04em;
+  font-size:0.65rem;font-family:'DM Mono',monospace;letter-spacing:0.06em;
+  font-weight:600;
 }
-.btn-fmode.active{color:var(--accent);border-color:var(--accent);background:rgba(0,240,255,0.08)}
-.btn-fmode:hover{color:var(--accent);border-color:var(--accent)}
+.btn-fmode.active{color:#ff3333;border-color:#ff3333;background:rgba(255,51,51,0.12)}
+.btn-fmode:hover{color:#ffffff;border-color:#ffffff;background:rgba(255,255,255,0.1)}
 
 /* HUD */
 #hud{
@@ -184,7 +185,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.3.7</span>
+    <span id="nav-ver">mappa v1.3.8</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
   <a id="nav-back" href="/">APP</a>
@@ -246,11 +247,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.3.7 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.3.8 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.3.7
+// NAUTILUS MAPPA v1.3.8
 
 var ENGINE_URL = '/api/engine';
 
@@ -1121,7 +1122,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.3.7
+// Fine codice - NAUTILUS MAPPA v1.3.8
 </script>
 </body>
 </html>

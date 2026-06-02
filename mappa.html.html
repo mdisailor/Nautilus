@@ -1,0 +1,1064 @@
+<!-- NAUTILUS MAPPA v1.3.1 - mdisailor - 2026-06-02 -->
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#020e1c">
+<title>NAUTILUS Mappa Vento v1.3.1</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#020e1c; --card:#06182e; --border:#1a3a5c;
+  --accent:#0af0ff; --gold:#ffaa00; --warn:#ff7a00;
+  --danger:#ff2d2d; --safe:#00e676; --muted:#4a7a9b;
+  --text:#c8dff0; --white:#e8f4ff;
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg)}
+body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:var(--text)}
+
+/* NAV */
+#nav{
+  position:relative;z-index:1000;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 16px;height:48px;
+  background:rgba(2,14,28,0.97);border-bottom:1px solid var(--border);
+}
+#nav-logo{font-family:'Bebas Neue',cursive;font-size:1.4rem;color:var(--white);letter-spacing:0.12em}
+#nav-logo span{color:var(--accent)}
+#nav-ver{font-size:0.5rem;color:var(--muted);margin-left:8px;letter-spacing:0.05em}
+#nav-back{font-size:0.6rem;color:var(--muted);text-decoration:none;letter-spacing:0.1em;border:1px solid var(--border);border-radius:6px;padding:4px 10px}
+#nav-back:hover{color:var(--accent);border-color:var(--accent)}
+
+/* MAP */
+#map-wrap{position:relative;flex:1;overflow:hidden}
+#map{width:100%;height:100%}
+.leaflet-container{background:#020e1c !important}
+.leaflet-container{background:#a8c8e8 !important}
+.leaflet-control-zoom a{
+  background:var(--card) !important;color:var(--accent) !important;
+  border-color:var(--border) !important;
+}
+
+/* CANVAS */
+#wind-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:600}
+#particle-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:580}
+
+/* BOTTONE FLOW */
+#btn-flow{
+  position:absolute;z-index:600;width:46px;height:46px;border-radius:12px;
+  background:rgba(6,24,46,0.97);border:1px solid var(--border);
+  color:var(--muted);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  backdrop-filter:blur(8px);transition:all 0.2s;
+  bottom:140px;left:14px;font-size:0.62rem;font-family:'DM Mono',monospace;
+  letter-spacing:0.04em;flex-direction:column;gap:1px;
+}
+#btn-flow.active{color:var(--accent);border-color:var(--accent);box-shadow:0 0 14px rgba(0,240,255,0.3)}
+#btn-flow:hover{color:var(--accent);border-color:var(--accent)}
+
+/* HUD */
+#hud{
+  position:absolute;top:10px;left:50%;transform:translateX(-50%);
+  z-index:600;display:flex;gap:8px;align-items:center;
+}
+.hud-badge{
+  font-family:'DM Mono',monospace;font-size:0.82rem;letter-spacing:0.06em;
+  padding:7px 16px;border-radius:22px;
+  background:rgba(6,24,46,0.97);border:1px solid var(--border);
+  backdrop-filter:blur(10px);color:var(--text);
+  display:flex;align-items:center;gap:8px;
+}
+.hud-badge .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.dot-ok  {background:var(--safe);  box-shadow:0 0 7px var(--safe)}
+.dot-load{background:var(--gold);  box-shadow:0 0 7px var(--gold);animation:pulse 1s infinite}
+.dot-err {background:var(--danger);box-shadow:0 0 7px var(--danger)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+
+/* LEGEND */
+#legend{
+  position:absolute;bottom:36px;right:14px;z-index:600;
+  background:rgba(6,24,46,0.97);border:1px solid var(--accent);
+  border-radius:14px;backdrop-filter:blur(10px);
+  font-family:'DM Mono',monospace;font-size:0.82rem;color:var(--text);
+  box-shadow:0 4px 24px rgba(0,240,255,0.15);
+  max-height:82vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+}
+#legend-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:11px 16px;cursor:pointer;user-select:none;
+  border-bottom:1px solid transparent;transition:border-color 0.2s;
+}
+#legend-header.open{border-bottom-color:var(--border)}
+#legend-title{color:var(--accent);font-size:0.85rem;letter-spacing:0.1em;text-transform:uppercase;font-weight:bold}
+#legend-toggle{color:var(--muted);font-size:0.65rem;margin-left:12px;display:inline-block;transition:transform 0.2s}
+#legend-toggle.open{transform:rotate(180deg)}
+#legend-body{display:none;padding:12px 16px 14px}
+#legend-body.open{display:block}
+.leg-row{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+.leg-color{width:32px;height:5px;border-radius:3px;flex-shrink:0}
+.leg-note{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:0.62rem;color:var(--muted);line-height:1.7}
+
+/* BUTTONS */
+#btn-gps,#btn-refresh{
+  position:absolute;z-index:600;width:46px;height:46px;border-radius:12px;
+  background:rgba(6,24,46,0.97);border:1px solid var(--border);
+  color:var(--muted);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  backdrop-filter:blur(8px);transition:all 0.2s;
+}
+#btn-gps{bottom:36px;left:14px;font-size:1.2rem}
+#btn-refresh{bottom:88px;left:14px;font-size:1rem;font-family:'DM Mono',monospace}
+#btn-gps:hover,#btn-gps.active{color:var(--accent);border-color:var(--accent);box-shadow:0 0 14px rgba(0,240,255,0.3)}
+#btn-refresh:hover{color:var(--gold);border-color:var(--gold)}
+
+/* FOOTER */
+#footer{
+  position:relative;z-index:1000;
+  display:flex;align-items:center;justify-content:center;
+  height:24px;background:rgba(2,14,28,0.97);border-top:1px solid var(--border);
+  font-family:'DM Mono',monospace;font-size:0.52rem;color:var(--muted);
+  letter-spacing:0.08em;
+}
+
+/* POPUP */
+.leaflet-popup-content-wrapper{
+  background:var(--card) !important;border:1px solid var(--border) !important;
+  border-radius:10px !important;box-shadow:0 4px 20px rgba(0,240,255,0.15) !important;
+}
+.leaflet-popup-tip{background:var(--card) !important}
+.grid-popup .leaflet-popup-content-wrapper{border-color:var(--muted) !important}
+.leaflet-popup-content{margin:12px 14px !important}
+.popup-name{font-family:'Bebas Neue',cursive;font-size:1.3rem;color:var(--white);letter-spacing:0.1em}
+.popup-wind{font-family:'DM Mono',monospace;font-size:0.95rem;color:var(--accent);margin-top:6px}
+.popup-ts{font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--muted);margin-top:4px}
+.popup-srcs{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
+.psrc{font-size:0.62rem;padding:3px 9px;border-radius:4px;border:1px solid}
+.psrc-om  {color:#8ab8d0;border-color:#8ab8d0}
+.psrc-icon{color:#90caf9;border-color:#90caf9}
+.psrc-ifs {color:#ce93d8;border-color:#ce93d8}
+.psrc-owm {color:var(--safe);border-color:var(--safe)}
+
+/* GPS marker */
+.gps-dot{
+  width:16px;height:16px;border-radius:50%;
+  background:var(--accent);border:3px solid var(--white);
+  box-shadow:0 0 0 5px rgba(0,240,255,0.25),0 0 20px rgba(0,240,255,0.5);
+  animation:gpspulse 2s ease-out infinite;
+}
+@keyframes gpspulse{
+  0%  {box-shadow:0 0 0 5px rgba(0,240,255,0.25),0 0 20px rgba(0,240,255,0.5)}
+  50% {box-shadow:0 0 0 10px rgba(0,240,255,0.08),0 0 30px rgba(0,240,255,0.3)}
+  100%{box-shadow:0 0 0 5px rgba(0,240,255,0.25),0 0 20px rgba(0,240,255,0.5)}
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&display=swap');
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<nav id="nav">
+  <div style="display:flex;align-items:baseline;gap:10px">
+    <div id="nav-logo">NAUTI<span>LUS</span></div>
+    <span id="nav-ver">mappa v1.3.1</span>
+    <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
+  </div>
+  <a id="nav-back" href="/">APP</a>
+</nav>
+
+<div id="map-wrap">
+  <div id="map"></div>
+  <canvas id="wind-canvas"></canvas>
+  <canvas id="particle-canvas"></canvas>
+
+  <div id="hud">
+    <div class="hud-badge">
+      <div class="dot dot-load" id="hud-dot"></div>
+      <span id="hud-text">Caricamento...</span>
+    </div>
+    <div class="hud-badge" id="hud-time" style="display:none">
+      <span id="hud-ts">--:--</span>
+    </div>
+  </div>
+
+  <button id="btn-gps" title="Posizione GPS">GPS</button>
+  <button id="btn-refresh" title="Aggiorna">AGG</button>
+  <button id="btn-flow" title="Animazione flusso vento">&#x1F300;<br>FLOW</button>
+
+  <div id="legend">
+    <div id="legend-header" onclick="toggleLegend()">
+      <span id="legend-title">Scala Beaufort</span>
+      <span id="legend-toggle">&#9660;</span>
+    </div>
+    <div id="legend-body">
+    <div class="leg-row"><div class="leg-color" style="background:#cc0000"></div><span>F8+ &gt;34 kn</span></div>
+    <div class="leg-row"><div class="leg-color" style="background:#ff3300"></div><span>F7  28-34 kn</span></div>
+    <div class="leg-row"><div class="leg-color" style="background:#ff8800"></div><span>F6  22-28 kn</span></div>
+    <div class="leg-row"><div class="leg-color" style="background:#ffdd00"></div><span>F5  17-22 kn</span></div>
+    <div class="leg-row"><div class="leg-color" style="background:#00cc44"></div><span>F4  11-17 kn</span></div>
+    <div class="leg-row"><div class="leg-color" style="background:#00ee88"></div><span>F3   7-11 kn</span></div>
+    <div class="leg-row"><div class="leg-color" style="background:#44ddcc"></div><span>F2   4-7 kn</span></div>
+    <div class="leg-row"><div class="leg-color" style="background:#88ccff"></div><span>F1   1-4 kn</span></div>
+    <div class="leg-row"><div class="leg-color" style="background:#aaddff"></div><span>F0  &lt; 1 kn</span></div>
+    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+      <div class="leg-row">
+        <svg width="16" height="16"><circle cx="8" cy="8" r="7" fill="#ffaa00" fill-opacity="0.25" stroke="#e8f4ff" stroke-width="2"/><circle cx="8" cy="8" r="3" fill="#ffaa00"/></svg>
+        <span>Punti zona*</span>
+      </div>
+      <div class="leg-row">
+        <svg width="16" height="16"><circle cx="8" cy="8" r="5" fill="#ffaa00" fill-opacity="0.15" stroke="#ffaa00" stroke-width="1.5"/></svg>
+        <span>Griglia OM</span>
+      </div>
+    </div>
+    <div class="leg-note">
+      Colore = scala Beaufort<br>Griglia: shaft=vento testa=raffica<br>Punti zona: sinistra=vento<br>destra=raffica<br>Tap per dettagli e orario<br>Aggiorn. 10 min
+    </div>
+    </div>
+  </div>
+</div>
+
+<div id="footer">NAUTILUS MAPPA v1.3.1 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+
+<script>
+'use strict';
+// NAUTILUS MAPPA v1.3.1
+
+var ENGINE_URL = '/api/engine';
+
+var ZONES = [
+  { key:'livorno',          name:'Livorno',            lat:43.5497, lon:10.2950 },
+  { key:'viareggio',        name:'Viareggio',          lat:43.8621, lon:10.2329 },
+  { key:'la_spezia',        name:'La Spezia',          lat:44.0718, lon:9.8666  },
+  { key:'capraia',          name:'Capraia',            lat:43.0527, lon:9.8410  },
+  { key:'elba_nord',        name:'Elba Nord',          lat:42.8138, lon:10.3457 },
+  { key:'elba_sud',         name:'Elba Sud',           lat:42.7604, lon:10.4024 },
+  { key:'giglio',           name:'Giglio',             lat:42.3614, lon:10.9206 },
+  { key:'punta_ala',        name:'Punta Ala',          lat:42.8088, lon:10.7357 },
+  { key:'canale_piombino',  name:'Canale Piombino',    lat:42.9296, lon:10.5073 },
+];
+
+var BUOYS = [
+  { key:'gorgona',     name:'Boa Gorgona',              lat:43.4300, lon:9.8900,  type:'boa',      note:'CFR Toscana - onda + vento - accesso in richiesta' },
+  { key:'giannutri',   name:'Boa Giannutri',            lat:42.2500, lon:11.1200, type:'boa',      note:'CFR Toscana - onda + vento - accesso in richiesta' },
+  { key:'gombo',       name:'Correntometro Gombo',      lat:43.6900, lon:10.2800, type:'corr',     note:'CFR Toscana - foce Arno - accesso in richiesta' },
+  { key:'castiglione', name:'Correntometro Castiglione',lat:42.7700, lon:10.8800, type:'corr',     note:'CFR Toscana - accesso in richiesta' },
+  { key:'lv_porto',    name:'Livornometeo Porto',       lat:43.5497, lon:10.2950, type:'stazione', note:'Spostato su shipinfo.it a pagamento (maggio 2026). Accesso non disponibile.' },
+  { key:'capraia_st',  name:'Capraiameteo',             lat:43.0527, lon:9.8410,  type:'stazione', note:'Spostato su shipinfo.it a pagamento (maggio 2026). Accesso non disponibile.' },
+];
+
+var MNW_LIVE = [
+  { key:'livorno',          name:'Quercianella',   lat:43.465,  lon:10.347, sid:'livorno' },
+  { key:'livorno_cfr',      name:'Livorno Porto CFR', lat:43.546, lon:10.300, sid:'livorno_cfr' },
+  { key:'canale_piombino',  name:'Piombino',       lat:42.920,  lon:10.530, sid:'canale_piombino' },
+  { key:'viareggio_cfr',    name:'Viareggio CFR',  lat:43.875,  lon:10.236, sid:'viareggio_cfr' },
+  { key:'capraia_mnw',      name:'Capraia Monte',  lat:43.058,  lon:9.822,  sid:'capraia_w' },
+  { key:'populonia_cfr',    name:'Populonia CFR',   lat:42.990,  lon:10.618, sid:'populonia_cfr' },
+  { key:'portoferraio_mnw', name:'Portoferraio',    lat:42.813,  lon:10.368, sid:'portoferraio' },
+  { key:'alberese_mnw',     name:'Alberese',        lat:42.638,  lon:11.078, sid:'alberese' },
+  { key:'luri_mnw',         name:'Luri (Corsica)',  lat:42.818,  lon:9.441,  sid:'luri' },
+  // CFR Toscana
+  { key:'gorgona_cfr',      name:'Gorgona',         lat:43.433,  lon:9.883,  sid:'gorgona_cfr' },
+  { key:'capraia_cfr',      name:'Capraia Isola',   lat:43.050,  lon:9.838,  sid:'capraia_cfr' },
+  { key:'giglio_porto',     name:'Giglio Porto',    lat:42.363,  lon:10.910, sid:'giglio_porto' },
+  { key:'giglio_castello',  name:'Giglio Castello', lat:42.364,  lon:10.920, sid:'giglio_castello' },
+  { key:'montecristo',      name:'Montecristo',     lat:42.335,  lon:10.311, sid:'montecristo' },
+  { key:'portoferraio_cfr', name:'Portof. CFR',     lat:42.816,  lon:10.328, sid:'portoferraio_cfr' },
+  { key:'orbetello',        name:'Orbetello',       lat:42.441,  lon:11.216, sid:'orbetello' },
+  { key:'svincenzo_porto',  name:'S.Vincenzo P.',   lat:43.098,  lon:10.537, sid:'svincenzo_porto' },
+  { key:'casotto_pesc',     name:'Casotto P. (Marina GR)',lat:42.740,  lon:11.040, sid:'casotto_pescatori' },
+  { key:'venturina',        name:'Venturina',       lat:42.985,  lon:10.620, sid:'venturina' },
+  { key:'forte_marmi',      name:'Forte dei Marmi', lat:43.963,  lon:10.174, sid:'forte_dei_marmi' },
+  { key:'lido_camaiore',    name:'Lido Camaiore',   lat:43.898,  lon:10.228, sid:'lido_camaiore' },
+  { key:'bocca_arno_cfr',   name:'Bocca Arno CFR',  lat:43.680,  lon:10.270, sid:'bocca_arno_cfr' },
+  { key:'follonica',        name:'Follonica',        lat:42.919,  lon:10.765, sid:'follonica' },
+  { key:'capalbio',         name:'Capalbio',         lat:42.459,  lon:11.269, sid:'capalbio' },
+];
+
+// Griglia 0.25 gradi - Liguria Toscana Corsica Nord
+var GRID = [];
+for (var _la = 41.6; _la <= 44.6; _la = Math.round((_la+0.25)*100)/100) {
+  for (var _lo = 7.4; _lo <= 12.5; _lo = Math.round((_lo+0.25)*100)/100) {
+    GRID.push({ lat:_la, lon:_lo });
+  }
+}
+
+var state = { zoneData:{}, gridData:[], stationData:[], gpsMarker:null, gpsCircle:null, lastUpdate:null };
+
+// MAPPA
+var map = L.map('map', {
+  center:[43.5, 10.2], zoom:8,
+  zoomControl:true, attributionControl:false,
+});
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
+  attribution:'CartoDB',maxZoom:19,subdomains:'abcd'
+}).addTo(map);
+L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',{opacity:0.7,maxZoom:18}).addTo(map);
+
+// CANVAS FRECCE
+var canvas = document.getElementById('wind-canvas');
+var ctx = canvas.getContext('2d');
+canvas.style.opacity = '1';
+
+// CANVAS PARTICELLE
+var pCanvas = document.getElementById('particle-canvas');
+var pCtx = pCanvas.getContext('2d');
+var particleState = {
+  active: false,
+  particles: [],
+  animFrame: null,
+  field: null,       // griglia vettoriale interpolata IDW
+  fieldW: 0,
+  fieldH: 0,
+  fieldRes: 6        // pixel per cella del campo (6 = buona densita')
+};
+
+function resizeCanvas(){
+  var w = document.getElementById('map-wrap');
+  canvas.width = w.offsetWidth;
+  canvas.height = w.offsetHeight;
+  canvas.style.zIndex = '600';
+  canvas.style.opacity = '1';
+  pCanvas.width = w.offsetWidth;
+  pCanvas.height = w.offsetHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', function(){ resizeCanvas(); drawWind(); if(particleState.active) rebuildAndAnimate(); });
+map.on('moveend zoomend', function(){ drawWind(); if(particleState.active) rebuildAndAnimate(); });
+
+function windColor(s){
+  // Scala Beaufort
+  if (s >= 34) return '#cc0000'; // F8+  rosso scuro
+  if (s >= 28) return '#ff3300'; // F7   rosso
+  if (s >= 22) return '#ff8800'; // F6   arancio
+  if (s >= 17) return '#ffdd00'; // F5   giallo
+  if (s >= 11) return '#00cc44'; // F4   verde scuro
+  if (s >= 7)  return '#00ee88'; // F3   verde medio
+  if (s >= 4)  return '#44ddcc'; // F2   azzurro-verde
+  if (s >= 1)  return '#88ccff'; // F1   azzurro chiaro
+  return '#aaddff';              // F0   quasi bianco
+}
+
+// Freccia primitiva: contorno nero netto + colore sopra (funziona su qualsiasi sfondo)
+function drawSingleArrow(ox, oy, rad, len, lw, colShaft, colHead, alpha){
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(ox, oy);
+  ctx.rotate(rad);
+  ctx.shadowBlur = 0;
+  var hw = len * 0.40;
+
+  // PASS 1: contorno nero (piu' spesso)
+  var lwOut = lw + 2.5;
+  ctx.beginPath();
+  ctx.moveTo(0, len * 0.45);
+  ctx.lineTo(0, -len * 0.25);
+  ctx.strokeStyle = 'rgba(90,90,90,0.5)';
+  ctx.lineWidth = lwOut;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(0, -len * 0.50);
+  ctx.lineTo(-hw * 0.52, -len * 0.50 + hw * 0.88);
+  ctx.lineTo( hw * 0.52, -len * 0.50 + hw * 0.88);
+  ctx.closePath();
+  ctx.strokeStyle = 'rgba(90,90,90,0.5)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(90,90,90,0.5)';
+  ctx.fill();
+
+  // PASS 2: colore vero sopra
+  ctx.beginPath();
+  ctx.moveTo(0, len * 0.45);
+  ctx.lineTo(0, -len * 0.25);
+  ctx.strokeStyle = colShaft;
+  ctx.lineWidth = lw;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(0, -len * 0.50);
+  ctx.lineTo(-hw * 0.52, -len * 0.50 + hw * 0.88);
+  ctx.lineTo( hw * 0.52, -len * 0.50 + hw * 0.88);
+  ctx.closePath();
+  ctx.fillStyle = colHead;
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawArrow(cx, cy, dir, spd, gust, alpha, isZone){
+  if (spd === null || spd === undefined || isNaN(spd)) return;
+  var z = map.getZoom();
+  var zScale = Math.max(0.4, Math.min(1.4, (z - 6) * 0.3));
+  var base = isZone ? 28 * zScale : 16 * zScale;
+  var extra = Math.min(spd * 1.6, 18) * zScale;
+  var len = base + extra;
+  var lw = isZone ? Math.max(2, 4 * zScale) : Math.max(1.5, 2.8 * zScale);
+  var rad = (dir - 180) * Math.PI / 180;
+  var colSpd  = windColor(spd);
+  var colGust = (gust != null && !isNaN(gust)) ? windColor(gust) : colSpd;
+
+  if (isZone) {
+    // Due frecce parallele: offset laterale rispetto alla direzione
+    var off = 5 * zScale;
+    var perpX = Math.cos(rad) * off;
+    var perpY = Math.sin(rad) * off;
+    // Sinistra = vento medio
+    drawSingleArrow(cx - perpX, cy - perpY, rad, len, lw, colSpd, colSpd, alpha);
+    // Destra = raffica
+    drawSingleArrow(cx + perpX, cy + perpY, rad, len, lw, colGust, colGust, alpha);
+  } else {
+    // Griglia: freccia unica bicolore - shaft=vento, testa=raffica
+    drawSingleArrow(cx, cy, rad, len, lw, colSpd, colGust, alpha);
+  }
+}
+
+function drawWind(){
+  if (canvas.width === 0 || canvas.height === 0) { resizeCanvas(); }
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  var bounds = map.getBounds();
+  // Distanza minima in pixel tra frecce - si riduce con lo zoom per piu' densita'
+  var zoom = map.getZoom();
+  var minPx = zoom >= 10 ? 18 : zoom >= 9 ? 22 : 30;
+  var drawn = [];
+  state.gridData.forEach(function(pt){
+    if (!bounds.contains([pt.lat, pt.lon])) return;
+    var ll = map.latLngToContainerPoint([pt.lat, pt.lon]);
+    for (var di = 0; di < drawn.length; di++){
+      var dx = ll.x - drawn[di].x, dy = ll.y - drawn[di].y;
+      if (Math.sqrt(dx*dx+dy*dy) < minPx) return;
+    }
+    drawn.push(ll);
+    drawArrow(ll.x, ll.y, pt.dir, pt.speed, pt.gust, 0.65, false);
+  });
+  ZONES.forEach(function(z){
+    var d = state.zoneData[z.key];
+    if (!d) return;
+    var ll = map.latLngToContainerPoint([z.lat, z.lon]);
+    // Freccia: usa OM come fonte primaria (piu preciso per direzione)
+    var spd  = d.wind_speed != null ? d.wind_speed : (d.wind_speed_obs || 0);
+    var dir  = d.wind_dir   != null ? d.wind_dir   : (d.wind_dir_obs  || 0);
+    var gust = d.wind_gust  != null ? d.wind_gust  : (d.wind_gust_obs || null);
+    drawArrow(ll.x, ll.y, dir, spd, gust, 1.0, true);
+  });
+}
+
+// ZONE MARKERS
+var zoneMarkers = {};
+
+function degToDir(deg){
+  return ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'][Math.round(deg/22.5)%16];
+}
+
+function zoneIcon(spd, gust){
+  var col = windColor(spd || 0);
+  var gustCol = gust ? windColor(gust) : col;
+  // Centro: colore vento medio. Bordo: colore raffica (se disponibile)
+  return L.divIcon({
+    html:'<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26">' +
+      '<circle cx="13" cy="13" r="11" fill="' + col + '" fill-opacity="0.2" stroke="' + gustCol + '" stroke-width="3"/>' +
+      '<circle cx="13" cy="13" r="5" fill="' + col + '"/></svg>',
+    className:'', iconSize:[26,26], iconAnchor:[13,13], popupAnchor:[0,-14]
+  });
+}
+
+ZONES.forEach(function(z){
+  var mk = L.marker([z.lat, z.lon], { icon:zoneIcon(0, null), zIndexOffset:100 }).addTo(map);
+  mk.on('click', function(){
+    mk.unbindPopup();
+    var d = state.zoneData[z.key];
+    if (!d){ mk.bindPopup('<div class="popup-name">' + z.name + '</div><div class="popup-ts">Dati non disponibili</div>').openPopup(); return; }
+    // Popup: OM fonte primaria (coerente con freccia), OWM mostrato come confronto
+    var spd    = d.wind_speed != null ? d.wind_speed.toFixed(1) : '--';
+    var dir    = d.wind_dir   != null ? degToDir(d.wind_dir)    : '--';
+    var spdSrc = 'OM';
+    var sObs   = (d.wind_speed_obs != null && d.wind_speed_obs !== undefined) ? d.wind_speed_obs : null;
+    var dObsN  = (d.wind_dir_obs   != null && d.wind_dir_obs   !== undefined) ? d.wind_dir_obs   : null;
+    var gust   = d.wind_gust != null ? d.wind_gust.toFixed(0)+'kn' : '--';
+    var dObs   = dObsN != null ? degToDir(dObsN) : null;
+    var sIfs  = (d.ifs_wind_speed != null && d.ifs_wind_speed !== undefined) ? d.ifs_wind_speed.toFixed(1) : null;
+    var dIfs  = (d.ifs_wind_dir   != null && d.ifs_wind_dir   !== undefined) ? degToDir(d.ifs_wind_dir)   : null;
+    var sIcon = (d.icon_wind_speed!= null && d.icon_wind_speed!== undefined) ? d.icon_wind_speed.toFixed(1): null;
+    var dIcon = (d.icon_wind_dir  != null && d.icon_wind_dir  !== undefined) ? degToDir(d.icon_wind_dir)  : null;
+    var snapTs = d.ts ? new Date(d.ts).toLocaleTimeString('it-IT',{timeZone:'Europe/Rome',hour:'2-digit',minute:'2-digit'}) : '--';
+    var gustOm  = (d.wind_gust     != null && d.wind_gust     !== undefined) ? parseFloat(d.wind_gust).toFixed(0)     : null;
+    var gustObs = (d.wind_gust_obs != null && d.wind_gust_obs !== undefined) ? parseFloat(d.wind_gust_obs).toFixed(0) : null;
+    var gustLine = '';
+    if (gustOm)  gustLine += '<span style="color:#8ab8d0">OM ' + gustOm + 'kn</span>';
+    if (gustObs) gustLine += (gustOm ? '&nbsp;&nbsp;' : '') + '<span style="color:#00e676">OWM ' + gustObs + 'kn</span>';
+    if (!gustLine) gustLine = '<span style="color:var(--muted)">--</span>';
+    // Pressione e tendenza
+    var pres = d.pressure ? d.pressure.toFixed(1) + ' hPa' : '--';
+    var trend3h = d.pressure_trend_3h != null ? d.pressure_trend_3h.toFixed(1) : null;
+    var trendStr = trend3h ? (trend3h > 0 ? '+' : '') + trend3h + '/3h' : '';
+    var trendColor = trend3h && trend3h <= -2 ? '#ff6b6b' : trend3h && trend3h >= 1 ? '#69db7c' : '#8ab8d0';
+    // Badge rischio semplificato
+    var windSpd = d.wind_speed || 0;
+    var windGust = d.wind_gust || 0;
+    var wave = d.wave_height || 0;
+    var gustRatio = windSpd > 3 ? windGust / windSpd : 0;
+    var riskLevel = 'BASSO';
+    var riskColor = '#1a6a2a';
+    if (windSpd >= 28 || windGust >= 35 || wave >= 2.5 || (trend3h && trend3h <= -5)) {
+      riskLevel = 'ALTO'; riskColor = '#7a1a00';
+    } else if (windSpd >= 10 || windGust >= 25 || wave >= 0.5 || (trend3h && trend3h <= -2) || gustRatio >= 2) {
+      riskLevel = 'MEDIO'; riskColor = '#856404';
+    }
+    // 850hPa se disponibile
+    var wind850 = '';
+    if (d.wind_speed_850 != null && d.wind_dir_850 != null) {
+      var dirs16m = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+      var dir850str = dirs16m[Math.round(d.wind_dir_850/22.5)%16];
+      wind850 = '<div style="font-size:0.65rem;color:#8ab8d0;margin-top:2px">850hPa: ' + d.wind_speed_850.toFixed(0) + 'kn ' + dir850str + '</div>';
+    }
+    var html =
+      '<div class="popup-name">' + z.name + '</div>' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">' +
+        '<div class="popup-wind">' + spd + ' kn ' + dir + '</div>' +
+        '<div style="background:' + riskColor + ';color:#fff;padding:2px 8px;border-radius:4px;font-size:0.6rem;font-weight:bold">' + riskLevel + '</div>' +
+      '</div>' +
+      '<div class="popup-wind" style="color:#ffaa00">Raffica: ' + gustLine + '</div>' +
+      '<div style="font-size:0.65rem;color:' + trendColor + ';margin-top:2px">Pressione: ' + pres + (trendStr ? ' <span style="color:' + trendColor + '">' + trendStr + '</span>' : '') + '</div>' +
+      wind850 +
+      '<div class="popup-ts">Snapshot ore ' + snapTs + '</div>' +
+      '<div class="popup-srcs">' +
+      '<span class="psrc psrc-om">OM ' + spd + 'kn ' + dir + '</span>' +
+      (sIcon ? '<span class="psrc psrc-icon">ICON ' + sIcon + 'kn ' + dIcon + '</span>' : '') +
+      (sIfs  ? '<span class="psrc psrc-ifs">IFS '  + sIfs  + 'kn ' + dIfs  + '</span>' : '') +
+      (sObs  ? '<span class="psrc psrc-owm">OWM '  + sObs  + 'kn ' + dObs  + '</span>' : '') +
+      '</div>';
+    var zPop = L.popup().setContent(html);
+    mk.bindPopup(zPop).openPopup();
+  });
+  zoneMarkers[z.key] = mk;
+});
+
+function updateZoneMarkers(){
+  ZONES.forEach(function(z){
+    var d = state.zoneData[z.key];
+    if (!d) return;
+    var spd  = d.wind_speed != null ? d.wind_speed : (d.wind_speed_obs || 0);
+    var gust = d.wind_gust  != null ? d.wind_gust  : (d.wind_gust_obs  || null);
+    zoneMarkers[z.key].setIcon(zoneIcon(spd, gust));
+  });
+}
+
+// LEGENDA TOGGLE
+function toggleLegend(){
+  var body = document.getElementById('legend-body');
+  var toggle = document.getElementById('legend-toggle');
+  var header = document.getElementById('legend-header');
+  var isOpen = body.classList.contains('open');
+  body.classList.toggle('open', !isOpen);
+  toggle.classList.toggle('open', !isOpen);
+  header.classList.toggle('open', !isOpen);
+}
+
+// CLICK GRIGLIA - trova punto piu' vicino e mostra popup
+var gridPopup = L.popup({ className:'grid-popup', autoPanPadding:[10,60] });
+
+map.on('click', function(e){
+  // Controlla se il click e' vicino a un punto zona (in quel caso il marker gestisce)
+  var clickLat = e.latlng.lat, clickLon = e.latlng.lng;
+  var zoneThresh = 0.08; // ~8km
+  for (var zi = 0; zi < ZONES.length; zi++){
+    var dz = Math.abs(ZONES[zi].lat - clickLat) + Math.abs(ZONES[zi].lon - clickLon);
+    if (dz < zoneThresh) return; // vicino a zona, ignora
+  }
+  if (state.gridData.length === 0) return;
+
+  // Trova punto griglia piu' vicino
+  var best = null, bestDist = 999;
+  state.gridData.forEach(function(pt){
+    var d = Math.sqrt(Math.pow(pt.lat - clickLat,2) + Math.pow(pt.lon - clickLon,2));
+    if (d < bestDist){ bestDist = d; best = pt; }
+  });
+  if (!best || bestDist > 0.2) return; // troppo lontano
+
+  var dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+  var dirName = best.dir != null ? dirs[Math.round(best.dir/22.5)%16] : '--';
+  var spd = best.speed != null ? best.speed.toFixed(1) : '--';
+  var gustGrid = (best.gust != null && !isNaN(best.gust)) ? best.gust.toFixed(0) + ' kn' : '--';
+  var html =
+    '<div class="popup-name" style="font-size:0.85rem">Griglia OM</div>' +
+    '<div class="popup-wind">' + spd + ' kn ' + dirName + '</div>' +
+    '<div class="popup-wind" style="color:#ffaa00;font-size:0.85rem">Raffica: ' + gustGrid + '</div>' +
+    '<div class="popup-ts">Modello OM ore ' + (best.time || '--') + '</div>' +
+    '<div class="popup-ts" style="margin-top:3px;color:var(--muted)">Dato modello ~15-30 min fa</div>';
+  gridPopup.setLatLng(e.latlng).setContent(html).openOn(map);
+});
+
+// HUD
+function setHud(status, text){
+  document.getElementById('hud-dot').className = 'dot dot-' + status;
+  document.getElementById('hud-text').textContent = text;
+}
+
+// FETCH ZONE DATA
+async function fetchZoneData(){
+  var promises = ZONES.map(function(z){
+    return fetch(ENGINE_URL + '?action=history&zone=' + z.key + '&hours=1')
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if (data.snapshots && data.snapshots.length > 0){
+          state.zoneData[z.key] = data.snapshots[data.snapshots.length - 1];
+        }
+      }).catch(function(){});
+  });
+  await Promise.all(promises);
+}
+
+// FETCH GRID
+async function fetchGridData(){
+  // Proxy attraverso engine Vercel per evitare 429 da Open-Meteo
+  // Engine fa le chiamate con il suo IP, non quello del browser
+  var results = [];
+  var batchSize = 100; // Engine puo' gestire batch grandi
+  var promises = [];
+  for (var i = 0; i < GRID.length; i += batchSize){
+    var batch = GRID.slice(i, i + batchSize);
+    var lats = batch.map(function(p){ return p.lat; }).join(',');
+    var lons = batch.map(function(p){ return p.lon; }).join(',');
+    var url = ENGINE_URL + '?action=grid&lats=' + lats + '&lons=' + lons + '&_t=' + Date.now();
+    promises.push(
+      fetch(url, {cache: 'no-store'})
+        .then(function(r){ return r.json(); })
+        .then(function(d){ return d.points || []; })
+        .catch(function(e){ console.warn('Grid batch error:', e.message); return []; })
+    );
+  }
+  var batches = await Promise.all(promises);
+  batches.forEach(function(b){ results = results.concat(b); });
+  state.gridData = results;
+}
+
+// FETCH STAZIONI LIVE (per IDW particelle)
+async function fetchStationData(){
+  // Carica ultimo campione per ogni stazione MNW - stessa API del popup
+  var promises = MNW_LIVE.map(function(st){
+    return fetch(ENGINE_URL + '?action=bias_history&station=' + st.sid + '&limit=1', {cache:'no-store'})
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        var s = data.samples && data.samples[0];
+        if (!s || !s.station || s.station.wind_kt == null) return null;
+        if (s.station.direction == null) return null;
+        return {
+          lat: st.lat,
+          lon: st.lon,
+          key: st.key,
+          speed: Number(s.station.wind_kt),
+          dir:   Number(s.station.direction),
+          ts:    s.ts
+        };
+      })
+      .catch(function(){ return null; });
+  });
+  var results = await Promise.all(promises);
+  state.stationData = results.filter(function(s){ return s !== null; });
+}
+
+// IDW VECTOR FIELD
+// Costruisce una griglia di vettori vento su tutto il canvas usando:
+// - griglia OM come base (peso 1.0)
+// - zone Nautilus (peso 2.0)
+// - stazioni reali CFR/MNW (peso 4.0) - comandano in prossimita'
+function buildVectorField(){
+  var W = pCanvas.width, H = pCanvas.height;
+  var res = particleState.fieldRes;
+  var cols = Math.ceil(W / res);
+  var rows = Math.ceil(H / res);
+  particleState.fieldW = cols;
+  particleState.fieldH = rows;
+
+  // Raccoglie tutti i punti con peso
+  var sources = [];
+
+  // Griglia OM (peso 1)
+  state.gridData.forEach(function(pt){
+    var px = map.latLngToContainerPoint([pt.lat, pt.lon]);
+    if (px.x < -50 || px.x > W+50 || px.y < -50 || px.y > H+50) return;
+    var rad = pt.dir * Math.PI / 180;
+    // dir meteo = provenienza. Movimento = opposto. Canvas: Y verso il basso -> v = +cos(rad)
+    sources.push({ x:px.x, y:px.y, u: -Math.sin(rad)*pt.speed, v: Math.cos(rad)*pt.speed, w:1.0 });
+  });
+
+  // Zone Nautilus (peso 2)
+  ZONES.forEach(function(z){
+    var d = state.zoneData[z.key];
+    if (!d) return;
+    var spd = d.wind_speed != null ? d.wind_speed : (d.wind_speed_obs || 0);
+    var dir = d.wind_dir   != null ? d.wind_dir   : (d.wind_dir_obs  || 0);
+    var px = map.latLngToContainerPoint([z.lat, z.lon]);
+    var rad = dir * Math.PI / 180;
+    sources.push({ x:px.x, y:px.y, u: -Math.sin(rad)*spd, v: Math.cos(rad)*spd, w:2.0 });
+  });
+
+  // Stazioni reali (peso 4 - comandano)
+  state.stationData.forEach(function(st){
+    var px = map.latLngToContainerPoint([st.lat, st.lon]);
+    if (px.x < -100 || px.x > W+100 || px.y < -100 || px.y > H+100) return;
+    var rad = st.dir * Math.PI / 180;
+    sources.push({ x:px.x, y:px.y, u: -Math.sin(rad)*st.speed, v: Math.cos(rad)*st.speed, w:4.0 });
+  });
+
+  if (sources.length === 0){ particleState.field = null; return; }
+
+  // Alloca campo
+  var field = new Float32Array(cols * rows * 2); // [u,v] per cella
+  var EPS = 1e-10;
+
+  for (var row = 0; row < rows; row++){
+    for (var col = 0; col < cols; col++){
+      var cx = col * res + res/2;
+      var cy = row * res + res/2;
+      var sumU = 0, sumV = 0, sumW = 0;
+      for (var si = 0; si < sources.length; si++){
+        var s = sources[si];
+        var dx = cx - s.x, dy = cy - s.y;
+        var dist2 = dx*dx + dy*dy;
+        // Minima distanza 30px per evitare singolarita' vicino alla sorgente
+        if (dist2 < 900) dist2 = 900;
+        var ww = s.w / dist2;
+        sumU += s.u * ww;
+        sumV += s.v * ww;
+        sumW += ww;
+      }
+      var idx = (row * cols + col) * 2;
+      if (sumW > EPS){
+        field[idx]   = sumU / sumW;
+        field[idx+1] = sumV / sumW;
+      }
+    }
+  }
+  particleState.field = field;
+}
+
+// Legge il campo vettoriale a coordinate pixel (interpolazione bilineare)
+function sampleField(px, py){
+  var res = particleState.fieldRes;
+  var cols = particleState.fieldW;
+  var rows = particleState.fieldH;
+  if (!particleState.field) return {u:0, v:0, spd:0};
+  var col = px / res;
+  var row = py / res;
+  var c0 = Math.floor(col), c1 = c0+1;
+  var r0 = Math.floor(row), r1 = r0+1;
+  if (c0 < 0 || r0 < 0 || c1 >= cols || r1 >= rows) return {u:0, v:0, spd:0};
+  var tc = col - c0, tr = row - r0;
+  function get(r,c){ var i=(r*cols+c)*2; return {u:particleState.field[i], v:particleState.field[i+1]}; }
+  var f00=get(r0,c0), f10=get(r1,c0), f01=get(r0,c1), f11=get(r1,c1);
+  var u = f00.u*(1-tc)*(1-tr) + f01.u*tc*(1-tr) + f10.u*(1-tc)*tr + f11.u*tc*tr;
+  var v = f00.v*(1-tc)*(1-tr) + f01.v*tc*(1-tr) + f10.v*(1-tc)*tr + f11.v*tc*tr;
+  return { u:u, v:v, spd:Math.sqrt(u*u+v*v) };
+}
+
+// PARTICELLE
+var PARTICLE_COUNT = 600;
+var MAX_AGE = 60; // frame prima che una particella si rigenera
+
+function spawnParticle(){
+  return {
+    x: Math.random() * pCanvas.width,
+    y: Math.random() * pCanvas.height,
+    age: Math.floor(Math.random() * MAX_AGE)
+  };
+}
+
+function initParticles(){
+  particleState.particles = [];
+  for (var i = 0; i < PARTICLE_COUNT; i++){
+    particleState.particles.push(spawnParticle());
+  }
+}
+
+function particleColor(spd){
+  // Stessa scala Beaufort di windColor ma piu' trasparente
+  if (spd >= 34) return 'rgba(204,0,0,0.8)';
+  if (spd >= 28) return 'rgba(255,51,0,0.75)';
+  if (spd >= 22) return 'rgba(255,136,0,0.7)';
+  if (spd >= 17) return 'rgba(255,221,0,0.7)';
+  if (spd >= 11) return 'rgba(0,204,68,0.65)';
+  if (spd >=  7) return 'rgba(0,238,136,0.6)';
+  if (spd >=  4) return 'rgba(68,221,204,0.55)';
+  if (spd >=  1) return 'rgba(136,204,255,0.5)';
+  return 'rgba(170,221,255,0.35)';
+}
+
+function animateParticles(){
+  if (!particleState.active) return;
+  var W = pCanvas.width, H = pCanvas.height;
+
+  // Fade trail - erode le scie senza coprire la mappa sottostante
+  pCtx.globalCompositeOperation = 'destination-out';
+  pCtx.globalAlpha = 0.04;
+  pCtx.fillRect(0, 0, W, H);
+  pCtx.globalCompositeOperation = 'source-over';
+  pCtx.globalAlpha = 1.0;
+
+  var speedScale = 0.18; // pixel per frame per nodo - piu' lento e leggibile
+
+  particleState.particles.forEach(function(p, i){
+    var fv = sampleField(p.x, p.y);
+    var spd = fv.spd;
+
+    if (spd < 0.3 || p.age > MAX_AGE){
+      particleState.particles[i] = spawnParticle();
+      return;
+    }
+
+    var nx = p.x + fv.u * speedScale;
+    var ny = p.y + fv.v * speedScale;
+
+    // Bordo: rigenera se esce
+    if (nx < 0 || nx > W || ny < 0 || ny > H){
+      particleState.particles[i] = spawnParticle();
+      return;
+    }
+
+    pCtx.beginPath();
+    pCtx.moveTo(p.x, p.y);
+    pCtx.lineTo(nx, ny);
+    pCtx.strokeStyle = particleColor(spd);
+    pCtx.lineWidth = spd > 15 ? 1.4 : 1.0;
+    pCtx.stroke();
+
+    p.x = nx;
+    p.y = ny;
+    p.age++;
+  });
+
+  particleState.animFrame = requestAnimationFrame(animateParticles);
+}
+
+function startParticles(){
+  if (!particleState.field) return;
+  if (particleState.animFrame) cancelAnimationFrame(particleState.animFrame);
+  pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
+  initParticles();
+  animateParticles();
+}
+
+function stopParticles(){
+  if (particleState.animFrame){ cancelAnimationFrame(particleState.animFrame); particleState.animFrame = null; }
+  pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
+}
+
+function rebuildAndAnimate(){
+  buildVectorField();
+  if (particleState.active) startParticles();
+}
+
+// BOTTONE FLOW
+document.getElementById('btn-flow').addEventListener('click', function(){
+  particleState.active = !particleState.active;
+  this.classList.toggle('active', particleState.active);
+  if (particleState.active){
+    buildVectorField();
+    startParticles();
+  } else {
+    stopParticles();
+  }
+});
+
+// LOAD ALL
+async function loadAll(){
+  document.getElementById('btn-refresh').style.opacity = '0.4';
+  setHud('load', 'Caricamento...');
+  try {
+    await Promise.all([fetchZoneData(), fetchGridData(), fetchStationData()]);
+    updateZoneMarkers();
+    resizeCanvas();
+    drawWind();
+    if (particleState.active) rebuildAndAnimate();
+    state.lastUpdate = new Date();
+    var ts = state.lastUpdate.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+    setHud('ok', 'Dati in diretta');
+    var hTime = document.getElementById('hud-time');
+    hTime.style.display = 'flex';
+    document.getElementById('hud-ts').textContent = 'Agg. ' + ts;
+  } catch(e){
+    setHud('err', 'Errore caricamento');
+  }
+  document.getElementById('btn-refresh').style.opacity = '1';
+}
+
+// GPS
+document.getElementById('btn-gps').addEventListener('click', function(){
+  if (!navigator.geolocation){ alert('GPS non disponibile.'); return; }
+  var btn = this;
+  btn.style.color = 'var(--gold)';
+  navigator.geolocation.getCurrentPosition(
+    function(pos){
+      var lat = pos.coords.latitude, lon = pos.coords.longitude, acc = pos.coords.accuracy;
+      if (state.gpsMarker){ map.removeLayer(state.gpsMarker); }
+      if (state.gpsCircle){ map.removeLayer(state.gpsCircle); }
+      state.gpsCircle = L.circle([lat,lon],{
+        radius:acc, color:'#0af0ff', fillColor:'#0af0ff',
+        fillOpacity:0.08, weight:1, opacity:0.35,
+      }).addTo(map);
+      state.gpsMarker = L.marker([lat,lon],{
+        icon:L.divIcon({html:'<div class="gps-dot"></div>',className:'',iconSize:[16,16],iconAnchor:[8,8]}),
+        zIndexOffset:500
+      }).addTo(map);
+      map.setView([lat,lon], Math.max(map.getZoom(),9), {animate:true});
+      btn.style.color = 'var(--accent)';
+    },
+    function(err){
+      btn.style.color = '';
+      alert('GPS: ' + err.message);
+    },
+    {enableHighAccuracy:true, timeout:12000}
+  );
+});
+
+document.getElementById('btn-refresh').addEventListener('click', loadAll);
+
+// Auto-refresh ogni 10 min
+setInterval(loadAll, 600000);
+
+
+//  Boe e stazioni marine (simboli fissi) 
+var buoyIcon = L.divIcon({
+  className: '',
+  html: '<div style="width:18px;height:18px;background:#0af0ff;border:2px solid #0a9090;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;color:#000;font-weight:bold;box-shadow:0 0 8px rgba(10,240,255,0.7)">B</div>',
+  iconSize: [18, 18], iconAnchor: [9, 9]
+});
+var stationIcon = L.divIcon({
+  className: '',
+  html: '<div style="width:16px;height:16px;background:#ffaa00;border:2px solid #cc7700;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#000;font-weight:bold;box-shadow:0 0 8px rgba(255,170,0,0.7)">S</div>',
+  iconSize: [16, 16], iconAnchor: [8, 8]
+});
+var mnwIcon = L.divIcon({
+  className: '',
+  html: '<div style="width:20px;height:20px;background:#00cc66;border:2px solid #009944;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#000;font-weight:bold;box-shadow:0 0 10px rgba(0,204,102,0.9)">W</div>',
+  iconSize: [20, 20], iconAnchor: [10, 10]
+});
+BUOYS.forEach(function(b) {
+  var icon = (b.type === 'boa' || b.type === 'corr') ? buoyIcon : stationIcon;
+  var mk2 = L.marker([b.lat, b.lon], { icon: icon, zIndexOffset: 50 }).addTo(map);
+  mk2.bindPopup('<div style="font-family:DM Mono,monospace;font-size:0.7rem;min-width:180px">' +
+    '<div style="font-weight:bold;color:#0af0ff;margin-bottom:4px">' + b.name + '</div>' +
+    '<div style="color:#8ab8d0;font-size:0.6rem;margin-bottom:2px">' + (b.type === 'boa' ? 'Boa ondametrica' : b.type === 'corr' ? 'Correntometro' : 'Stazione meteo') + '</div>' +
+    '<div style="color:#888;font-size:0.58rem">' + b.note + '</div>' +
+    '</div>', { maxWidth: 240 });
+});
+
+loadAll();
+
+try {
+MNW_LIVE.forEach(function(st) {
+  var mk = L.marker([st.lat, st.lon], { icon: mnwIcon, zIndexOffset: 60 }).addTo(map);
+  var popupId = 'mnwpop_' + st.key;
+  mk.bindPopup('<div id="' + popupId + '" style="font-family:DM Mono,monospace;font-size:0.7rem;min-width:200px">' +
+    '<div style="font-weight:bold;color:#00cc66;margin-bottom:4px">' + st.name + '</div>' +
+    '<div style="color:#fff;font-size:0.62rem">Caricamento...</div>' +
+    '</div>', { maxWidth: 260 });
+  mk.on('popupopen', function() {
+    fetch(ENGINE_URL + '?action=bias_history&station=' + st.sid + '&limit=1')
+      .then(function(r){ return r.json(); })
+      .then(function(data) {
+        var el = document.getElementById(popupId);
+        if (!el) return;
+        var s = data.samples && data.samples[0];
+        if (!s || !s.station || !s.station.wind_kt) {
+          el.innerHTML = '<div style="font-weight:bold;color:#00cc66;margin-bottom:4px">' + st.name + '</div>' +
+            '<div style="color:#fff;font-size:0.65rem">Nessun dato disponibile</div>';
+          return;
+        }
+        var dt = new Date(s.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+        var dw = s.delta && s.delta.wind_kt !== null ? s.delta.wind_kt : null;
+        var wkt = s.station.wind_kt;
+        var windCol = wkt < 15 ? '#4cff91' : wkt < 25 ? '#ffd700' : '#ff6060';
+        var deltaCol = dw === null ? '#bbb' : Math.abs(dw) > 5 ? '#ff6060' : '#4cff91';
+        var dirTxt = (s.station.direction !== null ? degToCard(s.station.direction) + ' ' + s.station.direction + '°' : '--');
+        var dirDeg = (s.station.direction !== undefined && s.station.direction !== null) ? Number(s.station.direction) : null;
+        var arrowSvg = dirDeg !== null
+          ? '<svg width="22" height="22" viewBox="-11 -11 22 22" style="display:inline-block;vertical-align:middle">' +
+            '<g transform="rotate(' + (dirDeg + 180) + ')">' +
+            '<line x1="0" y1="9" x2="0" y2="-6" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>' +
+            '<polygon points="0,-10 -4,-4 4,-4" fill="#fff"/>' +
+            '</g></svg>'
+          : '';
+        el.innerHTML = '<div style="font-weight:bold;color:#00cc66;font-size:0.78rem;margin-bottom:6px">' + st.name + '</div>' +
+          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">' +
+          '<span style="font-size:1.5rem;font-weight:bold;color:' + windCol + '">' + wkt + '</span>' +
+          '<span style="font-size:0.65rem;color:#fff;font-weight:bold">kn</span>' +
+          arrowSvg +
+          '<span style="font-size:0.72rem;color:#fff">' + dirTxt + '</span>' +
+          '</div>' +
+          (dw !== null ? '<div style="font-size:0.65rem;color:' + deltaCol + ';margin-bottom:4px">Vs OM: ' + (dw >= 0 ? '+' : '') + dw + ' kn</div>' : '') +
+          '<div style="color:#fff;font-size:0.62rem;margin-top:4px">' + dt + '</div>' +
+          '<div style="margin-top:8px">' +
+          '<button onclick="refreshMnwStation(\'' + st.sid + '\',\'' + popupId + '\',\'' + st.name + '\')" ' +
+          'style="font-family:DM Mono,monospace;font-size:0.58rem;padding:3px 10px;background:rgba(0,204,102,0.15);border:1px solid #00cc66;border-radius:6px;color:#00cc66;cursor:pointer">&#8635; Aggiorna</button>' +
+          '</div>';
+      }).catch(function(){ });
+  });
+});
+} catch(mnwErr) { console.warn('MNW markers error:', mnwErr); }
+
+function degToCard(d) {
+  if (d === null || d === undefined) return '--';
+  var dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+  return dirs[Math.round(Number(d) / 22.5) % 16];
+}
+
+function refreshMnwStation(sid, popupId, name) {
+  var el = document.getElementById(popupId);
+  if (!el) return;
+  var btn = el.querySelector('button');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span style="display:inline-block;width:10px;height:10px;border:2px solid rgba(0,204,102,0.3);border-top-color:#00cc66;border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle;margin-right:4px"></span>Carico...';
+  }
+  fetch(ENGINE_URL + '?action=station_refresh&station=' + sid, {cache: 'no-store'})
+    .then(function(r){ return r.json(); })
+    .then(function(res) {
+      if (!res.ok || !res.data) {
+        if (btn) { btn.disabled = false; btn.innerHTML = '&#8635; Aggiorna'; }
+        if (res.error && res.error.indexOf('Rate limit') >= 0) {
+          var rld = el.querySelector('.rl-msg');
+          if (!rld) { rld = document.createElement('div'); rld.className = 'rl-msg'; rld.style.cssText = 'font-size:0.55rem;color:#ffaa00;margin-top:4px'; el.appendChild(rld); }
+          rld.textContent = 'Attendi 60s tra un aggiornamento e l\'altro';
+        }
+        return;
+      }
+      // Aggiornamento riuscito — ricarica popup
+      var d = res.data;
+      var wkt = d.wind_kt;
+      var windCol = !wkt ? '#bbb' : wkt < 15 ? '#4cff91' : wkt < 25 ? '#ffd700' : '#ff6060';
+      var dirTxt = (d.dir_deg !== null && d.dir_deg !== undefined ? degToCard(d.dir_deg) + ' ' + d.dir_deg + '°' : '--');
+      var dirDeg = d.dir_deg !== null && d.dir_deg !== undefined ? Number(d.dir_deg) : null;
+      var arrowSvg = dirDeg !== null
+        ? '<svg width=\"22\" height=\"22\" viewBox=\"-11 -11 22 22\" style=\"display:inline-block;vertical-align:middle\">' +
+          '<g transform=\"rotate(' + (dirDeg + 180) + ')\">' +
+          '<line x1=\"0\" y1=\"9\" x2=\"0\" y2=\"-6\" stroke=\"#fff\" stroke-width=\"2.5\" stroke-linecap=\"round\"/>' +
+          '<polygon points=\"0,-10 -4,-4 4,-4\" fill=\"#fff\"/>' +
+          '</g></svg>' : '';
+      var dt = new Date(d.timestamp).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+      el.innerHTML = '<div style=\"font-weight:bold;color:#00cc66;font-size:0.78rem;margin-bottom:6px\">' + name + '</div>' +
+        '<div style=\"display:flex;align-items:center;gap:8px;margin-bottom:5px\">' +
+        (wkt ? '<span style=\"font-size:1.5rem;font-weight:bold;color:' + windCol + '\">' + wkt + '</span><span style=\"font-size:0.65rem;color:#fff;font-weight:bold\">kn</span>' : '<span style=\"color:#bbb\">--</span>') +
+        arrowSvg +
+        '<span style=\"font-size:0.72rem;color:#fff\">' + dirTxt + '</span>' +
+        '</div>' +
+        '<div style=\"color:#4cff91;font-size:0.6rem;margin-bottom:2px\">✓ Aggiornato ora</div>' +
+        '<div style=\"color:#fff;font-size:0.62rem;margin-top:4px\">' + dt + '</div>' +
+        '<div style=\"margin-top:8px\"><button onclick=\"refreshMnwStation(\'' + sid + '\',\'' + popupId + '\',\'' + name + '\')\" ' +
+        'style=\"font-family:DM Mono,monospace;font-size:0.58rem;padding:3px 10px;background:rgba(0,204,102,0.15);border:1px solid #00cc66;border-radius:6px;color:#00cc66;cursor:pointer\">&#8635; Aggiorna</button></div>';
+    })
+    .catch(function() {
+      if (btn) { btn.disabled = false; btn.innerHTML = '&#8635; Aggiorna'; }
+    });
+}
+
+// Fine codice - NAUTILUS MAPPA v1.3.1
+</script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-<!-- NAUTILUS STATS v1.2 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS STATS v1.3 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -54,7 +54,7 @@
 <body>
 <header>
   <div class="logo">NAUTI<span>LUS</span></div>
-  <div class="subtitle">Accuratezza previsioni AI &nbsp;·&nbsp; v2.10.2 / stats v1.2</div>
+  <div class="subtitle">Accuratezza previsioni AI &nbsp;·&nbsp; v2.11.0 / stats v1.3</div>
   <a href="/" class="back-link">← app</a>
 </header>
 <div class="zone-bar" id="zone-bar">
@@ -88,11 +88,14 @@ const ZONES = [
 ];
 
 document.getElementById('zone-bar').innerHTML =
-  ZONES.map(z => '<button class="zone-btn" onclick="loadZone(\'' + z.key + '\',\'' + z.name.replace("'","\\'") + '\')">' + z.name + '</button>').join('');
+  ZONES.map(function(z){ return '<button class="zone-btn" data-key="' + z.key + '" data-name="' + z.name + '">' + z.name + '</button>'; }).join('');
+document.querySelectorAll('.zone-btn').forEach(function(btn){
+  btn.addEventListener('click', function(){ loadZone(this.dataset.key, this.dataset.name, this); });
+});
 
-async function loadZone(key, name) {
-  document.querySelectorAll('.zone-btn').forEach(b => b.classList.remove('active'));
-  event.target.classList.add('active');
+async function loadZone(key, name, btnEl) {
+  document.querySelectorAll('.zone-btn').forEach(function(b){ b.classList.remove('active'); });
+  if (btnEl) btnEl.classList.add('active');
   const main = document.getElementById('main');
   main.innerHTML = '<div class="spinner"></div>';
   try {
@@ -123,7 +126,7 @@ function fmtErr(f, a) {
 function render(key, name, hist, stats) {
   const main = document.getElementById('main');
   const predictions = hist.predictions || [];
-  const verified = predictions.filter(p => p.actual_3h!=null || p.actual_6h!=null || p.actual_12h!=null);
+  const verified = predictions.filter(p => p.actual_1h!=null || p.actual_3h!=null || p.actual_6h!=null || p.actual_9h!=null || p.actual_12h!=null);
   const weekly = stats.weekly_mae || [];
   const bias = stats.current_bias || {};
   const trend = stats.trend || {};
@@ -173,7 +176,7 @@ function render(key, name, hist, stats) {
 
   // Chart
   if (weekly.length >= 2) {
-    const maxMae = Math.ceil(Math.max(...weekly.map(w => Math.max(w.h3_mae||0, w.h6_mae||0, w.h12_mae||0))) + 1);
+    const maxMae = Math.ceil(Math.max(...weekly.map(w => Math.max(w.h1_mae||0, w.h3_mae||0, w.h6_mae||0, w.h9_mae||0, w.h12_mae||0))) + 1);
     const pL=36, pH=20, svgW=500, svgH=110;
     const cW=svgW-pL-8, cH=svgH-pH-20;
     const xS = i => pL + (i+0.5)*(cW/weekly.length);
@@ -181,8 +184,10 @@ function render(key, name, hist, stats) {
 
     html += '<div class="section-title">Errore medio (MAE) per settimana</div><div class="chart-wrap">';
     html += '<div class="chart-legend">' +
+      '<div class="legend-item"><div class="legend-dot" style="background:#aaddff"></div>H+1</div>' +
       '<div class="legend-item"><div class="legend-dot" style="background:#00ccff"></div>H+3</div>' +
       '<div class="legend-item"><div class="legend-dot" style="background:#ffaa00"></div>H+6</div>' +
+      '<div class="legend-item"><div class="legend-dot" style="background:#ff9944"></div>H+9</div>' +
       '<div class="legend-item"><div class="legend-dot" style="background:#ff6688"></div>H+12</div>' +
       '</div>';
     let svg = '<svg viewBox="0 0 ' + svgW + ' ' + svgH + '" style="width:100%;height:' + svgH + 'px;overflow:visible">';
@@ -191,7 +196,7 @@ function render(key, name, hist, stats) {
       svg+='<line x1="'+pL+'" y1="'+y+'" x2="'+(svgW-8)+'" y2="'+y+'" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>';
       svg+='<text x="'+(pL-4)+'" y="'+(y+3)+'" text-anchor="end" font-size="9" fill="rgba(255,255,255,0.7)" font-family="DM Mono,monospace">'+(maxMae*i/4).toFixed(1)+'</text>';
     }
-    [['h3_mae','#00ccff'],['h6_mae','#ffaa00'],['h12_mae','#ff6688']].forEach(function(s){
+    [['h1_mae','#aaddff'],['h3_mae','#00ccff'],['h6_mae','#ffaa00'],['h9_mae','#ff9944'],['h12_mae','#ff6688']].forEach(function(s){
       const pts=weekly.map(function(w,i){ return w[s[0]]!=null ? xS(i)+','+yS(w[s[0]]) : null; }).filter(Boolean);
       if(pts.length>=2) svg+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+s[1]+'" stroke-width="1.8" opacity="0.85"/>';
       weekly.forEach(function(w,i){
@@ -210,15 +215,17 @@ function render(key, name, hist, stats) {
   // Weekly table
   if (weekly.length) {
     html += '<div class="section-title">Dettaglio settimanale</div><div class="chart-wrap"><table class="weekly-table">' +
-      '<tr><th>Settimana</th><th>N</th><th>MAE H+3</th><th>MAE H+6</th><th>MAE H+12</th></tr>';
+      '<tr><th>Settimana</th><th>N</th><th>MAE H+1</th><th>MAE H+3</th><th>MAE H+6</th><th>MAE H+9</th><th>MAE H+12</th></tr>';
     weekly.slice().reverse().forEach(function(w,i,arr) {
       const prev=arr[i+1];
       const h6t = prev&&prev.h6_mae&&w.h6_mae ? (w.h6_mae<prev.h6_mae?'improving':'worsening') : '';
       html+='<tr>' +
         '<td style="color:var(--accent)">'+w.week+'</td>' +
         '<td>'+w.n+'</td>' +
+        '<td>'+(w.h1_mae!=null?w.h1_mae+'kn':'--')+'</td>' +
         '<td>'+(w.h3_mae!=null?w.h3_mae+'kn':'--')+'</td>' +
         '<td class="'+h6t+'">'+(w.h6_mae!=null?w.h6_mae+'kn':'--')+'</td>' +
+        '<td>'+(w.h9_mae!=null?w.h9_mae+'kn':'--')+'</td>' +
         '<td>'+(w.h12_mae!=null?w.h12_mae+'kn':'--')+'</td>' +
         '</tr>';
     });
@@ -228,7 +235,7 @@ function render(key, name, hist, stats) {
   // Recent predictions
   if (verified.length) {
     html += '<div class="section-title">Ultime verifiche</div><div class="chart-wrap"><table class="weekly-table">' +
-      '<tr><th>Data</th><th>Fonte</th><th>H+3 prev&rarr;reale</th><th>H+6 prev&rarr;reale</th><th>H+12 prev&rarr;reale</th></tr>';
+      '<tr><th>Data</th><th>Fonte</th><th>H+1</th><th>H+3</th><th>H+6</th><th>H+9</th><th>H+12</th></tr>';
     verified.slice(0,10).forEach(function(item) {
       try {
         const p = item.prediction || item;
@@ -238,8 +245,10 @@ function render(key, name, hist, stats) {
         html+='<tr>' +
           '<td style="color:var(--muted)">'+dt+'</td>' +
           '<td style="font-size:0.75rem">'+src+'</td>' +
+          '<td style="font-size:0.75rem">'+fmtErr(p.forecast_h1,item.actual_1h)+'</td>' +
           '<td style="font-size:0.75rem">'+fmtErr(p.forecast_h3,item.actual_3h)+'</td>' +
           '<td style="font-size:0.75rem">'+fmtErr(p.forecast_h6,item.actual_6h)+'</td>' +
+          '<td style="font-size:0.75rem">'+fmtErr(p.forecast_h9,item.actual_9h)+'</td>' +
           '<td style="font-size:0.75rem">'+fmtErr(p.forecast_h12,item.actual_12h)+'</td>' +
           '</tr>';
       } catch(e) {}
@@ -255,5 +264,5 @@ function render(key, name, hist, stats) {
 }
 </script>
 </body>
-<!-- NAUTILUS STATS v1.2 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS STATS v1.3 - mdisailor - 2026-06-02 -->
 </html>

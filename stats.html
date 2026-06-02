@@ -20,8 +20,6 @@
   .subtitle{font-size:0.85rem;color:var(--muted);letter-spacing:0.1em;}
   .back-link{margin-left:auto;font-size:0.85rem;color:var(--accent);text-decoration:none;opacity:0.8;}
   .back-link:hover{opacity:1;}
-  .btn-header{font-family:'DM Mono',monospace;font-size:0.75rem;padding:6px 14px;background:transparent;border:1px solid var(--border);border-radius:20px;color:var(--muted);cursor:pointer;transition:all 0.15s;}
-  .btn-header:hover{border-color:var(--accent);color:var(--accent);}
   .zone-bar{padding:12px 24px;display:flex;flex-wrap:wrap;gap:8px;border-bottom:1px solid var(--border);}
   .zone-btn{font-family:'DM Mono',monospace;font-size:0.85rem;padding:6px 14px;background:transparent;border:1px solid var(--border);border-radius:20px;color:var(--muted);cursor:pointer;transition:all 0.15s;}
   .zone-btn:hover{border-color:var(--accent);color:var(--accent);}
@@ -56,9 +54,9 @@
 <body>
 <header>
   <div class="logo">NAUTI<span>LUS</span></div>
-  <div class="subtitle">Accuratezza previsioni AI &nbsp;&middot;&nbsp; v2.10.2 / stats v1.2</div>
-  <a href="/" class="back-link">&#8592; app</a>
-  <button id="btn-redis" class="btn-header">Redis Stats</button>
+  <div class="subtitle">Accuratezza previsioni AI &nbsp;·&nbsp; v2.10.2 / stats v1.2</div>
+  <a href="/" class="back-link">← app</a>
+  <button id="btn-redis" onclick="loadRedisStats()" style="font-family:'DM Mono',monospace;font-size:0.75rem;padding:6px 14px;background:transparent;border:1px solid var(--border);border-radius:20px;color:var(--muted);cursor:pointer;margin-left:8px;">Redis Stats</button>
 </header>
 <div class="zone-bar" id="zone-bar">
   <span style="font-size:0.85rem;color:var(--muted);align-self:center">Caricamento zone...</span>
@@ -67,252 +65,251 @@
   <div class="empty-state">Seleziona una zona per vedere le statistiche di accuratezza</div>
 </main>
 <script>
-var ENGINE = "https://nautilus-red.vercel.app/api/engine";
-var ZONES = [
-  {key:"bocca_arno",      name:"Bocca d'Arno"},
-  {key:"viareggio",       name:"Viareggio"},
-  {key:"livorno",         name:"Livorno"},
-  {key:"capraia",         name:"Capraia"},
-  {key:"elba_nord",       name:"Elba Nord"},
-  {key:"elba_sud",        name:"Elba Sud"},
-  {key:"giglio",          name:"Giglio"},
-  {key:"canale_piombino", name:"Canale Piombino"},
-  {key:"gorgona",         name:"Gorgona"},
-  {key:"montecristo",     name:"Montecristo"},
-  {key:"orbetello",       name:"Orbetello"},
-  {key:"punta_ala",       name:"Punta Ala"},
-  {key:"svincenzo",       name:"S.Vincenzo"},
-  {key:"follonica",       name:"Follonica"},
-  {key:"capalbio",        name:"Capalbio"},
-  {key:"alberese",        name:"Alberese"},
-  {key:"forte_marmi",     name:"Forte dei Marmi"},
-  {key:"casotto_gr",      name:"Casotto GR"},
-  {key:"venturina",       name:"Venturina"}
+const ENGINE = 'https://nautilus-red.vercel.app/api/engine';
+const ZONES = [
+  {key:'bocca_arno',      name:'Bocca d\'Arno'},
+  {key:'viareggio',       name:'Viareggio'},
+  {key:'livorno',         name:'Livorno'},
+  {key:'capraia',         name:'Capraia'},
+  {key:'elba_nord',       name:'Elba Nord'},
+  {key:'elba_sud',        name:'Elba Sud'},
+  {key:'giglio',          name:'Giglio'},
+  {key:'canale_piombino', name:'Canale Piombino'},
+  {key:'gorgona',         name:'Gorgona'},
+  {key:'montecristo',     name:'Montecristo'},
+  {key:'orbetello',       name:'Orbetello'},
+  {key:'punta_ala',       name:'Punta Ala'},
+  {key:'svincenzo',       name:'S.Vincenzo'},
+  {key:'follonica',       name:'Follonica'},
+  {key:'capalbio',        name:'Capalbio'},
+  {key:'alberese',        name:'Alberese'},
+  {key:'forte_marmi',     name:'Forte dei Marmi'},
+  {key:'casotto_gr',      name:'Casotto GR'},
+  {key:'venturina',       name:'Venturina'}
 ];
 
-var zoneBar = document.getElementById("zone-bar");
-zoneBar.innerHTML = ZONES.map(function(z) {
-  return "<button class=\"zone-btn\" data-key=\"" + z.key + "\" data-name=\"" + z.name + "\">" + z.name + "</button>";
-}).join("");
-document.querySelectorAll(".zone-btn").forEach(function(btn) {
-  btn.addEventListener("click", function() {
-    loadZone(this.dataset.key, this.dataset.name, this);
-  });
+document.getElementById('zone-bar').innerHTML =
+  ZONES.map(function(z){ return '<button class="zone-btn" data-key="' + z.key + '" data-name="' + z.name + '">' + z.name + '</button>'; }).join('');
+document.querySelectorAll('.zone-btn').forEach(function(btn){
+  btn.addEventListener('click', function(){ loadZone(this.dataset.key, this.dataset.name, this); });
 });
 
-document.getElementById("btn-redis").addEventListener("click", loadRedisStats);
-
-async function loadRedisStats() {
-  var btn = document.getElementById("btn-redis");
-  btn.textContent = "Caricamento...";
-  btn.style.opacity = "0.5";
-  try {
-    var res = await fetch(ENGINE + "?action=redis_stats");
-    var d = await res.json();
-    if (d.error) throw new Error(d.error);
-    renderRedisStats(d);
-  } catch(e) {
-    alert("Errore Redis Stats: " + e.message);
-  }
-  btn.textContent = "Redis Stats";
-  btn.style.opacity = "1";
-}
-
-function renderRedisStats(d) {
-  var old = document.getElementById("redis-panel");
-  if (old) old.remove();
-  var bp = d.by_prefix || {};
-  var rows = Object.keys(bp).map(function(k) {
-    return "<tr><td style=\"color:var(--accent)\">" + k + ":*</td><td style=\"text-align:right\">" + bp[k] + "</td></tr>";
-  }).join("");
-  var panel = document.createElement("div");
-  panel.id = "redis-panel";
-  panel.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(2,13,26,0.92);z-index:999;display:flex;align-items:center;justify-content:center;padding:20px;";
-  panel.innerHTML =
-    "<div style=\"background:var(--card);border:1px solid var(--border);border-radius:14px;padding:24px;max-width:480px;width:100%;max-height:90vh;overflow-y:auto;\">" +
-    "<div style=\"display:flex;justify-content:space-between;align-items:baseline;margin-bottom:16px;\">" +
-    "<span style=\"font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:0.06em;color:#fff\">REDIS STATS</span>" +
-    "<button id=\"redis-close\" style=\"background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;\">&#x2715;</button>" +
-    "</div>" +
-    "<div style=\"display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;\">" +
-    "<div style=\"background:rgba(0,240,255,0.05);border:1px solid var(--border);border-radius:8px;padding:12px;\">" +
-    "<div style=\"font-size:0.7rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px\">Chiavi totali</div>" +
-    "<div style=\"font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:var(--accent)\">" + d.total_keys + "</div></div>" +
-    "<div style=\"background:rgba(0,240,255,0.05);border:1px solid var(--border);border-radius:8px;padding:12px;\">" +
-    "<div style=\"font-size:0.7rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px\">Memoria usata</div>" +
-    "<div style=\"font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:var(--accent)\">" + (d.memory_used || "--") + "</div>" +
-    "<div style=\"font-size:0.7rem;color:var(--muted);margin-top:2px\">peak: " + (d.memory_peak || "--") + "</div></div></div>" +
-    "<table style=\"width:100%;border-collapse:collapse;font-size:0.8rem;\">" +
-    "<tr><th style=\"text-align:left;padding:7px 8px;border-bottom:1px solid var(--border);color:var(--muted);font-weight:400;letter-spacing:0.08em;text-transform:uppercase\">Prefisso</th>" +
-    "<th style=\"text-align:right;padding:7px 8px;border-bottom:1px solid var(--border);color:var(--muted);font-weight:400;letter-spacing:0.08em;text-transform:uppercase\">Chiavi</th></tr>" +
-    rows + "</table>" +
-    "<div style=\"font-size:0.7rem;color:var(--muted);margin-top:12px;text-align:right\">" + new Date(d.generated_at).toLocaleString("it-IT",{timeZone:"Europe/Rome"}) + "</div>" +
-    "</div>";
-  panel.addEventListener("click", function(e) { if (e.target === panel) panel.remove(); });
-  document.body.appendChild(panel);
-  document.getElementById("redis-close").addEventListener("click", function() { panel.remove(); });
-}
-
 async function loadZone(key, name, btnEl) {
-  document.querySelectorAll(".zone-btn").forEach(function(b) { b.classList.remove("active"); });
-  if (btnEl) btnEl.classList.add("active");
-  var main = document.getElementById("main");
-  main.innerHTML = "<div class=\"spinner\"></div>";
+  document.querySelectorAll('.zone-btn').forEach(function(b){ b.classList.remove('active'); });
+  if (btnEl) btnEl.classList.add('active');
+  const main = document.getElementById('main');
+  main.innerHTML = '<div class="spinner"></div>';
   try {
-    var results = await Promise.allSettled([
-      fetch(ENGINE + "?action=predict_history&zone=" + key).then(function(r) { return r.json(); }),
-      fetch(ENGINE + "?action=forecast_stats&zone=" + key).then(function(r) { return r.json(); })
+    const [histRes, statsRes] = await Promise.allSettled([
+      fetch(ENGINE + '?action=predict_history&zone=' + key).then(r => r.json()),
+      fetch(ENGINE + '?action=forecast_stats&zone=' + key).then(r => r.json())
     ]);
-    var hist  = results[0].status === "fulfilled" ? results[0].value : {predictions:[]};
-    var stats = results[1].status === "fulfilled" ? results[1].value : {weekly_mae:[]};
+    const hist  = histRes.status  === 'fulfilled' ? histRes.value  : {predictions:[]};
+    const stats = statsRes.status === 'fulfilled' ? statsRes.value : {weekly_mae:[]};
     render(key, name, hist, stats);
   } catch(e) {
-    main.innerHTML = "<div class=\"empty-state\" style=\"color:var(--danger)\">Errore: " + e.message + "</div>";
+    main.innerHTML = '<div class="empty-state" style="color:var(--danger)">Errore: ' + e.message + '</div>';
   }
 }
 
 function avg(arr) {
   if (!arr || !arr.length) return null;
-  return Math.round(arr.reduce(function(a,b){return a+b;},0)/arr.length*10)/10;
+  return Math.round(arr.reduce((a,b)=>a+b,0)/arr.length*10)/10;
 }
 
 function fmtErr(f, a) {
-  if (f == null || a == null) return "<span style=\"color:var(--muted)\">--</span>";
-  var err = a - f;
-  var col = Math.abs(err)<=2 ? "var(--safe)" : Math.abs(err)<=4 ? "var(--warn)" : "var(--danger)";
-  return f + " &rarr; " + a + " <span style=\"color:" + col + "\">(" + (err>0?"+":"") + err.toFixed(1) + ")</span>";
+  if (f == null || a == null) return '<span style="color:var(--muted)">--</span>';
+  const err = a - f;
+  const col = Math.abs(err)<=2 ? 'var(--safe)' : Math.abs(err)<=4 ? 'var(--warn)' : 'var(--danger)';
+  return f + ' &rarr; ' + a + ' <span style="color:' + col + '">(' + (err>0?'+':'') + err.toFixed(1) + ')</span>';
 }
 
 function render(key, name, hist, stats) {
-  var main = document.getElementById("main");
-  var predictions = hist.predictions || [];
-  var verified = predictions.filter(function(p) { return p.actual_3h!=null || p.actual_6h!=null || p.actual_12h!=null; });
-  var weekly = stats.weekly_mae || [];
-  var bias = stats.current_bias || {};
-  var trend = stats.trend || {};
+  const main = document.getElementById('main');
+  const predictions = hist.predictions || [];
+  const verified = predictions.filter(p => p.actual_3h!=null || p.actual_6h!=null || p.actual_12h!=null);
+  const weekly = stats.weekly_mae || [];
+  const bias = stats.current_bias || {};
+  const trend = stats.trend || {};
 
-  function getPred(item) { return item.prediction || item; }
+  const getPred = item => item.prediction || item;
+  const allH6 = verified
+    .filter(p => { const pr=getPred(p); return p.actual_6h!=null && pr.forecast_h6!=null; })
+    .map(p => { const pr=getPred(p); return Math.abs(p.actual_6h - pr.forecast_h6); });
+  const maeH6 = avg(allH6);
+  const maeCol = maeH6===null ? 'var(--muted)' : maeH6<=2 ? 'var(--safe)' : maeH6<=4 ? 'var(--warn)' : 'var(--danger)';
 
-  var allH6 = verified
-    .filter(function(p) { var pr=getPred(p); return p.actual_6h!=null && pr.forecast_h6!=null; })
-    .map(function(p) { var pr=getPred(p); return Math.abs(p.actual_6h - pr.forecast_h6); });
-  var maeH6 = avg(allH6);
-  var maeCol = maeH6===null ? "var(--muted)" : maeH6<=2 ? "var(--safe)" : maeH6<=4 ? "var(--warn)" : "var(--danger)";
-
-  var trendHtml = "<span style=\"color:var(--muted)\">DATI INSUFFICIENTI</span>";
-  var trendSub = "";
+  let trendHtml = '<span style="color:var(--muted)">DATI INSUFFICIENTI</span>';
+  let trendSub = '';
   if (trend.improving === true) {
-    trendHtml = "<span style=\"color:var(--safe)\">&#8595; IN MIGLIORAMENTO</span>";
-    trendSub = "da " + trend.early_h6_mae + "kn &rarr; " + trend.late_h6_mae + "kn";
+    trendHtml = '<span style="color:var(--safe)">&#8595; IN MIGLIORAMENTO</span>';
+    trendSub = 'da ' + trend.early_h6_mae + 'kn &rarr; ' + trend.late_h6_mae + 'kn';
   } else if (trend.improving === false) {
-    trendHtml = "<span style=\"color:var(--danger)\">&#8593; IN PEGGIORAMENTO</span>";
-    trendSub = "da " + trend.early_h6_mae + "kn &rarr; " + trend.late_h6_mae + "kn";
+    trendHtml = '<span style="color:var(--danger)">&#8593; IN PEGGIORAMENTO</span>';
+    trendSub = 'da ' + trend.early_h6_mae + 'kn &rarr; ' + trend.late_h6_mae + 'kn';
   }
 
-  var html = "<h2 style=\"font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:#fff;margin-bottom:16px;letter-spacing:0.06em\">" + name.toUpperCase() + "</h2>";
+  let html = '<h2 style="font-family:Bebas Neue,sans-serif;font-size:1.6rem;color:#fff;margin-bottom:16px;letter-spacing:0.06em">' + name.toUpperCase() + '</h2>';
 
-  html += "<div class=\"stats-grid\">" +
-    "<div class=\"stat-card\"><div class=\"stat-label\">Previsioni</div><div class=\"stat-value\">" + predictions.length + "</div><div class=\"stat-sub\">" + verified.length + " verificate</div></div>" +
-    "<div class=\"stat-card\"><div class=\"stat-label\">MAE corrente H+6</div><div class=\"stat-value\" style=\"color:" + maeCol + "\">" + (maeH6!==null?maeH6+"kn":"--") + "</div><div class=\"stat-sub\">errore medio assoluto</div></div>" +
-    "<div class=\"stat-card\"><div class=\"stat-label\">Trend accuratezza</div><div style=\"margin-top:4px;font-size:0.85rem\">" + trendHtml + "</div><div class=\"stat-sub\">" + trendSub + "</div></div>" +
-    "</div>";
+  html += '<div class="stats-grid">' +
+    '<div class="stat-card"><div class="stat-label">Previsioni</div><div class="stat-value">' + predictions.length + '</div><div class="stat-sub">' + verified.length + ' verificate</div></div>' +
+    '<div class="stat-card"><div class="stat-label">MAE corrente H+6</div><div class="stat-value" style="color:' + maeCol + '">' + (maeH6!==null?maeH6+'kn':'--') + '</div><div class="stat-sub">errore medio assoluto</div></div>' +
+    '<div class="stat-card"><div class="stat-label">Trend accuratezza</div><div style="margin-top:4px;font-size:0.85rem">' + trendHtml + '</div><div class="stat-sub">' + trendSub + '</div></div>' +
+    '</div>';
 
-  var bKeys = Object.keys(bias);
+  // Bias
+  const bKeys = Object.keys(bias);
   if (bKeys.length) {
-    html += "<div class=\"section-title\">Bias sistematico per orizzonte</div><div class=\"chart-wrap\"><div class=\"bias-row\">";
-    ["h3","h6","h12"].forEach(function(h) {
-      var b = bias[h];
-      var label = "H+" + h.slice(1);
+    html += '<div class="section-title">Bias sistematico per orizzonte</div><div class="chart-wrap"><div class="bias-row">';
+    ['h3','h6','h12'].forEach(h => {
+      const b = bias[h];
+      const label = 'H+' + h.slice(1);
       if (!b || b.mean===null) {
-        html += "<span class=\"bias-chip bias-na\">" + label + ": dati insuff. (n=" + (b?b.n:0) + ")</span>";
+        html += '<span class="bias-chip bias-na">' + label + ': dati insuff. (n=' + (b?b.n:0) + ')</span>';
         return;
       }
-      var cls = Math.abs(b.mean)<=1?"bias-ok":Math.abs(b.mean)<=2.5?"bias-warn":"bias-bad";
-      var dir = b.mean>0?"sottostima":"sovrastima";
-      html += "<span class=\"bias-chip " + cls + "\">" + label + ": " + (b.mean>0?"+":"") + b.mean + "kn " + dir + " &middot; n=" + b.n + " &middot; &sigma;=" + b.std + "kn</span>";
+      const cls = Math.abs(b.mean)<=1?'bias-ok':Math.abs(b.mean)<=2.5?'bias-warn':'bias-bad';
+      const dir = b.mean>0?'sottostima':'sovrastima';
+      html += '<span class="bias-chip ' + cls + '">' + label + ': ' + (b.mean>0?'+':'') + b.mean + 'kn ' + dir + ' &middot; n=' + b.n + ' &middot; &sigma;=' + b.std + 'kn</span>';
     });
-    html += "</div></div>";
+    html += '</div></div>';
   }
 
+  // Chart
   if (weekly.length >= 2) {
-    var maxMae = Math.ceil(Math.max.apply(null, weekly.map(function(w){ return Math.max(w.h3_mae||0,w.h6_mae||0,w.h12_mae||0); })) + 1);
-    var pL=36, pH=20, svgW=500, svgH=110;
-    var cW=svgW-pL-8, cH=svgH-pH-20;
-    var xS = function(i){ return pL + (i+0.5)*(cW/weekly.length); };
-    var yS = function(v){ return pH + cH - (v/maxMae)*cH; };
+    const maxMae = Math.ceil(Math.max(...weekly.map(w => Math.max(w.h3_mae||0, w.h6_mae||0, w.h12_mae||0))) + 1);
+    const pL=36, pH=20, svgW=500, svgH=110;
+    const cW=svgW-pL-8, cH=svgH-pH-20;
+    const xS = i => pL + (i+0.5)*(cW/weekly.length);
+    const yS = v => pH + cH - (v/maxMae)*cH;
 
-    html += "<div class=\"section-title\">Errore medio (MAE) per settimana</div><div class=\"chart-wrap\">";
-    html += "<div class=\"chart-legend\">" +
-      "<div class=\"legend-item\"><div class=\"legend-dot\" style=\"background:#00ccff\"></div>H+3</div>" +
-      "<div class=\"legend-item\"><div class=\"legend-dot\" style=\"background:#ffaa00\"></div>H+6</div>" +
-      "<div class=\"legend-item\"><div class=\"legend-dot\" style=\"background:#ff6688\"></div>H+12</div>" +
-      "</div>";
-    var svg = "<svg viewBox=\"0 0 " + svgW + " " + svgH + "\" style=\"width:100%;height:" + svgH + "px;overflow:visible\">";
-    for (var gi=0; gi<=4; gi++) {
-      var gy = yS(maxMae*gi/4);
-      svg += "<line x1=\""+pL+"\" y1=\""+gy+"\" x2=\""+(svgW-8)+"\" y2=\""+gy+"\" stroke=\"rgba(255,255,255,0.08)\" stroke-width=\"1\"/>";
-      svg += "<text x=\""+(pL-4)+"\" y=\""+(gy+3)+"\" text-anchor=\"end\" font-size=\"9\" fill=\"rgba(255,255,255,0.7)\" font-family=\"DM Mono,monospace\">"+(maxMae*gi/4).toFixed(1)+"</text>";
+    html += '<div class="section-title">Errore medio (MAE) per settimana</div><div class="chart-wrap">';
+    html += '<div class="chart-legend">' +
+      '<div class="legend-item"><div class="legend-dot" style="background:#00ccff"></div>H+3</div>' +
+      '<div class="legend-item"><div class="legend-dot" style="background:#ffaa00"></div>H+6</div>' +
+      '<div class="legend-item"><div class="legend-dot" style="background:#ff6688"></div>H+12</div>' +
+      '</div>';
+    let svg = '<svg viewBox="0 0 ' + svgW + ' ' + svgH + '" style="width:100%;height:' + svgH + 'px;overflow:visible">';
+    for(let i=0;i<=4;i++){
+      const y=yS(maxMae*i/4);
+      svg+='<line x1="'+pL+'" y1="'+y+'" x2="'+(svgW-8)+'" y2="'+y+'" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>';
+      svg+='<text x="'+(pL-4)+'" y="'+(y+3)+'" text-anchor="end" font-size="9" fill="rgba(255,255,255,0.7)" font-family="DM Mono,monospace">'+(maxMae*i/4).toFixed(1)+'</text>';
     }
-    [["h3_mae","#00ccff"],["h6_mae","#ffaa00"],["h12_mae","#ff6688"]].forEach(function(s) {
-      var pts = weekly.map(function(w,i){ return w[s[0]]!=null ? xS(i)+","+yS(w[s[0]]) : null; }).filter(Boolean);
-      if (pts.length>=2) svg += "<polyline points=\""+pts.join(" ")+"\" fill=\"none\" stroke=\""+s[1]+"\" stroke-width=\"1.8\" opacity=\"0.85\"/>";
-      weekly.forEach(function(w,i) {
-        if (w[s[0]]==null) return;
-        svg += "<circle cx=\""+xS(i)+"\" cy=\""+yS(w[s[0]])+"\" r=\"3\" fill=\""+s[1]+"\"/>";
-        svg += "<text x=\""+xS(i)+"\" y=\""+(yS(w[s[0]])-7)+"\" text-anchor=\"middle\" font-size=\"8\" fill=\""+s[1]+"\" font-family=\"DM Mono,monospace\">"+w[s[0]]+"</text>";
+    [['h3_mae','#00ccff'],['h6_mae','#ffaa00'],['h12_mae','#ff6688']].forEach(function(s){
+      const pts=weekly.map(function(w,i){ return w[s[0]]!=null ? xS(i)+','+yS(w[s[0]]) : null; }).filter(Boolean);
+      if(pts.length>=2) svg+='<polyline points="'+pts.join(' ')+'" fill="none" stroke="'+s[1]+'" stroke-width="1.8" opacity="0.85"/>';
+      weekly.forEach(function(w,i){
+        if(w[s[0]]==null) return;
+        svg+='<circle cx="'+xS(i)+'" cy="'+yS(w[s[0]])+'" r="3" fill="'+s[1]+'"/>';
+        svg+='<text x="'+xS(i)+'" y="'+(yS(w[s[0]])-7)+'" text-anchor="middle" font-size="8" fill="'+s[1]+'" font-family="DM Mono,monospace">'+w[s[0]]+'</text>';
       });
     });
-    weekly.forEach(function(w,i) {
-      svg += "<text x=\""+xS(i)+"\" y=\""+(svgH-4)+"\" text-anchor=\"middle\" font-size=\"9\" fill=\"rgba(255,255,255,0.7)\" font-family=\"DM Mono,monospace\">"+w.week.replace(/.*-W/,"W")+"</text>";
+    weekly.forEach(function(w,i){
+      svg+='<text x="'+xS(i)+'" y="'+(svgH-4)+'" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.7)" font-family="DM Mono,monospace">'+w.week.replace(/.*-W/,'W')+'</text>';
     });
-    svg += "</svg>";
-    html += svg + "</div>";
+    svg+='</svg>';
+    html+=svg+'</div>';
   }
 
+  // Weekly table
   if (weekly.length) {
-    html += "<div class=\"section-title\">Dettaglio settimanale</div><div class=\"chart-wrap\"><table class=\"weekly-table\">" +
-      "<tr><th>Settimana</th><th>N</th><th>MAE H+3</th><th>MAE H+6</th><th>MAE H+12</th></tr>";
+    html += '<div class="section-title">Dettaglio settimanale</div><div class="chart-wrap"><table class="weekly-table">' +
+      '<tr><th>Settimana</th><th>N</th><th>MAE H+3</th><th>MAE H+6</th><th>MAE H+12</th></tr>';
     weekly.slice().reverse().forEach(function(w,i,arr) {
-      var prev = arr[i+1];
-      var h6t = prev&&prev.h6_mae&&w.h6_mae ? (w.h6_mae<prev.h6_mae?"improving":"worsening") : "";
-      html += "<tr>" +
-        "<td style=\"color:var(--accent)\">"+w.week+"</td>" +
-        "<td>"+w.n+"</td>" +
-        "<td>"+(w.h3_mae!=null?w.h3_mae+"kn":"--")+"</td>" +
-        "<td class=\""+h6t+"\">"+(w.h6_mae!=null?w.h6_mae+"kn":"--")+"</td>" +
-        "<td>"+(w.h12_mae!=null?w.h12_mae+"kn":"--")+"</td>" +
-        "</tr>";
+      const prev=arr[i+1];
+      const h6t = prev&&prev.h6_mae&&w.h6_mae ? (w.h6_mae<prev.h6_mae?'improving':'worsening') : '';
+      html+='<tr>' +
+        '<td style="color:var(--accent)">'+w.week+'</td>' +
+        '<td>'+w.n+'</td>' +
+        '<td>'+(w.h3_mae!=null?w.h3_mae+'kn':'--')+'</td>' +
+        '<td class="'+h6t+'">'+(w.h6_mae!=null?w.h6_mae+'kn':'--')+'</td>' +
+        '<td>'+(w.h12_mae!=null?w.h12_mae+'kn':'--')+'</td>' +
+        '</tr>';
     });
-    html += "</table></div>";
+    html+='</table></div>';
   }
 
+  // Recent predictions
   if (verified.length) {
-    html += "<div class=\"section-title\">Ultime verifiche</div><div class=\"chart-wrap\"><table class=\"weekly-table\">" +
-      "<tr><th>Data</th><th>Fonte</th><th>H+3 prev&rarr;reale</th><th>H+6 prev&rarr;reale</th><th>H+12 prev&rarr;reale</th></tr>";
+    html += '<div class="section-title">Ultime verifiche</div><div class="chart-wrap"><table class="weekly-table">' +
+      '<tr><th>Data</th><th>Fonte</th><th>H+3 prev&rarr;reale</th><th>H+6 prev&rarr;reale</th><th>H+12 prev&rarr;reale</th></tr>';
     verified.slice(0,10).forEach(function(item) {
       try {
-        var p = item.prediction || item;
+        const p = item.prediction || item;
         if (!p || !p.generated_at) return;
-        var dt = new Date(p.generated_at).toLocaleString("it-IT",{timeZone:"Europe/Rome",day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
-        var src = p.source==="situazione" ? "&#128309; analisi" : "&#9898; cron";
-        html += "<tr>" +
-          "<td style=\"color:var(--muted)\">"+dt+"</td>" +
-          "<td style=\"font-size:0.75rem\">"+src+"</td>" +
-          "<td style=\"font-size:0.75rem\">"+fmtErr(p.forecast_h3,item.actual_3h)+"</td>" +
-          "<td style=\"font-size:0.75rem\">"+fmtErr(p.forecast_h6,item.actual_6h)+"</td>" +
-          "<td style=\"font-size:0.75rem\">"+fmtErr(p.forecast_h12,item.actual_12h)+"</td>" +
-          "</tr>";
+        const dt = new Date(p.generated_at).toLocaleString('it-IT',{timeZone:'Europe/Rome',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+        const src = p.source==='situazione' ? '&#128309; analisi' : '&#9898; cron';
+        html+='<tr>' +
+          '<td style="color:var(--muted)">'+dt+'</td>' +
+          '<td style="font-size:0.75rem">'+src+'</td>' +
+          '<td style="font-size:0.75rem">'+fmtErr(p.forecast_h3,item.actual_3h)+'</td>' +
+          '<td style="font-size:0.75rem">'+fmtErr(p.forecast_h6,item.actual_6h)+'</td>' +
+          '<td style="font-size:0.75rem">'+fmtErr(p.forecast_h12,item.actual_12h)+'</td>' +
+          '</tr>';
       } catch(e) {}
     });
-    html += "</table></div>";
+    html+='</table></div>';
   }
 
   if (!verified.length && !predictions.length) {
-    html += "<div class=\"empty-state\">Nessun dato ancora &mdash; i cron backfill popoleranno i dati</div>";
+    html += '<div class="empty-state">Nessun dato ancora &mdash; i cron backfill popoleranno i dati dalle 10:30</div>';
   }
 
   main.innerHTML = html;
 }
+
+// REDIS STATS
+async function loadRedisStats() {
+  var btn = document.getElementById('btn-redis');
+  btn.textContent = 'Caricamento...';
+  btn.style.opacity = '0.5';
+  try {
+    var res = await fetch(ENGINE + '?action=redis_stats');
+    var d = await res.json();
+    if (d.error) throw new Error(d.error);
+    renderRedisStats(d);
+  } catch(e) {
+    alert('Errore Redis Stats: ' + e.message);
+  }
+  btn.textContent = 'Redis Stats';
+  btn.style.opacity = '1';
+}
+
+function renderRedisStats(d) {
+  var old = document.getElementById('redis-panel');
+  if (old) old.remove();
+  var bp = d.by_prefix || {};
+  var rows = Object.keys(bp).map(function(k){
+    return '<tr><td style="color:var(--accent)">' + k + ':*</td><td style="text-align:right">' + bp[k] + '</td></tr>';
+  }).join('');
+  var panel = document.createElement('div');
+  panel.id = 'redis-panel';
+  panel.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(2,13,26,0.92);z-index:999;display:flex;align-items:center;justify-content:center;padding:20px;';
+  panel.innerHTML =
+    '<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:24px;max-width:480px;width:100%;max-height:90vh;overflow-y:auto;">' +
+    '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:16px;">' +
+    '<span style="font-family:Bebas Neue,sans-serif;font-size:1.4rem;color:#fff">REDIS STATS</span>' +
+    '<button id="redis-close" style="background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;">&#x2715;</button>' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">' +
+    '<div style="background:rgba(0,240,255,0.05);border:1px solid var(--border);border-radius:8px;padding:12px;">' +
+    '<div style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;margin-bottom:4px">Chiavi totali</div>' +
+    '<div style="font-family:Bebas Neue,sans-serif;font-size:1.8rem;color:var(--accent)">' + d.total_keys + '</div></div>' +
+    '<div style="background:rgba(0,240,255,0.05);border:1px solid var(--border);border-radius:8px;padding:12px;">' +
+    '<div style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;margin-bottom:4px">Memoria usata</div>' +
+    '<div style="font-family:Bebas Neue,sans-serif;font-size:1.8rem;color:var(--accent)">' + (d.memory_used||'--') + '</div>' +
+    '<div style="font-size:0.7rem;color:var(--muted);margin-top:2px">peak: ' + (d.memory_peak||'--') + '</div></div></div>' +
+    '<table style="width:100%;border-collapse:collapse;font-size:0.8rem;">' +
+    '<tr><th style="text-align:left;padding:7px 8px;border-bottom:1px solid var(--border);color:var(--muted);font-weight:400;text-transform:uppercase">Prefisso</th>' +
+    '<th style="text-align:right;padding:7px 8px;border-bottom:1px solid var(--border);color:var(--muted);font-weight:400;text-transform:uppercase">Chiavi</th></tr>' +
+    rows + '</table>' +
+    '<div style="font-size:0.7rem;color:var(--muted);margin-top:12px;text-align:right">' + new Date(d.generated_at).toLocaleString('it-IT',{timeZone:'Europe/Rome'}) + '</div>' +
+    '</div>';
+  panel.addEventListener('click', function(e){ if(e.target===panel) panel.remove(); });
+  document.body.appendChild(panel);
+  document.getElementById('redis-close').addEventListener('click', function(){ panel.remove(); });
+}
 </script>
 </body>
+<!-- NAUTILUS STATS v1.2 - mdisailor - 2026-06-02 -->
 </html>

@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.10.3 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.11.0 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1896,7 +1896,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.10.3', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.11.0', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -3214,7 +3214,7 @@ if (action === 'situazione') {
       if (biasPred && biasPred.bias) {
         var bp = biasPred.bias;
         var bpLines = [];
-        ['h3','h6','h12'].forEach(function(h) {
+        ['h1','h3','h6','h9','h12'].forEach(function(h) {
           var b = bp[h];
           if (!b || b.n < 5 || b.mean === null) return;
           var label = h === 'h3' ? 'H+3' : h === 'h6' ? 'H+6' : 'H+12';
@@ -3304,8 +3304,10 @@ if (action === 'situazione') {
         prediction_text: sitText, source: 'situazione',
         current_wind: currentSit.wind_speed, current_wind_dir: currentSit.wind_dir,
         current_pressure: currentSit.pressure, current_wave: currentSit.wave_height || null,
+        forecast_h1: sitExtractWind(sitText, '1'),
         forecast_h3: sitExtractWind(sitText, '3'),
         forecast_h6: sitExtractWind(sitText, '6'),
+        forecast_h9: sitExtractWind(sitText, '9'),
         forecast_h12: sitExtractWind(sitText, '12')
       };
       var phListSit = await kvGet('predict_history:' + zoneKey, kvUrl, kvToken) || [];
@@ -3387,7 +3389,7 @@ if (action === 'predict') {
       if (omFcJ && omFcJ.hourly) {
         var omTimes = omFcJ.hourly.time; // formato "2026-05-22T15:00"
         var nowMs = Date.now();
-        [3,6,12].forEach(function(th) {
+        [1,3,6,9,12].forEach(function(th) {
           var targetMs = nowMs + th * 3600000;
           var bestIdx = 0, bestDiff = Infinity;
           for (var ti = 0; ti < omTimes.length; ti++) {
@@ -3496,7 +3498,7 @@ if (action === 'predict') {
 
     // LIVELLO 3: OM forecast bias-corretto
     var fcDirs = dirs16p;
-    [3,6,12].forEach(function(th) {
+    [1,3,6,9,12].forEach(function(th) {
       var fc = omForecastHours['h' + th];
       if (fc) {
         var rawW = fc.wind_kt;
@@ -3591,8 +3593,10 @@ if (action === 'predict') {
     var systemPrompt = 'Sei un meteorologo marino esperto del Tirreno settentrionale e Arcipelago Toscano. ' +
       'Rispondi SEMPRE con questo formato esatto, senza variazioni:\n' +
       'PREVISIONE_LOCALE:\n' +
+      '- H+1: X kn da DIR\n' +
       '- H+3: X kn da DIR\n' +
       '- H+6: X kn da DIR\n' +
+      '- H+9: X kn da DIR\n' +
       '- H+12: X kn da DIR\n' +
       'Raffica max: X kn (attesa a H+N)\n' +
       'Onda: Xm a H+3 | Xm a H+6 | Xm a H+12\n' +
@@ -3608,8 +3612,10 @@ if (action === 'predict') {
     var systemPromptFast = 'Sei un meteorologo marino esperto del Tirreno settentrionale. ' +
       'Rispondi SEMPRE con questo formato esatto:\n' +
       'PREVISIONE_LOCALE:\n' +
+      '- H+1: X kn da DIR\n' +
       '- H+3: X kn da DIR\n' +
       '- H+6: X kn da DIR\n' +
+      '- H+9: X kn da DIR\n' +
       '- H+12: X kn da DIR\n' +
       'Raffica max: X kn\n' +
       'Onda: Xm\n' +
@@ -3663,8 +3669,10 @@ if (action === 'predict') {
       current_ifs_dir: currentSnap ? currentSnap.ifs_wind_dir : null,
       data_points: validSnaps.length,
       similar_cases: similarCases.length,
+      forecast_h1: extractWindVal(aiText, '1'),
       forecast_h3: extractWindVal(aiText, '3'),
       forecast_h6: extractWindVal(aiText, '6'),
+      forecast_h9: extractWindVal(aiText, '9'),
       forecast_h12: extractWindVal(aiText, '12')
     };
     if (kvUrl && kvToken) {
@@ -3776,7 +3784,7 @@ if (action === 'forecast_stats') {
     var fsList = await kvGet('predict_history:' + zoneKey, kvUrl, kvToken) || [];
     if (!Array.isArray(fsList)) fsList = [];
     var verified = fsList.filter(function(p) {
-      return p && p.generated_at && (p.actual_3h != null || p.actual_6h != null || p.actual_12h != null);
+      return p && p.generated_at && (p.actual_1h != null || p.actual_3h != null || p.actual_6h != null || p.actual_9h != null || p.actual_12h != null);
     });
     // Raggruppa per settimana ISO
     var weekMap = {};
@@ -3785,17 +3793,19 @@ if (action === 'forecast_stats') {
       var jan1 = new Date(d.getFullYear(), 0, 1);
       var week = Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7);
       var wk = d.getFullYear() + '-W' + String(week).padStart(2, '0');
-      if (!weekMap[wk]) weekMap[wk] = { week: wk, h3: [], h6: [], h12: [], n: 0 };
+      if (!weekMap[wk]) weekMap[wk] = { week: wk, h1: [], h3: [], h6: [], h9: [], h12: [], n: 0 };
       var w = weekMap[wk];
       w.n++;
+      if (p.actual_1h != null && p.forecast_h1 != null) w.h1.push(Math.abs(p.actual_1h - p.forecast_h1));
       if (p.actual_3h != null && p.forecast_h3 != null) w.h3.push(Math.abs(p.actual_3h - p.forecast_h3));
       if (p.actual_6h != null && p.forecast_h6 != null) w.h6.push(Math.abs(p.actual_6h - p.forecast_h6));
+      if (p.actual_9h != null && p.forecast_h9 != null) w.h9.push(Math.abs(p.actual_9h - p.forecast_h9));
       if (p.actual_12h != null && p.forecast_h12 != null) w.h12.push(Math.abs(p.actual_12h - p.forecast_h12));
     });
     var avg = function(arr) { return arr.length ? Math.round(arr.reduce(function(a,b){return a+b;},0)/arr.length*10)/10 : null; };
     var weekly = Object.keys(weekMap).sort().map(function(wk) {
       var w = weekMap[wk];
-      return { week: wk, h3_mae: avg(w.h3), h6_mae: avg(w.h6), h12_mae: avg(w.h12), n: w.n };
+      return { week: wk, h1_mae: avg(w.h1), h3_mae: avg(w.h3), h6_mae: avg(w.h6), h9_mae: avg(w.h9), h12_mae: avg(w.h12), n: w.n };
     });
     // Trend generale (prima meta vs seconda meta)
     var half = Math.floor(verified.length / 2);
@@ -3843,7 +3853,7 @@ if (action === 'backfill_actuals') {
       bfList = bfList.map(function(item) {
         if (!item.generated_at) return item;
         var gen = new Date(item.generated_at);
-        [['actual_3h','actual_3h_dir',3], ['actual_6h','actual_6h_dir',6], ['actual_12h','actual_12h_dir',12]].forEach(function(hor) {
+        [['actual_1h','actual_1h_dir',1], ['actual_3h','actual_3h_dir',3], ['actual_6h','actual_6h_dir',6], ['actual_9h','actual_9h_dir',9], ['actual_12h','actual_12h_dir',12]].forEach(function(hor) {
           if (item[hor[0]] !== undefined && item[hor[0]] !== null) return; // gia presente
           var target = new Date(gen.getTime() + hor[2] * 3600000);
           if (target > new Date()) return; // futuro
@@ -3872,14 +3882,16 @@ if (action === 'backfill_actuals') {
     var bfZk2 = bfZones[bfi2];
     try {
       var bfList2 = await kvGet('predict_history:' + bfZk2, kvUrl, kvToken) || [];
-      var bfErrors = {h3:[], h6:[], h12:[]};
+      var bfErrors = {h1:[], h3:[], h6:[], h9:[], h12:[]};
       (bfList2 || []).forEach(function(item) {
+        if (item.actual_1h !== null && item.actual_1h !== undefined && item.forecast_h1 !== null && item.forecast_h1 !== undefined) bfErrors.h1.push(item.actual_1h - item.forecast_h1);
         if (item.actual_3h !== null && item.actual_3h !== undefined && item.forecast_h3 !== null && item.forecast_h3 !== undefined) bfErrors.h3.push(item.actual_3h - item.forecast_h3);
         if (item.actual_6h !== null && item.actual_6h !== undefined && item.forecast_h6 !== null && item.forecast_h6 !== undefined) bfErrors.h6.push(item.actual_6h - item.forecast_h6);
+        if (item.actual_9h !== null && item.actual_9h !== undefined && item.forecast_h9 !== null && item.forecast_h9 !== undefined) bfErrors.h9.push(item.actual_9h - item.forecast_h9);
         if (item.actual_12h !== null && item.actual_12h !== undefined && item.forecast_h12 !== null && item.forecast_h12 !== undefined) bfErrors.h12.push(item.actual_12h - item.forecast_h12);
       });
       var bfBias = {};
-      ['h3','h6','h12'].forEach(function(h) {
+      ['h1','h3','h6','h9','h12'].forEach(function(h) {
         var errs = bfErrors[h];
         if (errs.length < 3) { bfBias[h] = {n:errs.length, mean:null, std:null}; return; }
         var mean = errs.reduce(function(a,b){return a+b;},0) / errs.length;
@@ -4330,7 +4342,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.10.3 - by mdisailor engine',
+engine: 'nautilus-engine v2.11.0 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4456,4 +4468,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.10.3
+// Fine codice - NAUTILUS ENGINE v2.11.0

@@ -89,7 +89,10 @@ const ZONES = [
 ];
 
 document.getElementById('zone-bar').innerHTML =
-  ZONES.map(z => '<button class="zone-btn" onclick="loadZone(\'' + z.key + '\',\'' + z.name.replace("'","\\'") + '\')">' + z.name + '</button>').join('');
+  ZONES.map(z => '<button class="zone-btn" data-key="' + z.key + '" data-name="' + z.name + '">' + z.name + '</button>').join('');
+document.querySelectorAll('.zone-btn').forEach(function(btn){
+  btn.addEventListener('click', function(){ loadZone(this.dataset.key, this.dataset.name); });
+});
 
 // REDIS STATS
 async function loadRedisStats() {

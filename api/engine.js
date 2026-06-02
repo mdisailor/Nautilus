@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js -  v2.10.2 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.10.2 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -4447,79 +4447,5 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 }
 
 
-// action=redis_stats -- statistiche utilizzo Redis
-if (action === 'redis_stats') {
-  if (!kvUrl || !kvToken) return res.status(200).json({ error: 'Redis non configurato' });
-  try {
-    // Prefissi da contare
-    var prefixes = [
-      'predict_history',
-      'predict_bias',
-      'snap',
-      'bias_samples',
-      'bias_stats',
-      'situazione_latest',
-      'lamma',
-      'scrape_cfr',
-      'scrape_web'
-    ];
-
-    // DBSIZE - totale chiavi
-    var dbsizeRes = await fetch(kvUrl, {
-      method: 'POST',
-      headers: { Authorization: 'Bearer ' + kvToken, 'Content-Type': 'application/json' },
-      body: JSON.stringify(['DBSIZE'])
-    });
-    var dbsizeData = await dbsizeRes.json();
-    var totalKeys = dbsizeData.result || 0;
-
-    // INFO memory
-    var infoRes = await fetch(kvUrl, {
-      method: 'POST',
-      headers: { Authorization: 'Bearer ' + kvToken, 'Content-Type': 'application/json' },
-      body: JSON.stringify(['INFO', 'memory'])
-    });
-    var infoData = await infoRes.json();
-    var memUsed = null;
-    var memPeak = null;
-    if (infoData.result) {
-      var mUsedMatch = infoData.result.match(/used_memory_human:([^\r\n]+)/);
-      var mPeakMatch = infoData.result.match(/used_memory_peak_human:([^\r\n]+)/);
-      if (mUsedMatch) memUsed = mUsedMatch[1].trim();
-      if (mPeakMatch) memPeak = mPeakMatch[1].trim();
-    }
-
-    // SCAN per prefisso - conta chiavi per categoria
-    var prefixCounts = {};
-    for (var pi = 0; pi < prefixes.length; pi++) {
-      var pref = prefixes[pi];
-      var cursor = '0';
-      var count = 0;
-      do {
-        var scanRes = await fetch(kvUrl, {
-          method: 'POST',
-          headers: { Authorization: 'Bearer ' + kvToken, 'Content-Type': 'application/json' },
-          body: JSON.stringify(['SCAN', cursor, 'MATCH', pref + ':*', 'COUNT', '200'])
-        });
-        var scanData = await scanRes.json();
-        if (scanData.result && Array.isArray(scanData.result)) {
-          cursor = String(scanData.result[0]);
-          count += (scanData.result[1] || []).length;
-        } else { break; }
-      } while (cursor !== '0');
-      prefixCounts[pref] = count;
-    }
-
-    return res.status(200).json({
-      total_keys: totalKeys,
-      memory_used: memUsed,
-      memory_peak: memPeak,
-      by_prefix: prefixCounts,
-      generated_at: new Date().toISOString()
-    });
-  } catch(e) {
-    return res.status(500).json({ error: e.message });
-  }
-}
 
 // Fine codice - NAUTILUS ENGINE v2.10.2

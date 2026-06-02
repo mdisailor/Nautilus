@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.3.0 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS MAPPA v1.3.1 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.3.0</title>
+<title>NAUTILUS Mappa Vento v1.3.1</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -47,7 +47,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 
 /* CANVAS */
 #wind-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:600}
-#particle-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:590}
+#particle-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:580}
 
 /* BOTTONE FLOW */
 #btn-flow{
@@ -166,7 +166,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.3.0</span>
+    <span id="nav-ver">mappa v1.3.1</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
   <a id="nav-back" href="/">APP</a>
@@ -223,11 +223,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.3.0 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.3.1 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.3.0
+// NAUTILUS MAPPA v1.3.1
 
 var ENGINE_URL = '/api/engine';
 
@@ -684,7 +684,8 @@ function buildVectorField(){
     var px = map.latLngToContainerPoint([pt.lat, pt.lon]);
     if (px.x < -50 || px.x > W+50 || px.y < -50 || px.y > H+50) return;
     var rad = pt.dir * Math.PI / 180;
-    sources.push({ x:px.x, y:px.y, u: Math.sin(rad)*pt.speed, v: -Math.cos(rad)*pt.speed, w:1.0 });
+    // dir meteo = provenienza. Movimento = opposto. Canvas: Y verso il basso -> v = +cos(rad)
+    sources.push({ x:px.x, y:px.y, u: -Math.sin(rad)*pt.speed, v: Math.cos(rad)*pt.speed, w:1.0 });
   });
 
   // Zone Nautilus (peso 2)
@@ -695,7 +696,7 @@ function buildVectorField(){
     var dir = d.wind_dir   != null ? d.wind_dir   : (d.wind_dir_obs  || 0);
     var px = map.latLngToContainerPoint([z.lat, z.lon]);
     var rad = dir * Math.PI / 180;
-    sources.push({ x:px.x, y:px.y, u: Math.sin(rad)*spd, v: -Math.cos(rad)*spd, w:2.0 });
+    sources.push({ x:px.x, y:px.y, u: -Math.sin(rad)*spd, v: Math.cos(rad)*spd, w:2.0 });
   });
 
   // Stazioni reali (peso 4 - comandano)
@@ -703,7 +704,7 @@ function buildVectorField(){
     var px = map.latLngToContainerPoint([st.lat, st.lon]);
     if (px.x < -100 || px.x > W+100 || px.y < -100 || px.y > H+100) return;
     var rad = st.dir * Math.PI / 180;
-    sources.push({ x:px.x, y:px.y, u: Math.sin(rad)*st.speed, v: -Math.cos(rad)*st.speed, w:4.0 });
+    sources.push({ x:px.x, y:px.y, u: -Math.sin(rad)*st.speed, v: Math.cos(rad)*st.speed, w:4.0 });
   });
 
   if (sources.length === 0){ particleState.field = null; return; }
@@ -793,11 +794,14 @@ function animateParticles(){
   if (!particleState.active) return;
   var W = pCanvas.width, H = pCanvas.height;
 
-  // Fade trail - semi-trasparente per effetto scia
-  pCtx.fillStyle = 'rgba(2,14,28,0.18)';
+  // Fade trail - erode le scie senza coprire la mappa sottostante
+  pCtx.globalCompositeOperation = 'destination-out';
+  pCtx.globalAlpha = 0.04;
   pCtx.fillRect(0, 0, W, H);
+  pCtx.globalCompositeOperation = 'source-over';
+  pCtx.globalAlpha = 1.0;
 
-  var speedScale = 0.4; // pixel per frame per nodo
+  var speedScale = 0.18; // pixel per frame per nodo - piu' lento e leggibile
 
   particleState.particles.forEach(function(p, i){
     var fv = sampleField(p.x, p.y);
@@ -1054,7 +1058,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.3.0
+// Fine codice - NAUTILUS MAPPA v1.3.1
 </script>
 </body>
 </html>

@@ -1,3 +1,4 @@
+<!-- NAUTILUS STATS v1.2 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -53,9 +54,8 @@
 <body>
 <header>
   <div class="logo">NAUTI<span>LUS</span></div>
-  <div class="subtitle">Accuratezza previsioni AI &nbsp;·&nbsp; v2.10.2 / stats v1.1</div>
+  <div class="subtitle">Accuratezza previsioni AI &nbsp;·&nbsp; v2.10.2 / stats v1.2</div>
   <a href="/" class="back-link">← app</a>
-  <button id="btn-redis" onclick="loadRedisStats()" style="font-family:'DM Mono',monospace;font-size:0.75rem;padding:6px 14px;background:transparent;border:1px solid var(--border);border-radius:20px;color:var(--muted);cursor:pointer;transition:all 0.15s;margin-left:8px;">Redis Stats</button>
 </header>
 <div class="zone-bar" id="zone-bar">
   <span style="font-size:0.85rem;color:var(--muted);align-self:center">Caricamento zone...</span>
@@ -90,65 +90,7 @@ const ZONES = [
 document.getElementById('zone-bar').innerHTML =
   ZONES.map(z => '<button class="zone-btn" onclick="loadZone(\'' + z.key + '\',\'' + z.name.replace("'","\\'") + '\')">' + z.name + '</button>').join('');
 
-// REDIS STATS
-async function loadRedisStats() {
-  const btn = document.getElementById('btn-redis');
-  btn.textContent = 'Caricamento...';
-  btn.style.opacity = '0.5';
-  try {
-    const res = await fetch(ENGINE + '?action=redis_stats');
-    const d = await res.json();
-    if (d.error) throw new Error(d.error);
-    renderRedisStats(d);
-  } catch(e) {
-    alert('Errore Redis Stats: ' + e.message);
-  }
-  btn.textContent = 'Redis Stats';
-  btn.style.opacity = '1';
-}
-
-function renderRedisStats(d) {
-  // Rimuove pannello precedente se esiste
-  const old = document.getElementById('redis-panel');
-  if (old) old.remove();
-
-  const bp = d.by_prefix || {};
-  const rows = Object.entries(bp).map(([k,v]) =>
-    '<tr><td style="color:var(--accent)">' + k + ':*</td><td style="text-align:right">' + v + '</td></tr>'
-  ).join('');
-
-  const panel = document.createElement('div');
-  panel.id = 'redis-panel';
-  panel.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(2,13,26,0.92);z-index:999;display:flex;align-items:center;justify-content:center;padding:20px;';
-  panel.innerHTML =
-    '<div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:24px;max-width:480px;width:100%;max-height:90vh;overflow-y:auto;">' +
-    '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:16px;">' +
-    '<span style="font-family:Bebas Neue,sans-serif;font-size:1.4rem;letter-spacing:0.06em;color:#fff">REDIS STATS</span>' +
-    '<button onclick="document.getElementById(\'redis-panel\').remove()" style="background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;">✕</button>' +
-    '</div>' +
-    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">' +
-    '<div style="background:rgba(0,240,255,0.05);border:1px solid var(--border);border-radius:8px;padding:12px;">' +
-    '<div style="font-size:0.7rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px">Chiavi totali</div>' +
-    '<div style="font-family:Bebas Neue,sans-serif;font-size:1.8rem;color:var(--accent)">' + d.total_keys + '</div>' +
-    '</div>' +
-    '<div style="background:rgba(0,240,255,0.05);border:1px solid var(--border);border-radius:8px;padding:12px;">' +
-    '<div style="font-size:0.7rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px">Memoria usata</div>' +
-    '<div style="font-family:Bebas Neue,sans-serif;font-size:1.8rem;color:var(--accent)">' + (d.memory_used || '--') + '</div>' +
-    '<div style="font-size:0.7rem;color:var(--muted);margin-top:2px">peak: ' + (d.memory_peak || '--') + '</div>' +
-    '</div>' +
-    '</div>' +
-    '<table style="width:100%;border-collapse:collapse;font-size:0.8rem;">' +
-    '<tr><th style="text-align:left;padding:7px 8px;border-bottom:1px solid var(--border);color:var(--muted);font-weight:400;letter-spacing:0.08em;text-transform:uppercase">Prefisso</th>' +
-    '<th style="text-align:right;padding:7px 8px;border-bottom:1px solid var(--border);color:var(--muted);font-weight:400;letter-spacing:0.08em;text-transform:uppercase">Chiavi</th></tr>' +
-    rows +
-    '</table>' +
-    '<div style="font-size:0.7rem;color:var(--muted);margin-top:12px;text-align:right">' + new Date(d.generated_at).toLocaleString('it-IT',{timeZone:'Europe/Rome'}) + '</div>' +
-    '</div>';
-  panel.addEventListener('click', function(e){ if(e.target===panel) panel.remove(); });
-  document.body.appendChild(panel);
-}
-
-
+async function loadZone(key, name) {
   document.querySelectorAll('.zone-btn').forEach(b => b.classList.remove('active'));
   event.target.classList.add('active');
   const main = document.getElementById('main');
@@ -313,4 +255,5 @@ function render(key, name, hist, stats) {
 }
 </script>
 </body>
+<!-- NAUTILUS STATS v1.2 - mdisailor - 2026-06-02 -->
 </html>

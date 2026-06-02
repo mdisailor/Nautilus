@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.10.2 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.10.3 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -3584,17 +3584,40 @@ if (action === 'predict') {
     }
 
     pLines.push('');
-    pLines.push('Basandoti su questi dati storici reali (non sul modello numerico), fornisci:');
-    pLines.push('PREVISIONE_LOCALE: evoluzione vento e mare per h3, h6, h12 con valori numerici');
-    pLines.push('CONFIDENZA: bassa/media/alta con motivazione');
-    pLines.push('PATTERN: pattern sinottico identificato dai dati storici');
-    pLines.push('CONSIGLIO: indicazione operativa per la navigazione in questa zona');
-    pLines.push(req.query.fast === '1'
-    ? 'Rispondi con: PREVISIONE_LOCALE: H3 Xkn DIR | H6 Xkn DIR | H12 Xkn DIR. Raffica max: Xkn. Onda: Xm. CONFIDENZA: bassa/media/alta con motivazione breve. PATTERN: una riga descrittiva. CONSIGLIO: indicazione operativa. Max 150 parole.'
-    : 'Max 200 parole. Basati SOLO sui dati forniti, non su conoscenza generica.');
+    pLines.push('Basandoti su questi dati, analizza la situazione e fornisci la previsione nel formato richiesto.');
     var prompt = pLines.join('\n');
 
         // Call Claude Sonnet
+    var systemPrompt = 'Sei un meteorologo marino esperto del Tirreno settentrionale e Arcipelago Toscano. ' +
+      'Rispondi SEMPRE con questo formato esatto, senza variazioni:\n' +
+      'PREVISIONE_LOCALE:\n' +
+      '- H+3: X kn da DIR\n' +
+      '- H+6: X kn da DIR\n' +
+      '- H+12: X kn da DIR\n' +
+      'Raffica max: X kn (attesa a H+N)\n' +
+      'Onda: Xm a H+3 | Xm a H+6 | Xm a H+12\n' +
+      '\n' +
+      'CONFIDENZA: bassa/media/alta - motivazione in una riga\n' +
+      'PATTERN: pattern sinottico in una riga\n' +
+      'CONSIGLIO: indicazione operativa in una riga\n' +
+      '\n' +
+      'Usa sempre il formato "X kn" con numero decimale (es. 7.5 kn). ' +
+      'Non usare range (es. 6-8 kn), scrivi il valore centrale (7.0 kn). ' +
+      'Non aggiungere sezioni extra. Basati SOLO sui dati forniti.';
+
+    var systemPromptFast = 'Sei un meteorologo marino esperto del Tirreno settentrionale. ' +
+      'Rispondi SEMPRE con questo formato esatto:\n' +
+      'PREVISIONE_LOCALE:\n' +
+      '- H+3: X kn da DIR\n' +
+      '- H+6: X kn da DIR\n' +
+      '- H+12: X kn da DIR\n' +
+      'Raffica max: X kn\n' +
+      'Onda: Xm\n' +
+      'CONFIDENZA: bassa/media/alta - breve motivazione\n' +
+      'PATTERN: una riga\n' +
+      'CONSIGLIO: una riga\n' +
+      'Usa valori singoli (non range). Max 120 parole.';
+
     var aiRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -3605,6 +3628,7 @@ if (action === 'predict') {
       body: JSON.stringify({
         model: req.query.fast === '1' ? 'claude-haiku-4-5-20251001' : 'claude-sonnet-4-20250514',
         max_tokens: req.query.fast === '1' ? 300 : 600,
+        system: req.query.fast === '1' ? systemPromptFast : systemPrompt,
         messages: [{ role: 'user', content: prompt }]
       })
     });
@@ -3618,29 +3642,13 @@ if (action === 'predict') {
     var predKey = 'predict:' + zoneKey + ':' + predRomeHour + '-' + predMins15;
     // Extract structured wind values from AI text for easy comparison later
     var extractWindVal = function(text, h) {
-      // Gestisce: "H3: 6.5kn", "H3: 6-7kn", "H+3 (10:15): 6-7kn", inline e multi-riga
-      var patterns = [
-        // Con orario H3 (10:15): o H3 (10:15):** -- range X-Y kn
-        new RegExp('H\\+?' + h + '\\s*\\([^)]+\\)\\D*([0-9]+\\.?[0-9]*)\\s*[-\u2013\u2014]\\s*([0-9]+\\.?[0-9]*)\\s*kn', 'i'),
-        // Con orario H3 (10:15): o H3 (10:15):** -- singolo X kn
-        new RegExp('H\\+?' + h + '\\s*\\([^)]+\\)\\D*([0-9]+\\.?[0-9]*)\\s*kn', 'i'),
-        // Range X-Ykn senza orario
-        new RegExp('H\\+?' + h + '[^0-9(]*([0-9]+\\.?[0-9]*)\\s*[-\u2013\u2014]\\s*([0-9]+\\.?[0-9]*)\\s*kn', 'i'),
-        // Singolo Xkn senza orario
-        new RegExp('H\\+?' + h + '[^0-9(]*([0-9]+\\.?[0-9]*)\\s*kn', 'i')
-      ];
-      // Pattern 0: range con orario
-      var m0 = text.match(patterns[0]);
-      if (m0) return Math.round((parseFloat(m0[1]) + parseFloat(m0[2])) / 2 * 10) / 10;
-      // Pattern 1: singolo con orario
-      var m1 = text.match(patterns[1]);
-      if (m1) return parseFloat(m1[1]);
-      // Pattern 2: range senza orario
-      var m2 = text.match(patterns[2]);
-      if (m2) return Math.round((parseFloat(m2[1]) + parseFloat(m2[2])) / 2 * 10) / 10;
-      // Pattern 3: singolo senza orario
-      var m3 = text.match(patterns[3]);
-      if (m3) return parseFloat(m3[1]);
+      // Formato atteso dal system prompt: "- H+N: X.X kn da DIR"
+      // Pattern primario: H+N: X.X kn
+      var m = text.match(new RegExp('H\\+?' + h + '\\s*:\\s*([0-9]+\\.?[0-9]*)\\s*kn', 'i'));
+      if (m) return parseFloat(m[1]);
+      // Fallback per range (risposta non conforme): "H+N: X-Y kn" -> media
+      var mr = text.match(new RegExp('H\\+?' + h + '\\s*:\\s*([0-9]+\\.?[0-9]*)\\s*[-\u2013\u2014]\\s*([0-9]+\\.?[0-9]*)\\s*kn', 'i'));
+      if (mr) return Math.round((parseFloat(mr[1]) + parseFloat(mr[2])) / 2 * 10) / 10;
       return null;
     };
     var predRecord = {
@@ -4322,7 +4330,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.10.2 - by mdisailor engine',
+engine: 'nautilus-engine v2.10.3 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4448,4 +4456,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.10.2
+// Fine codice - NAUTILUS ENGINE v2.10.3

@@ -148,8 +148,7 @@ function renderRedisStats(d) {
   document.body.appendChild(panel);
 }
 
-
-  document.querySelectorAll('.zone-btn').forEach(b => b.classList.remove('active'));
+async function loadZone(key, name) {
   event.target.classList.add('active');
   const main = document.getElementById('main');
   main.innerHTML = '<div class="spinner"></div>';

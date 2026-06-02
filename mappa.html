@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.3.6 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS MAPPA v1.3.7 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.3.6</title>
+<title>NAUTILUS Mappa Vento v1.3.7</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -61,6 +61,24 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 }
 #btn-flow.active{color:var(--accent);border-color:var(--accent);box-shadow:0 0 14px rgba(0,240,255,0.3)}
 #btn-flow:hover{color:var(--accent);border-color:var(--accent)}
+
+/* BOTTONI MODALITA' FLUSSO */
+#flow-mode-btns{
+  position:absolute;z-index:600;
+  bottom:140px;left:68px;
+  display:none;flex-direction:column;gap:5px;
+}
+#flow-mode-btns.visible{ display:flex; }
+.btn-fmode{
+  width:46px;height:42px;border-radius:10px;
+  background:rgba(6,24,46,0.97);border:1px solid var(--border);
+  color:var(--muted);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  backdrop-filter:blur(8px);transition:all 0.2s;
+  font-size:0.62rem;font-family:'DM Mono',monospace;letter-spacing:0.04em;
+}
+.btn-fmode.active{color:var(--accent);border-color:var(--accent);background:rgba(0,240,255,0.08)}
+.btn-fmode:hover{color:var(--accent);border-color:var(--accent)}
 
 /* HUD */
 #hud{
@@ -166,7 +184,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.3.6</span>
+    <span id="nav-ver">mappa v1.3.7</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
   <a id="nav-back" href="/">APP</a>
@@ -190,6 +208,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   <button id="btn-gps" title="Posizione GPS">GPS</button>
   <button id="btn-refresh" title="Aggiorna">AGG</button>
   <button id="btn-flow" title="Animazione flusso vento">&#x1F300;<br>FLOW</button>
+  <div id="flow-mode-btns">
+    <button class="btn-fmode" id="fmode-om"  title="Flusso basato su griglia Open-Meteo">OM</button>
+    <button class="btn-fmode active" id="fmode-nau" title="Flusso basato su zone Nautilus + stazioni">NAU</button>
+    <button class="btn-fmode" id="fmode-all" title="Flusso combinato tutti i livelli">ALL</button>
+  </div>
 
   <div id="legend">
     <div id="legend-header" onclick="toggleLegend()">
@@ -223,11 +246,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.3.6 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.3.7 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.3.6
+// NAUTILUS MAPPA v1.3.7
 
 var ENGINE_URL = '/api/engine';
 
@@ -312,10 +335,11 @@ var particleState = {
   active: false,
   particles: [],
   animFrame: null,
-  field: null,       // griglia vettoriale interpolata IDW
+  field: null,
   fieldW: 0,
   fieldH: 0,
-  fieldRes: 6        // pixel per cella del campo (6 = buona densita')
+  fieldRes: 6,
+  flowMode: 'nau'   // 'om' | 'nau' | 'all'
 };
 
 function resizeCanvas(){
@@ -663,12 +687,7 @@ async function fetchStationData(){
   state.stationData = results.filter(function(s){ return s !== null; });
 }
 
-// IDW VECTOR FIELD - v2
-// Logica a due livelli:
-// 1. Punti primari (zone Nautilus + stazioni reali): IDW puro tra loro
-//    Se 2 punti hanno stesso valore, il campo tra loro ha quel valore
-//    Stazioni reali pesano 10x le zone (comandano nel raggio)
-// 2. Griglia OM: riempie solo celle dove nessun punto primario e' entro COVERAGE_R px
+// IDW VECTOR FIELD - v3 - tre modalita': om / nau / all
 function buildVectorField(){
   var W = pCanvas.width, H = pCanvas.height;
   var res = particleState.fieldRes;
@@ -676,31 +695,14 @@ function buildVectorField(){
   var rows = Math.ceil(H / res);
   particleState.fieldW = cols;
   particleState.fieldH = rows;
+  var mode = particleState.flowMode; // 'om' | 'nau' | 'all'
+  var COVERAGE_R2 = 200 * 200;
+  var EPS = 1e-10;
 
-  // Raggio di copertura punti primari: entro questi px la griglia OM non conta
-  var COVERAGE_R2 = 200 * 200; // ~200px = ~40km a zoom 8
+  // Costruisce vettori da una lista sorgenti con peso
+  function toVec(lat, lon, dir, spd){ return null; } // placeholder
 
-  // Punti primari: zone Nautilus
-  var primary = [];
-  ZONES.forEach(function(z){
-    var d = state.zoneData[z.key];
-    if (!d) return;
-    var spd = d.wind_speed != null ? d.wind_speed : (d.wind_speed_obs || 0);
-    var dir = d.wind_dir   != null ? d.wind_dir   : (d.wind_dir_obs  || 0);
-    var px = map.latLngToContainerPoint([z.lat, z.lon]);
-    var rad = dir * Math.PI / 180;
-    primary.push({ x:px.x, y:px.y, u: -Math.sin(rad)*spd, v: Math.cos(rad)*spd, w:1.0 });
-  });
-
-  // Punti primari: stazioni reali (peso 10x - comandano)
-  state.stationData.forEach(function(st){
-    var px = map.latLngToContainerPoint([st.lat, st.lon]);
-    if (px.x < -100 || px.x > W+100 || px.y < -100 || px.y > H+100) return;
-    var rad = st.dir * Math.PI / 180;
-    primary.push({ x:px.x, y:px.y, u: -Math.sin(rad)*st.speed, v: Math.cos(rad)*st.speed, w:10.0 });
-  });
-
-  // Griglia OM: solo per zone senza copertura primaria
+  // --- SORGENTI OM ---
   var omSources = [];
   state.gridData.forEach(function(pt){
     var px = map.latLngToContainerPoint([pt.lat, pt.lon]);
@@ -709,42 +711,73 @@ function buildVectorField(){
     omSources.push({ x:px.x, y:px.y, u: -Math.sin(rad)*pt.speed, v: Math.cos(rad)*pt.speed });
   });
 
-  if (primary.length === 0 && omSources.length === 0){ particleState.field = null; return; }
+  // --- SORGENTI NAUTILUS (zone + stazioni) ---
+  var nauSources = [];
+  ZONES.forEach(function(z){
+    var d = state.zoneData[z.key];
+    if (!d) return;
+    var spd = d.wind_speed != null ? d.wind_speed : (d.wind_speed_obs || 0);
+    var dir = d.wind_dir   != null ? d.wind_dir   : (d.wind_dir_obs  || 0);
+    var px = map.latLngToContainerPoint([z.lat, z.lon]);
+    var rad = dir * Math.PI / 180;
+    nauSources.push({ x:px.x, y:px.y, u: -Math.sin(rad)*spd, v: Math.cos(rad)*spd, w:1.0 });
+  });
+  state.stationData.forEach(function(st){
+    var px = map.latLngToContainerPoint([st.lat, st.lon]);
+    if (px.x < -100 || px.x > W+100 || px.y < -100 || px.y > H+100) return;
+    var rad = st.dir * Math.PI / 180;
+    nauSources.push({ x:px.x, y:px.y, u: -Math.sin(rad)*st.speed, v: Math.cos(rad)*st.speed, w:10.0 });
+  });
+
+  if (omSources.length === 0 && nauSources.length === 0){ particleState.field = null; return; }
 
   var field = new Float32Array(cols * rows * 2);
-  var EPS = 1e-10;
 
   for (var row = 0; row < rows; row++){
     for (var col = 0; col < cols; col++){
       var cx = col * res + res/2;
       var cy = row * res + res/2;
       var sumU = 0, sumV = 0, sumW = 0;
-      var hasPrimary = false;
 
-      // IDW punti primari
-      for (var si = 0; si < primary.length; si++){
-        var s = primary[si];
-        var dx = cx - s.x, dy = cy - s.y;
-        var dist2 = dx*dx + dy*dy;
-        if (dist2 < COVERAGE_R2) hasPrimary = true;
-        if (dist2 < 900) dist2 = 900;
-        var ww = s.w / dist2;
-        sumU += s.u * ww;
-        sumV += s.v * ww;
-        sumW += ww;
-      }
-
-      // Griglia OM solo se nessun punto primario nelle vicinanze
-      if (!hasPrimary){
+      if (mode === 'om'){
+        // Solo griglia OM grezza
         for (var oi = 0; oi < omSources.length; oi++){
           var o = omSources[oi];
-          var dx2 = cx - o.x, dy2 = cy - o.y;
-          var d2 = dx2*dx2 + dy2*dy2;
+          var dx = cx-o.x, dy = cy-o.y, d2 = dx*dx+dy*dy;
           if (d2 < 900) d2 = 900;
-          var ow = 1.0 / d2;
-          sumU += o.u * ow;
-          sumV += o.v * ow;
-          sumW += ow;
+          var w = 1.0/d2; sumU+=o.u*w; sumV+=o.v*w; sumW+=w;
+        }
+      } else if (mode === 'nau'){
+        // IDW puro Nautilus, OM solo in zone scoperte
+        var hasPrimary = false;
+        for (var si = 0; si < nauSources.length; si++){
+          var s = nauSources[si];
+          var dx2 = cx-s.x, dy2 = cy-s.y, dist2 = dx2*dx2+dy2*dy2;
+          if (dist2 < COVERAGE_R2) hasPrimary = true;
+          if (dist2 < 900) dist2 = 900;
+          var ww = s.w/dist2; sumU+=s.u*ww; sumV+=s.v*ww; sumW+=ww;
+        }
+        if (!hasPrimary){
+          for (var oi2 = 0; oi2 < omSources.length; oi2++){
+            var o2 = omSources[oi2];
+            var dx3 = cx-o2.x, dy3 = cy-o2.y, d3 = dx3*dx3+dy3*dy3;
+            if (d3 < 900) d3 = 900;
+            var ow = 1.0/d3; sumU+=o2.u*ow; sumV+=o2.v*ow; sumW+=ow;
+          }
+        }
+      } else {
+        // ALL: tutto insieme, stazioni w=10, zone w=3, OM w=1
+        for (var ni = 0; ni < nauSources.length; ni++){
+          var n = nauSources[ni];
+          var dxn = cx-n.x, dyn = cy-n.y, d2n = dxn*dxn+dyn*dyn;
+          if (d2n < 900) d2n = 900;
+          var wn = n.w/d2n; sumU+=n.u*wn; sumV+=n.v*wn; sumW+=wn;
+        }
+        for (var oia = 0; oia < omSources.length; oia++){
+          var oa = omSources[oia];
+          var dxa = cx-oa.x, dya = cy-oa.y, d2a = dxa*dxa+dya*dya;
+          if (d2a < 900) d2a = 900;
+          var wa = 1.0/d2a; sumU+=oa.u*wa; sumV+=oa.v*wa; sumW+=wa;
         }
       }
 
@@ -876,12 +909,24 @@ function rebuildAndAnimate(){
 document.getElementById('btn-flow').addEventListener('click', function(){
   particleState.active = !particleState.active;
   this.classList.toggle('active', particleState.active);
+  document.getElementById('flow-mode-btns').classList.toggle('visible', particleState.active);
   if (particleState.active){
     buildVectorField();
     startParticles();
   } else {
     stopParticles();
   }
+});
+
+// BOTTONI MODALITA' FLUSSO
+['om','nau','all'].forEach(function(mode){
+  document.getElementById('fmode-' + mode).addEventListener('click', function(){
+    if (!particleState.active) return;
+    particleState.flowMode = mode;
+    document.querySelectorAll('.btn-fmode').forEach(function(b){ b.classList.remove('active'); });
+    this.classList.add('active');
+    rebuildAndAnimate();
+  });
 });
 
 // LOAD ALL
@@ -1076,7 +1121,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.3.6
+// Fine codice - NAUTILUS MAPPA v1.3.7
 </script>
 </body>
 </html>

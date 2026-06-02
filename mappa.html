@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.3.5 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS MAPPA v1.3.6 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.3.5</title>
+<title>NAUTILUS Mappa Vento v1.3.6</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -166,7 +166,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.3.5</span>
+    <span id="nav-ver">mappa v1.3.6</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
   <a id="nav-back" href="/">APP</a>
@@ -223,11 +223,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.3.5 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.3.6 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.3.5
+// NAUTILUS MAPPA v1.3.6
 
 var ENGINE_URL = '/api/engine';
 
@@ -663,11 +663,12 @@ async function fetchStationData(){
   state.stationData = results.filter(function(s){ return s !== null; });
 }
 
-// IDW VECTOR FIELD
-// Costruisce una griglia di vettori vento su tutto il canvas usando:
-// - griglia OM come base (peso 1.0)
-// - zone Nautilus (peso 2.0)
-// - stazioni reali CFR/MNW (peso 4.0) - comandano in prossimita'
+// IDW VECTOR FIELD - v2
+// Logica a due livelli:
+// 1. Punti primari (zone Nautilus + stazioni reali): IDW puro tra loro
+//    Se 2 punti hanno stesso valore, il campo tra loro ha quel valore
+//    Stazioni reali pesano 10x le zone (comandano nel raggio)
+// 2. Griglia OM: riempie solo celle dove nessun punto primario e' entro COVERAGE_R px
 function buildVectorField(){
   var W = pCanvas.width, H = pCanvas.height;
   var res = particleState.fieldRes;
@@ -676,19 +677,11 @@ function buildVectorField(){
   particleState.fieldW = cols;
   particleState.fieldH = rows;
 
-  // Raccoglie tutti i punti con peso
-  var sources = [];
+  // Raggio di copertura punti primari: entro questi px la griglia OM non conta
+  var COVERAGE_R2 = 200 * 200; // ~200px = ~40km a zoom 8
 
-  // Griglia OM (peso 1)
-  state.gridData.forEach(function(pt){
-    var px = map.latLngToContainerPoint([pt.lat, pt.lon]);
-    if (px.x < -50 || px.x > W+50 || px.y < -50 || px.y > H+50) return;
-    var rad = pt.dir * Math.PI / 180;
-    // dir meteo = provenienza. Movimento = opposto. Canvas: Y verso il basso -> v = +cos(rad)
-    sources.push({ x:px.x, y:px.y, u: -Math.sin(rad)*pt.speed, v: Math.cos(rad)*pt.speed, w:0.3 });
-  });
-
-  // Zone Nautilus (peso 2)
+  // Punti primari: zone Nautilus
+  var primary = [];
   ZONES.forEach(function(z){
     var d = state.zoneData[z.key];
     if (!d) return;
@@ -696,21 +689,29 @@ function buildVectorField(){
     var dir = d.wind_dir   != null ? d.wind_dir   : (d.wind_dir_obs  || 0);
     var px = map.latLngToContainerPoint([z.lat, z.lon]);
     var rad = dir * Math.PI / 180;
-    sources.push({ x:px.x, y:px.y, u: -Math.sin(rad)*spd, v: Math.cos(rad)*spd, w:5.0 });
+    primary.push({ x:px.x, y:px.y, u: -Math.sin(rad)*spd, v: Math.cos(rad)*spd, w:1.0 });
   });
 
-  // Stazioni reali (peso 4 - comandano)
+  // Punti primari: stazioni reali (peso 10x - comandano)
   state.stationData.forEach(function(st){
     var px = map.latLngToContainerPoint([st.lat, st.lon]);
     if (px.x < -100 || px.x > W+100 || px.y < -100 || px.y > H+100) return;
     var rad = st.dir * Math.PI / 180;
-    sources.push({ x:px.x, y:px.y, u: -Math.sin(rad)*st.speed, v: Math.cos(rad)*st.speed, w:4.0 });
+    primary.push({ x:px.x, y:px.y, u: -Math.sin(rad)*st.speed, v: Math.cos(rad)*st.speed, w:10.0 });
   });
 
-  if (sources.length === 0){ particleState.field = null; return; }
+  // Griglia OM: solo per zone senza copertura primaria
+  var omSources = [];
+  state.gridData.forEach(function(pt){
+    var px = map.latLngToContainerPoint([pt.lat, pt.lon]);
+    if (px.x < -50 || px.x > W+50 || px.y < -50 || px.y > H+50) return;
+    var rad = pt.dir * Math.PI / 180;
+    omSources.push({ x:px.x, y:px.y, u: -Math.sin(rad)*pt.speed, v: Math.cos(rad)*pt.speed });
+  });
 
-  // Alloca campo
-  var field = new Float32Array(cols * rows * 2); // [u,v] per cella
+  if (primary.length === 0 && omSources.length === 0){ particleState.field = null; return; }
+
+  var field = new Float32Array(cols * rows * 2);
   var EPS = 1e-10;
 
   for (var row = 0; row < rows; row++){
@@ -718,17 +719,35 @@ function buildVectorField(){
       var cx = col * res + res/2;
       var cy = row * res + res/2;
       var sumU = 0, sumV = 0, sumW = 0;
-      for (var si = 0; si < sources.length; si++){
-        var s = sources[si];
+      var hasPrimary = false;
+
+      // IDW punti primari
+      for (var si = 0; si < primary.length; si++){
+        var s = primary[si];
         var dx = cx - s.x, dy = cy - s.y;
         var dist2 = dx*dx + dy*dy;
-        // Minima distanza 30px per evitare singolarita' vicino alla sorgente
+        if (dist2 < COVERAGE_R2) hasPrimary = true;
         if (dist2 < 900) dist2 = 900;
         var ww = s.w / dist2;
         sumU += s.u * ww;
         sumV += s.v * ww;
         sumW += ww;
       }
+
+      // Griglia OM solo se nessun punto primario nelle vicinanze
+      if (!hasPrimary){
+        for (var oi = 0; oi < omSources.length; oi++){
+          var o = omSources[oi];
+          var dx2 = cx - o.x, dy2 = cy - o.y;
+          var d2 = dx2*dx2 + dy2*dy2;
+          if (d2 < 900) d2 = 900;
+          var ow = 1.0 / d2;
+          sumU += o.u * ow;
+          sumV += o.v * ow;
+          sumW += ow;
+        }
+      }
+
       var idx = (row * cols + col) * 2;
       if (sumW > EPS){
         field[idx]   = sumU / sumW;
@@ -1057,7 +1076,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.3.5
+// Fine codice - NAUTILUS MAPPA v1.3.6
 </script>
 </body>
 </html>

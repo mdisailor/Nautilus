@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.4.4 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS MAPPA v1.4.6 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.4.4</title>
+<title>NAUTILUS Mappa Vento v1.4.6</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -186,7 +186,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.4.4</span>
+    <span id="nav-ver">mappa v1.4.6</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
   <a id="nav-back" href="/">APP</a>
@@ -248,11 +248,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.4.4 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.4.6 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.4.4
+// NAUTILUS MAPPA v1.4.6
 
 var ENGINE_URL = '/api/engine';
 
@@ -340,7 +340,7 @@ var particleState = {
   field: null,
   fieldW: 0,
   fieldH: 0,
-  fieldRes: 6,
+  fieldRes: 2        // pixel per cella del campo - basso per colori fedeli
   flowMode: 'nau'   // 'om' | 'nau' | 'all'
 };
 
@@ -733,10 +733,7 @@ function buildVectorField(){
 
   if (omSources.length === 0 && nauSources.length === 0){ particleState.field = null; return; }
 
-  // Campo direzione: IDW smooth (u,v per cella)
   var field = new Float32Array(cols * rows * 2);
-  // Campo colore: nearest neighbor speed (1 float per cella)
-  var colorField = new Float32Array(cols * rows);
 
   for (var row = 0; row < rows; row++){
     for (var col = 0; col < cols; col++){
@@ -794,37 +791,7 @@ function buildVectorField(){
     }
   }
 
-  // Calcola colorField: nearest neighbor speed
-  // Usa le stesse sorgenti ma prende il punto piu' vicino invece di mediare
-  var allColorSources = [];
-  if (mode === 'om') {
-    omSources.forEach(function(o){ allColorSources.push({x:o.x, y:o.y, spd:Math.sqrt(o.u*o.u+o.v*o.v)}); });
-  } else if (mode === 'nau') {
-    nauSources.forEach(function(s){ allColorSources.push({x:s.x, y:s.y, spd:Math.sqrt(s.u*s.u+s.v*s.v)}); });
-    // Aggiunge OM solo nelle zone scoperte
-    omSources.forEach(function(o){ allColorSources.push({x:o.x, y:o.y, spd:Math.sqrt(o.u*o.u+o.v*o.v)}); });
-  } else {
-    nauSources.forEach(function(s){ allColorSources.push({x:s.x, y:s.y, spd:Math.sqrt(s.u*s.u+s.v*s.v)}); });
-    omSources.forEach(function(o){ allColorSources.push({x:o.x, y:o.y, spd:Math.sqrt(o.u*o.u+o.v*o.v)}); });
-  }
-
-  for (var crow = 0; crow < rows; crow++){
-    for (var ccol = 0; ccol < cols; ccol++){
-      var cx2 = ccol * res + res/2;
-      var cy2 = crow * res + res/2;
-      var bestSpd = 0, bestDist2 = Infinity;
-      for (var ci = 0; ci < allColorSources.length; ci++){
-        var cs = allColorSources[ci];
-        var cdx = cx2-cs.x, cdy = cy2-cs.y;
-        var cd2 = cdx*cdx + cdy*cdy;
-        if (cd2 < bestDist2){ bestDist2 = cd2; bestSpd = cs.spd; }
-      }
-      colorField[crow * cols + ccol] = bestSpd;
-    }
-  }
-
   particleState.field = field;
-  particleState.colorField = colorField;
 }
 
 // Legge il campo vettoriale a coordinate pixel (interpolazione bilineare)
@@ -846,18 +813,7 @@ function sampleField(px, py){
   return { u:u, v:v, spd:Math.sqrt(u*u+v*v) };
 }
 
-// Legge la velocita colore (nearest neighbor) a coordinate pixel
-function sampleColorSpeed(px, py){
-  if (!particleState.colorField) return 0;
-  var res = particleState.fieldRes;
-  var cols = particleState.fieldW;
-  var rows = particleState.fieldH;
-  var col = Math.floor(px / res);
-  var row = Math.floor(py / res);
-  if (col < 0 || row < 0 || col >= cols || row >= rows) return 0;
-  return particleState.colorField[row * cols + col];
-}
-var PARTICLE_COUNT = 600;
+// Legge la velocita colore (nearest neighbor) a coordinate pixelvar PARTICLE_COUNT = 600;
 var MAX_AGE = 60; // frame prima che una particella si rigenera
 
 function spawnParticle(){
@@ -903,7 +859,6 @@ function animateParticles(){
   particleState.particles.forEach(function(p, i){
     var fv = sampleField(p.x, p.y);
     var spd = fv.spd;
-    var colorSpd = sampleColorSpeed(p.x, p.y); // nearest neighbor per il colore
 
     if (spd < 0.3 || p.age > MAX_AGE){
       particleState.particles[i] = spawnParticle();
@@ -922,8 +877,8 @@ function animateParticles(){
     pCtx.beginPath();
     pCtx.moveTo(p.x, p.y);
     pCtx.lineTo(nx, ny);
-    pCtx.strokeStyle = particleColor(colorSpd);
-    pCtx.lineWidth = colorSpd > 22 ? 2.0 : colorSpd > 11 ? 1.6 : 1.2;
+    pCtx.strokeStyle = particleColor(spd);
+    pCtx.lineWidth = spd > 22 ? 2.0 : spd > 11 ? 1.6 : 1.2;
     pCtx.stroke();
 
     p.x = nx;
@@ -1168,7 +1123,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.4.4
+// Fine codice - NAUTILUS MAPPA v1.4.6
 </script>
 </body>
 </html>

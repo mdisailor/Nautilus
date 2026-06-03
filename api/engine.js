@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.11.6 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.11.7 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1896,7 +1896,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.11.6', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.11.7', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -3782,6 +3782,8 @@ if (action === 'debug_fs') {
   var dbgZone = req.query.zone || 'livorno';
   var dbgList = await kvGet('predict_history:' + dbgZone, kvUrl, kvToken) || [];
   var dbgArr = Array.isArray(dbgList) ? dbgList : [];
+  var dbgZoneObj = ZONES[dbgZone] || {};
+  var dbgSamples = dbgZoneObj.bias_station ? await kvGet('bias_samples:' + dbgZoneObj.bias_station, kvUrl, kvToken) || [] : [];
   var dbgInfo = dbgArr.map(function(p, i) {
     return {
       i: i,
@@ -3789,12 +3791,18 @@ if (action === 'debug_fs') {
       keys: p ? Object.keys(p).join(',') : 'null',
       has_ga: !!p.generated_at,
       has_pred: !!(p.prediction),
-      pred_ga: p.prediction ? !!p.prediction.generated_at : false,
-      actual_3h_root: p.actual_3h,
-      actual_3h_pred: p.prediction ? p.prediction.actual_3h : undefined
+      actual_3h: p.actual_3h,
+      actual_6h: p.actual_6h
     };
   });
-  return res.status(200).json({ zone: dbgZone, total: dbgArr.length, records: dbgInfo });
+  return res.status(200).json({
+    zone: dbgZone,
+    total: dbgArr.length,
+    bias_station: dbgZoneObj.bias_station,
+    samples_count: Array.isArray(dbgSamples) ? dbgSamples.length : 0,
+    samples_latest: Array.isArray(dbgSamples) && dbgSamples[0] ? dbgSamples[0].ts : null,
+    records: dbgInfo
+  });
 }
 
 if (action === 'forecast_stats') {
@@ -4410,7 +4418,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.11.6 - by mdisailor engine',
+engine: 'nautilus-engine v2.11.7 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4536,4 +4544,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.11.6
+// Fine codice - NAUTILUS ENGINE v2.11.7

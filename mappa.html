@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.5.4 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS MAPPA v1.5.6 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.5.4</title>
+<title>NAUTILUS Mappa Vento v1.5.6</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -186,7 +186,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.5.4</span>
+    <span id="nav-ver">mappa v1.5.6</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
   <a id="nav-back" href="/">APP</a>
@@ -248,11 +248,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.5.4 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.5.6 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.5.4
+// NAUTILUS MAPPA v1.5.6
 
 var ENGINE_URL = '/api/engine';
 
@@ -340,7 +340,7 @@ var particleState = {
   field: null,
   fieldW: 0,
   fieldH: 0,
-  fieldRes: 3,
+  fieldRes: 6,
   flowMode: 'nau'   // 'om' | 'nau' | 'all'
 };
 
@@ -690,7 +690,7 @@ async function fetchStationData(){
 }
 
 // IDW VECTOR FIELD - v3 - tre modalita': om / nau / all
-function buildVectorField(onDone){
+function buildVectorField(){
   var W = pCanvas.width, H = pCanvas.height;
   var res = particleState.fieldRes;
   var cols = Math.ceil(W / res);
@@ -728,80 +728,60 @@ function buildVectorField(onDone){
     nauSources.push({ x:px.x, y:px.y, u: -Math.sin(rad)*st.speed, v: Math.cos(rad)*st.speed, w:10.0 });
   });
 
-  if (omSources.length === 0 && nauSources.length === 0){ particleState.field = null; if(onDone) onDone(); console.log('BVF: no sources'); return; }
+  if (omSources.length === 0 && nauSources.length === 0){ particleState.field = null; return; }
 
   var field = new Float32Array(cols * rows * 2);
-  var currentRow = 0;
-  var CHUNK = 30; // righe per frame
 
-  function processChunk(){
-    var endRow = Math.min(currentRow + CHUNK, rows);
-    for (var row = currentRow; row < endRow; row++){
-      for (var col = 0; col < cols; col++){
-        var cx = col * res + res/2;
-        var cy = row * res + res/2;
-        var sumU = 0, sumV = 0, sumW = 0;
+  for (var row = 0; row < rows; row++){
+    for (var col = 0; col < cols; col++){
+      var cx = col * res + res/2;
+      var cy = row * res + res/2;
+      var sumU = 0, sumV = 0, sumW = 0;
 
-        if (mode === 'om'){
-          for (var oi = 0; oi < omSources.length; oi++){
-            var o = omSources[oi];
-            var dx = cx-o.x, dy = cy-o.y, d2 = dx*dx+dy*dy;
-            if (d2 < 900) d2 = 900;
-            var w = 1.0/d2; sumU+=o.u*w; sumV+=o.v*w; sumW+=w;
-          }
-        } else if (mode === 'nau'){
-          var hasPrimary = false;
-          for (var si = 0; si < nauSources.length; si++){
-            var s = nauSources[si];
-            var dx2 = cx-s.x, dy2 = cy-s.y, dist2 = dx2*dx2+dy2*dy2;
-            if (dist2 < COVERAGE_R2) hasPrimary = true;
-            if (dist2 < 900) dist2 = 900;
-            var ww = s.w/dist2; sumU+=s.u*ww; sumV+=s.v*ww; sumW+=ww;
-          }
-          if (!hasPrimary){
-            for (var oi2 = 0; oi2 < omSources.length; oi2++){
-              var o2 = omSources[oi2];
-              var dx3 = cx-o2.x, dy3 = cy-o2.y, d3 = dx3*dx3+dy3*dy3;
-              if (d3 < 900) d3 = 900;
-              var ow = 1.0/d3; sumU+=o2.u*ow; sumV+=o2.v*ow; sumW+=ow;
-            }
-          }
-        } else {
-          for (var ni = 0; ni < nauSources.length; ni++){
-            var n = nauSources[ni];
-            var dxn = cx-n.x, dyn = cy-n.y, d2n = dxn*dxn+dyn*dyn;
-            if (d2n < 900) d2n = 900;
-            var wn = n.w/d2n; sumU+=n.u*wn; sumV+=n.v*wn; sumW+=wn;
-          }
-          for (var oia = 0; oia < omSources.length; oia++){
-            var oa = omSources[oia];
-            var dxa = cx-oa.x, dya = cy-oa.y, d2a = dxa*dxa+dya*dya;
-            if (d2a < 900) d2a = 900;
-            var wa = 1.0/d2a; sumU+=oa.u*wa; sumV+=oa.v*wa; sumW+=wa;
+      if (mode === 'om'){
+        for (var oi = 0; oi < omSources.length; oi++){
+          var o = omSources[oi];
+          var dx = cx-o.x, dy = cy-o.y, d2 = dx*dx+dy*dy;
+          if (d2 < 900) d2 = 900;
+          var w = 1.0/d2; sumU+=o.u*w; sumV+=o.v*w; sumW+=w;
+        }
+      } else if (mode === 'nau'){
+        var hasPrimary = false;
+        for (var si = 0; si < nauSources.length; si++){
+          var s = nauSources[si];
+          var dx2 = cx-s.x, dy2 = cy-s.y, dist2 = dx2*dx2+dy2*dy2;
+          if (dist2 < COVERAGE_R2) hasPrimary = true;
+          if (dist2 < 900) dist2 = 900;
+          var ww = s.w/dist2; sumU+=s.u*ww; sumV+=s.v*ww; sumW+=ww;
+        }
+        if (!hasPrimary){
+          for (var oi2 = 0; oi2 < omSources.length; oi2++){
+            var o2 = omSources[oi2];
+            var dx3 = cx-o2.x, dy3 = cy-o2.y, d3 = dx3*dx3+dy3*dy3;
+            if (d3 < 900) d3 = 900;
+            var ow = 1.0/d3; sumU+=o2.u*ow; sumV+=o2.v*ow; sumW+=ow;
           }
         }
-
-        var idx = (row * cols + col) * 2;
-        if (sumW > EPS){ field[idx] = sumU/sumW; field[idx+1] = sumV/sumW; }
+      } else {
+        for (var ni = 0; ni < nauSources.length; ni++){
+          var n = nauSources[ni];
+          var dxn = cx-n.x, dyn = cy-n.y, d2n = dxn*dxn+dyn*dyn;
+          if (d2n < 900) d2n = 900;
+          var wn = n.w/d2n; sumU+=n.u*wn; sumV+=n.v*wn; sumW+=wn;
+        }
+        for (var oia = 0; oia < omSources.length; oia++){
+          var oa = omSources[oia];
+          var dxa = cx-oa.x, dya = cy-oa.y, d2a = dxa*dxa+dya*dya;
+          if (d2a < 900) d2a = 900;
+          var wa = 1.0/d2a; sumU+=oa.u*wa; sumV+=oa.v*wa; sumW+=wa;
+        }
       }
-    }
-    currentRow = endRow;
-    if (currentRow < rows){
-      requestAnimationFrame(processChunk);
-    } else {
-      particleState.field = field;
-      var dbgDiv2 = document.getElementById('flow-debug');
-      if (dbgDiv2) dbgDiv2.textContent = 'BVF done onDone='+(!!onDone)+' active='+particleState.active;
-      console.log('BVF done, calling onDone:', !!onDone);
-      if (onDone) onDone();
+
+      var idx = (row * cols + col) * 2;
+      if (sumW > EPS){ field[idx] = sumU/sumW; field[idx+1] = sumV/sumW; }
     }
   }
-
-  particleState.field = null;
-  var dbgDiv = document.getElementById('flow-debug');
-  if (!dbgDiv){ dbgDiv = document.createElement('div'); dbgDiv.id='flow-debug'; dbgDiv.style.cssText='position:fixed;top:60px;left:10px;background:rgba(0,0,0,0.8);color:#0ff;font-size:11px;padding:6px 10px;border-radius:6px;z-index:9999;font-family:monospace;'; document.body.appendChild(dbgDiv); }
-  dbgDiv.textContent = 'BVF: cols='+cols+' rows='+rows+' om='+omSources.length+' nau='+nauSources.length;
-  requestAnimationFrame(processChunk);
+  particleState.field = field;
 }
 
 // Legge il campo vettoriale a coordinate pixel (interpolazione bilineare)
@@ -856,12 +836,7 @@ function particleColor(spd){
 function animateParticles(){
   if (!particleState.active) return;
   var W = pCanvas.width, H = pCanvas.height;
-  var dbgDiv = document.getElementById('flow-debug');
-  if (dbgDiv && particleState.particles.length > 0 && particleState.particles._logged !== true) {
-    var sample = sampleField(W/2, H/2);
-    dbgDiv.textContent += ' | anim W='+W+' H='+H+' spd='+sample.spd.toFixed(2)+' parts='+particleState.particles.length;
-    particleState.particles._logged = true;
-  }
+
 
   // Fade trail - erode le scie senza coprire la mappa sottostante
   pCtx.globalCompositeOperation = 'destination-out';
@@ -906,9 +881,7 @@ function animateParticles(){
 }
 
 function startParticles(){
-  var dbgDiv = document.getElementById('flow-debug');
-  if (!particleState.field){ if(dbgDiv) dbgDiv.textContent += ' | startParticles: no field'; return; }
-  if(dbgDiv) dbgDiv.textContent += ' | startParticles OK';
+  if (!particleState.field) return;
   if (particleState.animFrame) cancelAnimationFrame(particleState.animFrame);
   pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
   initParticles();
@@ -921,12 +894,8 @@ function stopParticles(){
 }
 
 function rebuildAndAnimate(){
-  if (particleState.active){
-    stopParticles();
-    buildVectorField(function(){ if (particleState.active) startParticles(); });
-  } else {
-    buildVectorField();
-  }
+  buildVectorField();
+  if (particleState.active) startParticles();
 }
 
 // BOTTONE FLOW
@@ -935,7 +904,8 @@ document.getElementById('btn-flow').addEventListener('click', function(){
   this.classList.toggle('active', particleState.active);
   document.getElementById('flow-mode-btns').classList.toggle('visible', particleState.active);
   if (particleState.active){
-    buildVectorField(function(){ if (particleState.active) startParticles(); });
+    buildVectorField();
+    startParticles();
   } else {
     stopParticles();
   }
@@ -1144,7 +1114,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.5.4
+// Fine codice - NAUTILUS MAPPA v1.5.6
 </script>
 </body>
 </html>

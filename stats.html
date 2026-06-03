@@ -1,4 +1,4 @@
-<!-- NAUTILUS STATS v1.3 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS STATS v1.4 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -54,7 +54,7 @@
 <body>
 <header>
   <div class="logo">NAUTI<span>LUS</span></div>
-  <div class="subtitle">Accuratezza previsioni AI &nbsp;·&nbsp; v2.11.0 / stats v1.3</div>
+  <div class="subtitle">Accuratezza previsioni AI &nbsp;·&nbsp; v2.11.0 / stats v1.4</div>
   <a href="/" class="back-link">← app</a>
 </header>
 <div class="zone-bar" id="zone-bar">
@@ -163,13 +163,16 @@ function render(key, name, hist, stats) {
     ['h3','h6','h12'].forEach(h => {
       const b = bias[h];
       const label = 'H+' + h.slice(1);
-      if (!b || b.mean===null) {
+      if (!b || b.mae===null) {
         html += '<span class="bias-chip bias-na">' + label + ': dati insuff. (n=' + (b?b.n:0) + ')</span>';
         return;
       }
-      const cls = Math.abs(b.mean)<=1?'bias-ok':Math.abs(b.mean)<=2.5?'bias-warn':'bias-bad';
-      const dir = b.mean>0?'sottostima':'sovrastima';
-      html += '<span class="bias-chip ' + cls + '">' + label + ': ' + (b.mean>0?'+':'') + b.mean + 'kn ' + dir + ' &middot; n=' + b.n + ' &middot; &sigma;=' + b.std + 'kn</span>';
+      // Classifica per MAE (errore reale assoluto)
+      const cls = b.mae<=1?'bias-ok':b.mae<=2.5?'bias-warn':'bias-bad';
+      // Bias con segno: indica direzione sistematica
+      const dir = b.mean>0?'sottostima':b.mean<0?'sovrastima':'neutro';
+      const biasSign = b.mean>0?'+':'';
+      html += '<span class="bias-chip ' + cls + '">' + label + ': MAE=' + b.mae + 'kn &middot; bias=' + biasSign + b.mean + 'kn (' + dir + ') &middot; n=' + b.n + ' &middot; &sigma;=' + b.std + 'kn</span>';
     });
     html += '</div></div>';
   }
@@ -264,5 +267,5 @@ function render(key, name, hist, stats) {
 }
 </script>
 </body>
-<!-- NAUTILUS STATS v1.3 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS STATS v1.4 - mdisailor - 2026-06-02 -->
 </html>

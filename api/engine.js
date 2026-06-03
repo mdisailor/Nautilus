@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.11.8 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.11.9 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1896,7 +1896,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.11.8', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.11.9', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -3933,16 +3933,38 @@ if (action === 'backfill_actuals') {
       // Peso quota: riduce affidabilita stazioni in quota
       var bfQuota = bfZone.bias_quota || 0;
       var bfWeight = bfQuota <= 15 ? 1.0 : bfQuota <= 100 ? 0.85 : bfQuota <= 200 ? 0.65 : 0.45;
+      // Se bias_samples vuoto, prova con snapshot zona (wind_speed osservato)
+      var bfSnapSources = [];
+      if ((!bfSamples || bfSamples.length === 0) && kvUrl && kvToken) {
+        // Legge ultimi 48 snapshot orari della zona
+        var bfSnapKeys = [];
+        var bfNow2 = new Date();
+        for (var bfSi = 0; bfSi < 48; bfSi++) {
+          var bfSt = new Date(bfNow2.getTime() - bfSi * 3600000);
+          var bfSRome = bfSt.toLocaleString('sv-SE', {timeZone:'Europe/Rome'}).replace(' ','T').slice(0,13).replace(':','-');
+          bfSnapKeys.push('snap:' + bfZk + ':' + bfSRome);
+        }
+        var bfSnapResults = await kvMGet(bfSnapKeys, kvUrl, kvToken);
+        bfSnapResults.forEach(function(snap) {
+          if (!snap || snap.wind_speed == null) return;
+          // Converti nel formato atteso da bfSamples
+          bfSnapSources.push({
+            ts: snap.ts || snap.time || new Date().toISOString(),
+            station: { wind_kt: snap.wind_speed, direction: snap.wind_dir }
+          });
+        });
+      }
+      var bfSourceData = (bfSamples && bfSamples.length > 0) ? bfSamples : bfSnapSources;
       var bfUpdated = 0;
       bfList = bfList.map(function(item) {
         if (!item.generated_at) return item;
         var gen = new Date(item.generated_at);
         [['actual_1h','actual_1h_dir',1], ['actual_3h','actual_3h_dir',3], ['actual_6h','actual_6h_dir',6], ['actual_9h','actual_9h_dir',9], ['actual_12h','actual_12h_dir',12]].forEach(function(hor) {
-          if (item[hor[0]] !== undefined && item[hor[0]] !== null) return; // gia presente
+          if (item[hor[0]] !== undefined && item[hor[0]] !== null) return;
           var target = new Date(gen.getTime() + hor[2] * 3600000);
-          if (target > new Date()) return; // futuro
+          if (target > new Date()) return;
           var best = null, bestDiff = 25 * 60 * 1000;
-          (bfSamples || []).forEach(function(s) {
+          (bfSourceData || []).forEach(function(s) {
             if (!s || !s.ts || !s.station || s.station.wind_kt === null || s.station.wind_kt === undefined) return;
             var diff = Math.abs(new Date(s.ts) - target);
             if (diff < bestDiff) { bestDiff = diff; best = s; }
@@ -4431,7 +4453,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.11.8 - by mdisailor engine',
+engine: 'nautilus-engine v2.11.9 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4557,4 +4579,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.11.8
+// Fine codice - NAUTILUS ENGINE v2.11.9

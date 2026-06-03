@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.12.1 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.12.2 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1896,7 +1896,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.12.1', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.12.2', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -3850,6 +3850,46 @@ if (action === 'forecast_stats') {
       // Salva in Redis preservando gli actual gia' presenti nei vecchi record
       if (fsList.length > 0) await kvSet('predict_history:' + zoneKey, fsList, 2592000, kvUrl, kvToken);
     }
+
+    // Arricchisci con actual da snap se mancanti (stesso meccanismo di predict_history)
+    var fsZoneObj = ZONES[zoneKey] || {};
+    var fsBsSamples = fsZoneObj.bias_station ? await kvGet('bias_samples:' + fsZoneObj.bias_station, kvUrl, kvToken) || [] : [];
+    var fsEnriched = await Promise.all(fsList.map(async function(p) {
+      if (!p || !p.generated_at) return p;
+      var hasActuals = p.actual_3h !== undefined || p.actual_6h !== undefined || p.actual_12h !== undefined;
+      if (hasActuals) return p;
+      var gen = new Date(p.generated_at);
+      var cfrV = (fsBsSamples || []).filter(function(b){ return b.station && b.station.wind_kt !== null; });
+      var snapActuals = {};
+      if (cfrV.length > 0) {
+        [['actual_3h','actual_3h_dir',3],['actual_6h','actual_6h_dir',6],['actual_12h','actual_12h_dir',12]].forEach(function(hor) {
+          var target = new Date(gen.getTime() + hor[2] * 3600000);
+          if (target > new Date()) return;
+          var best = null, bestDiff = 25*60*1000;
+          cfrV.forEach(function(b) {
+            var diff = Math.abs(new Date(b.ts) - target);
+            if (diff < bestDiff) { bestDiff = diff; best = b; }
+          });
+          if (best) { snapActuals[hor[0]] = best.station.wind_kt; snapActuals[hor[1]] = best.station.direction; }
+        });
+      } else {
+        // Fallback snap
+        var snapRes = await Promise.all([3,6,12].map(function(hh) {
+          var t = new Date(gen.getTime() + hh * 3600000);
+          if (t > new Date()) return Promise.resolve(null);
+          var tr = t.toLocaleString('sv-SE',{timeZone:'Europe/Rome'}).replace(' ','T').slice(0,13).replace(':','-');
+          var m = t.getMinutes() < 30 ? '00' : '30';
+          return kvGet('snap:' + zoneKey + ':' + tr + '-' + m, kvUrl, kvToken);
+        }));
+        [['actual_3h','actual_3h_dir',0],['actual_6h','actual_6h_dir',1],['actual_12h','actual_12h_dir',2]].forEach(function(hor) {
+          var s = snapRes[hor[2]];
+          if (s && s.wind_speed != null) { snapActuals[hor[0]] = s.wind_speed; snapActuals[hor[1]] = s.wind_dir; }
+        });
+      }
+      return Object.assign({}, p, snapActuals);
+    }));
+    fsList = fsEnriched;
+
     var verified = fsList.filter(function(p) {
       if (!p) return false;
       var a1  = p.actual_1h  != null ? p.actual_1h  : (p.prediction && p.prediction.actual_1h  != null ? p.prediction.actual_1h  : null);
@@ -4453,7 +4493,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.12.1 - by mdisailor engine',
+engine: 'nautilus-engine v2.12.2 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4579,4 +4619,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.12.1
+// Fine codice - NAUTILUS ENGINE v2.12.2

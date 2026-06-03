@@ -1,4 +1,4 @@
-<!-- NAUTILUS STATS v1.4 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS STATS v1.6 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -54,7 +54,7 @@
 <body>
 <header>
   <div class="logo">NAUTI<span>LUS</span></div>
-  <div class="subtitle">Accuratezza previsioni AI &nbsp;·&nbsp; v2.11.0 / stats v1.4</div>
+  <div class="subtitle">Accuratezza previsioni AI &nbsp;·&nbsp; v2.11.0 / stats v1.6</div>
   <a href="/" class="back-link">← app</a>
 </header>
 <div class="zone-bar" id="zone-bar">
@@ -126,7 +126,12 @@ function fmtErr(f, a) {
 function render(key, name, hist, stats) {
   const main = document.getElementById('main');
   const predictions = hist.predictions || [];
-  const verified = predictions.filter(p => p.actual_1h!=null || p.actual_3h!=null || p.actual_6h!=null || p.actual_9h!=null || p.actual_12h!=null);
+  const getActual = function(item, field) {
+    return item[field] != null ? item[field] : (item.prediction && item.prediction[field] != null ? item.prediction[field] : null);
+  };
+  const verified = predictions.filter(function(p) {
+    return getActual(p,'actual_1h')!=null || getActual(p,'actual_3h')!=null || getActual(p,'actual_6h')!=null || getActual(p,'actual_9h')!=null || getActual(p,'actual_12h')!=null;
+  });
   const weekly = stats.weekly_mae || [];
   const bias = stats.current_bias || {};
   const trend = stats.trend || {};
@@ -239,7 +244,7 @@ function render(key, name, hist, stats) {
   if (verified.length) {
     html += '<div class="section-title">Ultime verifiche</div><div class="chart-wrap"><table class="weekly-table">' +
       '<tr><th>Data</th><th>Fonte</th><th>H+1</th><th>H+3</th><th>H+6</th><th>H+9</th><th>H+12</th></tr>';
-    verified.slice(0,10).forEach(function(item) {
+    verified.slice().sort(function(a,b){ var pa=a.prediction||a, pb=b.prediction||b; return new Date(pb.generated_at)-new Date(pa.generated_at); }).slice(0,10).forEach(function(item) {
       try {
         const p = item.prediction || item;
         if (!p || !p.generated_at) return;
@@ -248,11 +253,11 @@ function render(key, name, hist, stats) {
         html+='<tr>' +
           '<td style="color:var(--muted)">'+dt+'</td>' +
           '<td style="font-size:0.75rem">'+src+'</td>' +
-          '<td style="font-size:0.75rem">'+fmtErr(p.forecast_h1,item.actual_1h)+'</td>' +
-          '<td style="font-size:0.75rem">'+fmtErr(p.forecast_h3,item.actual_3h)+'</td>' +
-          '<td style="font-size:0.75rem">'+fmtErr(p.forecast_h6,item.actual_6h)+'</td>' +
-          '<td style="font-size:0.75rem">'+fmtErr(p.forecast_h9,item.actual_9h)+'</td>' +
-          '<td style="font-size:0.75rem">'+fmtErr(p.forecast_h12,item.actual_12h)+'</td>' +
+          '<td style="font-size:0.75rem">'+fmtErr(p.forecast_h1,getActual(item,'actual_1h'))+'</td>' +
+          '<td style="font-size:0.75rem">'+fmtErr(p.forecast_h3,getActual(item,'actual_3h'))+'</td>' +
+          '<td style="font-size:0.75rem">'+fmtErr(p.forecast_h6,getActual(item,'actual_6h'))+'</td>' +
+          '<td style="font-size:0.75rem">'+fmtErr(p.forecast_h9,getActual(item,'actual_9h'))+'</td>' +
+          '<td style="font-size:0.75rem">'+fmtErr(p.forecast_h12,getActual(item,'actual_12h'))+'</td>' +
           '</tr>';
       } catch(e) {}
     });
@@ -267,5 +272,5 @@ function render(key, name, hist, stats) {
 }
 </script>
 </body>
-<!-- NAUTILUS STATS v1.4 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS STATS v1.6 - mdisailor - 2026-06-02 -->
 </html>

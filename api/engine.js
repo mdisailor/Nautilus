@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.11.1 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.11.2 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1896,7 +1896,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.11.1', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.11.2', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -3796,11 +3796,13 @@ if (action === 'forecast_stats') {
       if (!weekMap[wk]) weekMap[wk] = { week: wk, h1: [], h3: [], h6: [], h9: [], h12: [], n: 0 };
       var w = weekMap[wk];
       w.n++;
-      if (p.actual_1h != null && p.forecast_h1 != null) w.h1.push(Math.abs(p.actual_1h - p.forecast_h1));
-      if (p.actual_3h != null && p.forecast_h3 != null) w.h3.push(Math.abs(p.actual_3h - p.forecast_h3));
-      if (p.actual_6h != null && p.forecast_h6 != null) w.h6.push(Math.abs(p.actual_6h - p.forecast_h6));
-      if (p.actual_9h != null && p.forecast_h9 != null) w.h9.push(Math.abs(p.actual_9h - p.forecast_h9));
-      if (p.actual_12h != null && p.forecast_h12 != null) w.h12.push(Math.abs(p.actual_12h - p.forecast_h12));
+      var getA = function(p, k){ return p[k] != null ? p[k] : (p.prediction && p.prediction[k] != null ? p.prediction[k] : null); };
+      var getF = function(p, k){ return p[k] != null ? p[k] : (p.prediction && p.prediction[k] != null ? p.prediction[k] : null); };
+      if (getA(p,'actual_1h') != null && getF(p,'forecast_h1') != null) w.h1.push(Math.abs(getA(p,'actual_1h') - getF(p,'forecast_h1')));
+      if (getA(p,'actual_3h') != null && getF(p,'forecast_h3') != null) w.h3.push(Math.abs(getA(p,'actual_3h') - getF(p,'forecast_h3')));
+      if (getA(p,'actual_6h') != null && getF(p,'forecast_h6') != null) w.h6.push(Math.abs(getA(p,'actual_6h') - getF(p,'forecast_h6')));
+      if (getA(p,'actual_9h') != null && getF(p,'forecast_h9') != null) w.h9.push(Math.abs(getA(p,'actual_9h') - getF(p,'forecast_h9')));
+      if (getA(p,'actual_12h') != null && getF(p,'forecast_h12') != null) w.h12.push(Math.abs(getA(p,'actual_12h') - getF(p,'forecast_h12')));
     });
     var avg = function(arr) { return arr.length ? Math.round(arr.reduce(function(a,b){return a+b;},0)/arr.length*10)/10 : null; };
     var weekly = Object.keys(weekMap).sort().map(function(wk) {
@@ -3810,7 +3812,15 @@ if (action === 'forecast_stats') {
     // Trend generale (prima meta vs seconda meta)
     var half = Math.floor(verified.length / 2);
     var calcMae = function(arr, key, fkey) {
-      var errs = arr.filter(function(p){ return p[key]!=null && p[fkey]!=null; }).map(function(p){ return Math.abs(p[key]-p[fkey]); });
+      var errs = arr.filter(function(p){
+        var av = p[key] != null ? p[key] : (p.prediction && p.prediction[key] != null ? p.prediction[key] : null);
+        var fv = p[fkey] != null ? p[fkey] : (p.prediction && p.prediction[fkey] != null ? p.prediction[fkey] : null);
+        return av != null && fv != null;
+      }).map(function(p){
+        var av = p[key] != null ? p[key] : p.prediction[key];
+        var fv = p[fkey] != null ? p[fkey] : p.prediction[fkey];
+        return Math.abs(av - fv);
+      });
       return avg(errs);
     };
     var early = verified.slice(half), late = verified.slice(0, half);
@@ -3884,11 +3894,13 @@ if (action === 'backfill_actuals') {
       var bfList2 = await kvGet('predict_history:' + bfZk2, kvUrl, kvToken) || [];
       var bfErrors = {h1:[], h3:[], h6:[], h9:[], h12:[]};
       (bfList2 || []).forEach(function(item) {
-        if (item.actual_1h !== null && item.actual_1h !== undefined && item.forecast_h1 !== null && item.forecast_h1 !== undefined) bfErrors.h1.push(item.actual_1h - item.forecast_h1);
-        if (item.actual_3h !== null && item.actual_3h !== undefined && item.forecast_h3 !== null && item.forecast_h3 !== undefined) bfErrors.h3.push(item.actual_3h - item.forecast_h3);
-        if (item.actual_6h !== null && item.actual_6h !== undefined && item.forecast_h6 !== null && item.forecast_h6 !== undefined) bfErrors.h6.push(item.actual_6h - item.forecast_h6);
-        if (item.actual_9h !== null && item.actual_9h !== undefined && item.forecast_h9 !== null && item.forecast_h9 !== undefined) bfErrors.h9.push(item.actual_9h - item.forecast_h9);
-        if (item.actual_12h !== null && item.actual_12h !== undefined && item.forecast_h12 !== null && item.forecast_h12 !== undefined) bfErrors.h12.push(item.actual_12h - item.forecast_h12);
+        var getAct = function(item, k){ return item[k] != null ? item[k] : (item.prediction && item.prediction[k] != null ? item.prediction[k] : null); };
+        var getFc = function(item, k){ return item[k] != null ? item[k] : (item.prediction && item.prediction[k] != null ? item.prediction[k] : null); };
+        if (getAct(item,'actual_1h') !== null && getFc(item,'forecast_h1') !== null) bfErrors.h1.push(getAct(item,'actual_1h') - getFc(item,'forecast_h1'));
+        if (getAct(item,'actual_3h') !== null && getFc(item,'forecast_h3') !== null) bfErrors.h3.push(getAct(item,'actual_3h') - getFc(item,'forecast_h3'));
+        if (getAct(item,'actual_6h') !== null && getFc(item,'forecast_h6') !== null) bfErrors.h6.push(getAct(item,'actual_6h') - getFc(item,'forecast_h6'));
+        if (getAct(item,'actual_9h') !== null && getFc(item,'forecast_h9') !== null) bfErrors.h9.push(getAct(item,'actual_9h') - getFc(item,'forecast_h9'));
+        if (getAct(item,'actual_12h') !== null && getFc(item,'forecast_h12') !== null) bfErrors.h12.push(getAct(item,'actual_12h') - getFc(item,'forecast_h12'));
       });
       var bfBias = {};
       ['h1','h3','h6','h9','h12'].forEach(function(h) {
@@ -4345,7 +4357,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.11.1 - by mdisailor engine',
+engine: 'nautilus-engine v2.11.2 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4471,4 +4483,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.11.1
+// Fine codice - NAUTILUS ENGINE v2.11.2

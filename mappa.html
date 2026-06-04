@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.7.1 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS MAPPA v1.7.3 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.7.1</title>
+<title>NAUTILUS Mappa Vento v1.7.3</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -188,7 +188,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.7.1</span>
+    <span id="nav-ver">mappa v1.7.3</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
@@ -253,11 +253,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.7.1 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.7.3 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.7.1
+// NAUTILUS MAPPA v1.7.3
 
 var ENGINE_URL = '/api/engine';
 
@@ -348,17 +348,13 @@ var glReady = false;
 // Vertex shader: quad fullscreen
 var GL_VS = 'attribute vec2 a_pos;\nvoid main(){ gl_Position = vec4(a_pos,0.0,1.0); }';
 
-// Fragment shader: IDW in coordinate pixel
-// u_pts: coordinate pixel dei punti (x0,y0,x1,y1,...) - Y=0 in basso (WebGL)
-// u_spd: velocita kn per ogni punto
-// u_n: numero punti (max 80)
-// u_res: dimensioni canvas
+// Fragment shader: IDW senza break (GLSL ES 1.0 compatibile)
 var GL_FS = [
 'precision mediump float;',
 'uniform vec2 u_res;',
-'uniform float u_pts[160];',
+'uniform float u_pts[160];',  // x0,y0,x1,y1,... in pixel (Y dal basso)
 'uniform float u_spd[80];',
-'uniform int u_n;',
+'uniform float u_mask[80];',  // 1.0=punto valido, 0.0=padding
 'vec3 spdColor(float s){',
 '  if(s>=34.0) return vec3(0.71,0.00,0.00);',
 '  if(s>=28.0) return vec3(0.86,0.24,0.00);',
@@ -371,22 +367,24 @@ var GL_FS = [
 '  return vec3(0.0,0.0,0.0);',
 '}',
 'void main(){',
-'  vec2 px = vec2(gl_FragCoord.x, gl_FragCoord.y);',
+'  vec2 px = gl_FragCoord.xy;',
 '  float sw=0.0; float ww=0.0;',
 '  for(int i=0;i<80;i++){',
-'    if(i>=u_n) break;',  // GLSL ES 2.0 supporta break con uniform
-'    float px2 = u_pts[i*2];',
-'    float py2 = u_pts[i*2+1];',
-'    float dx=px.x-px2; float dy=px.y-py2;',
-'    float d2=dx*dx+dy*dy;',
-'    if(d2<1.0) d2=1.0;',
-'    float w=1.0/d2;',
-'    sw+=u_spd[i]*w; ww+=w;',
+'    float m = u_mask[i];',
+'    if(m < 0.5) continue;',
+'    float dx = px.x - u_pts[i*2];',
+'    float dy = px.y - u_pts[i*2+1];',
+'    float d2 = max(dx*dx + dy*dy, 100.0);', // min 10px
+'    float w = m / (d2 * d2);', // esponente 4: ogni punto domina nel suo intorno
+
+'    sw += u_spd[i] * w;',
+'    ww += w;',
 '  }',
-'  float spd=sw/ww;',
-'  if(spd<0.5){ gl_FragColor=vec4(0.0,0.0,0.0,0.0); return; }',
-'  vec3 col=spdColor(spd);',
-'  gl_FragColor=vec4(col,0.38);',
+'  if(ww < 0.000001){ gl_FragColor=vec4(0.0,0.0,0.0,0.0); return; }',
+'  float spd = sw / ww;',
+'  if(spd < 0.5){ gl_FragColor=vec4(0.0,0.0,0.0,0.0); return; }',
+'  vec3 col = spdColor(spd);',
+'  gl_FragColor = vec4(col, 0.38);',
 '}'
 ].join('\n');
 
@@ -459,10 +457,13 @@ function drawColorLayer(){
   gl.clear(gl.COLOR_BUFFER_BIT);
   if(n === 0) return;
 
+  var maskArr = new Float32Array(80);
+  for(var mi=0; mi<n; mi++) maskArr[mi] = 1.0;
+
   gl.uniform2f(gl.getUniformLocation(glProgram,'u_res'), W, H);
-  gl.uniform1i(gl.getUniformLocation(glProgram,'u_n'), n);
   gl.uniform1fv(gl.getUniformLocation(glProgram,'u_pts'), ptsArr);
   gl.uniform1fv(gl.getUniformLocation(glProgram,'u_spd'), spdArr);
+  gl.uniform1fv(gl.getUniformLocation(glProgram,'u_mask'), maskArr);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 }
 
@@ -1266,7 +1267,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.7.1
+// Fine codice - NAUTILUS MAPPA v1.7.3
 </script>
 </body>
 </html>

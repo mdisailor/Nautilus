@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.6.1 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS MAPPA v1.6.2 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.6.1</title>
+<title>NAUTILUS Mappa Vento v1.6.2</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -187,7 +187,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.6.1</span>
+    <span id="nav-ver">mappa v1.6.2</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
   <a id="nav-back" href="/">APP</a>
@@ -250,11 +250,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.6.1 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.6.2 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.6.1
+// NAUTILUS MAPPA v1.6.2
 
 var ENGINE_URL = '/api/engine';
 
@@ -793,28 +793,50 @@ function buildVectorField(){
 }
 
 // DISEGNA LAYER COLORE (sfondo statico tipo Windy)
+// Ogni punto OM/zona disegna un gradiente radiale - transizioni naturalmente fluide
 function drawColorLayer(){
-  if (!particleState.field) return;
   var W = cCanvas.width, H = cCanvas.height;
-  var res = particleState.fieldRes;
-  var cols = particleState.fieldW;
-  var rows = particleState.fieldH;
+  var mode = particleState.flowMode;
   cCtx.clearRect(0, 0, W, H);
-  // Blur per sfumare i bordi tra celle - elimina effetto griglia
-  cCtx.filter = 'blur(18px)';
-  // Campiona ogni N celle per celle visive piu' grandi
-  var step = Math.round(20 / res); // ogni ~20px
-  for (var row = 0; row < rows; row += step){
-    for (var col = 0; col < cols; col += step){
-      var idx = (row * cols + col) * 2;
-      var u = particleState.field[idx];
-      var v = particleState.field[idx+1];
-      var spd = Math.sqrt(u*u + v*v);
-      cCtx.fillStyle = colorLayerColor(spd);
-      cCtx.fillRect(col*res, row*res, step*res+1, step*res+1);
-    }
+
+  // Raccoglie punti da colorare in base alla modalita'
+  var colorPoints = [];
+  if (mode === 'om' || mode === 'all') {
+    state.gridData.forEach(function(pt){
+      var px = map.latLngToContainerPoint([pt.lat, pt.lon]);
+      if (px.x < -50 || px.x > W+50 || px.y < -50 || px.y > H+50) return;
+      colorPoints.push({x: px.x, y: px.y, spd: pt.speed, r: 80});
+    });
   }
-  cCtx.filter = 'none';
+  if (mode === 'nau' || mode === 'all') {
+    ZONES.forEach(function(z){
+      var d = state.zoneData[z.key];
+      if (!d) return;
+      var spd = d.wind_speed != null ? d.wind_speed : (d.wind_speed_obs || 0);
+      var px = map.latLngToContainerPoint([z.lat, z.lon]);
+      colorPoints.push({x: px.x, y: px.y, spd: spd, r: 130});
+    });
+    state.stationData.forEach(function(st){
+      var px = map.latLngToContainerPoint([st.lat, st.lon]);
+      colorPoints.push({x: px.x, y: px.y, spd: st.speed, r: 150});
+    });
+  }
+
+  if (colorPoints.length === 0) return;
+
+  // Disegna gradiente radiale per ogni punto
+  cCtx.globalCompositeOperation = 'source-over';
+  colorPoints.forEach(function(pt){
+    var col = colorLayerColor(pt.spd);
+    var grad = cCtx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, pt.r);
+    grad.addColorStop(0, col);
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    cCtx.fillStyle = grad;
+    cCtx.beginPath();
+    cCtx.arc(pt.x, pt.y, pt.r, 0, Math.PI * 2);
+    cCtx.fill();
+  });
+  cCtx.globalCompositeOperation = 'source-over';
 }
 
 function colorLayerColor(spd){
@@ -1165,7 +1187,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.6.1
+// Fine codice - NAUTILUS MAPPA v1.6.2
 </script>
 </body>
 </html>

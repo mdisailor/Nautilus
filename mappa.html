@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.6.9 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS MAPPA v1.7.0 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.6.9</title>
+<title>NAUTILUS Mappa Vento v1.7.0</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -47,7 +47,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 
 /* CANVAS */
 #wind-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:600}
-#color-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:570;}
+#gl-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:570;}
 #particle-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:580}
 
 /* BOTTONE FLOW */
@@ -187,7 +187,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.6.9</span>
+    <span id="nav-ver">mappa v1.7.0</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -197,7 +197,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <div id="map-wrap">
   <div id="map"></div>
   <canvas id="wind-canvas"></canvas>
-  <canvas id="color-canvas"></canvas>
+  <canvas id="gl-canvas"></canvas>
   <canvas id="particle-canvas"></canvas>
 
   <div id="hud">
@@ -251,11 +251,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.6.9 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.7.0 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.6.9
+// NAUTILUS MAPPA v1.7.0
 
 var ENGINE_URL = '/api/engine';
 
@@ -337,9 +337,89 @@ canvas.style.opacity = '1';
 var pCanvas = document.getElementById('particle-canvas');
 var pCtx = pCanvas.getContext('2d');
 
-// CANVAS COLORE (con CSS blur applicato via stylesheet)
-var cCanvas = document.getElementById('color-canvas');
-var cCtx = cCanvas.getContext('2d');
+// WEBGL LAYER COLORE
+var glCanvas = document.getElementById('gl-canvas');
+var gl = null;
+var glProgram = null;
+var glState = { ready: false };
+
+var VS_SRC = [
+  'attribute vec2 a_pos;',
+  'void main(){ gl_Position = vec4(a_pos, 0.0, 1.0); }'
+].join('\n');
+
+var FS_SRC = [
+  'precision mediump float;',
+  'uniform vec2 u_res;',
+  'uniform int u_npts;',
+  'uniform vec2 u_pts[80];',   // coordinate pixel normalizzate [-1,1]
+  'uniform float u_spd[80];',  // velocita kn per ogni punto
+  'uniform float u_zoom;',     // livello zoom per opacita adattiva',
+  '',
+  'vec3 speedToColor(float spd) {',
+  '  if (spd >= 34.0) return vec3(0.71, 0.0,  0.0 );',
+  '  if (spd >= 28.0) return vec3(0.86, 0.24, 0.0 );',
+  '  if (spd >= 22.0) return vec3(1.0,  0.47, 0.0 );',
+  '  if (spd >= 17.0) return vec3(0.78, 0.71, 0.0 );',
+  '  if (spd >= 11.0) return vec3(0.0,  0.63, 0.24);',
+  '  if (spd >=  7.0) return vec3(0.0,  0.55, 0.47);',
+  '  if (spd >=  4.0) return vec3(0.0,  0.31, 0.71);',
+  '  if (spd >=  1.0) return vec3(0.16, 0.16, 0.63);',
+  '  return vec3(0.0, 0.0, 0.0);',
+  '}',
+  '',
+  'void main() {',
+  '  vec2 px = gl_FragCoord.xy;',
+  '  float sumSpd = 0.0;',
+  '  float sumW = 0.0;',
+  '  for (int i = 0; i < 80; i++) {',
+  '    if (i >= u_npts) break;',
+  '    vec2 pt = u_pts[i] * u_res * 0.5 + u_res * 0.5;',  // da NDC a pixel
+  '    vec2 d = px - pt;',
+  '    float dist2 = dot(d, d);',
+  '    if (dist2 < 1.0) dist2 = 1.0;',
+  '    float w = 1.0 / dist2;',
+  '    sumSpd += u_spd[i] * w;',
+  '    sumW += w;',
+  '  }',
+  '  float spd = sumSpd / sumW;',
+  '  vec3 col = speedToColor(spd);',
+  '  float alpha = 0.38;',
+  '  gl_FragColor = vec4(col * alpha, alpha);',
+  '}'
+].join('\n');
+
+function initWebGL(){
+  try {
+    gl = glCanvas.getContext('webgl') || glCanvas.getContext('experimental-webgl');
+    if (!gl) { console.warn('WebGL non disponibile'); return false; }
+    var vs = gl.createShader(gl.VERTEX_SHADER);
+    gl.shaderSource(vs, VS_SRC); gl.compileShader(vs);
+    if (!gl.getShaderParameter(vs, gl.COMPILE_STATUS)) { console.warn('VS error:', gl.getShaderInfoLog(vs)); return false; }
+    var fs = gl.createShader(gl.FRAGMENT_SHADER);
+    gl.shaderSource(fs, FS_SRC); gl.compileShader(fs);
+    if (!gl.getShaderParameter(fs, gl.COMPILE_STATUS)) { console.warn('FS error:', gl.getShaderInfoLog(fs)); return false; }
+    glProgram = gl.createProgram();
+    gl.attachShader(glProgram, vs); gl.attachShader(glProgram, fs);
+    gl.linkProgram(glProgram);
+    if (!gl.getProgramParameter(glProgram, gl.LINK_STATUS)) { console.warn('Link error'); return false; }
+    // Quad che copre tutto lo schermo
+    var buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+    var aPos = gl.getAttribLocation(glProgram, 'a_pos');
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+    gl.useProgram(glProgram);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    glState.ready = true;
+    return true;
+  } catch(e) { console.warn('WebGL init error:', e); return false; }
+}
+
+
+// gl-canvas inizializzato da initWebGL()
 var particleState = {
   active: false,
   particles: [],
@@ -359,8 +439,9 @@ function resizeCanvas(){
   canvas.style.opacity = '1';
   pCanvas.width = w.offsetWidth;
   pCanvas.height = w.offsetHeight;
-  cCanvas.width = w.offsetWidth;
-  cCanvas.height = w.offsetHeight;
+  glCanvas.width = w.offsetWidth;
+  glCanvas.height = w.offsetHeight;
+  if (gl) gl.viewport(0, 0, glCanvas.width, glCanvas.height);
 }
 resizeCanvas();
 window.addEventListener('resize', function(){ resizeCanvas(); drawWind(); if(particleState.active) rebuildAndAnimate(); });
@@ -793,28 +874,23 @@ function buildVectorField(){
   particleState.field = field;
 }
 
-// LAYER COLORE - celle adattive allo zoom + CSS blur
+// LAYER COLORE - WebGL IDW per pixel perfetti a qualsiasi zoom
 function drawColorLayer(){
-  var W = cCanvas.width, H = cCanvas.height;
+  if (!glState.ready) return;
+  var W = glCanvas.width, H = glCanvas.height;
   var mode = particleState.flowMode;
-  var zoom = map.getZoom();
-  // Oltre z10 la griglia OM e' troppo rada per un layer colore decente
-  if (zoom > 10) {
-    cCanvas.style.filter = 'none';
-    cCtx.clearRect(0, 0, W, H);
-    return;
-  }
-  var cellSize = Math.round(55 * Math.pow(1.6, zoom - 8));
-  var blurPx = Math.round(cellSize * 0.9);
-  cCanvas.style.filter = 'blur(' + blurPx + 'px)';
-  cCtx.clearRect(0, 0, W, H);
 
-  var colorPoints = [];
+  // Raccoglie punti con velocita
+  var pts = [], spds = [];
   if (mode === 'om' || mode === 'all') {
     state.gridData.forEach(function(pt){
       var px = map.latLngToContainerPoint([pt.lat, pt.lon]);
-      if (px.x < -cellSize || px.x > W+cellSize || px.y < -cellSize || px.y > H+cellSize) return;
-      colorPoints.push({x: px.x, y: px.y, spd: pt.speed});
+      if (px.x < -100 || px.x > W+100 || px.y < -100 || px.y > H+100) return;
+      if (pts.length >= 80) return;
+      // Converti da pixel a NDC [-1,1], nota: Y invertito
+      pts.push((px.x / W) * 2.0 - 1.0);
+      pts.push(1.0 - (px.y / H) * 2.0);
+      spds.push(pt.speed);
     });
   }
   if (mode === 'nau' || mode === 'all') {
@@ -823,31 +899,38 @@ function drawColorLayer(){
       if (!d) return;
       var spd = d.wind_speed != null ? d.wind_speed : (d.wind_speed_obs || 0);
       var px = map.latLngToContainerPoint([z.lat, z.lon]);
-      colorPoints.push({x: px.x, y: px.y, spd: spd});
+      if (pts.length >= 80) return;
+      pts.push((px.x / W) * 2.0 - 1.0);
+      pts.push(1.0 - (px.y / H) * 2.0);
+      spds.push(spd);
     });
     state.stationData.forEach(function(st){
       var px = map.latLngToContainerPoint([st.lat, st.lon]);
-      colorPoints.push({x: px.x, y: px.y, spd: st.speed});
+      if (pts.length >= 80) return;
+      pts.push((px.x / W) * 2.0 - 1.0);
+      pts.push(1.0 - (px.y / H) * 2.0);
+      spds.push(st.speed);
     });
   }
-  if (colorPoints.length === 0) return;
 
-  colorPoints.forEach(function(pt){
-    cCtx.fillStyle = colorLayerColor(pt.spd);
-    cCtx.fillRect(pt.x - cellSize/2, pt.y - cellSize/2, cellSize, cellSize);
-  });
-}
+  var npts = spds.length;
+  if (npts === 0) { gl.clear(gl.COLOR_BUFFER_BIT); return; }
 
-function colorLayerColor(spd){
-  if (spd >= 34) return 'rgba(180,0,0,0.50)';
-  if (spd >= 28) return 'rgba(220,60,0,0.48)';
-  if (spd >= 22) return 'rgba(255,120,0,0.45)';
-  if (spd >= 17) return 'rgba(200,180,0,0.42)';
-  if (spd >= 11) return 'rgba(0,160,60,0.40)';
-  if (spd >=  7) return 'rgba(0,140,120,0.38)';
-  if (spd >=  4) return 'rgba(0,80,180,0.35)';
-  if (spd >=  1) return 'rgba(40,40,160,0.30)';
-  return 'rgba(0,0,0,0)';
+  // Padda array a 80 elementi
+  while (pts.length < 160) { pts.push(0.0); }
+  while (spds.length < 80) { spds.push(0.0); }
+
+  gl.viewport(0, 0, W, H);
+  gl.clearColor(0, 0, 0, 0);
+  gl.clear(gl.COLOR_BUFFER_BIT);
+
+  gl.uniform2f(gl.getUniformLocation(glProgram, 'u_res'), W, H);
+  gl.uniform1i(gl.getUniformLocation(glProgram, 'u_npts'), npts);
+  gl.uniform2fv(gl.getUniformLocation(glProgram, 'u_pts'), new Float32Array(pts));
+  gl.uniform1fv(gl.getUniformLocation(glProgram, 'u_spd'), new Float32Array(spds));
+  gl.uniform1f(gl.getUniformLocation(glProgram, 'u_zoom'), map.getZoom());
+
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 }
 
 
@@ -958,7 +1041,7 @@ function startParticles(){
 function stopParticles(){
   if (particleState.animFrame){ cancelAnimationFrame(particleState.animFrame); particleState.animFrame = null; }
   pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
-  cCtx.clearRect(0, 0, cCanvas.width, cCanvas.height);
+  if (gl) { gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT); }
 }
 
 function rebuildAndAnimate(){
@@ -978,7 +1061,7 @@ document.getElementById('btn-flow').addEventListener('click', function(){
     startParticles();
   } else {
     stopParticles();
-    cCtx.clearRect(0, 0, cCanvas.width, cCanvas.height);
+    if (gl) { gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT); }
   }
 });
 
@@ -1077,6 +1160,7 @@ BUOYS.forEach(function(b) {
     '</div>', { maxWidth: 240 });
 });
 
+initWebGL();
 loadAll();
 
 try {
@@ -1186,7 +1270,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.6.9
+// Fine codice - NAUTILUS MAPPA v1.7.0
 </script>
 </body>
 </html>

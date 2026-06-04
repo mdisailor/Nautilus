@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.6.5 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS MAPPA v1.6.6 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.6.5</title>
+<title>NAUTILUS Mappa Vento v1.6.6</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -47,7 +47,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 
 /* CANVAS */
 #wind-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:600}
-#color-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:570;filter:blur(20px);}
+#color-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:570;}
 #particle-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:580}
 
 /* BOTTONE FLOW */
@@ -187,7 +187,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.6.5</span>
+    <span id="nav-ver">mappa v1.6.6</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -251,11 +251,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.6.5 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.6.6 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.6.5
+// NAUTILUS MAPPA v1.6.6
 
 var ENGINE_URL = '/api/engine';
 
@@ -793,17 +793,22 @@ function buildVectorField(){
   particleState.field = field;
 }
 
-// LAYER COLORE - celle grandi + CSS blur per sfumature fluide
+// LAYER COLORE - celle adattive allo zoom + CSS blur
 function drawColorLayer(){
   var W = cCanvas.width, H = cCanvas.height;
   var mode = particleState.flowMode;
+  var zoom = map.getZoom();
+  // A zoom alto i punti si distanziano in pixel - celle e blur devono crescere
+  var cellSize = Math.round(40 * Math.pow(2, zoom - 8));
+  var blurPx = Math.round(cellSize * 0.6);
+  cCanvas.style.filter = 'blur(' + blurPx + 'px)';
   cCtx.clearRect(0, 0, W, H);
 
   var colorPoints = [];
   if (mode === 'om' || mode === 'all') {
     state.gridData.forEach(function(pt){
       var px = map.latLngToContainerPoint([pt.lat, pt.lon]);
-      if (px.x < -50 || px.x > W+50 || px.y < -50 || px.y > H+50) return;
+      if (px.x < -cellSize || px.x > W+cellSize || px.y < -cellSize || px.y > H+cellSize) return;
       colorPoints.push({x: px.x, y: px.y, spd: pt.speed});
     });
   }
@@ -822,8 +827,6 @@ function drawColorLayer(){
   }
   if (colorPoints.length === 0) return;
 
-  // Celle grandi (40px) - il CSS blur le sfuma automaticamente
-  var cellSize = 40;
   colorPoints.forEach(function(pt){
     cCtx.fillStyle = colorLayerColor(pt.spd);
     cCtx.fillRect(pt.x - cellSize/2, pt.y - cellSize/2, cellSize, cellSize);
@@ -1178,7 +1181,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.6.5
+// Fine codice - NAUTILUS MAPPA v1.6.6
 </script>
 </body>
 </html>

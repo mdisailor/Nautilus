@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.6.2 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS MAPPA v1.6.3 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.6.2</title>
+<title>NAUTILUS Mappa Vento v1.6.3</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -187,7 +187,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.6.2</span>
+    <span id="nav-ver">mappa v1.6.3</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
   <a id="nav-back" href="/">APP</a>
@@ -250,11 +250,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.6.2 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.6.3 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.6.2
+// NAUTILUS MAPPA v1.6.3
 
 var ENGINE_URL = '/api/engine';
 
@@ -805,7 +805,7 @@ function drawColorLayer(){
     state.gridData.forEach(function(pt){
       var px = map.latLngToContainerPoint([pt.lat, pt.lon]);
       if (px.x < -50 || px.x > W+50 || px.y < -50 || px.y > H+50) return;
-      colorPoints.push({x: px.x, y: px.y, spd: pt.speed, r: 80});
+      colorPoints.push({x: px.x, y: px.y, spd: pt.speed, r: 160});
     });
   }
   if (mode === 'nau' || mode === 'all') {
@@ -814,18 +814,18 @@ function drawColorLayer(){
       if (!d) return;
       var spd = d.wind_speed != null ? d.wind_speed : (d.wind_speed_obs || 0);
       var px = map.latLngToContainerPoint([z.lat, z.lon]);
-      colorPoints.push({x: px.x, y: px.y, spd: spd, r: 130});
+      colorPoints.push({x: px.x, y: px.y, spd: spd, r: 250});
     });
     state.stationData.forEach(function(st){
       var px = map.latLngToContainerPoint([st.lat, st.lon]);
-      colorPoints.push({x: px.x, y: px.y, spd: st.speed, r: 150});
+      colorPoints.push({x: px.x, y: px.y, spd: st.speed, r: 280});
     });
   }
 
   if (colorPoints.length === 0) return;
 
-  // Disegna gradiente radiale per ogni punto
-  cCtx.globalCompositeOperation = 'source-over';
+  // screen blending: i colori si sommano senza saturare
+  cCtx.globalCompositeOperation = 'screen';
   colorPoints.forEach(function(pt){
     var col = colorLayerColor(pt.spd);
     var grad = cCtx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, pt.r);
@@ -840,16 +840,15 @@ function drawColorLayer(){
 }
 
 function colorLayerColor(spd){
-  // Colori simili a Windy: viola/blu per calma, verde/giallo per moderato, rosso per forte
-  if (spd >= 34) return 'rgba(180,0,0,0.55)';
-  if (spd >= 28) return 'rgba(220,60,0,0.52)';
-  if (spd >= 22) return 'rgba(255,120,0,0.50)';
-  if (spd >= 17) return 'rgba(200,180,0,0.48)';
-  if (spd >= 11) return 'rgba(0,160,60,0.45)';
-  if (spd >=  7) return 'rgba(0,140,120,0.42)';
-  if (spd >=  4) return 'rgba(0,80,180,0.40)';
-  if (spd >=  1) return 'rgba(40,40,160,0.38)';
-  return 'rgba(60,30,120,0.35)';
+  if (spd >= 34) return 'rgba(180,0,0,0.25)';
+  if (spd >= 28) return 'rgba(220,60,0,0.23)';
+  if (spd >= 22) return 'rgba(255,120,0,0.22)';
+  if (spd >= 17) return 'rgba(200,180,0,0.20)';
+  if (spd >= 11) return 'rgba(0,160,60,0.18)';
+  if (spd >=  7) return 'rgba(0,140,120,0.16)';
+  if (spd >=  4) return 'rgba(0,80,180,0.14)';
+  if (spd >=  1) return 'rgba(40,40,160,0.12)';
+  return 'rgba(60,30,120,0.10)';
 }
 
 
@@ -1187,7 +1186,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.6.2
+// Fine codice - NAUTILUS MAPPA v1.6.3
 </script>
 </body>
 </html>

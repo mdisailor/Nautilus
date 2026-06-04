@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.5.8 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS MAPPA v1.6.4 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.5.8</title>
+<title>NAUTILUS Mappa Vento v1.6.4</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -47,6 +47,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 
 /* CANVAS */
 #wind-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:600}
+#color-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:570}
 #particle-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:580}
 
 /* BOTTONE FLOW */
@@ -186,7 +187,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.5.8</span>
+    <span id="nav-ver">mappa v1.6.4</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -196,6 +197,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <div id="map-wrap">
   <div id="map"></div>
   <canvas id="wind-canvas"></canvas>
+  <canvas id="color-canvas"></canvas>
   <canvas id="particle-canvas"></canvas>
 
   <div id="hud">
@@ -249,11 +251,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.5.8 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.6.4 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.5.8
+// NAUTILUS MAPPA v1.6.4
 
 var ENGINE_URL = '/api/engine';
 
@@ -334,6 +336,10 @@ canvas.style.opacity = '1';
 // CANVAS PARTICELLE
 var pCanvas = document.getElementById('particle-canvas');
 var pCtx = pCanvas.getContext('2d');
+
+// CANVAS COLORE
+var cCanvas = document.getElementById('color-canvas');
+var cCtx = cCanvas.getContext('2d');
 var particleState = {
   active: false,
   particles: [],
@@ -353,14 +359,12 @@ function resizeCanvas(){
   canvas.style.opacity = '1';
   pCanvas.width = w.offsetWidth;
   pCanvas.height = w.offsetHeight;
+  cCanvas.width = w.offsetWidth;
+  cCanvas.height = w.offsetHeight;
 }
 resizeCanvas();
 window.addEventListener('resize', function(){ resizeCanvas(); drawWind(); if(particleState.active) rebuildAndAnimate(); });
-map.on('moveend zoomend', function(){
-  drawWind();
-  if(particleState.active) rebuildAndAnimate();
-  document.getElementById('nav-zoom').textContent = 'z' + map.getZoom();
-});
+map.on('moveend zoomend', function(){ drawWind(); if(particleState.active) rebuildAndAnimate(); document.getElementById('nav-zoom').textContent = 'z' + map.getZoom(); });
 
 function windColor(s){
   // Scala Beaufort
@@ -789,7 +793,67 @@ function buildVectorField(){
   particleState.field = field;
 }
 
-// Legge il campo vettoriale a coordinate pixel (interpolazione bilineare)
+// LAYER COLORE - gradienti radiali con raggio adattivo allo zoom
+function drawColorLayer(){
+  var W = cCanvas.width, H = cCanvas.height;
+  var mode = particleState.flowMode;
+  var zoom = map.getZoom();
+  // Raggio base proporzionale allo zoom - a zoom alto i punti si allontanano
+  // zoom 7=200px, zoom 8=150px, zoom 9=120px, zoom 10=100px
+  var baseR = Math.max(80, 1200 / Math.pow(2, zoom - 6));
+
+  cCtx.clearRect(0, 0, W, H);
+
+  var colorPoints = [];
+  if (mode === 'om' || mode === 'all') {
+    state.gridData.forEach(function(pt){
+      var px = map.latLngToContainerPoint([pt.lat, pt.lon]);
+      if (px.x < -baseR || px.x > W+baseR || px.y < -baseR || px.y > H+baseR) return;
+      colorPoints.push({x: px.x, y: px.y, spd: pt.speed, r: baseR});
+    });
+  }
+  if (mode === 'nau' || mode === 'all') {
+    ZONES.forEach(function(z){
+      var d = state.zoneData[z.key];
+      if (!d) return;
+      var spd = d.wind_speed != null ? d.wind_speed : (d.wind_speed_obs || 0);
+      var px = map.latLngToContainerPoint([z.lat, z.lon]);
+      colorPoints.push({x: px.x, y: px.y, spd: spd, r: baseR * 1.8});
+    });
+    state.stationData.forEach(function(st){
+      var px = map.latLngToContainerPoint([st.lat, st.lon]);
+      colorPoints.push({x: px.x, y: px.y, spd: st.speed, r: baseR * 2.0});
+    });
+  }
+
+  if (colorPoints.length === 0) return;
+
+  colorPoints.forEach(function(pt){
+    var col = colorLayerColor(pt.spd);
+    var grad = cCtx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, pt.r);
+    grad.addColorStop(0, col);
+    grad.addColorStop(0.5, col.replace(/[\d.]+\)$/, '0.08)'));
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    cCtx.fillStyle = grad;
+    cCtx.beginPath();
+    cCtx.arc(pt.x, pt.y, pt.r, 0, Math.PI * 2);
+    cCtx.fill();
+  });
+}
+
+function colorLayerColor(spd){
+  if (spd >= 34) return 'rgba(180,0,0,0.35)';
+  if (spd >= 28) return 'rgba(220,60,0,0.33)';
+  if (spd >= 22) return 'rgba(255,120,0,0.30)';
+  if (spd >= 17) return 'rgba(200,180,0,0.28)';
+  if (spd >= 11) return 'rgba(0,160,60,0.25)';
+  if (spd >=  7) return 'rgba(0,140,120,0.22)';
+  if (spd >=  4) return 'rgba(0,80,180,0.20)';
+  if (spd >=  1) return 'rgba(40,40,160,0.16)';
+  return 'rgba(0,0,0,0)';
+}
+
+
 function sampleField(px, py){
   var res = particleState.fieldRes;
   var cols = particleState.fieldW;
@@ -897,10 +961,12 @@ function startParticles(){
 function stopParticles(){
   if (particleState.animFrame){ cancelAnimationFrame(particleState.animFrame); particleState.animFrame = null; }
   pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
+  cCtx.clearRect(0, 0, cCanvas.width, cCanvas.height);
 }
 
 function rebuildAndAnimate(){
   buildVectorField();
+  drawColorLayer();
   if (particleState.active) startParticles();
 }
 
@@ -911,9 +977,11 @@ document.getElementById('btn-flow').addEventListener('click', function(){
   document.getElementById('flow-mode-btns').classList.toggle('visible', particleState.active);
   if (particleState.active){
     buildVectorField();
+    drawColorLayer();
     startParticles();
   } else {
     stopParticles();
+    cCtx.clearRect(0, 0, cCanvas.width, cCanvas.height);
   }
 });
 
@@ -1121,7 +1189,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.5.8
+// Fine codice - NAUTILUS MAPPA v1.6.4
 </script>
 </body>
 </html>

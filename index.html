@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.7.0 -- 2026-04-14 -->
+<!-- NAUTILUS v5.7.2 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -594,7 +594,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.0  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.2  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1976,7 +1976,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.0  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.2  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -5696,8 +5696,17 @@ function renderPredictHistory(data, el) {
     html += '<span style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted)">' +
       (p.current_wind ? p.current_wind.toFixed(1) : '--') + 'kn ' + windDir + ' </span>';
     html += '</div>';
-    html += '<div style="font-family:DM Mono,monospace;font-size:0.48rem;color:var(--muted)">' +
-      'H3: ' + (h3 ? h3 + 'kn' : '--') + '  H6: ' + (h6 ? h6 + 'kn' : '--') + '  H12: ' + (h12 ? h12 + 'kn' : '--') + '</div>';
+    html += '<div style="font-family:DM Mono,monospace;font-size:0.48rem;color:var(--muted)">' + (function(){
+      var genD = new Date(p.generated_at);
+      var parts = [];
+      [{h:1,fk:'forecast_h1'},{h:3,fk:'forecast_h3'},{h:6,fk:'forecast_h6'},{h:9,fk:'forecast_h9'},{h:12,fk:'forecast_h12'}].forEach(function(hz){
+        var t = new Date(genD.getTime()+hz.h*3600000);
+        var tH = t.toLocaleString('it-IT',{timeZone:'Europe/Rome',hour:'2-digit'}).replace(':00','')+'h';
+        var fv = p[hz.fk] || extractWind(p.prediction_text, String(hz.h));
+        parts.push(tH+': '+(fv?fv+'kn':'--'));
+      });
+      return parts.join('  ');
+    })() + '</div>';
     html += '<div id="predict-item-' + idx + '" style="display:none;margin-top:10px"></div>';
     html += '</div>';
   });
@@ -5721,19 +5730,19 @@ function togglePredictItem(idx) {
   html += '<span class="predict-history-label" style="color:var(--safe)">Reale</span>';
   html += '</div>';
 
-  [{h:'3',label:'H+3'},{h:'6',label:'H+6'},{h:'12',label:'H+12'}].forEach(function(hz) {
-    // Use pre-computed structured values if available, else parse text
-    var predicted = hz.h === '3' ? (p.forecast_h3 || extractWind(p.prediction_text, '3')) :
-                    hz.h === '6' ? (p.forecast_h6 || extractWind(p.prediction_text, '6')) :
-                                   (p.forecast_h12 || extractWind(p.prediction_text, '12'));
-    var actual = hz.h === '3' ? item.actual_3h : (hz.h === '6' ? item.actual_6h : (hz.h === '12' ? item.actual_12h : null));
+  var genDate = new Date(p.generated_at);
+  [{h:'1',fkey:'forecast_h1',akey:'actual_1h'},{h:'3',fkey:'forecast_h3',akey:'actual_3h'},{h:'6',fkey:'forecast_h6',akey:'actual_6h'},{h:'9',fkey:'forecast_h9',akey:'actual_9h'},{h:'12',fkey:'forecast_h12',akey:'actual_12h'}].forEach(function(hz) {
+    var target = new Date(genDate.getTime() + parseInt(hz.h)*3600000);
+    var targetHour = target.toLocaleString('it-IT',{timeZone:'Europe/Rome',hour:'2-digit'}).replace(':00','') + 'h';
+    var predicted = p[hz.fkey] || extractWind(p.prediction_text, hz.h);
+    var actual = item[hz.akey] != null ? item[hz.akey] : (p[hz.akey] != null ? p[hz.akey] : null);
     html += '<div class="predict-history-row">';
-    html += '<span class="predict-history-label">' + hz.label + '</span>';
+    html += '<span class="predict-history-label" style="color:var(--accent)">' + targetHour + '</span>';
     html += '<span class="predict-history-val">' + (predicted ? predicted + 'kn' : '--') + '</span>';
     if (actual !== null) {
       var diff = predicted ? Math.abs(parseFloat(predicted) - actual).toFixed(1) : null;
       var color = diff ? (parseFloat(diff) <= 1.5 ? 'var(--safe)' : parseFloat(diff) <= 3 ? 'var(--gold)' : 'var(--danger)') : 'var(--muted)';
-      html += '<span class="predict-history-actual" style="color:' + color + '">' + actual.toFixed(1) + 'kn' + (diff ? ' ' + diff : '') + '</span>';
+      html += '<span class="predict-history-actual" style="color:' + color + '">' + actual.toFixed(1) + 'kn' + (diff ? ' (' + (actual-parseFloat(predicted)>0?'+':'') + (actual-parseFloat(predicted)).toFixed(1) + ')' : '') + '</span>';
     } else {
       html += '<span class="predict-history-actual" style="color:var(--muted)">in attesa</span>';
     }
@@ -5901,7 +5910,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.7.0
+// Fine codice - NAUTILUS v5.7.2
 // ===== TRIPLE COMPASS =====
 var tcData = [null, null, null];
 var tcSelected = 0;

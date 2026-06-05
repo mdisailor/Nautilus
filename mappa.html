@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.7.3 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS MAPPA v1.7.4 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.7.3</title>
+<title>NAUTILUS Mappa Vento v1.7.4</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -188,7 +188,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.7.3</span>
+    <span id="nav-ver">mappa v1.7.4</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
@@ -253,11 +253,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.7.3 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.7.4 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.7.3
+// NAUTILUS MAPPA v1.7.4
 
 var ENGINE_URL = '/api/engine';
 
@@ -346,47 +346,8 @@ var glProgram = null;
 var glReady = false;
 
 // Vertex shader: quad fullscreen
-var GL_VS = 'attribute vec2 a_pos;\nvoid main(){ gl_Position = vec4(a_pos,0.0,1.0); }';
-
-// Fragment shader: IDW senza break (GLSL ES 1.0 compatibile)
-var GL_FS = [
-'precision mediump float;',
-'uniform vec2 u_res;',
-'uniform float u_pts[160];',  // x0,y0,x1,y1,... in pixel (Y dal basso)
-'uniform float u_spd[80];',
-'uniform float u_mask[80];',  // 1.0=punto valido, 0.0=padding
-'vec3 spdColor(float s){',
-'  if(s>=34.0) return vec3(0.71,0.00,0.00);',
-'  if(s>=28.0) return vec3(0.86,0.24,0.00);',
-'  if(s>=22.0) return vec3(1.00,0.47,0.00);',
-'  if(s>=17.0) return vec3(0.78,0.71,0.00);',
-'  if(s>=11.0) return vec3(0.00,0.63,0.24);',
-'  if(s>= 7.0) return vec3(0.00,0.55,0.47);',
-'  if(s>= 4.0) return vec3(0.00,0.31,0.71);',
-'  if(s>= 1.0) return vec3(0.16,0.16,0.63);',
-'  return vec3(0.0,0.0,0.0);',
-'}',
-'void main(){',
-'  vec2 px = gl_FragCoord.xy;',
-'  float sw=0.0; float ww=0.0;',
-'  for(int i=0;i<80;i++){',
-'    float m = u_mask[i];',
-'    if(m < 0.5) continue;',
-'    float dx = px.x - u_pts[i*2];',
-'    float dy = px.y - u_pts[i*2+1];',
-'    float d2 = max(dx*dx + dy*dy, 100.0);', // min 10px
-'    float w = m / (d2 * d2);', // esponente 4: ogni punto domina nel suo intorno
-
-'    sw += u_spd[i] * w;',
-'    ww += w;',
-'  }',
-'  if(ww < 0.000001){ gl_FragColor=vec4(0.0,0.0,0.0,0.0); return; }',
-'  float spd = sw / ww;',
-'  if(spd < 0.5){ gl_FragColor=vec4(0.0,0.0,0.0,0.0); return; }',
-'  vec3 col = spdColor(spd);',
-'  gl_FragColor = vec4(col, 0.38);',
-'}'
-].join('\n');
+var GL_VS = 'attribute vec2 a_pos; varying vec2 v_uv; void main(){ v_uv = a_pos * 0.5 + 0.5; gl_Position = vec4(a_pos,0.0,1.0); }';
+var GL_FS = 'precision mediump float; uniform sampler2D u_tex; varying vec2 v_uv; void main(){ gl_FragColor = texture2D(u_tex, vec2(v_uv.x, 1.0 - v_uv.y)); }';
 
 function initWebGL(){
   try {
@@ -410,6 +371,14 @@ function initWebGL(){
     gl.useProgram(glProgram);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+    // Crea texture RGBA per il layer colore
+    glState.tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, glState.tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.uniform1i(gl.getUniformLocation(glProgram,'u_tex'), 0);
     glReady = true;
     return true;
   } catch(e){ console.warn('WebGL:',e); return false; }
@@ -419,23 +388,14 @@ function drawColorLayer(){
   if(!glReady) return;
   var W = glCanvas.width, H = glCanvas.height;
   var mode = particleState.flowMode;
-  var ptsArr = new Float32Array(160);
-  var spdArr = new Float32Array(80);
-  var n = 0;
 
-  function addPt(px, py, spd){
-    if(n >= 80) return;
-    ptsArr[n*2]   = px;
-    ptsArr[n*2+1] = H - py; // flip Y: WebGL ha Y=0 in basso
-    spdArr[n]     = spd;
-    n++;
-  }
-
+  // Raccoglie punti con velocita
+  var pts = [];
   if(mode === 'om' || mode === 'all'){
     state.gridData.forEach(function(pt){
       var px = map.latLngToContainerPoint([pt.lat, pt.lon]);
       if(px.x < -50 || px.x > W+50 || px.y < -50 || px.y > H+50) return;
-      addPt(px.x, px.y, pt.speed);
+      pts.push({x: px.x, y: px.y, spd: pt.speed || 0});
     });
   }
   if(mode === 'nau' || mode === 'all'){
@@ -444,26 +404,59 @@ function drawColorLayer(){
       if(!d) return;
       var spd = d.wind_speed != null ? d.wind_speed : (d.wind_speed_obs || 0);
       var px = map.latLngToContainerPoint([z.lat, z.lon]);
-      addPt(px.x, px.y, spd);
+      pts.push({x: px.x, y: px.y, spd: spd});
     });
     state.stationData.forEach(function(st){
       var px = map.latLngToContainerPoint([st.lat, st.lon]);
-      addPt(px.x, px.y, st.speed);
+      pts.push({x: px.x, y: px.y, spd: st.speed || 0});
     });
   }
 
+  if(pts.length === 0){ gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT); return; }
+
+  // Precalcola griglia colori in JS con IDW esponente 2
+  // Griglia 128x128 - WebGL interpola bilinearmente al canvas intero
+  var TEX = 128;
+  var texData = new Uint8Array(TEX * TEX * 4);
+
+  function spdToRGBA(spd, out, off){
+    var r,g,b,a;
+    if     (spd>=34){r=180;g=0;  b=0;  a=130;}
+    else if(spd>=28){r=220;g=60; b=0;  a=125;}
+    else if(spd>=22){r=255;g=120;b=0;  a=120;}
+    else if(spd>=17){r=200;g=180;b=0;  a=115;}
+    else if(spd>=11){r=0;  g=160;b=60; a=110;}
+    else if(spd>= 7){r=0;  g=140;b=120;a=100;}
+    else if(spd>= 4){r=0;  g=80; b=180;a=95; }
+    else if(spd>= 1){r=40; g=40; b=160;a=85; }
+    else            {r=0;  g=0;  b=0;  a=0;  }
+    out[off]=r; out[off+1]=g; out[off+2]=b; out[off+3]=a;
+  }
+
+  for(var ty=0; ty<TEX; ty++){
+    for(var tx=0; tx<TEX; tx++){
+      // Coordinate pixel nel canvas
+      var cx = (tx + 0.5) / TEX * W;
+      var cy = (ty + 0.5) / TEX * H;
+      var sw=0, ww=0;
+      for(var pi=0; pi<pts.length; pi++){
+        var dx=cx-pts[pi].x, dy=cy-pts[pi].y;
+        var d2=dx*dx+dy*dy;
+        if(d2<100) d2=100; // min 10px
+        var w=1.0/d2;
+        sw+=pts[pi].spd*w; ww+=w;
+      }
+      var spd = ww>0 ? sw/ww : 0;
+      spdToRGBA(spd, texData, (ty*TEX+tx)*4);
+    }
+  }
+
+  // Carica texture e disegna
   gl.viewport(0, 0, W, H);
   gl.clearColor(0,0,0,0);
   gl.clear(gl.COLOR_BUFFER_BIT);
-  if(n === 0) return;
-
-  var maskArr = new Float32Array(80);
-  for(var mi=0; mi<n; mi++) maskArr[mi] = 1.0;
-
-  gl.uniform2f(gl.getUniformLocation(glProgram,'u_res'), W, H);
-  gl.uniform1fv(gl.getUniformLocation(glProgram,'u_pts'), ptsArr);
-  gl.uniform1fv(gl.getUniformLocation(glProgram,'u_spd'), spdArr);
-  gl.uniform1fv(gl.getUniformLocation(glProgram,'u_mask'), maskArr);
+  gl.bindTexture(gl.TEXTURE_2D, glState.tex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, TEX, TEX, 0, gl.RGBA, gl.UNSIGNED_BYTE, texData);
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
 }
 
@@ -1267,7 +1260,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.7.3
+// Fine codice - NAUTILUS MAPPA v1.7.4
 </script>
 </body>
 </html>

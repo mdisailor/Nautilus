@@ -1,4 +1,4 @@
-<!-- NAUTILUS STATS v1.11 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS STATS v1.12 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -54,7 +54,7 @@
 <body>
 <header>
   <div class="logo">NAUTI<span>LUS</span></div>
-  <div class="subtitle">Accuratezza previsioni AI &nbsp;·&nbsp; v2.12.3 / stats v1.11</div>
+  <div class="subtitle">Accuratezza previsioni AI &nbsp;·&nbsp; v2.12.3 / stats v1.12</div>
   <a href="/" class="back-link">← app</a>
 </header>
 <div class="zone-bar" id="zone-bar">
@@ -240,34 +240,41 @@ function render(key, name, hist, stats) {
     html+='</table></div>';
   }
 
-  // Recent predictions
+  // Recent predictions con orari target assoluti
   if (verified.length) {
-    html += '<div class="section-title">Ultime verifiche</div><div class="chart-wrap"><table class="weekly-table">' +
-      '<tr><th>Data</th><th>Fonte</th><th>H+1</th><th>H+3</th><th>H+6</th><th>H+9</th><th>H+12</th></tr>';
+    html += '<div class="section-title">Ultime verifiche</div><div class="chart-wrap">';
     verified.slice().sort(function(a,b){ var pa=a.prediction||a, pb=b.prediction||b; return new Date(pb.generated_at)-new Date(pa.generated_at); }).slice(0,10).forEach(function(item) {
       try {
-        const p = item.prediction || item;
+        var p = item.prediction || item;
         if (!p || !p.generated_at) return;
-        const dt = new Date(p.generated_at).toLocaleString('it-IT',{timeZone:'Europe/Rome',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-        var slotIcon = '';
-        if (p.source !== 'situazione') {
-          slotIcon = p.slot === 'afternoon' ? '<span style="color:#ff4444">&#9711; pom</span>' : '&#9898; mat';
-        } else {
-          slotIcon = '&#128309; analisi';
-        }
-        const src = slotIcon;
-        html+='<tr>' +
-          '<td style="color:var(--muted)">'+dt+'</td>' +
-          '<td style="font-size:0.75rem">'+src+'</td>' +
-          '<td style="font-size:0.75rem">'+fmtErr(p.forecast_h1,getActual(item,'actual_1h'))+'</td>' +
-          '<td style="font-size:0.75rem">'+fmtErr(p.forecast_h3,getActual(item,'actual_3h'))+'</td>' +
-          '<td style="font-size:0.75rem">'+fmtErr(p.forecast_h6,getActual(item,'actual_6h'))+'</td>' +
-          '<td style="font-size:0.75rem">'+fmtErr(p.forecast_h9,getActual(item,'actual_9h'))+'</td>' +
-          '<td style="font-size:0.75rem">'+fmtErr(p.forecast_h12,getActual(item,'actual_12h'))+'</td>' +
-          '</tr>';
+        var genRome = new Date(p.generated_at).toLocaleString('it-IT',{timeZone:'Europe/Rome',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+        var genDate = new Date(p.generated_at);
+        var slotColor = p.slot === 'afternoon' ? '#ff4444' : 'var(--muted)';
+        var slotIcon = p.source === 'situazione' ? '&#128309; analisi' : (p.slot === 'afternoon' ? '<span style="color:#ff4444">&#9711; pom</span>' : '&#9898; mat');
+
+        // Calcola orari target assoluti
+        var hors = [[1,'actual_1h','forecast_h1'],[3,'actual_3h','forecast_h3'],[6,'actual_6h','forecast_h6'],[9,'actual_9h','forecast_h9'],[12,'actual_12h','forecast_h12']];
+        var cells = '';
+        hors.forEach(function(hor) {
+          var target = new Date(genDate.getTime() + hor[0]*3600000);
+          var tStr = target.toLocaleString('it-IT',{timeZone:'Europe/Rome',hour:'2-digit',minute:'2-digit'});
+          var fv = p[hor[2]];
+          var av = getActual(item, hor[1]);
+          if (fv == null && av == null) return; // salta se non c'e' nulla
+          var cell = fmtErr(fv, av);
+          cells += '<span style="font-size:0.72rem;margin-right:10px"><span style="color:var(--muted)">' + tStr + ':</span> ' + cell + '</span>';
+        });
+
+        html += '<div style="padding:8px 0;border-bottom:1px solid var(--border);">' +
+          '<div style="display:flex;gap:10px;align-items:baseline;margin-bottom:4px">' +
+          '<span style="color:' + slotColor + ';font-size:0.8rem">' + genRome + '</span>' +
+          '<span style="font-size:0.75rem">' + slotIcon + '</span>' +
+          '</div>' +
+          '<div style="flex-wrap:wrap;display:flex">' + cells + '</div>' +
+          '</div>';
       } catch(e) {}
     });
-    html+='</table></div>';
+    html += '</div>';
   }
 
   if (!verified.length && !predictions.length) {
@@ -278,5 +285,5 @@ function render(key, name, hist, stats) {
 }
 </script>
 </body>
-<!-- NAUTILUS STATS v1.11 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS STATS v1.12 - mdisailor - 2026-06-02 -->
 </html>

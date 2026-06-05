@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.7.4 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS MAPPA v1.6.9 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.7.4</title>
+<title>NAUTILUS Mappa Vento v1.6.9</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -48,7 +48,6 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 /* CANVAS */
 #wind-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:600}
 #color-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:570;}
-#gl-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:570;}
 #particle-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:580}
 
 /* BOTTONE FLOW */
@@ -188,8 +187,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.7.4</span>
-    <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
+    <span id="nav-ver">mappa v1.6.9</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -199,7 +197,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <div id="map-wrap">
   <div id="map"></div>
   <canvas id="wind-canvas"></canvas>
-  <canvas id="gl-canvas"></canvas>
+  <canvas id="color-canvas"></canvas>
   <canvas id="particle-canvas"></canvas>
 
   <div id="hud">
@@ -253,11 +251,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.7.4 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.6.9 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.7.4
+// NAUTILUS MAPPA v1.6.9
 
 var ENGINE_URL = '/api/engine';
 
@@ -339,131 +337,9 @@ canvas.style.opacity = '1';
 var pCanvas = document.getElementById('particle-canvas');
 var pCtx = pCanvas.getContext('2d');
 
-// WEBGL LAYER COLORE
-var glCanvas = document.getElementById('gl-canvas');
-var gl = null;
-var glProgram = null;
-var glReady = false;
-
-// Vertex shader: quad fullscreen
-var GL_VS = 'attribute vec2 a_pos; varying vec2 v_uv; void main(){ v_uv = a_pos * 0.5 + 0.5; gl_Position = vec4(a_pos,0.0,1.0); }';
-var GL_FS = 'precision mediump float; uniform sampler2D u_tex; varying vec2 v_uv; void main(){ gl_FragColor = texture2D(u_tex, vec2(v_uv.x, 1.0 - v_uv.y)); }';
-
-function initWebGL(){
-  try {
-    gl = glCanvas.getContext('webgl') || glCanvas.getContext('experimental-webgl');
-    if(!gl) return false;
-    var vs = gl.createShader(gl.VERTEX_SHADER);
-    gl.shaderSource(vs, GL_VS); gl.compileShader(vs);
-    if(!gl.getShaderParameter(vs,gl.COMPILE_STATUS)){ console.warn('VS:',gl.getShaderInfoLog(vs)); return false; }
-    var fs = gl.createShader(gl.FRAGMENT_SHADER);
-    gl.shaderSource(fs, GL_FS); gl.compileShader(fs);
-    if(!gl.getShaderParameter(fs,gl.COMPILE_STATUS)){ console.warn('FS:',gl.getShaderInfoLog(fs)); return false; }
-    glProgram = gl.createProgram();
-    gl.attachShader(glProgram,vs); gl.attachShader(glProgram,fs); gl.linkProgram(glProgram);
-    if(!gl.getProgramParameter(glProgram,gl.LINK_STATUS)){ console.warn('Link:',gl.getProgramInfoLog(glProgram)); return false; }
-    var buf = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER,buf);
-    gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
-    var ap = gl.getAttribLocation(glProgram,'a_pos');
-    gl.enableVertexAttribArray(ap);
-    gl.vertexAttribPointer(ap,2,gl.FLOAT,false,0,0);
-    gl.useProgram(glProgram);
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
-    // Crea texture RGBA per il layer colore
-    glState.tex = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, glState.tex);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.uniform1i(gl.getUniformLocation(glProgram,'u_tex'), 0);
-    glReady = true;
-    return true;
-  } catch(e){ console.warn('WebGL:',e); return false; }
-}
-
-function drawColorLayer(){
-  if(!glReady) return;
-  var W = glCanvas.width, H = glCanvas.height;
-  var mode = particleState.flowMode;
-
-  // Raccoglie punti con velocita
-  var pts = [];
-  if(mode === 'om' || mode === 'all'){
-    state.gridData.forEach(function(pt){
-      var px = map.latLngToContainerPoint([pt.lat, pt.lon]);
-      if(px.x < -50 || px.x > W+50 || px.y < -50 || px.y > H+50) return;
-      pts.push({x: px.x, y: px.y, spd: pt.speed || 0});
-    });
-  }
-  if(mode === 'nau' || mode === 'all'){
-    ZONES.forEach(function(z){
-      var d = state.zoneData[z.key];
-      if(!d) return;
-      var spd = d.wind_speed != null ? d.wind_speed : (d.wind_speed_obs || 0);
-      var px = map.latLngToContainerPoint([z.lat, z.lon]);
-      pts.push({x: px.x, y: px.y, spd: spd});
-    });
-    state.stationData.forEach(function(st){
-      var px = map.latLngToContainerPoint([st.lat, st.lon]);
-      pts.push({x: px.x, y: px.y, spd: st.speed || 0});
-    });
-  }
-
-  if(pts.length === 0){ gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT); return; }
-
-  // Precalcola griglia colori in JS con IDW esponente 2
-  // Griglia 128x128 - WebGL interpola bilinearmente al canvas intero
-  var TEX = 128;
-  var texData = new Uint8Array(TEX * TEX * 4);
-
-  function spdToRGBA(spd, out, off){
-    var r,g,b,a;
-    if     (spd>=34){r=180;g=0;  b=0;  a=130;}
-    else if(spd>=28){r=220;g=60; b=0;  a=125;}
-    else if(spd>=22){r=255;g=120;b=0;  a=120;}
-    else if(spd>=17){r=200;g=180;b=0;  a=115;}
-    else if(spd>=11){r=0;  g=160;b=60; a=110;}
-    else if(spd>= 7){r=0;  g=140;b=120;a=100;}
-    else if(spd>= 4){r=0;  g=80; b=180;a=95; }
-    else if(spd>= 1){r=40; g=40; b=160;a=85; }
-    else            {r=0;  g=0;  b=0;  a=0;  }
-    out[off]=r; out[off+1]=g; out[off+2]=b; out[off+3]=a;
-  }
-
-  for(var ty=0; ty<TEX; ty++){
-    for(var tx=0; tx<TEX; tx++){
-      // Coordinate pixel nel canvas
-      var cx = (tx + 0.5) / TEX * W;
-      var cy = (ty + 0.5) / TEX * H;
-      var sw=0, ww=0;
-      for(var pi=0; pi<pts.length; pi++){
-        var dx=cx-pts[pi].x, dy=cy-pts[pi].y;
-        var d2=dx*dx+dy*dy;
-        if(d2<100) d2=100; // min 10px
-        var w=1.0/d2;
-        sw+=pts[pi].spd*w; ww+=w;
-      }
-      var spd = ww>0 ? sw/ww : 0;
-      spdToRGBA(spd, texData, (ty*TEX+tx)*4);
-    }
-  }
-
-  // Carica texture e disegna
-  gl.viewport(0, 0, W, H);
-  gl.clearColor(0,0,0,0);
-  gl.clear(gl.COLOR_BUFFER_BIT);
-  gl.bindTexture(gl.TEXTURE_2D, glState.tex);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, TEX, TEX, 0, gl.RGBA, gl.UNSIGNED_BYTE, texData);
-  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-}
-
-
-
 // CANVAS COLORE (con CSS blur applicato via stylesheet)
-// gl-canvas gestito da initWebGL()
+var cCanvas = document.getElementById('color-canvas');
+var cCtx = cCanvas.getContext('2d');
 var particleState = {
   active: false,
   particles: [],
@@ -483,10 +359,8 @@ function resizeCanvas(){
   canvas.style.opacity = '1';
   pCanvas.width = w.offsetWidth;
   pCanvas.height = w.offsetHeight;
-  glCanvas.width = w.offsetWidth;
-  glCanvas.height = w.offsetHeight;
-  if(gl) gl.viewport(0, 0, glCanvas.width, glCanvas.height);
-
+  cCanvas.width = w.offsetWidth;
+  cCanvas.height = w.offsetHeight;
 }
 resizeCanvas();
 window.addEventListener('resize', function(){ resizeCanvas(); drawWind(); if(particleState.active) rebuildAndAnimate(); });
@@ -920,7 +794,61 @@ function buildVectorField(){
 }
 
 // LAYER COLORE - celle adattive allo zoom + CSS blur
+function drawColorLayer(){
+  var W = cCanvas.width, H = cCanvas.height;
+  var mode = particleState.flowMode;
+  var zoom = map.getZoom();
+  // Oltre z10 la griglia OM e' troppo rada per un layer colore decente
+  if (zoom > 10) {
+    cCanvas.style.filter = 'none';
+    cCtx.clearRect(0, 0, W, H);
+    return;
+  }
+  var cellSize = Math.round(55 * Math.pow(1.6, zoom - 8));
+  var blurPx = Math.round(cellSize * 0.9);
+  cCanvas.style.filter = 'blur(' + blurPx + 'px)';
+  cCtx.clearRect(0, 0, W, H);
 
+  var colorPoints = [];
+  if (mode === 'om' || mode === 'all') {
+    state.gridData.forEach(function(pt){
+      var px = map.latLngToContainerPoint([pt.lat, pt.lon]);
+      if (px.x < -cellSize || px.x > W+cellSize || px.y < -cellSize || px.y > H+cellSize) return;
+      colorPoints.push({x: px.x, y: px.y, spd: pt.speed});
+    });
+  }
+  if (mode === 'nau' || mode === 'all') {
+    ZONES.forEach(function(z){
+      var d = state.zoneData[z.key];
+      if (!d) return;
+      var spd = d.wind_speed != null ? d.wind_speed : (d.wind_speed_obs || 0);
+      var px = map.latLngToContainerPoint([z.lat, z.lon]);
+      colorPoints.push({x: px.x, y: px.y, spd: spd});
+    });
+    state.stationData.forEach(function(st){
+      var px = map.latLngToContainerPoint([st.lat, st.lon]);
+      colorPoints.push({x: px.x, y: px.y, spd: st.speed});
+    });
+  }
+  if (colorPoints.length === 0) return;
+
+  colorPoints.forEach(function(pt){
+    cCtx.fillStyle = colorLayerColor(pt.spd);
+    cCtx.fillRect(pt.x - cellSize/2, pt.y - cellSize/2, cellSize, cellSize);
+  });
+}
+
+function colorLayerColor(spd){
+  if (spd >= 34) return 'rgba(180,0,0,0.50)';
+  if (spd >= 28) return 'rgba(220,60,0,0.48)';
+  if (spd >= 22) return 'rgba(255,120,0,0.45)';
+  if (spd >= 17) return 'rgba(200,180,0,0.42)';
+  if (spd >= 11) return 'rgba(0,160,60,0.40)';
+  if (spd >=  7) return 'rgba(0,140,120,0.38)';
+  if (spd >=  4) return 'rgba(0,80,180,0.35)';
+  if (spd >=  1) return 'rgba(40,40,160,0.30)';
+  return 'rgba(0,0,0,0)';
+}
 
 
 function sampleField(px, py){
@@ -1030,7 +958,7 @@ function startParticles(){
 function stopParticles(){
   if (particleState.animFrame){ cancelAnimationFrame(particleState.animFrame); particleState.animFrame = null; }
   pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
-  if(gl){ gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT); }
+  cCtx.clearRect(0, 0, cCanvas.width, cCanvas.height);
 }
 
 function rebuildAndAnimate(){
@@ -1050,7 +978,7 @@ document.getElementById('btn-flow').addEventListener('click', function(){
     startParticles();
   } else {
     stopParticles();
-    if(gl){ gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT); }
+    cCtx.clearRect(0, 0, cCanvas.width, cCanvas.height);
   }
 });
 
@@ -1081,7 +1009,6 @@ async function loadAll(){
     var hTime = document.getElementById('hud-time');
     hTime.style.display = 'flex';
     document.getElementById('hud-ts').textContent = 'Agg. ' + ts;
-    document.getElementById('nav-zoom').textContent = 'z' + map.getZoom();
     document.getElementById('nav-zoom').textContent = 'z' + map.getZoom();
   } catch(e){
     setHud('err', 'Errore caricamento');
@@ -1150,7 +1077,6 @@ BUOYS.forEach(function(b) {
     '</div>', { maxWidth: 240 });
 });
 
-initWebGL();
 loadAll();
 
 try {
@@ -1260,7 +1186,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.7.4
+// Fine codice - NAUTILUS MAPPA v1.6.9
 </script>
 </body>
 </html>

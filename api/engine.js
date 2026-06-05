@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.12.4 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.0 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1896,7 +1896,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.12.4', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.0', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -3313,7 +3313,7 @@ if (action === 'situazione') {
       var phListSit = await kvGet('predict_history:' + zoneKey, kvUrl, kvToken) || [];
       phListSit = Array.isArray(phListSit) ? phListSit : [];
       phListSit.unshift(sitPredRecord);
-      if (phListSit.length > 20) phListSit.length = 20;
+      if (phListSit.length > 30) phListSit.length = 30;
       await kvSet('predict_history:' + zoneKey, phListSit, 2592000, kvUrl, kvToken);
     }
 
@@ -3673,7 +3673,8 @@ if (action === 'predict') {
       forecast_h3: extractWindVal(aiText, '3'),
       forecast_h6: extractWindVal(aiText, '6'),
       forecast_h9: extractWindVal(aiText, '9'),
-      forecast_h12: extractWindVal(aiText, '12')
+      forecast_h12: extractWindVal(aiText, '12'),
+      slot: (function(){ var h = parseInt(getNowRome().slice(11,13),10); return h < 11 ? 'morning' : 'afternoon'; }())
     };
     if (kvUrl && kvToken) {
       var saveOk = await kvSet(predKey, predRecord, 2592000, kvUrl, kvToken); // 30 days TTL
@@ -3682,7 +3683,7 @@ if (action === 'predict') {
       var phList = await kvGet('predict_history:' + zoneKey, kvUrl, kvToken) || [];
       phList = Array.isArray(phList) ? phList : [];
       phList.unshift(Object.assign({}, predRecord, { source: 'predict' }));
-      if (phList.length > 20) phList.length = 20;
+      if (phList.length > 30) phList.length = 30;
       await kvSet('predict_history:' + zoneKey, phList, 2592000, kvUrl, kvToken);
     }
 
@@ -3778,6 +3779,64 @@ if (action === 'situazione_get') {
 }
 
 // action=backfill_actuals -- riempie actual_3h/6h/12h in predict_history per tutte le zone
+if (action === 'migrate_history') {
+  var mhSecret = req.query.secret || '';
+  if (mhSecret !== (process.env.CRON_SECRET || '') && req.query.k !== 'mdi') return res.status(401).json({ error: 'Unauthorized' });
+  var mhZone = req.query.zone;
+  if (!mhZone || !ZONES[mhZone]) return res.status(400).json({ error: 'Zona non valida' });
+  // Controlla se la chiave esiste gia'
+  var mhExists = await fetch(kvUrl, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + kvToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify(['EXISTS', 'predict_history:' + mhZone])
+  });
+  var mhExistsData = await mhExists.json();
+  if (mhExistsData.result > 0) return res.status(200).json({ ok: false, msg: 'Chiave gia esistente - usa reset_history prima se necessario' });
+  // Migra dai vecchi predict:zona:*
+  var mhPromises = [];
+  var mhNow = new Date();
+  for (var mhD = 0; mhD < 20; mhD++) {
+    for (var mhH = 0; mhH < 24; mhH++) {
+      (function(dd, hh) {
+        var t = new Date(mhNow.getTime() - dd*86400000 - hh*3600000);
+        var tRome = t.toLocaleString('sv-SE', {timeZone:'Europe/Rome'}).replace(' ','T').slice(0,13).replace(':','-');
+        ['00','15','30','45'].forEach(function(mm) {
+          mhPromises.push(kvGet('predict:' + mhZone + ':' + tRome + '-' + mm, kvUrl, kvToken));
+        });
+      })(mhD, mhH);
+    }
+  }
+  var mhResults = await Promise.all(mhPromises);
+  var mhSeen = {};
+  var mhList = mhResults.filter(function(p) {
+    if (!p || !p.generated_at) return false;
+    if (mhSeen[p.generated_at]) return false;
+    mhSeen[p.generated_at] = true;
+    return true;
+  }).sort(function(a,b) { return new Date(b.generated_at) - new Date(a.generated_at); }).slice(0, 30);
+  // Arricchisci con actual da snap
+  var mhEnriched = await Promise.all(mhList.map(async function(p) {
+    if (!p || !p.generated_at) return p;
+    var gen = new Date(p.generated_at);
+    var enriched = Object.assign({}, p);
+    var hors = [['actual_1h','actual_1h_dir',1],['actual_3h','actual_3h_dir',3],['actual_6h','actual_6h_dir',6],['actual_9h','actual_9h_dir',9],['actual_12h','actual_12h_dir',12]];
+    for (var hi = 0; hi < hors.length; hi++) {
+      var hor = hors[hi];
+      if (enriched[hor[0]] != null) continue;
+      var target = new Date(gen.getTime() + hor[2] * 3600000);
+      if (target > new Date()) continue;
+      var tr = target.toLocaleString('sv-SE',{timeZone:'Europe/Rome'}).replace(' ','T').slice(0,13).replace(':','-');
+      var m2 = target.getMinutes() < 30 ? '00' : '30';
+      var snap = await kvGet('snap:' + mhZone + ':' + tr + '-' + m2, kvUrl, kvToken);
+      if (snap && snap.wind_speed != null) { enriched[hor[0]] = snap.wind_speed; enriched[hor[1]] = snap.wind_dir; }
+    }
+    return enriched;
+  }));
+  await kvSet('predict_history:' + mhZone, mhEnriched, 2592000, kvUrl, kvToken);
+  var nActuals = mhEnriched.filter(function(p){ return p.actual_3h != null || p.actual_6h != null; }).length;
+  return res.status(200).json({ ok: true, zone: mhZone, migrated: mhEnriched.length, with_actuals: nActuals });
+}
+
 if (action === 'reset_history') {
   var rhSecret = req.query.secret || '';
   if (rhSecret !== (process.env.CRON_SECRET || '') && req.query.k !== 'mdi') return res.status(401).json({ error: 'Unauthorized' });
@@ -3823,33 +3882,6 @@ if (action === 'forecast_stats') {
   try {
     var fsList = await kvGet('predict_history:' + zoneKey, kvUrl, kvToken) || [];
     if (!Array.isArray(fsList)) fsList = [];
-
-    // Migrazione one-shot: se lista vuota cerca nei vecchi predict:zona:* (stesso codice di predict_history)
-    if (fsList.length === 0 && kvUrl && kvToken) {
-      var fsMigPromises = [];
-      var fsNow = new Date();
-      for (var fsPd = 0; fsPd < 14; fsPd++) {
-        for (var fsPh = 0; fsPh < 24; fsPh++) {
-          (function(dd, hh) {
-            var t = new Date(fsNow.getTime() - dd*86400000 - hh*3600000);
-            var tRome = t.toLocaleString('sv-SE', {timeZone:'Europe/Rome'}).replace(' ','T').slice(0,13).replace(':','-');
-            ['00','15','30','45'].forEach(function(mm) {
-              fsMigPromises.push(kvGet('predict:' + zoneKey + ':' + tRome + '-' + mm, kvUrl, kvToken));
-            });
-          })(fsPd, fsPh);
-        }
-      }
-      var fsMigResults = await Promise.all(fsMigPromises);
-      var fsSeen = {};
-      fsList = fsMigResults.filter(function(p) {
-        if (!p || !p.generated_at) return false;
-        if (fsSeen[p.generated_at]) return false;
-        fsSeen[p.generated_at] = true;
-        return true;
-      }).sort(function(a,b) { return new Date(b.generated_at) - new Date(a.generated_at); }).slice(0, 20);
-      // Salva in Redis preservando gli actual gia' presenti nei vecchi record
-      if (fsList.length > 0) await kvSet('predict_history:' + zoneKey, fsList, 2592000, kvUrl, kvToken);
-    }
 
     // Arricchisci con actual da snap se mancanti (stesso meccanismo di predict_history)
     var fsZoneObj = ZONES[zoneKey] || {};
@@ -4516,7 +4548,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.12.4 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.0 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4642,4 +4674,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.12.4
+// Fine codice - NAUTILUS ENGINE v2.13.0

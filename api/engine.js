@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.3 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.4 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
@@ -1897,7 +1897,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.3', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.4', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -4032,7 +4032,8 @@ if (action === 'backfill_actuals') {
       var bfWeight = bfQuota <= 15 ? 1.0 : bfQuota <= 100 ? 0.85 : bfQuota <= 200 ? 0.65 : 0.45;
       // Se bias_samples vuoto, prova con snapshot zona (wind_speed osservato)
       var bfSnapSources = [];
-      if ((!bfSamples || bfSamples.length === 0) && kvUrl && kvToken) {
+      var bfSamplesValid = (bfSamples || []).filter(function(s){ return s && s.station && s.station.wind_kt != null; });
+      if (bfSamplesValid.length === 0 && kvUrl && kvToken) {
         // Legge ultimi 48 snapshot orari della zona (entrambi gli slot :00 e :30)
         var bfSnapKeys = [];
         var bfNow2 = new Date();
@@ -4051,7 +4052,7 @@ if (action === 'backfill_actuals') {
           });
         });
       }
-      var bfSourceData = (bfSamples && bfSamples.length > 0) ? bfSamples : bfSnapSources;
+      var bfSourceData = bfSamplesValid.length > 0 ? bfSamplesValid : bfSnapSources;
       var bfUpdated = 0;
       bfList = bfList.map(function(item) {
         if (!item.generated_at) return item;
@@ -4550,7 +4551,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.3 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.4 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4676,4 +4677,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.3
+// Fine codice - NAUTILUS ENGINE v2.13.4

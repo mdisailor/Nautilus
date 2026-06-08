@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.6.10 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS MAPPA v1.6.11 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.6.10</title>
+<title>NAUTILUS Mappa Vento v1.6.11</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -187,7 +187,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.6.10</span>
+    <span id="nav-ver">mappa v1.6.11</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -251,11 +251,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.6.10 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.6.11 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.6.10
+// NAUTILUS MAPPA v1.6.11
 
 var ENGINE_URL = '/api/engine';
 
@@ -828,24 +828,30 @@ function drawColorLayer(){
   }
   if (colorPoints.length === 0) return;
 
-  // ctx.filter blur - funziona su Safari iOS a differenza del CSS filter sul canvas
-  cCtx.filter = 'blur(' + blurPx + 'px)';
+  cCtx.filter = 'none';
   colorPoints.forEach(function(pt){
-    cCtx.fillStyle = colorLayerColor(pt.spd);
-    cCtx.fillRect(pt.x - cellSize/2, pt.y - cellSize/2, cellSize, cellSize);
+    var col = colorLayerColor(pt.spd);
+    var r = cellSize * 1.2;
+    var grad = cCtx.createRadialGradient(pt.x, pt.y, 0, pt.x, pt.y, r);
+    grad.addColorStop(0, col);
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    cCtx.fillStyle = grad;
+    cCtx.beginPath();
+    cCtx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
+    cCtx.fill();
   });
   cCtx.filter = 'none';
 }
 
 function colorLayerColor(spd){
-  if (spd >= 34) return 'rgba(180,0,0,0.50)';
-  if (spd >= 28) return 'rgba(220,60,0,0.48)';
-  if (spd >= 22) return 'rgba(255,120,0,0.45)';
-  if (spd >= 17) return 'rgba(200,180,0,0.42)';
-  if (spd >= 11) return 'rgba(0,160,60,0.40)';
-  if (spd >=  7) return 'rgba(0,140,120,0.38)';
-  if (spd >=  4) return 'rgba(0,80,180,0.35)';
-  if (spd >=  1) return 'rgba(40,40,160,0.30)';
+  if (spd >= 34) return 'rgba(180,0,0,0.28)';
+  if (spd >= 28) return 'rgba(220,60,0,0.26)';
+  if (spd >= 22) return 'rgba(255,120,0,0.24)';
+  if (spd >= 17) return 'rgba(200,180,0,0.22)';
+  if (spd >= 11) return 'rgba(0,160,60,0.20)';
+  if (spd >=  7) return 'rgba(0,140,120,0.18)';
+  if (spd >=  4) return 'rgba(0,80,180,0.16)';
+  if (spd >=  1) return 'rgba(40,40,160,0.14)';
   return 'rgba(0,0,0,0)';
 }
 
@@ -1185,7 +1191,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.6.10
+// Fine codice - NAUTILUS MAPPA v1.6.11
 </script>
 </body>
 </html>

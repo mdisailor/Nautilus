@@ -1,10 +1,11 @@
-<!-- NAUTILUS STATS v1.14 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS STATS v1.15 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NAUTILUS — Accuratezza Previsioni</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Bebas+Neue&display=swap');
   :root {
@@ -54,7 +55,7 @@
 <body>
 <header>
   <div class="logo">NAUTI<span>LUS</span></div>
-  <div class="subtitle">Accuratezza previsioni AI &nbsp;·&nbsp; v2.12.3 / stats v1.14</div>
+  <div class="subtitle">Accuratezza previsioni AI &nbsp;·&nbsp; v2.12.3 / stats v1.15</div>
   <a href="/" class="back-link">← app</a>
 </header>
 <div class="zone-bar" id="zone-bar">
@@ -105,10 +106,87 @@ async function loadZone(key, name, btnEl) {
     ]);
     const hist  = histRes.status  === 'fulfilled' ? histRes.value  : {predictions:[]};
     const stats = statsRes.status === 'fulfilled' ? statsRes.value : {weekly_mae:[]};
+    currentExportData = { key, name, hist, stats };
     render(key, name, hist, stats);
   } catch(e) {
     main.innerHTML = '<div class="empty-state" style="color:var(--danger)">Errore: ' + e.message + '</div>';
   }
+}
+
+// Dati correnti per export
+var currentExportData = { key:'', name:'', hist:{}, stats:{} };
+
+function exportXLS() {
+  var key = currentExportData.key;
+  var name = currentExportData.name;
+  var hist = currentExportData.hist;
+  var statsData = currentExportData.stats;
+  if (!key || !hist.predictions) return;
+
+  var predictions = hist.predictions || [];
+  var bias = statsData.current_bias || {};
+  var weekly = statsData.weekly_mae || [];
+  var wb = XLSX.utils.book_new();
+
+  // --- FOGLIO 1: VERIFICHE ---
+  var rows = [['Data', 'Fonte', 'Slot', '+1h ora', '+1h prev', '+1h reale', '+1h delta', '+3h ora', '+3h prev', '+3h reale', '+3h delta', '+6h ora', '+6h prev', '+6h reale', '+6h delta', '+9h ora', '+9h prev', '+9h reale', '+9h delta', '+12h ora', '+12h prev', '+12h reale', '+12h delta']];
+
+  predictions.slice().sort(function(a,b){
+    var pa=a.prediction||a, pb=b.prediction||b;
+    return new Date(pb.generated_at)-new Date(pa.generated_at);
+  }).forEach(function(item) {
+    var p = item.prediction || item;
+    if (!p || !p.generated_at) return;
+    var genDate = new Date(p.generated_at);
+    var genStr = genDate.toLocaleString('it-IT',{timeZone:'Europe/Rome',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+    var slot = p.source === 'situazione' ? 'analisi' : (p.slot === 'afternoon' ? 'pom' : 'mat');
+    var fonte = p.source || 'cron';
+    var row = [genStr, fonte, slot];
+    [[1,'forecast_h1','actual_1h'],[3,'forecast_h3','actual_3h'],[6,'forecast_h6','actual_6h'],[9,'forecast_h9','actual_9h'],[12,'forecast_h12','actual_12h']].forEach(function(hz) {
+      var t = new Date(genDate.getTime()+hz[0]*3600000);
+      var tH = t.toLocaleString('it-IT',{timeZone:'Europe/Rome',hour:'2-digit'}).replace(':00','')+'h';
+      var fv = p[hz[1]] != null ? p[hz[1]] : null;
+      var av = item[hz[2]] != null ? item[hz[2]] : (p[hz[2]] != null ? p[hz[2]] : null);
+      var delta = (fv != null && av != null) ? Math.round((av - fv)*10)/10 : null;
+      row.push(tH, fv, av, delta);
+    });
+    rows.push(row);
+  });
+
+  var ws1 = XLSX.utils.aoa_to_sheet(rows);
+  ws1['!cols'] = [{wch:14},{wch:10},{wch:6}].concat(Array(20).fill({wch:8}));
+  XLSX.utils.book_append_sheet(wb, ws1, 'Verifiche');
+
+  // --- FOGLIO 2: STATISTICHE ---
+  var statsRows = [
+    ['NAUTILUS — ' + name.toUpperCase()],
+    ['Generato il', new Date().toLocaleString('it-IT',{timeZone:'Europe/Rome'})],
+    [],
+    ['BIAS SISTEMATICO PER ORIZZONTE'],
+    ['Orizzonte', 'N campioni', 'Bias medio (kn)', 'MAE (kn)', 'Std dev'],
+  ];
+  ['h1','h3','h6','h9','h12'].forEach(function(h) {
+    var b = bias[h] || {};
+    statsRows.push(['+'+h.slice(1)+'h', b.n||0, b.mean||'--', b.mae||'--', b.std||'--']);
+  });
+  statsRows.push([]);
+  statsRows.push(['MAE SETTIMANALE']);
+  statsRows.push(['Settimana', 'N', 'H+1', 'H+3', 'H+6', 'H+9', 'H+12']);
+  weekly.forEach(function(w) {
+    statsRows.push([w.week, w.n, w.h1_mae||'--', w.h3_mae||'--', w.h6_mae||'--', w.h9_mae||'--', w.h12_mae||'--']);
+  });
+  statsRows.push([]);
+  statsRows.push(['TREND H+6', statsData.trend && statsData.trend.improving === true ? 'IN MIGLIORAMENTO' : statsData.trend && statsData.trend.improving === false ? 'IN PEGGIORAMENTO' : 'DATI INSUFFICIENTI']);
+  if (statsData.trend && statsData.trend.early_h6_mae) {
+    statsRows.push(['MAE prima meta', statsData.trend.early_h6_mae + 'kn']);
+    statsRows.push(['MAE seconda meta', statsData.trend.late_h6_mae + 'kn']);
+  }
+
+  var ws2 = XLSX.utils.aoa_to_sheet(statsRows);
+  ws2['!cols'] = [{wch:20},{wch:12},{wch:14},{wch:10},{wch:10}];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Statistiche');
+
+  XLSX.writeFile(wb, 'nautilus_' + key + '_' + new Date().toISOString().slice(0,10) + '.xlsx');
 }
 
 function avg(arr) {
@@ -153,7 +231,10 @@ function render(key, name, hist, stats) {
     trendSub = 'da ' + trend.early_h6_mae + 'kn &rarr; ' + trend.late_h6_mae + 'kn';
   }
 
-  let html = '<h2 style="font-family:Bebas Neue,sans-serif;font-size:1.6rem;color:#fff;margin-bottom:16px;letter-spacing:0.06em">' + name.toUpperCase() + '</h2>';
+  let html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">' +
+    '<h2 style="font-family:Bebas Neue,sans-serif;font-size:1.6rem;color:#fff;margin:0;letter-spacing:0.06em">' + name.toUpperCase() + '</h2>' +
+    '<button onclick="exportXLS()" style="font-family:DM Mono,monospace;font-size:0.6rem;padding:5px 12px;background:transparent;border:1px solid var(--accent);color:var(--accent);border-radius:6px;cursor:pointer;letter-spacing:0.08em">&#8595; XLS</button>' +
+    '</div>';
 
   html += '<div class="stats-grid">' +
     '<div class="stat-card"><div class="stat-label">Previsioni</div><div class="stat-value">' + predictions.length + '</div><div class="stat-sub">' + verified.length + ' verificate</div></div>' +
@@ -285,5 +366,5 @@ function render(key, name, hist, stats) {
 }
 </script>
 </body>
-<!-- NAUTILUS STATS v1.14 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS STATS v1.15 - mdisailor - 2026-06-02 -->
 </html>

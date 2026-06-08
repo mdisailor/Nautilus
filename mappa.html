@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.6.9 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS MAPPA v1.6.10 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.6.9</title>
+<title>NAUTILUS Mappa Vento v1.6.10</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -187,7 +187,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.6.9</span>
+    <span id="nav-ver">mappa v1.6.10</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -251,11 +251,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.6.9 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.6.10 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.6.9
+// NAUTILUS MAPPA v1.6.10
 
 var ENGINE_URL = '/api/engine';
 
@@ -793,21 +793,17 @@ function buildVectorField(){
   particleState.field = field;
 }
 
-// LAYER COLORE - celle adattive allo zoom + CSS blur
+// LAYER COLORE - celle adattive allo zoom + ctx blur (compatibile Safari iOS)
 function drawColorLayer(){
   var W = cCanvas.width, H = cCanvas.height;
   var mode = particleState.flowMode;
   var zoom = map.getZoom();
-  // Oltre z10 la griglia OM e' troppo rada per un layer colore decente
-  if (zoom > 10) {
-    cCanvas.style.filter = 'none';
-    cCtx.clearRect(0, 0, W, H);
-    return;
-  }
+  cCanvas.style.filter = 'none'; // Rimuove CSS blur - usiamo ctx.filter
+  cCtx.clearRect(0, 0, W, H);
+  if (zoom > 10) return;
+
   var cellSize = Math.round(55 * Math.pow(1.6, zoom - 8));
   var blurPx = Math.round(cellSize * 0.9);
-  cCanvas.style.filter = 'blur(' + blurPx + 'px)';
-  cCtx.clearRect(0, 0, W, H);
 
   var colorPoints = [];
   if (mode === 'om' || mode === 'all') {
@@ -832,10 +828,13 @@ function drawColorLayer(){
   }
   if (colorPoints.length === 0) return;
 
+  // ctx.filter blur - funziona su Safari iOS a differenza del CSS filter sul canvas
+  cCtx.filter = 'blur(' + blurPx + 'px)';
   colorPoints.forEach(function(pt){
     cCtx.fillStyle = colorLayerColor(pt.spd);
     cCtx.fillRect(pt.x - cellSize/2, pt.y - cellSize/2, cellSize, cellSize);
   });
+  cCtx.filter = 'none';
 }
 
 function colorLayerColor(spd){
@@ -1186,7 +1185,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.6.9
+// Fine codice - NAUTILUS MAPPA v1.6.10
 </script>
 </body>
 </html>

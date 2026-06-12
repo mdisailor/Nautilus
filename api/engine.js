@@ -1,5 +1,20 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.5 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.7 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
+
+// AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
+// Mai accettare k=mdi come fallback (troppo corto, finisce nei log)
+function requireSecret(req) {
+  var cronSecret = process.env.CRON_SECRET || '';
+  if (!cronSecret) return false; // se non configurato, blocca tutto
+  var authHeader = req.headers['authorization'] || '';
+  if (authHeader === 'Bearer ' + cronSecret) return true;
+  // Fallback query param solo per migrazione (da rimuovere in futuro)
+  var qs = req.query.secret || '';
+  if (qs === cronSecret) return true;
+  return false;
+}
+
+
 // Zone default: canale_piombino, livorno, viareggio
 // Endpoints: /api/engine?action=ping|zones|zone&zone=xxx
 
@@ -1897,7 +1912,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.5', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.7', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -3065,6 +3080,14 @@ if (action === 'agent') {
   try {
     var anthropicKey = process.env.ANTHROPIC_KEY || null;
     if (!anthropicKey) return res.status(500).json({ error: 'ANTHROPIC_KEY non configurata' });
+    // Rate limit globale: max 30 chiamate/ora per evitare abusi
+    if (kvUrl && kvToken) {
+      var agentRateKey = 'ratelimit:agent:' + new Date().toISOString().slice(0,13);
+      var agentCount = await kvGet(agentRateKey, kvUrl, kvToken) || 0;
+      if (parseInt(agentCount) >= 30) return res.status(429).json({ error: 'Limite chiamate raggiunto, riprova tra qualche minuto' });
+      await fetch(kvUrl, { method:'POST', headers:{ Authorization:'Bearer '+kvToken, 'Content-Type':'application/json' }, body: JSON.stringify(['INCR', agentRateKey]) });
+      await fetch(kvUrl, { method:'POST', headers:{ Authorization:'Bearer '+kvToken, 'Content-Type':'application/json' }, body: JSON.stringify(['EXPIRE', agentRateKey, 3600]) });
+    }
     var body = await new Promise(function(resolve, reject) {
       var data = '';
       req.on('data', function(chunk) { data += chunk; });
@@ -3219,15 +3242,16 @@ if (action === 'situazione') {
         ['h1','h3','h6','h9','h12'].forEach(function(h) {
           var b = bp[h];
           if (!b || b.n < 5 || b.mean === null) return;
-          var label = h === 'h3' ? 'H+3' : h === 'h6' ? 'H+6' : 'H+12';
+          var label = 'H+' + h.slice(1);
           var dir2 = b.mean > 0 ? 'sottostima' : 'sovrastima';
-          bpLines.push(label + ': errore medio ' + (b.mean > 0 ? '+' : '') + b.mean + 'kn (' + dir2 + ', n=' + b.n + ')');
+          var correction = b.mean > 0 ? b.mean : b.mean; // segno conservato
+          bpLines.push(label + ': errore medio ' + (b.mean > 0 ? '+' : '') + b.mean + 'kn (' + dir2 + ', n=' + b.n + ') - DEVI sottrarre ' + b.mean + 'kn dal valore OM per ' + label);
         });
         if (bpLines.length > 0) {
           sLines.push('');
-          sLines.push('ACCURATEZZA STORICA TUE PREVISIONI PER QUESTA ZONA:');
+          sLines.push('CORREZIONE BIAS OBBLIGATORIA (basata su ' + Object.keys(bp).filter(function(h){ var b=bp[h]; return b&&b.n>=5&&b.mean!==null; }).length + ' orizzonti verificati):');
           bpLines.forEach(function(l){ sLines.push('- ' + l); });
-          sLines.push('Applica questi bias come correzione automatica ai valori OM di partenza.');
+          sLines.push('IMPORTANTE: questi errori sono sistematici e confermati. Applica NUMERICAMENTE queste correzioni ai valori OM prima di generare la previsione. Se OM dice 8kn e il bias e\' -3kn, la tua previsione deve essere 8-(-3)=5kn, non 8kn.');
         }
       }
     }
@@ -3783,7 +3807,7 @@ if (action === 'situazione_get') {
 // action=backfill_actuals -- riempie actual_3h/6h/12h in predict_history per tutte le zone
 if (action === 'migrate_history') {
   var mhSecret = req.query.secret || '';
-  if (mhSecret !== (process.env.CRON_SECRET || '') && req.query.k !== 'mdi') return res.status(401).json({ error: 'Unauthorized' });
+  if (!requireSecret(req)) return res.status(401).json({ error: 'Unauthorized' });
   var mhZone = req.query.zone;
   if (!mhZone || !ZONES[mhZone]) return res.status(400).json({ error: 'Zona non valida' });
   // Controlla se la chiave esiste gia'
@@ -3841,7 +3865,7 @@ if (action === 'migrate_history') {
 
 if (action === 'reset_history') {
   var rhSecret = req.query.secret || '';
-  if (rhSecret !== (process.env.CRON_SECRET || '') && req.query.k !== 'mdi') return res.status(401).json({ error: 'Unauthorized' });
+  if (!requireSecret(req)) return res.status(401).json({ error: 'Unauthorized' });
   var rhZone = req.query.zone;
   if (!rhZone || !ZONES[rhZone]) return res.status(400).json({ error: 'Zona non valida' });
   await fetch(kvUrl, {
@@ -3850,33 +3874,6 @@ if (action === 'reset_history') {
     body: JSON.stringify(['DEL', 'predict_history:' + rhZone])
   });
   return res.status(200).json({ ok: true, deleted: 'predict_history:' + rhZone });
-}
-
-if (action === 'debug_fs') {
-  var dbgZone = req.query.zone || 'livorno';
-  var dbgList = await kvGet('predict_history:' + dbgZone, kvUrl, kvToken) || [];
-  var dbgArr = Array.isArray(dbgList) ? dbgList : [];
-  var dbgZoneObj = ZONES[dbgZone] || {};
-  var dbgSamples = dbgZoneObj.bias_station ? await kvGet('bias_samples:' + dbgZoneObj.bias_station, kvUrl, kvToken) || [] : [];
-  var dbgInfo = dbgArr.map(function(p, i) {
-    return {
-      i: i,
-      has_ga: !!p.generated_at,
-      has_pred: !!(p.prediction),
-      actual_3h: p.actual_3h !== undefined ? p.actual_3h : 'MISSING',
-      actual_6h: p.actual_6h !== undefined ? p.actual_6h : 'MISSING',
-      actual_12h: p.actual_12h !== undefined ? p.actual_12h : 'MISSING',
-      forecast_h3: p.forecast_h3 !== undefined ? p.forecast_h3 : 'MISSING'
-    };
-  });
-  return res.status(200).json({
-    zone: dbgZone,
-    total: dbgArr.length,
-    bias_station: dbgZoneObj.bias_station,
-    samples_count: Array.isArray(dbgSamples) ? dbgSamples.length : 0,
-    samples_latest: Array.isArray(dbgSamples) && dbgSamples[0] ? dbgSamples[0].ts : null,
-    records: dbgInfo
-  });
 }
 
 if (action === 'forecast_stats') {
@@ -4016,7 +4013,7 @@ if (action === 'forecast_stats') {
 
 if (action === 'backfill_actuals') {
   var bfSecret = req.query.secret || '';
-  if (bfSecret !== (process.env.CRON_SECRET || '') && req.query.k !== 'mdi') return res.status(401).json({ error: 'Unauthorized' });
+  if (!requireSecret(req)) return res.status(401).json({ error: 'Unauthorized' });
   var bfZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled !== false && ZONES[k].bias_station; });
   var bfResults = [];
   for (var bfi = 0; bfi < bfZones.length; bfi++) {
@@ -4456,7 +4453,7 @@ if (action === 'scrape_stations') {
 
 // /api/engine?action=snap_debug&zone=bocca_arno&k=mdi -- verifica chiavi snap in Redis
 if (action === 'snap_debug') {
-  if (req.query.k !== 'mdi') return res.status(401).json({ error: 'Unauthorized' });
+  if (!requireSecret(req)) return res.status(401).json({ error: 'Unauthorized' });
   var sdZone = req.query.zone || 'bocca_arno';
   try {
     var sdNow = new Date();
@@ -4504,7 +4501,7 @@ if (action === 'bias_reset') {
 
 // /api/engine?action=bias_stats - mostra statistiche calcolate per tutte le stazioni
 if (action === 'compute_bias') {
-  if (req.query.k !== 'mdi') return res.status(401).json({ error: 'Unauthorized' });
+  if (!requireSecret(req)) return res.status(401).json({ error: 'Unauthorized' });
   try {
     var cbResults = await biasComputeStations(kvUrl, kvToken);
     return res.status(200).json({ ok: true, results: cbResults });
@@ -4551,7 +4548,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.5 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.7 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4677,4 +4674,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.5
+// Fine codice - NAUTILUS ENGINE v2.13.7

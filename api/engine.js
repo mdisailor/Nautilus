@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.7 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.8 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
@@ -1912,7 +1912,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.7', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.8', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -3626,10 +3626,10 @@ if (action === 'predict') {
       '- H+12: X kn da DIR\n' +
       'Raffica max: X kn (attesa a H+N)\n' +
       'Onda: Xm a H+3 | Xm a H+6 | Xm a H+12\n' +
-      '\n' +
-      'CONFIDENZA: bassa/media/alta - motivazione in una riga\n' +
-      'PATTERN: pattern sinottico in una riga\n' +
-      'CONSIGLIO: indicazione operativa in una riga\n' +
+      // SEZIONE DESCRITTIVA COMMENTATA - riattivarla quando serve
+      // '\nCONFIDENZA: bassa/media/alta - motivazione in una riga\n' +
+      // 'PATTERN: pattern sinottico in una riga\n' +
+      // 'CONSIGLIO: indicazione operativa in una riga\n' +
       '\n' +
       'Usa sempre il formato "X kn" con numero decimale (es. 7.5 kn). ' +
       'Non usare range (es. 6-8 kn), scrivi il valore centrale (7.0 kn). ' +
@@ -3645,10 +3645,11 @@ if (action === 'predict') {
       '- H+12: X kn da DIR\n' +
       'Raffica max: X kn\n' +
       'Onda: Xm\n' +
-      'CONFIDENZA: bassa/media/alta - breve motivazione\n' +
-      'PATTERN: una riga\n' +
-      'CONSIGLIO: una riga\n' +
-      'Usa valori singoli (non range). Max 120 parole.';
+      // SEZIONE DESCRITTIVA COMMENTATA - riattivarla quando serve
+      // 'CONFIDENZA: bassa/media/alta - breve motivazione\n' +
+      // 'PATTERN: una riga\n' +
+      // 'CONSIGLIO: una riga\n' +
+      'Usa valori singoli (non range). Max 80 parole.';
 
     var aiRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -4548,7 +4549,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.7 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.8 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4674,4 +4675,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.7
+// Fine codice - NAUTILUS ENGINE v2.13.8

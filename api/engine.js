@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.8 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.10 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
@@ -1912,7 +1912,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.8', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.10', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -3279,7 +3279,7 @@ if (action === 'situazione') {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
-        model: isFast ? 'claude-haiku-4-5-20251001' : 'claude-sonnet-4-20250514',
+        model: isFast ? 'claude-haiku-4-5-20251001' : 'claude-sonnet-4-6',
         max_tokens: isFast ? 400 : 600,
         messages: [{ role: 'user', content: sLines.join('\n') }]
       })
@@ -3633,7 +3633,7 @@ if (action === 'predict') {
       '\n' +
       'Usa sempre il formato "X kn" con numero decimale (es. 7.5 kn). ' +
       'Non usare range (es. 6-8 kn), scrivi il valore centrale (7.0 kn). ' +
-      'Non aggiungere sezioni extra. Basati SOLO sui dati forniti.';
+      'Non aggiungere sezioni extra, analisi, commenti o spiegazioni. Solo i dati numerici nel formato indicato. Basati SOLO sui dati forniti.';
 
     var systemPromptFast = 'Sei un meteorologo marino esperto del Tirreno settentrionale. ' +
       'Rispondi SEMPRE con questo formato esatto:\n' +
@@ -3649,7 +3649,7 @@ if (action === 'predict') {
       // 'CONFIDENZA: bassa/media/alta - breve motivazione\n' +
       // 'PATTERN: una riga\n' +
       // 'CONSIGLIO: una riga\n' +
-      'Usa valori singoli (non range). Max 80 parole.';
+      'Usa valori singoli (non range). Nessuna analisi o commento. Solo i dati numerici nel formato indicato. Max 80 parole.';
 
     var aiRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -3659,7 +3659,7 @@ if (action === 'predict') {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: req.query.fast === '1' ? 'claude-haiku-4-5-20251001' : 'claude-sonnet-4-20250514',
+        model: req.query.fast === '1' ? 'claude-haiku-4-5-20251001' : 'claude-sonnet-4-6',
         max_tokens: req.query.fast === '1' ? 300 : 600,
         system: req.query.fast === '1' ? systemPromptFast : systemPrompt,
         messages: [{ role: 'user', content: prompt }]
@@ -4549,7 +4549,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.8 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.10 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4675,4 +4675,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.8
+// Fine codice - NAUTILUS ENGINE v2.13.10

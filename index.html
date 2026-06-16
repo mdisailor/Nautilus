@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.7.9 -- 2026-04-14 -->
+<!-- NAUTILUS v5.7.10 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -595,7 +595,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.9  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.10  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1978,7 +1978,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.9  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.10  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -2305,7 +2305,16 @@ const STORMGLASS_PROXY = 'https://nautilus-red.vercel.app/api';
 async function fetchStormglass(force) {
   var mareLocEl = document.getElementById('mare-loc-text');
   if (mareLocEl) {
-    mareLocEl.textContent = (state.locationName ? state.locationName + '  ' : '') + (state.lat ? state.lat.toFixed(3) : '--') + ' gradiN ' + (state.lon ? state.lon.toFixed(3) : '--') + ' gradiE';
+    var mareName = state.locationName;
+    if (!mareName && typeof ALL_ZONES !== 'undefined' && state.lat && state.lon) {
+      var best = null, bestDist = Infinity;
+      ALL_ZONES.forEach(function(z) {
+        var d = Math.pow(z.lat - state.lat, 2) + Math.pow(z.lon - state.lon, 2);
+        if (d < bestDist) { bestDist = d; best = z; }
+      });
+      if (best) mareName = best.name + ' (zona piu vicina)';
+    }
+    mareLocEl.textContent = (mareName ? mareName + '  ' : '') + (state.lat ? state.lat.toFixed(3) : '--') + ' gradiN ' + (state.lon ? state.lon.toFixed(3) : '--') + ' gradiE';
   }
   // Cache: skip if data is fresh < 30 min (saves quota)
   if (!force && state.stormglassData && state.stormglassTs) {
@@ -5928,7 +5937,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.7.9
+// Fine codice - NAUTILUS v5.7.10
 // ===== TRIPLE COMPASS =====
 var tcData = [null, null, null];
 var tcSelected = 0;

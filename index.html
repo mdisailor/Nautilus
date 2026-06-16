@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.7.4 -- 2026-04-14 -->
+<!-- NAUTILUS v5.7.6 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -594,7 +594,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.4  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.6  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1976,7 +1976,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.4  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.6  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -2121,6 +2121,9 @@ function showPage(id, el) {
   document.getElementById('page-' + id).classList.add('active');
   el.classList.add('active');
   window.scrollTo(0, 0);
+  document.documentElement.scrollTop = 0;
+  document.body.scrollTop = 0;
+  setTimeout(function(){ window.scrollTo(0, 0); document.body.scrollTop = 0; }, 50);
   // page-engine e page-agent sono fuori dal div #app (struttura HTML)
   // nascondo #app per evitare il min-height:100vh che spinge il contenuto in basso
   var appDiv = document.getElementById('app');
@@ -5917,7 +5920,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.7.4
+// Fine codice - NAUTILUS v5.7.6
 // ===== TRIPLE COMPASS =====
 var tcData = [null, null, null];
 var tcSelected = 0;
@@ -5969,6 +5972,13 @@ function renderTripleDetail(idx) {
   if (srcEl) srcEl.textContent = d.src;
 }
 
+// Coordinate delle 3 stazioni triple-compass (stesso ordine di TC_ZONES)
+var TC_COORDS = [
+  { lat: 43.875, lon: 10.236, name: 'Viareggio CFR' },
+  { lat: 43.680, lon: 10.270, name: "Bocca d'Arno" },
+  { lat: 43.546, lon: 10.300, name: 'Livorno Porto CFR' }
+];
+
 function selectTripleCompass(idx) {
   tcSelected = idx;
   for (var i = 0; i < 3; i++) {
@@ -5979,6 +5989,20 @@ function selectTripleCompass(idx) {
     }
   }
   renderTripleDetail(idx);
+
+  // Aggiorna tutta la pagina (vento medio, pressione, storico, previsioni)
+  // con i dati della stazione selezionata
+  var coords = TC_COORDS[idx];
+  if (coords) {
+    state.lat = coords.lat;
+    state.lon = coords.lon;
+    state.locationName = coords.name;
+    var locTextEl = document.getElementById('loc-text');
+    if (locTextEl) locTextEl.textContent = coords.name + '  ' + coords.lat.toFixed(3) + ' gradiN ' + coords.lon.toFixed(3) + ' gradiE';
+    var locDotEl = document.getElementById('loc-dot');
+    if (locDotEl) locDotEl.classList.add('active');
+    fetchAll();
+  }
 }
 
 async function loadTripleCompasses() {

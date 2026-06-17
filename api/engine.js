@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.13 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.14 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
@@ -180,6 +180,28 @@ saint_florent: { name: 'Saint-Florent', exposure: 'NW', shelter: 'medium', swell
 local_effects: {
 tramontane_corsica: { desc: 'Tramontane accelerata Corsica', active_wind_dirs: [330, 30], amplification: 1.30, note: 'Vento canalizzato tra le montagne corse - raffiche violente' },
 canale_corsica: { desc: 'Canale di Corsica', active_wind_dirs: [330, 60], amplification: 1.25, note: 'Accelerazione nel canale tra Corsica e continente' },
+}
+},
+barcaggio: {
+enabled: true, name: 'Capo Corso - Barcaggio', lat: 43.0058, lon: 9.4045, bias_station: 'barcaggio',
+ports: {
+barcaggio:  { name: 'Barcaggio',        exposure: 'N',  shelter: 'low',    swell_threshold: 0.8 },
+macinaggio: { name: 'Macinaggio',       exposure: 'NE', shelter: 'medium', swell_threshold: 1.0 },
+centuri:    { name: 'Port de Centuri',  exposure: 'NW', shelter: 'medium', swell_threshold: 1.0 },
+},
+local_effects: {
+tramontane_corsica: { desc: 'Tramontane accelerata Capo Corso', active_wind_dirs: [330, 30], amplification: 1.30, note: 'Punta estrema Capo Corso - vento canalizzato e accelerato, raffiche violente' },
+canale_corsica: { desc: 'Canale di Corsica', active_wind_dirs: [330, 60], amplification: 1.25, note: 'Accelerazione nel canale tra Corsica e continente' },
+}
+},
+bonifacio: {
+enabled: true, name: 'Bonifacio - Bocche di Bonifacio', lat: 41.3739, lon: 9.1783, bias_station: 'bonifacio_pertusato',
+ports: {
+bonifacio: { name: 'Bonifacio',      exposure: 'S', shelter: 'medium', swell_threshold: 1.2 },
+cavallo:   { name: 'Isola Cavallo',  exposure: 'S', shelter: 'low',    swell_threshold: 0.8 },
+},
+local_effects: {
+bocche_bonifacio: { desc: 'Effetto Venturi Bocche di Bonifacio', active_wind_dirs: [240, 300], amplification: 1.35, note: 'Canale tra Corsica e Sardegna - forte accelerazione del vento da ovest/libeccio' },
 }
 },
 gorgona: {
@@ -1397,6 +1419,7 @@ return await kvGet('bias:' + zoneKey, kvUrl, kvToken);
 async function biasComputeStations(kvUrl, kvToken) {
   var stations = [
     'livorno','canale_piombino','viareggio','capraia_w','portoferraio','alberese','luri',
+    'barcaggio','bonifacio_pertusato',
     'gorgona_cfr','capraia_cfr','giglio_porto','giglio_castello','montecristo','portoferraio_cfr',
     'orbetello','svincenzo_porto','casotto_pescatori','venturina','forte_dei_marmi','lido_camaiore',
     'bocca_arno_cfr','follonica','capalbio'
@@ -1912,7 +1935,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.13', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.14', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -2266,7 +2289,9 @@ if (action === 'scrape_web') {
       { id: 'populonia',    name: 'Populonia',       url: 'https://www.meteonetwork.eu/it/weather-station/tsc539-stazione-meteorologica-di-populonia',             lat: 42.992, lon: 10.640 },
       { id: 'portoferraio', name: 'Portoferraio',    url: 'https://www.meteonetwork.eu/it/weather-station/tsc621-stazione-meteorologica-di-portoferraio',          lat: 42.813, lon: 10.368 },
       { id: 'alberese',     name: 'Alberese',        url: 'https://www.meteonetwork.eu/it/weather-station/tsc712-stazione-meteorologica-di-alberese',              lat: 42.671, lon: 11.107 },
-      { id: 'luri',         name: 'Luri (Corsica)',  url: 'https://www.meteonetwork.eu/it/weather-station/fr0370-stazione-meteorologica-di-luri',                  lat: 42.982, lon: 9.389  }
+      { id: 'luri',         name: 'Luri (Corsica)',  url: 'https://www.meteonetwork.eu/it/weather-station/fr0370-stazione-meteorologica-di-luri',                  lat: 42.982, lon: 9.389  },
+      { id: 'barcaggio',          name: 'Barcaggio (Corsica)',        url: 'https://www.windfinder.com/windstatistics/barcaggio_corse', lat: 43.0058, lon: 9.4045, parser: 'windfinder' },
+      { id: 'bonifacio_pertusato', name: 'Bonifacio - Cap Pertusato', url: 'https://www.windfinder.com/windstatistics/bonifacio',        lat: 41.3739, lon: 9.1783, parser: 'windfinder' }
     ];
     var swFilter = req.query.station || null;
     if (swFilter) swStations = swStations.filter(function(s){ return s.id === swFilter; });
@@ -2276,14 +2301,30 @@ if (action === 'scrape_web') {
       var swSt = swStations[swI];
       try {
         var swHtml = await fetch(swSt.url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'text/html' } }).then(function(r){ return r.text(); });
-        // Pattern: Vento <br> 3.2 km/h (SSW)
-        var swMatch = swHtml.match(/Vento\s*<br>\s*([\d.]+)\s*km\/h\s*\(([^)]+)\)/i);
-        var swKmh = swMatch ? parseFloat(swMatch[1]) : null;
-        var swDirTxt = swMatch ? swMatch[2].trim() : null;
-        var swKn = swKmh !== null ? Math.round(swKmh / 1.852 * 10) / 10 : null;
-        // Converti direzione testuale in gradi
-        var swDirMap = { 'N':0,'NNE':22,'NE':45,'ENE':67,'E':90,'ESE':112,'SE':135,'SSE':157,'S':180,'SSW':202,'SW':225,'WSW':247,'W':270,'WNW':292,'NW':315,'NNW':337 };
-        var swDir = (swDirTxt && swDirMap[swDirTxt] !== undefined) ? swDirMap[swDirTxt] : null;
+        var swKmh, swDirTxt, swKn, swDir;
+        if (swSt.parser === 'windfinder') {
+          // Formato Windfinder: "X kts" seguito da direzione testuale inglese (es. "Northwest", "North-Northeast")
+          // NOTA: regex da verificare/affinare al primo test in produzione - markup HTML reale non ispezionabile da qui
+          var swWfMatch = swHtml.match(/([\d.]+)\s*kts?[\s\S]{0,80}?(North-?North-?East|North-?North-?West|South-?South-?East|South-?South-?West|East-?North-?East|East-?South-?East|West-?North-?West|West-?South-?West|North-?East|North-?West|South-?East|South-?West|North|South|East|West)/i);
+          swKn = swWfMatch ? parseFloat(swWfMatch[1]) : null;
+          swDirTxt = swWfMatch ? swWfMatch[2].trim() : null;
+          swKmh = null; // gia' in nodi, non serve conversione
+          var swWfDirMap = {
+            'north':0,'north-northeast':22,'northeast':45,'east-northeast':67,'east':90,'east-southeast':112,'southeast':135,'south-southeast':157,
+            'south':180,'south-southwest':202,'southwest':225,'west-southwest':247,'west':270,'west-northwest':292,'northwest':315,'north-northwest':337
+          };
+          var swDirKey = swDirTxt ? swDirTxt.toLowerCase().replace(/\s+/g,'') : null;
+          swDir = (swDirKey && swWfDirMap[swDirKey] !== undefined) ? swWfDirMap[swDirKey] : null;
+        } else {
+          // Pattern: Vento <br> 3.2 km/h (SSW)
+          var swMatch = swHtml.match(/Vento\s*<br>\s*([\d.]+)\s*km\/h\s*\(([^)]+)\)/i);
+          swKmh = swMatch ? parseFloat(swMatch[1]) : null;
+          swDirTxt = swMatch ? swMatch[2].trim() : null;
+          swKn = swKmh !== null ? Math.round(swKmh / 1.852 * 10) / 10 : null;
+          // Converti direzione testuale in gradi
+          var swDirMap = { 'N':0,'NNE':22,'NE':45,'ENE':67,'E':90,'ESE':112,'SE':135,'SSE':157,'S':180,'SSW':202,'SW':225,'WSW':247,'W':270,'WNW':292,'NW':315,'NNW':337 };
+          swDir = (swDirTxt && swDirMap[swDirTxt] !== undefined) ? swDirMap[swDirTxt] : null;
+        }
         // Fetch OM per stessa posizione
         var swOmUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + swSt.lat + '&longitude=' + swSt.lon + '&current=wind_speed_10m,wind_gusts_10m,wind_direction_10m,surface_pressure&wind_speed_unit=kn';
         var swOmJson = await fetch(swOmUrl).then(function(r){ return r.json(); });
@@ -3447,7 +3488,7 @@ if (action === 'predict') {
       portoferraio_cfr:10, orbetello:0, svincenzo_porto:1, casotto_pescatori:2, venturina:8,
       forte_dei_marmi:0, lido_camaiore:1, bocca_arno_cfr:1, follonica:15, capalbio:12, livorno_cfr:2, viareggio_cfr:2, populonia_cfr:164,
       livorno:244, canale_piombino:8, viareggio:25, capraia_w:274, portoferraio:368,
-      alberese:1, luri:50
+      alberese:1, luri:50, barcaggio:4, bonifacio_pertusato:90 // bonifacio_pertusato: stima falesia, da verificare
     };
     var zoneStationQuota = zoneObj && zoneObj.bias_station ? (ALL_STATION_QUOTAS[zoneObj.bias_station] || null) : null;
     var zoneStationHighAlt = zoneStationQuota !== null && zoneStationQuota > 100;
@@ -4643,7 +4684,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.13 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.14 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4769,4 +4810,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.13
+// Fine codice - NAUTILUS ENGINE v2.13.14

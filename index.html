@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.7.11 -- 2026-04-14 -->
+<!-- NAUTILUS v5.7.12 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -586,6 +586,11 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   </div>
 
 <div id="app">
+<!-- ATTENZIONE: tutte le page (meteo/mare/osservazioni/nuvole/agent/engine) devono restare DENTRO questo div.
+     Bug storico (risolto in v5.7.8): una chiusura div di troppo dopo page-meteo chiudeva #app in anticipo,
+     lasciando mare/osservazioni/nuvole fuori da #app (perdevano max-width/position/min-height) con
+     pagine che apparivano vuote finche non si scrollava. Se tocchi i confini tra le page, conta sempre
+     <div vs </div> nel blocco con: grep -o "<div\|</div>" index.html | sort | uniq -c (devono essere uguali). -->
 
   <!--  PAGE METEO  -->
 
@@ -595,7 +600,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.11  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.12  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1978,7 +1983,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.11  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.12  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -2088,7 +2093,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
   </div><!-- /engine -->
 
-</div><!-- /app -->
+</div><!-- /app -- FINE CONTENITORE: vedi nota di guardia all'apertura di #app sopra -->
 
 <button id="btn-top" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Torna su">&#8679;</button>
 
@@ -5874,10 +5879,12 @@ async function biasLoadHistory(selectedStation, sfx) {
       html += '<div style="font-family:DM Mono,monospace;font-size:0.55rem;margin-bottom:8px;border-left:2px solid var(--accent);padding-left:6px">'
         + '<div style="color:var(--accent);margin-bottom:3px;font-size:0.58rem">' + st.name + (STATION_QUOTAS[st.id]&&STATION_QUOTAS[st.id]>100 ? ' <small style="color:#e07070">' + STATION_QUOTAS[st.id] + 'm</small>' : (STATION_QUOTAS[st.id] ? ' <small style="color:var(--muted)">' + STATION_QUOTAS[st.id] + 'm</small>' : '')) + '</div>'
         + '<table style="width:100%;border-collapse:collapse;color:var(--text)"><tr style="color:var(--muted)">'
-        + '<td>Data/ora</td><td>Vel.</td><td>Dir.</td><td>Vs OM</td></tr>';
+        + '<td>Data/ora</td><td>Vel.</td><td>Dir.</td><td>Vs OM</td><td>Vs AROME</td></tr>';
       for (const s of valid.slice(0, 10)) {
         const dw = s.delta ? s.delta.wind_kt : null;
         const col = dw === null ? 'var(--muted)' : Math.abs(dw) > 5 ? '#e07070' : '#6dbf6d';
+        const dwA = s.delta_arome ? s.delta_arome.wind_kt : null;
+        const colA = dwA === null ? 'var(--muted)' : Math.abs(dwA) > 5 ? '#e07070' : '#6dbf6d';
         const dt = new Date(s.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
         const dirTxt = s.station.direction !== null ? (degToCard(s.station.direction) + ' ' + s.station.direction + '°') : (s.station.direction_txt || '--');
         const quotaVal = s.station.quota != null ? s.station.quota : (STATION_QUOTAS[st.id] || null);
@@ -5885,7 +5892,8 @@ async function biasLoadHistory(selectedStation, sfx) {
         html += '<tr><td>' + dt + '</td>'
           + '<td>' + (s.station.wind_kt ?? '--') + ' kn</td>'
           + '<td>' + dirTxt + '</td>'
-          + '<td style="color:' + col + '">' + (dw !== null ? (dw >= 0 ? '+' : '') + dw + ' kn' : '--') + '</td></tr>';
+          + '<td style="color:' + col + '">' + (dw !== null ? (dw >= 0 ? '+' : '') + dw + ' kn' : '--') + '</td>'
+          + '<td style="color:' + colA + '">' + (dwA !== null ? (dwA >= 0 ? '+' : '') + dwA + ' kn' : '--') + '</td></tr>';
       }
       html += '</table></div>';
     } else {
@@ -5893,12 +5901,15 @@ async function biasLoadHistory(selectedStation, sfx) {
       const s = valid[0];
       const dw = s.delta ? s.delta.wind_kt : null;
       const col = dw === null ? 'var(--muted)' : Math.abs(dw) > 5 ? '#e07070' : '#6dbf6d';
+      const dwA = s.delta_arome ? s.delta_arome.wind_kt : null;
+      const colA = dwA === null ? 'var(--muted)' : Math.abs(dwA) > 5 ? '#e07070' : '#6dbf6d';
       const dt = new Date(s.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
       const dirTxt = s.station.direction !== null ? (degToCard(s.station.direction) + ' ' + s.station.direction + '°') : (s.station.direction_txt || '--');
       html += '<div style="font-family:DM Mono,monospace;font-size:0.55rem;display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid var(--border)">'
         + '<span style="color:var(--muted);width:80px">' + st.name + (STATION_QUOTAS[st.id]&&STATION_QUOTAS[st.id]>100?'<span style="color:#e07070;font-size:0.45rem"> '+STATION_QUOTAS[st.id]+'m</span>':'') + '</span>'
         + '<span>' + (s.station.wind_kt ?? '--') + ' kn ' + dirTxt + '</span>'
-        + '<span style="color:' + col + '">' + (dw !== null ? (dw >= 0 ? '+' : '') + dw : '--') + '</span>'
+        + '<span style="color:' + col + '" title="vs OM">' + (dw !== null ? (dw >= 0 ? '+' : '') + dw : '--') + '</span>'
+        + '<span style="color:' + colA + '" title="vs AROME">' + (dwA !== null ? (dwA >= 0 ? '+' : '') + dwA + '*' : '') + '</span>'
         + '<span style="color:var(--muted);font-size:0.5rem">' + dt + '</span>'
         + '</div>';
     }
@@ -5934,7 +5945,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.7.11
+// Fine codice - NAUTILUS v5.7.12
 // ===== TRIPLE COMPASS =====
 var tcData = [null, null, null];
 var tcSelected = 0;

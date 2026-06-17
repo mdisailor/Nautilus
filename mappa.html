@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.6.14 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS MAPPA v1.6.15 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.6.14</title>
+<title>NAUTILUS Mappa Vento v1.6.15</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -187,7 +187,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.6.14</span>
+    <span id="nav-ver">mappa v1.6.15</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -251,11 +251,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.6.14 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.6.15 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.6.14
+// NAUTILUS MAPPA v1.6.15
 
 var ENGINE_URL = '/api/engine';
 
@@ -290,6 +290,8 @@ var MNW_LIVE = [
   { key:'portoferraio_mnw', name:'Portoferraio',    lat:42.813,  lon:10.368, sid:'portoferraio' },
   { key:'alberese_mnw',     name:'Alberese',        lat:42.638,  lon:11.078, sid:'alberese' },
   { key:'luri_mnw',         name:'Luri (Corsica)',  lat:42.818,  lon:9.441,  sid:'luri' },
+  { key:'barcaggio_mnw',    name:'Barcaggio',       lat:43.0058, lon:9.4045, sid:'barcaggio' },
+  { key:'bonifacio_mnw',    name:'Bonifacio - Cap Pertusato', lat:41.3739, lon:9.1783, sid:'bonifacio_pertusato' },
   // CFR Toscana
   { key:'gorgona_cfr',      name:'Gorgona',         lat:43.433,  lon:9.883,  sid:'gorgona_cfr' },
   { key:'capraia_cfr',      name:'Capraia Isola',   lat:43.050,  lon:9.838,  sid:'capraia_cfr' },
@@ -306,6 +308,24 @@ var MNW_LIVE = [
   { key:'bocca_arno_cfr',   name:'Bocca Arno CFR',  lat:43.680,  lon:10.270, sid:'bocca_arno_cfr' },
   { key:'follonica',        name:'Follonica',        lat:42.919,  lon:10.765, sid:'follonica' },
   { key:'capalbio',         name:'Capalbio',         lat:42.459,  lon:11.269, sid:'capalbio' },
+];
+
+// Punti di riferimento Corsica/Sardegna senza stazione reale - solo dato calcolato OM (16 giugno)
+var CALC_ONLY = [
+  { key:'macinaggio',   name:'Macinaggio',                       lat:42.973, lon:9.453 },
+  { key:'centuri',      name:'Port de Centuri',                  lat:42.967, lon:9.357 },
+  { key:'isola_rossa',  name:'Isola Rossa',                      lat:42.633, lon:8.900 },
+  { key:'cavallo',      name:'Isola Cavallo',                    lat:41.383, lon:9.230 },
+  { key:'lavezzi',      name:'Isola Lavezzi',                    lat:41.333, lon:9.250 },
+  { key:'razzoli',      name:'Razzoli - Santa Maria - Budelli',  lat:41.300, lon:9.350 },
+  { key:'maddalena',    name:'La Maddalena',                     lat:41.217, lon:9.405 },
+  { key:'caprera',      name:'Caprera',                          lat:41.187, lon:9.473 },
+  { key:'punta_falcone',name:'Punta Falcone',                    lat:41.197, lon:9.211 },
+  { key:'sta_teresa',   name:'Santa Teresa di Gallura',          lat:41.234, lon:9.187 },
+  { key:'capo_testa',   name:'Capo Testa',                       lat:41.235, lon:9.140 },
+  { key:'castelsardo',  name:'Castelsardo',                      lat:40.917, lon:8.711 },
+  { key:'asinara',      name:'Isola dell\'Asinara',              lat:41.067, lon:8.270 },
+  { key:'capo_ferro',   name:'Capo Ferro',                       lat:41.171, lon:9.638 },
 ];
 
 // Griglia 0.25 gradi - Liguria Toscana Corsica Nord Sardegna Nord
@@ -1136,6 +1156,23 @@ MNW_LIVE.forEach(function(st) {
 });
 } catch(mnwErr) { console.warn('MNW markers error:', mnwErr); }
 
+// Punti di riferimento Corsica/Sardegna - solo dato calcolato OM, nessuna stazione reale (16 giugno)
+var calcOnlyIcon = L.divIcon({
+  className: '',
+  html: '<div style="width:14px;height:14px;background:#ffaa00;border:2px solid #cc7700;border-radius:50%;box-shadow:0 0 6px rgba(255,170,0,0.6)"></div>',
+  iconSize: [14, 14], iconAnchor: [7, 7]
+});
+try {
+CALC_ONLY.forEach(function(c) {
+  var mk3 = L.marker([c.lat, c.lon], { icon: calcOnlyIcon, zIndexOffset: 40 }).addTo(map);
+  mk3.bindPopup('<div style="font-family:DM Mono,monospace;font-size:0.7rem;min-width:180px">' +
+    '<div style="font-weight:bold;color:#ffaa00;margin-bottom:4px">' + c.name + '</div>' +
+    '<div style="color:#fff;font-size:0.62rem;margin-bottom:2px">Solo dato calcolato (Open-Meteo)</div>' +
+    '<div style="color:#888;font-size:0.58rem">Nessuna stazione meteo reale nelle vicinanze - valore non verificato</div>' +
+    '</div>', { maxWidth: 230 });
+});
+} catch(calcOnlyErr) { console.warn('Calc-only markers error:', calcOnlyErr); }
+
 function degToCard(d) {
   if (d === null || d === undefined) return '--';
   var dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
@@ -1191,7 +1228,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.6.14
+// Fine codice - NAUTILUS MAPPA v1.6.15
 </script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.14 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.15 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
@@ -138,6 +138,15 @@ ports: {
 castiglioncello: { name: 'Castiglioncello', exposure: 'W',  shelter: 'low',    swell_threshold: 0.8 },
 marina_cecina:   { name: 'Marina di Cecina',exposure: 'SW', shelter: 'medium', swell_threshold: 1.0 },
 san_vincenzo:    { name: 'San Vincenzo',     exposure: 'W',  shelter: 'low',    swell_threshold: 0.8 },
+},
+local_effects: {
+fetch_sw: { desc: 'Fetch aperto SW', active_wind_dirs: [210, 270], note: 'Costa bassa con scarsa protezione dai settori occidentali' },
+}
+},
+vada: {
+enabled: true, name: 'Vada', lat: 43.3550, lon: 10.4280, bias_station: 'vada',
+ports: {
+vada: { name: 'Vada', exposure: 'SW', shelter: 'low', swell_threshold: 0.8 },
 },
 local_effects: {
 fetch_sw: { desc: 'Fetch aperto SW', active_wind_dirs: [210, 270], note: 'Costa bassa con scarsa protezione dai settori occidentali' },
@@ -1419,7 +1428,7 @@ return await kvGet('bias:' + zoneKey, kvUrl, kvToken);
 async function biasComputeStations(kvUrl, kvToken) {
   var stations = [
     'livorno','canale_piombino','viareggio','capraia_w','portoferraio','alberese','luri',
-    'barcaggio','bonifacio_pertusato',
+    'barcaggio','bonifacio_pertusato','vada',
     'gorgona_cfr','capraia_cfr','giglio_porto','giglio_castello','montecristo','portoferraio_cfr',
     'orbetello','svincenzo_porto','casotto_pescatori','venturina','forte_dei_marmi','lido_camaiore',
     'bocca_arno_cfr','follonica','capalbio'
@@ -1935,7 +1944,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.14', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.15', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -2396,6 +2405,97 @@ if (action === 'scrape_web') {
       } : null;
     }
     return res.status(200).json({ ts: swTs, results: swResults, stats: swStats });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+// action=scrape_lamma&k=mdi -- fetch realtime stazioni LaMMA (es. Vada) via WFS, confronto OM+AROME, salva bias_samples
+// Diverso da runLammaBiasCron (che fa la media giornaliera e scrive lamma_bias:zona) - questo e' il pattern puntuale standard
+if (action === 'scrape_lamma') {
+  try {
+    var slAdminKey = req.query.k || '';
+    var slSec = req.query.secret || '';
+    var slCronSecret = process.env.CRON_SECRET || null;
+    if (slAdminKey !== 'mdi' && (!slCronSecret || slSec !== slCronSecret)) return res.status(401).json({ error: 'Unauthorized' });
+    var slStations = [
+      { id: 'vada', name: 'Vada (LaMMA)', wfsNome: 'VADA', lat: 43.3550, lon: 10.4280 }
+    ];
+    var slFilter = req.query.station || null;
+    if (slFilter) slStations = slStations.filter(function(s){ return s.id === slFilter; });
+    var slTs = new Date().toISOString();
+    var slResults = [];
+    for (var slI = 0; slI < slStations.length; slI++) {
+      var slSt = slStations[slI];
+      try {
+        var slUrl = 'https://geoportale.lamma.rete.toscana.it/geoserver/ows' +
+          '?service=WFS&version=2.0.0&request=GetFeature' +
+          '&typeName=lamma_stazioni:vento' +
+          '&outputFormat=application/json' +
+          '&CQL_FILTER=nome=' + encodeURIComponent(slSt.wfsNome);
+        var slJson = await fetch(slUrl).then(function(r){ return r.json(); });
+        var slLast = (slJson && slJson.features && slJson.features.length > 0)
+          ? slJson.features[slJson.features.length - 1].properties : null;
+        var slKn = (slLast && slLast.vven_ms != null) ? Math.round(slLast.vven_ms * 1.944 * 10) / 10 : null;
+        var slDir = (slLast && slLast.dven_gr != null) ? Math.round(slLast.dven_gr) : null;
+        // Fetch OM per stessa posizione
+        var slOmUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + slSt.lat + '&longitude=' + slSt.lon + '&current=wind_speed_10m,wind_gusts_10m,wind_direction_10m,surface_pressure&wind_speed_unit=kn';
+        var slOmJson = await fetch(slOmUrl).then(function(r){ return r.json(); });
+        var slOm = {
+          wind_kt:     slOmJson.current ? Math.round(slOmJson.current.wind_speed_10m  * 10) / 10 : null,
+          gust_kt:     slOmJson.current ? Math.round(slOmJson.current.wind_gusts_10m  * 10) / 10 : null,
+          direction:   slOmJson.current ? slOmJson.current.wind_direction_10m : null,
+          pressure_mb: slOmJson.current ? Math.round(slOmJson.current.surface_pressure * 10) / 10 : null
+        };
+        // AROME per confronto MAE (stesso pattern delle altre stazioni)
+        var slAromeUrl = 'https://api.open-meteo.com/v1/meteofrance?latitude=' + slSt.lat + '&longitude=' + slSt.lon + '&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m&wind_speed_unit=kn&models=arome_france&forecast_days=1';
+        var slArome = { wind_kt: null, gust_kt: null, direction: null };
+        try {
+          var slAromeJson = await fetch(slAromeUrl).then(function(r){ return r.json(); });
+          if (slAromeJson && slAromeJson.hourly && Array.isArray(slAromeJson.hourly.time)) {
+            var slNowMs = Date.now();
+            var slBestIdx = -1, slBestDiff = Infinity;
+            for (var slJ = 0; slJ < slAromeJson.hourly.time.length; slJ++) {
+              var slDiff = Math.abs(new Date(slAromeJson.hourly.time[slJ] + 'Z').getTime() - slNowMs);
+              if (slDiff < slBestDiff) { slBestDiff = slDiff; slBestIdx = slJ; }
+            }
+            if (slBestIdx !== -1) {
+              var slW = slAromeJson.hourly.wind_speed_10m ? slAromeJson.hourly.wind_speed_10m[slBestIdx] : null;
+              var slG = slAromeJson.hourly.wind_gusts_10m ? slAromeJson.hourly.wind_gusts_10m[slBestIdx] : null;
+              var slD = slAromeJson.hourly.wind_direction_10m ? slAromeJson.hourly.wind_direction_10m[slBestIdx] : null;
+              slArome = {
+                wind_kt: (slW !== null && slW !== undefined) ? Math.round(slW * 10) / 10 : null,
+                gust_kt: (slG !== null && slG !== undefined) ? Math.round(slG * 10) / 10 : null,
+                direction: (slD !== null && slD !== undefined) ? Math.round(slD) : null
+              };
+            }
+          }
+        } catch(slAromeE) {}
+        var slStation = { wind_kt: slKn, gust_kt: null, direction: slDir, source: 'lamma' };
+        var slSample = {
+          ts: slTs,
+          station: slKn !== null ? slStation : null,
+          om: slOm,
+          arome: slArome,
+          delta: slKn !== null ? {
+            wind_kt: slOm.wind_kt !== null ? Math.round((slKn - slOm.wind_kt) * 10) / 10 : null
+          } : null,
+          delta_arome: slKn !== null ? {
+            wind_kt: slArome.wind_kt !== null ? Math.round((slKn - slArome.wind_kt) * 10) / 10 : null
+          } : null
+        };
+        var slKey = 'bias_samples:' + slSt.id;
+        var slExisting = await kvGet(slKey, kvUrl, kvToken);
+        var slArr = Array.isArray(slExisting) ? slExisting : [];
+        slArr.unshift(slSample);
+        if (slArr.length > 100) slArr = slArr.slice(0, 100);
+        await kvSet(slKey, slArr, kvUrl, kvToken);
+        slResults.push({ id: slSt.id, ok: slKn !== null, wind_kt: slKn, om_wind_kt: slOm.wind_kt });
+      } catch(slErr) {
+        slResults.push({ id: slSt.id, ok: false, error: slErr.message });
+      }
+    }
+    return res.status(200).json({ ts: slTs, results: slResults });
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }
@@ -3488,7 +3588,7 @@ if (action === 'predict') {
       portoferraio_cfr:10, orbetello:0, svincenzo_porto:1, casotto_pescatori:2, venturina:8,
       forte_dei_marmi:0, lido_camaiore:1, bocca_arno_cfr:1, follonica:15, capalbio:12, livorno_cfr:2, viareggio_cfr:2, populonia_cfr:164,
       livorno:244, canale_piombino:8, viareggio:25, capraia_w:274, portoferraio:368,
-      alberese:1, luri:50, barcaggio:4, bonifacio_pertusato:90 // bonifacio_pertusato: stima falesia, da verificare
+      alberese:1, luri:50, barcaggio:4, bonifacio_pertusato:90, vada:8 // bonifacio_pertusato: stima falesia, da verificare
     };
     var zoneStationQuota = zoneObj && zoneObj.bias_station ? (ALL_STATION_QUOTAS[zoneObj.bias_station] || null) : null;
     var zoneStationHighAlt = zoneStationQuota !== null && zoneStationQuota > 100;
@@ -4684,7 +4784,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.14 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.15 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4715,6 +4815,7 @@ var LAMMA_STATIONS = [
   { nome: 'ALBERESE',           id: 551,  zona: 'punta_ala'        },
   { nome: 'PIETRASANTA',        id: 9338, zona: 'viareggio'        },
   { nome: 'AVENZA',             id: 2526, zona: 'la_spezia'        },
+  { nome: 'VADA',                id: 3950, zona: 'vada'             }, // 17 giugno - nome WFS da verificare al primo cron
 ];
 
 async function fetchLammaDayData(stazione) {
@@ -4810,4 +4911,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.14
+// Fine codice - NAUTILUS ENGINE v2.13.15

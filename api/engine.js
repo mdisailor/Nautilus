@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.10 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.11 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
@@ -2146,6 +2146,34 @@ if (action === 'scrape_cfr') {
     });
     var scfOmResults = await Promise.all(scfOmPromises);
 
+    // Fetch AROME (via Open-Meteo /v1/meteofrance) in PARALLELO, per confronto MAE vs OM (v2 - 16 giugno)
+    // Nota: AROME France ha forecast max 2gg, qui usiamo solo il blocco 'current' tramite forecast_hours=1
+    var scfAromePromises = scfValid.map(function(st) {
+      var url = 'https://api.open-meteo.com/v1/meteofrance?latitude=' + st.lat + '&longitude=' + st.lon + '&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m&wind_speed_unit=kn&models=arome_france&forecast_days=1';
+      return fetch(url).then(function(r){ return r.json(); }).catch(function(){ return null; });
+    });
+    var scfAromeResults = await Promise.all(scfAromePromises);
+
+    // Estrae il valore AROME piu vicino all'ora corrente dal blocco hourly (current non disponibile su questo endpoint)
+    function scfAromeNearestNow(aJ) {
+      if (!aJ || !aJ.hourly || !Array.isArray(aJ.hourly.time)) return { wind_kt: null, gust_kt: null, direction: null };
+      var nowMs = Date.now();
+      var bestIdx = -1, bestDiff = Infinity;
+      for (var i = 0; i < aJ.hourly.time.length; i++) {
+        var diff = Math.abs(new Date(aJ.hourly.time[i] + 'Z').getTime() - nowMs);
+        if (diff < bestDiff) { bestDiff = diff; bestIdx = i; }
+      }
+      if (bestIdx === -1) return { wind_kt: null, gust_kt: null, direction: null };
+      var w = aJ.hourly.wind_speed_10m ? aJ.hourly.wind_speed_10m[bestIdx] : null;
+      var g = aJ.hourly.wind_gusts_10m ? aJ.hourly.wind_gusts_10m[bestIdx] : null;
+      var d = aJ.hourly.wind_direction_10m ? aJ.hourly.wind_direction_10m[bestIdx] : null;
+      return {
+        wind_kt: (w !== null && w !== undefined) ? Math.round(w * 10) / 10 : null,
+        gust_kt: (g !== null && g !== undefined) ? Math.round(g * 10) / 10 : null,
+        direction: (d !== null && d !== undefined) ? Math.round(d) : null
+      };
+    }
+
     // 1) Salva prima tutti gli snapshot di zona (priorita alta, operazioni semplici)
     var CFR_TO_ZONE = {
       bocca_arno_cfr:'bocca_arno', giglio_porto:'giglio', montecristo:'montecristo',
@@ -2190,11 +2218,14 @@ if (action === 'scrape_cfr') {
         direction: omJ.current.wind_direction_10m,
         pressure_mb: Math.round(omJ.current.surface_pressure * 10) / 10
       } : { wind_kt: null, gust_kt: null, direction: null, pressure_mb: null };
+      var scfArome = scfAromeNearestNow(scfAromeResults[idx]);
       var scfSample = {
         ts: scfTs,
         station: { wind_kt: scfData.wind_kt, gust_kt: scfData.gust_kt, direction: scfData.dir_deg, direction_txt: null, pressure_mb: null, source: 'cfr', quota: st.quota || null },
         om: scfOm,
-        delta: scfOm.wind_kt !== null ? { wind_kt: Math.round((scfData.wind_kt - scfOm.wind_kt) * 10) / 10, dir_station: scfData.dir_deg, dir_om: scfOm.direction } : null
+        arome: scfArome,
+        delta: scfOm.wind_kt !== null ? { wind_kt: Math.round((scfData.wind_kt - scfOm.wind_kt) * 10) / 10, dir_station: scfData.dir_deg, dir_om: scfOm.direction } : null,
+        delta_arome: scfArome.wind_kt !== null ? { wind_kt: Math.round((scfData.wind_kt - scfArome.wind_kt) * 10) / 10, dir_station: scfData.dir_deg, dir_arome: scfArome.direction } : null
       };
       var scfKey2 = 'bias_samples:' + st.id;
       return kvGet(scfKey2, kvUrl, kvToken).then(function(existing) {
@@ -4549,7 +4580,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.10 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.11 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4675,4 +4706,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.10
+// Fine codice - NAUTILUS ENGINE v2.13.11

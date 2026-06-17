@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.6.15 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS MAPPA v1.6.16 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.6.15</title>
+<title>NAUTILUS Mappa Vento v1.6.16</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -187,7 +187,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.6.15</span>
+    <span id="nav-ver">mappa v1.6.16</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -251,11 +251,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.6.15 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.6.16 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.6.15
+// NAUTILUS MAPPA v1.6.16
 
 var ENGINE_URL = '/api/engine';
 
@@ -1165,11 +1165,42 @@ var calcOnlyIcon = L.divIcon({
 try {
 CALC_ONLY.forEach(function(c) {
   var mk3 = L.marker([c.lat, c.lon], { icon: calcOnlyIcon, zIndexOffset: 40 }).addTo(map);
-  mk3.bindPopup('<div style="font-family:DM Mono,monospace;font-size:0.7rem;min-width:180px">' +
+  var calcPopupId = 'calcpop_' + c.key;
+  mk3.bindPopup('<div id="' + calcPopupId + '" style="font-family:DM Mono,monospace;font-size:0.7rem;min-width:190px">' +
     '<div style="font-weight:bold;color:#ffaa00;margin-bottom:4px">' + c.name + '</div>' +
-    '<div style="color:#fff;font-size:0.62rem;margin-bottom:2px">Solo dato calcolato (Open-Meteo)</div>' +
-    '<div style="color:#888;font-size:0.58rem">Nessuna stazione meteo reale nelle vicinanze - valore non verificato</div>' +
-    '</div>', { maxWidth: 230 });
+    '<div style="color:#fff;font-size:0.62rem">Caricamento...</div>' +
+    '</div>', { maxWidth: 240 });
+  mk3.on('popupopen', function() {
+    fetch(ENGINE_URL + '?action=meteo&lat=' + c.lat + '&lon=' + c.lon)
+      .then(function(r){ return r.json(); })
+      .then(function(data) {
+        var el = document.getElementById(calcPopupId);
+        if (!el) return;
+        var h = data && data.hourly;
+        if (!h || !h.windspeed_10m || !h.windspeed_10m.length) {
+          el.innerHTML = '<div style="font-weight:bold;color:#ffaa00;margin-bottom:4px">' + c.name + '</div>' +
+            '<div style="color:#fff;font-size:0.65rem">Dato non disponibile</div>';
+          return;
+        }
+        var wkt = Math.round(h.windspeed_10m[0] * 10) / 10;
+        var gkt = h.windgusts_10m ? Math.round(h.windgusts_10m[0] * 10) / 10 : null;
+        var dirDeg = h.winddirection_10m ? h.winddirection_10m[0] : null;
+        var windCol = wkt < 15 ? '#4cff91' : wkt < 25 ? '#ffd700' : '#ff6060';
+        var dirTxt = (dirDeg !== null ? degToCard(dirDeg) + ' ' + dirDeg + '°' : '--');
+        el.innerHTML = '<div style="font-weight:bold;color:#ffaa00;font-size:0.78rem;margin-bottom:6px">' + c.name + '</div>' +
+          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">' +
+          '<span style="font-size:1.5rem;font-weight:bold;color:' + windCol + '">' + wkt + '</span>' +
+          '<span style="font-size:0.65rem;color:#fff;font-weight:bold">kn</span>' +
+          (gkt !== null ? '<span style="font-size:0.65rem;color:#bbb">raffiche ' + gkt + ' kn</span>' : '') +
+          '</div>' +
+          '<div style="font-size:0.68rem;color:#fff;margin-bottom:6px">' + dirTxt + '</div>' +
+          '<div style="color:#ffaa00;font-size:0.58rem;margin-top:4px">Solo dato calcolato (Open-Meteo)</div>' +
+          '<div style="color:#888;font-size:0.56rem">Nessuna stazione meteo reale nelle vicinanze - valore non verificato</div>';
+      }).catch(function() {
+        var el = document.getElementById(calcPopupId);
+        if (el) el.innerHTML = '<div style="font-weight:bold;color:#ffaa00;margin-bottom:4px">' + c.name + '</div><div style="color:#fff;font-size:0.62rem">Errore caricamento dato</div>';
+      });
+  });
 });
 } catch(calcOnlyErr) { console.warn('Calc-only markers error:', calcOnlyErr); }
 
@@ -1228,7 +1259,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.6.15
+// Fine codice - NAUTILUS MAPPA v1.6.16
 </script>
 </body>
 </html>

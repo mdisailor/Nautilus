@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.11 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.12 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
@@ -1912,7 +1912,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.10', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.11', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -2141,15 +2141,17 @@ if (action === 'scrape_cfr') {
 
     // Fetch OM per tutte le stazioni in PARALLELO
     var scfOmPromises = scfValid.map(function(st) {
-      var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + st.lat + '&longitude=' + st.lon + '&current=wind_speed_10m,wind_gusts_10m,wind_direction_10m,surface_pressure&wind_speed_unit=kn';
+      var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + st.lat + '&longitude=' + st.lon + '&current=wind_speed_10m,wind_gusts_10m,wind_direction_10m,surface_pressure&wind_speed_unit=kn&elevation=' + (st.quota != null ? st.quota : 0);
       return fetch(url).then(function(r){ return r.json(); }).catch(function(){ return null; });
     });
     var scfOmResults = await Promise.all(scfOmPromises);
 
     // Fetch AROME (via Open-Meteo /v1/meteofrance) in PARALLELO, per confronto MAE vs OM (v2 - 16 giugno)
     // Nota: AROME France ha forecast max 2gg, qui usiamo solo il blocco 'current' tramite forecast_hours=1
+    // elevation=quota stazione reale: aiuta Open-Meteo a scegliere la cella di griglia piu rappresentativa
+    // (es. Capraia 274m, Giglio Castello 470m - senza questo, il default usa l'elevazione media della cella)
     var scfAromePromises = scfValid.map(function(st) {
-      var url = 'https://api.open-meteo.com/v1/meteofrance?latitude=' + st.lat + '&longitude=' + st.lon + '&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m&wind_speed_unit=kn&models=arome_france&forecast_days=1';
+      var url = 'https://api.open-meteo.com/v1/meteofrance?latitude=' + st.lat + '&longitude=' + st.lon + '&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m&wind_speed_unit=kn&models=arome_france&forecast_days=1&elevation=' + (st.quota != null ? st.quota : 0);
       return fetch(url).then(function(r){ return r.json(); }).catch(function(){ return null; });
     });
     var scfAromeResults = await Promise.all(scfAromePromises);
@@ -4580,7 +4582,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.11 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.12 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4706,4 +4708,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.11
+// Fine codice - NAUTILUS ENGINE v2.13.12

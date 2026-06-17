@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.7.13 -- 2026-04-14 -->
+<!-- NAUTILUS v5.7.15 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -600,7 +600,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.13  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.15  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -622,6 +622,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
       <option value="43.546,10.300">Livorno Porto CFR</option>
       <option value="43.680,10.270">Bocca d'Arno</option>
       <option value="43.418,10.468">Castiglioncello</option>
+      <option value="43.3550,10.4280">Vada</option>
       <option value="43.313,10.528">Marina di Cecina</option>
       <option value="43.158,10.535">San Vincenzo</option>
       <option value="42.992,10.640">Populonia CFR</option>
@@ -663,25 +664,27 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
       <option value="42.966,9.282">Saint-Florent</option>
       <option value="42.384,8.907">Porto (Corsica)</option>
       <option value="43.0058,9.4045">🟢 Barcaggio</option>
-      <option value="42.973,9.453">🟡 Macinaggio</option>
-      <option value="42.967,9.357">🟡 Port de Centuri</option>
-      <option value="42.633,8.900">🟡 Isola Rossa</option>
+      <option value="42.9591748,9.4535343">🟡 Macinaggio</option>
+      <option value="42.9668396,9.3491256">🟡 Port de Centuri</option>
+      <option value="42.6412736,8.9416354">🟡 Isola Rossa</option>
     </optgroup>
     <optgroup label=" Sud Corsica">
-      <option value="41.3739,9.1783">🟢 Bonifacio - Cap Pertusato</option>
-      <option value="41.383,9.230">🟡 Isola Cavallo</option>
-      <option value="41.333,9.250">🟡 Isola Lavezzi</option>
+      <option value="41.3658036,9.179423">🟢 Cap Pertusato</option>
+      <option value="41.3848742,9.1492944">🟡 Bonifacio</option>
+      <option value="41.365111,9.2619239">🟡 Isola Cavallo</option>
+      <option value="41.3345811,9.2507325">🟡 Isola Lavezzi</option>
+      <option value="41.3048393,9.3364674">🟡 Razzoli</option>
     </optgroup>
     <optgroup label=" Sardegna Nord">
-      <option value="41.300,9.350">🟡 Razzoli - Santa Maria - Budelli</option>
       <option value="41.217,9.405">🟡 La Maddalena</option>
-      <option value="41.187,9.473">🟡 Caprera</option>
-      <option value="41.197,9.211">🟡 Punta Falcone</option>
-      <option value="41.234,9.187">🟡 Santa Teresa di Gallura</option>
-      <option value="41.235,9.140">🟡 Capo Testa</option>
+      <option value="41.1842503,9.4434653">🟡 Caprera</option>
+      <option value="41.1669369,9.5064881">🟡 Capo Ferro</option>
+      <option value="41.2530674,9.2229678">🟡 Punta Falcone</option>
+      <option value="41.2458449,9.2050171">🟡 Santa Teresa di Gallura</option>
+      <option value="41.235919,9.1740974">🟡 Capo Testa</option>
       <option value="40.917,8.711">🟡 Castelsardo</option>
       <option value="41.067,8.270">🟡 Isola dell'Asinara</option>
-      <option value="41.171,9.638">🟡 Capo Ferro</option>
+      <option value="41.2875052,9.2243077">🟡 Porto Pollo</option>
     </optgroup>
   </select>
 </div>
@@ -2003,7 +2006,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.13  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.15  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -3361,6 +3364,7 @@ const ALL_ZONES = [
   { key: 'casotto_gr',       name: 'Marina di Grosseto',        sub: 'Diaccia Botrona, Bruna',              checked: false, lat: 42.74, lon: 11.04 },
   { key: 'venturina',        name: 'Venturina - Val di Cornia', sub: 'Val di Cornia, Costa tra Piombino e Punta Ala', checked: false, lat: 42.99, lon: 10.62 },
   { key: 'castiglioncello',  name: 'Castiglioncello - Cecina',  sub: 'Castiglioncello, Cecina, S.Vincenzo', checked: false, lat: 43.40, lon: 10.49 },
+  { key: 'vada',             name: 'Vada',                       sub: 'Vada, Pontile Solvay',                 checked: false, lat: 43.3550, lon: 10.4280 },
   { key: 'punta_ala',        name: 'Punta Ala - Follonica',     sub: 'Punta Ala, Follonica',                checked: false, lat: 42.80, lon: 10.73 },
   { key: 'la_spezia',        name: 'La Spezia - Lerici',        sub: 'La Spezia, Lerici, Portovenere',      checked: false, lat: 44.10, lon: 9.82  },
   { key: 'bastia',           name: 'Bastia - Nord Corsica',     sub: 'Bastia, Saint-Florent',               checked: false, lat: 42.70, lon: 9.45  },
@@ -5967,7 +5971,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.7.13
+// Fine codice - NAUTILUS v5.7.15
 // ===== TRIPLE COMPASS =====
 var tcData = [null, null, null];
 var tcSelected = 0;

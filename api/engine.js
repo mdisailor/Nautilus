@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.16 - by mdisailor  engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.17 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
@@ -1944,7 +1944,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.16', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.17', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -2300,7 +2300,8 @@ if (action === 'scrape_web') {
       { id: 'alberese',     name: 'Alberese',        url: 'https://www.meteonetwork.eu/it/weather-station/tsc712-stazione-meteorologica-di-alberese',              lat: 42.671, lon: 11.107 },
       { id: 'luri',         name: 'Luri (Corsica)',  url: 'https://www.meteonetwork.eu/it/weather-station/fr0370-stazione-meteorologica-di-luri',                  lat: 42.982, lon: 9.389  },
       { id: 'barcaggio',          name: 'Barcaggio (Corsica)',        url: 'https://www.windfinder.com/windstatistics/barcaggio_corse', lat: 43.0058, lon: 9.4045, parser: 'windfinder' },
-      { id: 'bonifacio_pertusato', name: 'Bonifacio - Cap Pertusato', url: 'https://www.windfinder.com/windstatistics/bonifacio',        lat: 41.3739, lon: 9.1783, parser: 'windfinder' }
+      { id: 'bonifacio_pertusato', name: 'Bonifacio - Cap Pertusato', url: 'https://www.windfinder.com/windstatistics/bonifacio',        lat: 41.3739, lon: 9.1783, parser: 'windfinder' },
+      { id: 'vada', name: 'Vada (Camping Tripesce)', url: 'http://www.meteosystem.com/wlip/vada/', lat: 43.3550, lon: 10.4280, parser: 'meteosystem' }
     ];
     var swFilter = req.query.station || null;
     if (swFilter) swStations = swStations.filter(function(s){ return s.id === swFilter; });
@@ -2310,7 +2311,7 @@ if (action === 'scrape_web') {
       var swSt = swStations[swI];
       try {
         var swHtml = await fetch(swSt.url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'text/html' } }).then(function(r){ return r.text(); });
-        var swKmh, swDirTxt, swKn, swDir;
+        var swKmh, swDirTxt, swKn, swDir, swGustKn;
         if (swSt.parser === 'windfinder') {
           // Formato Windfinder: "X kts" seguito da direzione testuale inglese (es. "Northwest", "North-Northeast")
           // NOTA: regex da verificare/affinare al primo test in produzione - markup HTML reale non ispezionabile da qui
@@ -2324,6 +2325,17 @@ if (action === 'scrape_web') {
           };
           var swDirKey = swDirTxt ? swDirTxt.toLowerCase().replace(/\s+/g,'') : null;
           swDir = (swDirKey && swWfDirMap[swDirKey] !== undefined) ? swWfDirMap[swDirKey] : null;
+        } else if (swSt.parser === 'meteosystem') {
+          // Formato Meteo System (es. Vada): "Velocita attuale: 1.7 kt W" / "Raffica giornaliera: 13.9 kt"
+          // NOTA: regex da verificare/affinare al primo test in produzione - markup HTML reale non ispezionabile da qui
+          var swMsMatch = swHtml.match(/Velocit[a\u00e0]\s*attuale:?[\s\S]{0,40}?([\d.]+)\s*kt[\s\S]{0,20}?([NSEW]{1,3})\b/i);
+          var swMsGustMatch = swHtml.match(/Raffica\s*giornaliera:?[\s\S]{0,40}?([\d.]+)\s*kt/i);
+          swKn = swMsMatch ? parseFloat(swMsMatch[1]) : null;
+          swDirTxt = swMsMatch ? swMsMatch[2].trim().toUpperCase() : null;
+          swKmh = null;
+          swGustKn = swMsGustMatch ? parseFloat(swMsGustMatch[1]) : null;
+          var swMsDirMap = { 'N':0,'NNE':22,'NE':45,'ENE':67,'E':90,'ESE':112,'SE':135,'SSE':157,'S':180,'SSW':202,'SW':225,'WSW':247,'W':270,'WNW':292,'NW':315,'NNW':337 };
+          swDir = (swDirTxt && swMsDirMap[swDirTxt] !== undefined) ? swMsDirMap[swDirTxt] : null;
         } else {
           // Pattern: Vento <br> 3.2 km/h (SSW)
           var swMatch = swHtml.match(/Vento\s*<br>\s*([\d.]+)\s*km\/h\s*\(([^)]+)\)/i);
@@ -2367,7 +2379,7 @@ if (action === 'scrape_web') {
             }
           }
         } catch(swAromeE) {}
-        var swStation = { wind_kt: swKn, direction: swDir, direction_txt: swDirTxt, source: 'mnw_web' };
+        var swStation = { wind_kt: swKn, gust_kt: (swGustKn !== undefined && swGustKn !== null && !isNaN(swGustKn)) ? swGustKn : null, direction: swDir, direction_txt: swDirTxt, source: 'mnw_web' };
         var swSample = {
           ts: swTs,
           station: swKn !== null ? swStation : null,
@@ -2405,104 +2417,6 @@ if (action === 'scrape_web') {
       } : null;
     }
     return res.status(200).json({ ts: swTs, results: swResults, stats: swStats });
-  } catch(e) {
-    return res.status(500).json({ error: e.message });
-  }
-}
-
-// action=scrape_lamma&k=mdi -- fetch realtime stazioni LaMMA (es. Vada) via WFS, confronto OM+AROME, salva bias_samples
-// Diverso da runLammaBiasCron (che fa la media giornaliera e scrive lamma_bias:zona) - questo e' il pattern puntuale standard
-if (action === 'scrape_lamma') {
-  try {
-    var slAdminKey = req.query.k || '';
-    var slSec = req.query.secret || '';
-    var slCronSecret = process.env.CRON_SECRET || null;
-    if (slAdminKey !== 'mdi' && (!slCronSecret || slSec !== slCronSecret)) return res.status(401).json({ error: 'Unauthorized' });
-    var slStations = [
-      { id: 'vada', name: 'Vada (LaMMA)', wfsNome: 'VADA', lat: 43.3550, lon: 10.4280 }
-    ];
-    var slFilter = req.query.station || null;
-    if (slFilter) slStations = slStations.filter(function(s){ return s.id === slFilter; });
-    var slTs = new Date().toISOString();
-    var slResults = [];
-    for (var slI = 0; slI < slStations.length; slI++) {
-      var slSt = slStations[slI];
-      try {
-        var slUrl = 'https://geoportale.lamma.rete.toscana.it/geoserver/ows' +
-          '?service=WFS&version=2.0.0&request=GetFeature' +
-          '&typeName=lamma_stazioni:vento' +
-          '&outputFormat=application/json' +
-          '&count=1' +
-          '&sortBy=data_ora+D' +
-          '&CQL_FILTER=nome=' + encodeURIComponent(slSt.wfsNome);
-        var slCtrl = new AbortController();
-        var slTimer = setTimeout(function(){ slCtrl.abort(); }, 7000);
-        var slJson;
-        try {
-          slJson = await fetch(slUrl, { signal: slCtrl.signal }).then(function(r){ return r.json(); });
-        } finally { clearTimeout(slTimer); }
-        var slLast = (slJson && slJson.features && slJson.features.length > 0)
-          ? slJson.features[0].properties : null;
-        var slKn = (slLast && slLast.vven_ms != null) ? Math.round(slLast.vven_ms * 1.944 * 10) / 10 : null;
-        var slDir = (slLast && slLast.dven_gr != null) ? Math.round(slLast.dven_gr) : null;
-        // Fetch OM per stessa posizione
-        var slOmUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + slSt.lat + '&longitude=' + slSt.lon + '&current=wind_speed_10m,wind_gusts_10m,wind_direction_10m,surface_pressure&wind_speed_unit=kn';
-        var slOmJson = await fetch(slOmUrl).then(function(r){ return r.json(); });
-        var slOm = {
-          wind_kt:     slOmJson.current ? Math.round(slOmJson.current.wind_speed_10m  * 10) / 10 : null,
-          gust_kt:     slOmJson.current ? Math.round(slOmJson.current.wind_gusts_10m  * 10) / 10 : null,
-          direction:   slOmJson.current ? slOmJson.current.wind_direction_10m : null,
-          pressure_mb: slOmJson.current ? Math.round(slOmJson.current.surface_pressure * 10) / 10 : null
-        };
-        // AROME per confronto MAE (stesso pattern delle altre stazioni)
-        var slAromeUrl = 'https://api.open-meteo.com/v1/meteofrance?latitude=' + slSt.lat + '&longitude=' + slSt.lon + '&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m&wind_speed_unit=kn&models=arome_france&forecast_days=1';
-        var slArome = { wind_kt: null, gust_kt: null, direction: null };
-        try {
-          var slAromeJson = await fetch(slAromeUrl).then(function(r){ return r.json(); });
-          if (slAromeJson && slAromeJson.hourly && Array.isArray(slAromeJson.hourly.time)) {
-            var slNowMs = Date.now();
-            var slBestIdx = -1, slBestDiff = Infinity;
-            for (var slJ = 0; slJ < slAromeJson.hourly.time.length; slJ++) {
-              var slDiff = Math.abs(new Date(slAromeJson.hourly.time[slJ] + 'Z').getTime() - slNowMs);
-              if (slDiff < slBestDiff) { slBestDiff = slDiff; slBestIdx = slJ; }
-            }
-            if (slBestIdx !== -1) {
-              var slW = slAromeJson.hourly.wind_speed_10m ? slAromeJson.hourly.wind_speed_10m[slBestIdx] : null;
-              var slG = slAromeJson.hourly.wind_gusts_10m ? slAromeJson.hourly.wind_gusts_10m[slBestIdx] : null;
-              var slD = slAromeJson.hourly.wind_direction_10m ? slAromeJson.hourly.wind_direction_10m[slBestIdx] : null;
-              slArome = {
-                wind_kt: (slW !== null && slW !== undefined) ? Math.round(slW * 10) / 10 : null,
-                gust_kt: (slG !== null && slG !== undefined) ? Math.round(slG * 10) / 10 : null,
-                direction: (slD !== null && slD !== undefined) ? Math.round(slD) : null
-              };
-            }
-          }
-        } catch(slAromeE) {}
-        var slStation = { wind_kt: slKn, gust_kt: null, direction: slDir, source: 'lamma' };
-        var slSample = {
-          ts: slTs,
-          station: slKn !== null ? slStation : null,
-          om: slOm,
-          arome: slArome,
-          delta: slKn !== null ? {
-            wind_kt: slOm.wind_kt !== null ? Math.round((slKn - slOm.wind_kt) * 10) / 10 : null
-          } : null,
-          delta_arome: slKn !== null ? {
-            wind_kt: slArome.wind_kt !== null ? Math.round((slKn - slArome.wind_kt) * 10) / 10 : null
-          } : null
-        };
-        var slKey = 'bias_samples:' + slSt.id;
-        var slExisting = await kvGet(slKey, kvUrl, kvToken);
-        var slArr = Array.isArray(slExisting) ? slExisting : [];
-        slArr.unshift(slSample);
-        if (slArr.length > 100) slArr = slArr.slice(0, 100);
-        await kvSet(slKey, slArr, kvUrl, kvToken);
-        slResults.push({ id: slSt.id, ok: slKn !== null, wind_kt: slKn, om_wind_kt: slOm.wind_kt });
-      } catch(slErr) {
-        slResults.push({ id: slSt.id, ok: false, error: slErr.message });
-      }
-    }
-    return res.status(200).json({ ts: slTs, results: slResults });
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }
@@ -4791,7 +4705,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.16 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.17 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4822,7 +4736,7 @@ var LAMMA_STATIONS = [
   { nome: 'ALBERESE',           id: 551,  zona: 'punta_ala'        },
   { nome: 'PIETRASANTA',        id: 9338, zona: 'viareggio'        },
   { nome: 'AVENZA',             id: 2526, zona: 'la_spezia'        },
-  { nome: 'VADA',                id: 3950, zona: 'vada'             }, // 17 giugno - nome WFS da verificare al primo cron
+  { nome: 'VADA',                id: 3950, zona: 'vada'             }, // sistema giornaliero secondario - WFS lento/irraggiungibile, bias puntuale ora via scrape_web (meteosystem)
 ];
 
 async function fetchLammaDayData(stazione) {
@@ -4918,4 +4832,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.16
+// Fine codice - NAUTILUS ENGINE v2.13.17

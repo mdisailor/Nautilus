@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.15 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.16 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
@@ -1944,7 +1944,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.15', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.16', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -2432,10 +2432,17 @@ if (action === 'scrape_lamma') {
           '?service=WFS&version=2.0.0&request=GetFeature' +
           '&typeName=lamma_stazioni:vento' +
           '&outputFormat=application/json' +
+          '&count=1' +
+          '&sortBy=data_ora+D' +
           '&CQL_FILTER=nome=' + encodeURIComponent(slSt.wfsNome);
-        var slJson = await fetch(slUrl).then(function(r){ return r.json(); });
+        var slCtrl = new AbortController();
+        var slTimer = setTimeout(function(){ slCtrl.abort(); }, 7000);
+        var slJson;
+        try {
+          slJson = await fetch(slUrl, { signal: slCtrl.signal }).then(function(r){ return r.json(); });
+        } finally { clearTimeout(slTimer); }
         var slLast = (slJson && slJson.features && slJson.features.length > 0)
-          ? slJson.features[slJson.features.length - 1].properties : null;
+          ? slJson.features[0].properties : null;
         var slKn = (slLast && slLast.vven_ms != null) ? Math.round(slLast.vven_ms * 1.944 * 10) / 10 : null;
         var slDir = (slLast && slLast.dven_gr != null) ? Math.round(slLast.dven_gr) : null;
         // Fetch OM per stessa posizione
@@ -4784,7 +4791,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.15 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.16 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4911,4 +4918,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.15
+// Fine codice - NAUTILUS ENGINE v2.13.16

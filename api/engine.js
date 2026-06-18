@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.21 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.22 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
@@ -1944,7 +1944,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.21', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.22', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -2430,6 +2430,14 @@ if (action === 'scrape_web') {
   }
 }
 
+// Utility: gradi -> sigla cardinale a 16 punti (usata da scrape_web2/windfinder)
+function degToCardEngine(deg) {
+  var dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+  var idx = Math.round(deg / 22.5) % 16;
+  if (idx < 0) idx += 16;
+  return dirs[idx];
+}
+
 // action=scrape_web2&k=mdi -- stazioni Windfinder/Meteosystem (dominio diverso da MeteoNetwork, separate per non saturare il budget tempo della funzione insieme alle 6 stazioni MNW)
 if (action === 'scrape_web2') {
   try {
@@ -2438,8 +2446,8 @@ if (action === 'scrape_web2') {
     var sw2CronSecret = process.env.CRON_SECRET || null;
     if (sw2AdminKey !== 'mdi' && (!sw2CronSecret || sw2Sec !== sw2CronSecret)) return res.status(401).json({ error: 'Unauthorized' });
     var sw2Stations = [
-      { id: 'barcaggio',          name: 'Barcaggio (Corsica)',        url: 'https://www.windfinder.com/windstatistics/barcaggio_corse', lat: 43.0058, lon: 9.4045, parser: 'windfinder' },
-      { id: 'bonifacio_pertusato', name: 'Bonifacio - Cap Pertusato', url: 'https://www.windfinder.com/windstatistics/bonifacio',        lat: 41.3739, lon: 9.1783, parser: 'windfinder' },
+      { id: 'barcaggio',          name: 'Barcaggio (Corsica)',        url: 'https://www.windfinder.com/report/barcaggio_corse', lat: 43.0058, lon: 9.4045, parser: 'windfinder' },
+      { id: 'bonifacio_pertusato', name: 'Bonifacio - Cap Pertusato', url: 'https://www.windfinder.com/report/bonifacio',        lat: 41.3739, lon: 9.1783, parser: 'windfinder' },
       { id: 'vada', name: 'Vada (Camping Tripesce)', url: 'http://www.meteosystem.com/wlip/vada/', lat: 43.3550, lon: 10.4280, parser: 'meteosystem' }
     ];
     var sw2Filter = req.query.station || null;
@@ -2456,15 +2464,15 @@ if (action === 'scrape_web2') {
         } finally { clearTimeout(swTimer); }
         var swKn, swDirTxt, swDir, swGustKn;
         if (swSt.parser === 'windfinder') {
-          var swWfMatch = swHtml.match(/([\d.]+)\s*kts?[\s\S]{0,80}?(North-?North-?East|North-?North-?West|South-?South-?East|South-?South-?West|East-?North-?East|East-?South-?East|West-?North-?West|West-?South-?West|North-?East|North-?West|South-?East|South-?West|North|South|East|West)/i);
-          swKn = swWfMatch ? parseFloat(swWfMatch[1]) : null;
-          swDirTxt = swWfMatch ? swWfMatch[2].trim() : null;
-          var swWfDirMap = {
-            'north':0,'north-northeast':22,'northeast':45,'east-northeast':67,'east':90,'east-southeast':112,'southeast':135,'south-southeast':157,
-            'south':180,'south-southwest':202,'southwest':225,'west-southwest':247,'west':270,'west-northwest':292,'northwest':315,'north-northwest':337
-          };
-          var swDirKey = swDirTxt ? swDirTxt.toLowerCase().replace(/\s+/g,'') : null;
-          swDir = (swDirKey && swWfDirMap[swDirKey] !== undefined) ? swWfDirMap[swDirKey] : null;
+          // Formato reale confermato 18 giugno su pagina /report/: JSON embedded astro-island con initCC: {"wd":[0,11],"ws":[0,1],"wg":[0,...]}
+          // wd/ws sono numerici diretti (gradi e kt), nessuna mappa testo->gradi necessaria. wg assente se vento debole/nessuna raffica registrata.
+          var swWfSpeedMatch = swHtml.match(/&quot;ws&quot;:\[0,([\d.]+)\]/);
+          var swWfDirMatch = swHtml.match(/&quot;wd&quot;:\[0,([\d.]+)\]/);
+          var swWfGustMatch = swHtml.match(/&quot;wg&quot;:\[0,([\d.]+)\]/);
+          swKn = swWfSpeedMatch ? parseFloat(swWfSpeedMatch[1]) : null;
+          swDir = swWfDirMatch ? Math.round(parseFloat(swWfDirMatch[1])) : null;
+          swDirTxt = (swDir !== null) ? degToCardEngine(swDir) : null;
+          swGustKn = swWfGustMatch ? parseFloat(swWfGustMatch[1]) : null;
         } else if (swSt.parser === 'meteosystem') {
           // Formato reale confermato 18 giugno: 'Velocit&agrave; attuale:<br /><strong><span class="temp">2.6</span></strong>... <span class="valor2">kt <strong>SSE</strong></span>'
           var swMsSpeedMatch = swHtml.match(/Velocit&agrave;\s*attuale:?[\s\S]{0,200}?class="temp">([\d.]+)</i);
@@ -4819,7 +4827,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.21 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.22 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4946,4 +4954,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.21
+// Fine codice - NAUTILUS ENGINE v2.13.22

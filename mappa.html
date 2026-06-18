@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.6.21 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS MAPPA v1.6.22 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.6.21</title>
+<title>NAUTILUS Mappa Vento v1.6.22</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -187,7 +187,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.6.21</span>
+    <span id="nav-ver">mappa v1.6.22</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -251,11 +251,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.6.21 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.6.22 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.6.21
+// NAUTILUS MAPPA v1.6.22
 
 var ENGINE_URL = '/api/engine';
 
@@ -1185,9 +1185,19 @@ CALC_ONLY.forEach(function(c) {
             '<div style="color:#fff;font-size:0.65rem">Dato non disponibile</div>';
           return;
         }
-        var wkt = Math.round(h.windspeed_10m[0] * 10) / 10;
-        var gkt = h.windgusts_10m ? Math.round(h.windgusts_10m[0] * 10) / 10 : null;
-        var dirDeg = h.winddirection_10m ? h.winddirection_10m[0] : null;
+        // Trova indice ora corrente (non sempre 0=mezzanotte, fix bug direzione/vento errati)
+        var tIdx = 0;
+        if (Array.isArray(h.time)) {
+          var nowMs = Date.now();
+          var bestDiff = Infinity;
+          for (var ti = 0; ti < h.time.length; ti++) {
+            var diff = Math.abs(new Date(h.time[ti]).getTime() - nowMs);
+            if (diff < bestDiff) { bestDiff = diff; tIdx = ti; }
+          }
+        }
+        var wkt = Math.round(h.windspeed_10m[tIdx] * 10) / 10;
+        var gkt = h.windgusts_10m ? Math.round(h.windgusts_10m[tIdx] * 10) / 10 : null;
+        var dirDeg = h.winddirection_10m ? h.winddirection_10m[tIdx] : null;
         var windCol = wkt < 15 ? '#4cff91' : wkt < 25 ? '#ffd700' : '#ff6060';
         var dirTxt = (dirDeg !== null ? degToCard(dirDeg) + ' ' + dirDeg + '°' : '--');
         var arrowSvg = dirDeg !== null
@@ -1272,7 +1282,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.6.21
+// Fine codice - NAUTILUS MAPPA v1.6.22
 </script>
 </body>
 </html>

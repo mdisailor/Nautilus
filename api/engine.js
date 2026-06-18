@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.17 -  by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.18 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
@@ -1944,7 +1944,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.17', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.18', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -2306,11 +2306,16 @@ if (action === 'scrape_web') {
     var swFilter = req.query.station || null;
     if (swFilter) swStations = swStations.filter(function(s){ return s.id === swFilter; });
     var swTs = new Date().toISOString();
-    var swResults = [];
-    for (var swI = 0; swI < swStations.length; swI++) {
-      var swSt = swStations[swI];
+
+    // Processa una singola stazione: fetch HTML+OM+AROME, parsing, salvataggio. Eseguito in parallelo per tutte le stazioni.
+    async function swProcessStation(swSt) {
       try {
-        var swHtml = await fetch(swSt.url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'text/html' } }).then(function(r){ return r.text(); });
+        var swCtrl = new AbortController();
+        var swTimer = setTimeout(function(){ swCtrl.abort(); }, 8000);
+        var swHtml;
+        try {
+          swHtml = await fetch(swSt.url, { signal: swCtrl.signal, headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'text/html' } }).then(function(r){ return r.text(); });
+        } finally { clearTimeout(swTimer); }
         var swKmh, swDirTxt, swKn, swDir, swGustKn;
         if (swSt.parser === 'windfinder') {
           // Formato Windfinder: "X kts" seguito da direzione testuale inglese (es. "Northwest", "North-Northeast")
@@ -2399,11 +2404,13 @@ if (action === 'scrape_web') {
         swList.unshift(swSample);
         if (swList.length > 100) swList.length = 100;
         await kvSet(swKey, swList, 31536000, kvUrl, kvToken);
-        swResults.push({ id: swSt.id, name: swSt.name, ok: swKn !== null, sample: swSample });
+        return { id: swSt.id, name: swSt.name, ok: swKn !== null, sample: swSample };
       } catch(swE) {
-        swResults.push({ id: swSt.id, name: swSt.name, ok: false, error: swE.message });
+        return { id: swSt.id, name: swSt.name, ok: false, error: swE.message };
       }
     }
+
+    var swResults = await Promise.all(swStations.map(swProcessStation));
     // Ricalcola stats per stazioni web
     var swStats = {};
     for (var swSi = 0; swSi < swStations.length; swSi++) {
@@ -4705,7 +4712,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.17 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.18 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4832,4 +4839,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.17
+// Fine codice - NAUTILUS ENGINE v2.13.18

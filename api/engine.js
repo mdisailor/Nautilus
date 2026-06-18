@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.18 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.19 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
@@ -1944,7 +1944,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.18', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.19', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -2311,7 +2311,7 @@ if (action === 'scrape_web') {
     async function swProcessStation(swSt) {
       try {
         var swCtrl = new AbortController();
-        var swTimer = setTimeout(function(){ swCtrl.abort(); }, 8000);
+        var swTimer = setTimeout(function(){ swCtrl.abort(); }, 6000);
         var swHtml;
         try {
           swHtml = await fetch(swSt.url, { signal: swCtrl.signal, headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'text/html' } }).then(function(r){ return r.text(); });
@@ -2333,10 +2333,11 @@ if (action === 'scrape_web') {
         } else if (swSt.parser === 'meteosystem') {
           // Formato Meteo System (es. Vada): "Velocita attuale: 1.7 kt W" / "Raffica giornaliera: 13.9 kt"
           // NOTA: regex da verificare/affinare al primo test in produzione - markup HTML reale non ispezionabile da qui
-          var swMsMatch = swHtml.match(/Velocit[a\u00e0]\s*attuale:?[\s\S]{0,40}?([\d.]+)\s*kt[\s\S]{0,20}?([NSEW]{1,3})\b/i);
-          var swMsGustMatch = swHtml.match(/Raffica\s*giornaliera:?[\s\S]{0,40}?([\d.]+)\s*kt/i);
-          swKn = swMsMatch ? parseFloat(swMsMatch[1]) : null;
-          swDirTxt = swMsMatch ? swMsMatch[2].trim().toUpperCase() : null;
+          var swMsSpeedMatch = swHtml.match(/Velocit[a\u00e0]\s*attuale:?[\s\S]{0,150}?([\d.]+)\s*kt/i);
+          var swMsDirMatch = swHtml.match(/Velocit[a\u00e0]\s*attuale:?[\s\S]{0,150}?[\d.]+\s*kt[\s\S]{0,60}?\b([NSEW]{1,3})\b/i);
+          var swMsGustMatch = swHtml.match(/Raffica\s*giornaliera:?[\s\S]{0,150}?([\d.]+)\s*kt/i);
+          swKn = swMsSpeedMatch ? parseFloat(swMsSpeedMatch[1]) : null;
+          swDirTxt = swMsDirMatch ? swMsDirMatch[1].trim().toUpperCase() : null;
           swKmh = null;
           swGustKn = swMsGustMatch ? parseFloat(swMsGustMatch[1]) : null;
           var swMsDirMap = { 'N':0,'NNE':22,'NE':45,'ENE':67,'E':90,'ESE':112,'SE':135,'SSE':157,'S':180,'SSW':202,'SW':225,'WSW':247,'W':270,'WNW':292,'NW':315,'NNW':337 };
@@ -2351,39 +2352,39 @@ if (action === 'scrape_web') {
           var swDirMap = { 'N':0,'NNE':22,'NE':45,'ENE':67,'E':90,'ESE':112,'SE':135,'SSE':157,'S':180,'SSW':202,'SW':225,'WSW':247,'W':270,'WNW':292,'NW':315,'NNW':337 };
           swDir = (swDirTxt && swDirMap[swDirTxt] !== undefined) ? swDirMap[swDirTxt] : null;
         }
-        // Fetch OM per stessa posizione
+        // Fetch OM e AROME in parallelo tra loro (non sequenziali) per risparmiare tempo nel budget totale
         var swOmUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + swSt.lat + '&longitude=' + swSt.lon + '&current=wind_speed_10m,wind_gusts_10m,wind_direction_10m,surface_pressure&wind_speed_unit=kn';
-        var swOmJson = await fetch(swOmUrl).then(function(r){ return r.json(); });
-        var swOm = {
-          wind_kt:     swOmJson.current ? Math.round(swOmJson.current.wind_speed_10m  * 10) / 10 : null,
-          gust_kt:     swOmJson.current ? Math.round(swOmJson.current.wind_gusts_10m  * 10) / 10 : null,
-          direction:   swOmJson.current ? swOmJson.current.wind_direction_10m : null,
-          pressure_mb: swOmJson.current ? Math.round(swOmJson.current.surface_pressure * 10) / 10 : null
-        };
-        // AROME (via Open-Meteo /v1/meteofrance), per confronto MAE vs OM (v2 - 16 giugno)
         var swAromeUrl = 'https://api.open-meteo.com/v1/meteofrance?latitude=' + swSt.lat + '&longitude=' + swSt.lon + '&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m&wind_speed_unit=kn&models=arome_france&forecast_days=1';
+        var swOmPromise = fetch(swOmUrl).then(function(r){ return r.json(); }).catch(function(){ return null; });
+        var swAromePromise = fetch(swAromeUrl).then(function(r){ return r.json(); }).catch(function(){ return null; });
+        var swParallelResults = await Promise.all([swOmPromise, swAromePromise]);
+        var swOmJson = swParallelResults[0];
+        var swAromeJson = swParallelResults[1];
+        var swOm = {
+          wind_kt:     (swOmJson && swOmJson.current) ? Math.round(swOmJson.current.wind_speed_10m  * 10) / 10 : null,
+          gust_kt:     (swOmJson && swOmJson.current) ? Math.round(swOmJson.current.wind_gusts_10m  * 10) / 10 : null,
+          direction:   (swOmJson && swOmJson.current) ? swOmJson.current.wind_direction_10m : null,
+          pressure_mb: (swOmJson && swOmJson.current) ? Math.round(swOmJson.current.surface_pressure * 10) / 10 : null
+        };
         var swArome = { wind_kt: null, gust_kt: null, direction: null };
-        try {
-          var swAromeJson = await fetch(swAromeUrl).then(function(r){ return r.json(); });
-          if (swAromeJson && swAromeJson.hourly && Array.isArray(swAromeJson.hourly.time)) {
-            var swNowMs = Date.now();
-            var swBestIdx = -1, swBestDiff = Infinity;
-            for (var swJ = 0; swJ < swAromeJson.hourly.time.length; swJ++) {
-              var swDiff = Math.abs(new Date(swAromeJson.hourly.time[swJ] + 'Z').getTime() - swNowMs);
-              if (swDiff < swBestDiff) { swBestDiff = swDiff; swBestIdx = swJ; }
-            }
-            if (swBestIdx !== -1) {
-              var swW = swAromeJson.hourly.wind_speed_10m ? swAromeJson.hourly.wind_speed_10m[swBestIdx] : null;
-              var swG = swAromeJson.hourly.wind_gusts_10m ? swAromeJson.hourly.wind_gusts_10m[swBestIdx] : null;
-              var swD = swAromeJson.hourly.wind_direction_10m ? swAromeJson.hourly.wind_direction_10m[swBestIdx] : null;
-              swArome = {
-                wind_kt: (swW !== null && swW !== undefined) ? Math.round(swW * 10) / 10 : null,
-                gust_kt: (swG !== null && swG !== undefined) ? Math.round(swG * 10) / 10 : null,
-                direction: (swD !== null && swD !== undefined) ? Math.round(swD) : null
-              };
-            }
+        if (swAromeJson && swAromeJson.hourly && Array.isArray(swAromeJson.hourly.time)) {
+          var swNowMs = Date.now();
+          var swBestIdx = -1, swBestDiff = Infinity;
+          for (var swJ = 0; swJ < swAromeJson.hourly.time.length; swJ++) {
+            var swDiff = Math.abs(new Date(swAromeJson.hourly.time[swJ] + 'Z').getTime() - swNowMs);
+            if (swDiff < swBestDiff) { swBestDiff = swDiff; swBestIdx = swJ; }
           }
-        } catch(swAromeE) {}
+          if (swBestIdx !== -1) {
+            var swW = swAromeJson.hourly.wind_speed_10m ? swAromeJson.hourly.wind_speed_10m[swBestIdx] : null;
+            var swG = swAromeJson.hourly.wind_gusts_10m ? swAromeJson.hourly.wind_gusts_10m[swBestIdx] : null;
+            var swD = swAromeJson.hourly.wind_direction_10m ? swAromeJson.hourly.wind_direction_10m[swBestIdx] : null;
+            swArome = {
+              wind_kt: (swW !== null && swW !== undefined) ? Math.round(swW * 10) / 10 : null,
+              gust_kt: (swG !== null && swG !== undefined) ? Math.round(swG * 10) / 10 : null,
+              direction: (swD !== null && swD !== undefined) ? Math.round(swD) : null
+            };
+          }
+        }
         var swStation = { wind_kt: swKn, gust_kt: (swGustKn !== undefined && swGustKn !== null && !isNaN(swGustKn)) ? swGustKn : null, direction: swDir, direction_txt: swDirTxt, source: 'mnw_web' };
         var swSample = {
           ts: swTs,
@@ -4712,7 +4713,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.18 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.19 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4839,4 +4840,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.18
+// Fine codice - NAUTILUS ENGINE v2.13.19

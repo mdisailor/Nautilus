@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.23 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.24 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
@@ -1944,7 +1944,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.23', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.24', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -2021,6 +2021,9 @@ if (action === 'station_refresh') {
       bocca_arno_cfr:    { lat: 43.680, lon: 10.270, api: false, cfr: 'TOS01005251' },
       follonica:         { lat: 42.919, lon: 10.765, api: false, cfr: 'TOS03002459' },
       capalbio:          { lat: 42.459, lon: 11.269, api: false, cfr: 'TOS11000006' },
+      barcaggio:          { lat: 43.0058, lon: 9.4045, api: false, url: 'https://www.windfinder.com/report/barcaggio_corse', parser: 'windfinder' },
+      bonifacio_pertusato:{ lat: 41.3739, lon: 9.1783, api: false, url: 'https://www.windfinder.com/report/bonifacio', parser: 'windfinder' },
+      vada:               { lat: 43.3550, lon: 10.4280, api: false, url: 'http://www.meteosystem.com/wlip/vada/', parser: 'meteosystem' },
     };
     var srSt = srAllStations[srStation];
     if (!srSt) return res.status(404).json({ error: 'Stazione non trovata: ' + srStation });
@@ -2063,6 +2066,28 @@ if (action === 'station_refresh') {
         var srCfrKt = Math.round(parseFloat(srCfrM[6]) * 1.94384 * 10) / 10;
         var srCfrGKt = Math.round(parseFloat(srCfrM[7]) * 1.94384 * 10) / 10;
         srStation_data = { wind_kt: srCfrKt, gust_kt: srCfrGKt, direction: parseInt(srCfrM[8]), direction_txt: null, pressure_mb: null, source: 'cfr' };
+      }
+    } else if (srSt.parser === 'windfinder' || srSt.parser === 'meteosystem') {
+      var srHtml2 = await fetch(srSt.url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'text/html' }, signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined }).then(function(r){ return r.text(); });
+      if (srSt.parser === 'windfinder') {
+        var srWfSpeedMatch = srHtml2.match(/&quot;ws&quot;:\[0,([\d.]+)\]/);
+        var srWfDirMatch = srHtml2.match(/&quot;wd&quot;:\[0,([\d.]+)\]/);
+        var srWfGustMatch = srHtml2.match(/&quot;wg&quot;:\[0,([\d.]+)\]/);
+        var srWfKn = srWfSpeedMatch ? parseFloat(srWfSpeedMatch[1]) : null;
+        var srWfDir = srWfDirMatch ? Math.round(parseFloat(srWfDirMatch[1])) : null;
+        if (srWfKn !== null) {
+          srStation_data = { wind_kt: srWfKn, gust_kt: srWfGustMatch ? parseFloat(srWfGustMatch[1]) : null, direction: srWfDir, direction_txt: srWfDir !== null ? degToCardEngine(srWfDir) : null, pressure_mb: null, source: 'mnw_web' };
+        }
+      } else {
+        var srMsSpeedMatch = srHtml2.match(/Velocit&agrave;\s*attuale:?[\s\S]{0,200}?class="temp">([\d.]+)</i);
+        var srMsDirMatch = srHtml2.match(/Velocit&agrave;\s*attuale:?[\s\S]{0,250}?class="valor2">\s*kt\s*<strong>\s*([NSEW]{1,3})\s*<\/strong>/i);
+        var srMsGustMatch = srHtml2.match(/Raffica\s*giornaliera:?[\s\S]{0,250}?([\d.]+)\s*<\/strong>\s*kt/i);
+        var srMsKn = srMsSpeedMatch ? parseFloat(srMsSpeedMatch[1]) : null;
+        var srMsDirTxt = srMsDirMatch ? srMsDirMatch[1].trim().toUpperCase() : null;
+        if (srMsKn !== null) {
+          var srMsDir = (srMsDirTxt && srDirMap[srMsDirTxt] !== undefined) ? srDirMap[srMsDirTxt] : null;
+          srStation_data = { wind_kt: srMsKn, gust_kt: srMsGustMatch ? parseFloat(srMsGustMatch[1]) : null, direction: srMsDir, direction_txt: srMsDirTxt, pressure_mb: null, source: 'mnw_web' };
+        }
       }
     } else {
       var srHtml = await fetch(srSt.url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'text/html' }, signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined }).then(function(r){ return r.text(); });
@@ -4834,7 +4859,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.23 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.24 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4961,4 +4986,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.23
+// Fine codice - NAUTILUS ENGINE v2.13.24

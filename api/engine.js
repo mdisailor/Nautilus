@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.22 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.23 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
@@ -1944,7 +1944,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.22', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.23', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -2469,10 +2469,12 @@ if (action === 'scrape_web2') {
           var swWfSpeedMatch = swHtml.match(/&quot;ws&quot;:\[0,([\d.]+)\]/);
           var swWfDirMatch = swHtml.match(/&quot;wd&quot;:\[0,([\d.]+)\]/);
           var swWfGustMatch = swHtml.match(/&quot;wg&quot;:\[0,([\d.]+)\]/);
+          var swWfDtlMatch = swHtml.match(/&quot;dtl&quot;:\[0,&quot;([^&]+)&quot;\]/);
           swKn = swWfSpeedMatch ? parseFloat(swWfSpeedMatch[1]) : null;
           swDir = swWfDirMatch ? Math.round(parseFloat(swWfDirMatch[1])) : null;
           swDirTxt = (swDir !== null) ? degToCardEngine(swDir) : null;
           swGustKn = swWfGustMatch ? parseFloat(swWfGustMatch[1]) : null;
+          var swObsTime = swWfDtlMatch ? swWfDtlMatch[1] : null;
         } else if (swSt.parser === 'meteosystem') {
           // Formato reale confermato 18 giugno: 'Velocit&agrave; attuale:<br /><strong><span class="temp">2.6</span></strong>... <span class="valor2">kt <strong>SSE</strong></span>'
           var swMsSpeedMatch = swHtml.match(/Velocit&agrave;\s*attuale:?[\s\S]{0,200}?class="temp">([\d.]+)</i);
@@ -2516,7 +2518,7 @@ if (action === 'scrape_web2') {
             };
           }
         }
-        var swStation = { wind_kt: swKn, gust_kt: (swGustKn !== undefined && swGustKn !== null && !isNaN(swGustKn)) ? swGustKn : null, direction: swDir, direction_txt: swDirTxt, source: 'mnw_web' };
+        var swStation = { wind_kt: swKn, gust_kt: (swGustKn !== undefined && swGustKn !== null && !isNaN(swGustKn)) ? swGustKn : null, direction: swDir, direction_txt: swDirTxt, source: 'mnw_web', obs_time: (typeof swObsTime !== 'undefined' ? swObsTime : null) };
         var swSample = {
           ts: sw2Ts,
           station: swKn !== null ? swStation : null,
@@ -2528,6 +2530,11 @@ if (action === 'scrape_web2') {
         var swKey = 'bias_samples:' + swSt.id;
         var swExisting = await kvGet(swKey, kvUrl, kvToken);
         var swList = Array.isArray(swExisting) ? swExisting : [];
+        // Anti-duplicato: se la stazione ha obs_time e coincide con l'ultimo campione salvato, e' la stessa osservazione gia' registrata - non duplicare
+        var swIsDuplicate = swStation.obs_time && swList.length > 0 && swList[0].station && swList[0].station.obs_time === swStation.obs_time;
+        if (swIsDuplicate) {
+          return { id: swSt.id, name: swSt.name, ok: swKn !== null, sample: swSample, skipped_duplicate: true };
+        }
         swList.unshift(swSample);
         if (swList.length > 100) swList.length = 100;
         await kvSet(swKey, swList, 31536000, kvUrl, kvToken);
@@ -4827,7 +4834,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.22 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.23 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -4954,4 +4961,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.22
+// Fine codice - NAUTILUS ENGINE v2.13.23

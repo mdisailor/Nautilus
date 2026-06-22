@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.6.22 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS MAPPA v1.6.24 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.6.22</title>
+<title>NAUTILUS Mappa Vento v1.6.24</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -187,11 +187,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.6.22</span>
+    <span id="nav-ver">mappa v1.6.24</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
-  <a id="nav-back" href="/">APP</a>
+  <a id="nav-back" href="#" onclick="event.preventDefault(); var p = prompt('Password:'); if (p === 'mdi') { window.location.href = '/?k=mdi'; }">APP</a>
 </nav>
 
 <div id="map-wrap">
@@ -251,11 +251,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.6.22 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.6.24 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.6.22
+// NAUTILUS MAPPA v1.6.24
 
 var ENGINE_URL = '/api/engine';
 
@@ -1122,7 +1122,7 @@ MNW_LIVE.forEach(function(st) {
         var el = document.getElementById(popupId);
         if (!el) return;
         var s = data.samples && data.samples[0];
-        if (!s || !s.station || !s.station.wind_kt) {
+        if (!s || !s.station || s.station.wind_kt === null || s.station.wind_kt === undefined) {
           el.innerHTML = '<div style="font-weight:bold;color:#00cc66;margin-bottom:4px">' + st.name + '</div>' +
             '<div style="color:#fff;font-size:0.65rem">Nessun dato disponibile</div>';
           return;
@@ -1282,7 +1282,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.6.22
+// Fine codice - NAUTILUS MAPPA v1.6.24
 </script>
 </body>
 </html>

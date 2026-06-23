@@ -1,1 +1,308 @@
+<!-- NAUTILUS MAE COMPARE v1.0 - mdisailor - 2026-06-20 -->
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#020e1c">
+<title>NAUTILUS MAE Compare v1.0</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#020e1c; --card:#06182e; --border:#1a3a5c;
+  --accent:#0af0ff; --gold:#ffaa00; --warn:#ff7a00;
+  --danger:#ff2d2d; --safe:#00e676; --muted:#4a7a9b;
+  --text:#c8dff0; --white:#e8f4ff;
+}
+html,body{min-height:100%;background:var(--bg);font-family:'DM Mono',monospace;color:var(--text)}
+#nav{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 16px;height:48px;
+  background:rgba(2,14,28,0.97);border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:100;
+}
+#nav-logo{font-family:'Bebas Neue',cursive;font-size:1.4rem;color:var(--white);letter-spacing:0.12em}
+#nav-logo span{color:var(--accent)}
+#nav-ver{font-size:0.5rem;color:#fff;margin-left:8px}
+#nav-back{font-size:0.6rem;color:var(--muted);text-decoration:none;letter-spacing:0.1em;border:1px solid var(--border);border-radius:6px;padding:4px 10px;cursor:pointer}
+#nav-back:hover{color:var(--accent);border-color:var(--accent)}
+
+#content{padding:16px;max-width:780px;margin:0 auto}
+
+.section-title{
+  font-size:0.6rem;color:var(--accent);letter-spacing:0.15em;text-transform:uppercase;
+  margin:20px 0 10px;border-bottom:1px solid var(--border);padding-bottom:6px;
+}
+
+/* Summary cards */
+#summary{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px}
+.sum-card{
+  background:var(--card);border:1px solid var(--border);border-radius:10px;
+  padding:12px;text-align:center;
+}
+.sum-card .sum-val{font-size:1.6rem;font-weight:bold;margin:4px 0}
+.sum-card .sum-label{font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em}
+.sum-card .sum-sub{font-size:0.6rem;color:var(--text);margin-top:2px}
+
+/* Station table */
+#station-list{display:flex;flex-direction:column;gap:6px}
+.st-row{
+  background:var(--card);border:1px solid var(--border);border-radius:8px;
+  padding:10px 12px;cursor:pointer;transition:border-color 0.15s;
+}
+.st-row:hover{border-color:var(--accent)}
+.st-row.winner-arome{border-left:3px solid var(--accent)}
+.st-row.winner-om{border-left:3px solid var(--gold)}
+.st-row.winner-tie{border-left:3px solid var(--muted)}
+.st-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.st-name{font-size:0.75rem;color:var(--white);font-weight:bold}
+.st-n{font-size:0.55rem;color:var(--muted)}
+.winner-badge{
+  font-size:0.55rem;letter-spacing:0.08em;text-transform:uppercase;
+  padding:2px 8px;border-radius:4px;font-weight:bold;
+}
+.badge-arome{background:rgba(10,240,255,0.15);color:var(--accent);border:1px solid var(--accent)}
+.badge-om{background:rgba(255,170,0,0.15);color:var(--gold);border:1px solid var(--gold)}
+.badge-tie{background:rgba(74,122,155,0.2);color:var(--muted);border:1px solid var(--muted)}
+.badge-nodata{background:rgba(74,122,155,0.1);color:var(--muted);border:1px solid var(--border)}
+.st-bars{display:flex;flex-direction:column;gap:4px}
+.bar-row{display:flex;align-items:center;gap:8px}
+.bar-label{font-size:0.55rem;color:var(--muted);width:50px;text-align:right;flex-shrink:0}
+.bar-track{flex:1;background:rgba(26,58,92,0.5);border-radius:3px;height:8px;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px;transition:width 0.4s}
+.bar-fill-om{background:var(--gold)}
+.bar-fill-arome{background:var(--accent)}
+.bar-val{font-size:0.6rem;width:36px;flex-shrink:0}
+
+/* Detail panel */
+#detail{
+  display:none;position:fixed;bottom:0;left:0;right:0;
+  background:var(--card);border-top:2px solid var(--border);
+  padding:16px;max-height:50vh;overflow-y:auto;z-index:200;
+}
+#detail.open{display:block}
+#detail-close{
+  position:absolute;top:10px;right:14px;font-size:0.7rem;
+  color:var(--muted);cursor:pointer;padding:4px 8px;
+}
+#detail-close:hover{color:var(--accent)}
+.detail-title{font-size:0.8rem;color:var(--white);margin-bottom:10px;font-weight:bold}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.detail-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center}
+.detail-card .dc-label{font-size:0.5rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em}
+.detail-card .dc-val{font-size:1.2rem;font-weight:bold;margin:4px 0}
+.detail-card .dc-sub{font-size:0.55rem;color:var(--muted)}
+
+/* States */
+#loading{text-align:center;padding:60px 20px;color:var(--muted);font-size:0.7rem}
+#error{text-align:center;padding:40px 20px;color:var(--danger);font-size:0.7rem}
+.spinner{display:inline-block;width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:10px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&display=swap');
+</style>
+</head>
+<body>
+
+<div id="nav">
+  <div style="display:flex;align-items:center">
+    <div id="nav-logo">NAUTI<span>LUS</span></div>
+    <div id="nav-ver">mae v1.0</div>
+  </div>
+  <a id="nav-back" href="#" onclick="event.preventDefault();var p=prompt('Password:');if(p==='mdi'){window.location.href='/?k=mdi'}">APP</a>
+</div>
+
+<div id="content">
+  <div class="section-title">Confronto MAE — OM vs AROME</div>
+
+  <div id="summary" style="display:none">
+    <div class="sum-card">
+      <div class="sum-label">Vince AROME</div>
+      <div class="sum-val" id="sum-arome" style="color:var(--accent)">—</div>
+      <div class="sum-sub">stazioni</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-label">Vince OM</div>
+      <div class="sum-val" id="sum-om" style="color:var(--gold)">—</div>
+      <div class="sum-sub">stazioni</div>
+    </div>
+    <div class="sum-card">
+      <div class="sum-label">MAE medio</div>
+      <div class="sum-val" id="sum-mae" style="color:var(--text);font-size:1rem">—</div>
+      <div class="sum-sub">OM / AROME (kn)</div>
+    </div>
+  </div>
+
+  <div id="loading">
+    <div class="spinner"></div><br>
+    Caricamento campioni...
+  </div>
+  <div id="error" style="display:none"></div>
+  <div id="station-list"></div>
+</div>
+
+<div id="detail">
+  <span id="detail-close" onclick="closeDetail()">✕ chiudi</span>
+  <div id="detail-content"></div>
+</div>
+
+<script>
+var ENGINE_URL = '/api/engine';
+var SECRET = 'mdi';
+
+var STATION_NAMES = {
+  livorno:'Livorno', canale_piombino:'Canale Piombino', viareggio:'Viareggio',
+  capraia_w:'Capraia (MNW)', portoferraio:'Portoferraio', alberese:'Alberese', luri:'Luri (Corsica)',
+  barcaggio:'Barcaggio', bonifacio_pertusato:'Cap Pertusato', vada:'Vada',
+  gorgona_cfr:'Gorgona CFR', capraia_cfr:'Capraia CFR', giglio_porto:'Giglio Porto',
+  giglio_castello:'Giglio Castello', montecristo:'Montecristo', portoferraio_cfr:'Portoferraio CFR',
+  orbetello:'Orbetello', svincenzo_porto:'S.Vincenzo Porto', casotto_pescatori:'Casotto P.',
+  venturina:'Venturina', forte_dei_marmi:'Forte dei Marmi', lido_camaiore:'Lido Camaiore',
+  bocca_arno_cfr:'Bocca Arno CFR', follonica:'Follonica', capalbio:'Capalbio'
+};
+
+var lastData = null;
+
+async function load() {
+  try {
+    var r = await fetch(ENGINE_URL + '?action=mae_compare&k=' + SECRET);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    var data = await r.json();
+    if (data.error) throw new Error(data.error);
+    lastData = data;
+    render(data);
+  } catch(e) {
+    document.getElementById('loading').style.display = 'none';
+    var err = document.getElementById('error');
+    err.style.display = 'block';
+    err.textContent = 'Errore: ' + e.message;
+  }
+}
+
+function render(data) {
+  document.getElementById('loading').style.display = 'none';
+
+  var stations = data.stations;
+  var ids = Object.keys(stations).filter(function(id){ return stations[id] !== null; });
+  var withBoth = ids.filter(function(id){
+    var s = stations[id];
+    return s && s.mae_om !== null && s.mae_arome !== null;
+  });
+
+  // Summary
+  var nArome = withBoth.filter(function(id){ return stations[id].winner === 'arome'; }).length;
+  var nOm = withBoth.filter(function(id){ return stations[id].winner === 'om'; }).length;
+  var avgMaeOm = withBoth.length > 0
+    ? (withBoth.reduce(function(a,id){ return a + stations[id].mae_om; }, 0) / withBoth.length).toFixed(2) : '—';
+  var avgMaeArome = withBoth.length > 0
+    ? (withBoth.reduce(function(a,id){ return a + stations[id].mae_arome; }, 0) / withBoth.length).toFixed(2) : '—';
+
+  document.getElementById('sum-arome').textContent = nArome;
+  document.getElementById('sum-om').textContent = nOm;
+  document.getElementById('sum-mae').textContent = avgMaeOm + ' / ' + avgMaeArome;
+  document.getElementById('summary').style.display = 'grid';
+
+  // Ordina: prima quelle con dati completi (entrambi MAE), poi quelle con solo OM, poi null
+  var sorted = Object.keys(stations).sort(function(a, b) {
+    var sa = stations[a], sb = stations[b];
+    if (!sa && !sb) return 0;
+    if (!sa) return 1;
+    if (!sb) return -1;
+    var aHasBoth = sa.mae_om !== null && sa.mae_arome !== null;
+    var bHasBoth = sb.mae_om !== null && sb.mae_arome !== null;
+    if (aHasBoth && !bHasBoth) return -1;
+    if (!aHasBoth && bHasBoth) return 1;
+    // Entrambi con dati: ordina per differenza MAE (chi ha differenza maggiore per primo — più interessante)
+    if (aHasBoth && bHasBoth) {
+      return Math.abs(sb.mae_om - sb.mae_arome) - Math.abs(sa.mae_om - sa.mae_arome);
+    }
+    return 0;
+  });
+
+  // Max MAE per scala barre
+  var maxMae = 0;
+  sorted.forEach(function(id) {
+    var s = stations[id];
+    if (!s) return;
+    if (s.mae_om && s.mae_om > maxMae) maxMae = s.mae_om;
+    if (s.mae_arome && s.mae_arome > maxMae) maxMae = s.mae_arome;
+  });
+  if (maxMae === 0) maxMae = 1;
+
+  var html = '';
+  sorted.forEach(function(id) {
+    var s = stations[id];
+    var name = STATION_NAMES[id] || id;
+    if (!s) return;
+
+    var winnerClass = s.winner ? 'winner-' + s.winner : '';
+    var badge = '';
+    if (s.winner === 'arome') badge = '<span class="winner-badge badge-arome">AROME migliore</span>';
+    else if (s.winner === 'om') badge = '<span class="winner-badge badge-om">OM migliore</span>';
+    else if (s.winner === 'tie') badge = '<span class="winner-badge badge-tie">Pari</span>';
+    else badge = '<span class="winner-badge badge-nodata">Solo OM</span>';
+
+    var omPct = s.mae_om !== null ? Math.round(s.mae_om / maxMae * 100) : 0;
+    var aromePct = s.mae_arome !== null ? Math.round(s.mae_arome / maxMae * 100) : 0;
+
+    var omColor = s.winner === 'om' ? 'var(--gold)' : 'var(--text)';
+    var aromeColor = s.winner === 'arome' ? 'var(--accent)' : 'var(--text)';
+
+    html += '<div class="st-row ' + winnerClass + '" onclick="showDetail(\'' + id + '\')">';
+    html += '<div class="st-header">';
+    html += '<div><span class="st-name">' + name + '</span> <span class="st-n">n=' + s.n + '</span></div>';
+    html += badge;
+    html += '</div>';
+    html += '<div class="st-bars">';
+    // Barra OM
+    html += '<div class="bar-row">';
+    html += '<div class="bar-label" style="color:var(--gold)">OM</div>';
+    html += '<div class="bar-track"><div class="bar-fill bar-fill-om" style="width:' + omPct + '%"></div></div>';
+    html += '<div class="bar-val" style="color:' + omColor + '">' + (s.mae_om !== null ? s.mae_om + ' kn' : '—') + '</div>';
+    html += '</div>';
+    // Barra AROME
+    html += '<div class="bar-row">';
+    html += '<div class="bar-label" style="color:var(--accent)">AROME</div>';
+    html += '<div class="bar-track"><div class="bar-fill bar-fill-arome" style="width:' + aromePct + '%"></div></div>';
+    html += '<div class="bar-val" style="color:' + aromeColor + '">' + (s.mae_arome !== null ? s.mae_arome + ' kn' : '—') + '</div>';
+    html += '</div>';
+    html += '</div>';
+    html += '</div>';
+  });
+
+  document.getElementById('station-list').innerHTML = html;
+}
+
+function showDetail(id) {
+  if (!lastData || !lastData.stations[id]) return;
+  var s = lastData.stations[id];
+  var name = STATION_NAMES[id] || id;
+  var diff = (s.mae_om !== null && s.mae_arome !== null)
+    ? Math.round((s.mae_om - s.mae_arome) * 100) / 100 : null;
+  var diffStr = diff !== null ? (diff > 0 ? '+' + diff : '' + diff) + ' kn' : '—';
+  var diffColor = diff !== null ? (diff > 0 ? 'var(--safe)' : diff < 0 ? 'var(--danger)' : 'var(--muted)') : 'var(--muted)';
+
+  var html = '<div class="detail-title">' + name + '</div>';
+  html += '<div class="detail-grid">';
+  html += '<div class="detail-card"><div class="dc-label">MAE OM</div><div class="dc-val" style="color:var(--gold)">' + (s.mae_om !== null ? s.mae_om : '—') + '</div><div class="dc-sub">kn · n=' + s.n_om + '</div></div>';
+  html += '<div class="detail-card"><div class="dc-label">MAE AROME</div><div class="dc-val" style="color:var(--accent)">' + (s.mae_arome !== null ? s.mae_arome : '—') + '</div><div class="dc-sub">kn · n=' + s.n_arome + '</div></div>';
+  html += '<div class="detail-card"><div class="dc-label">Bias OM</div><div class="dc-val" style="color:var(--text);font-size:0.9rem">' + (s.bias_om !== null ? s.bias_om : '—') + '</div><div class="dc-sub">kn (stazione - OM)</div></div>';
+  html += '<div class="detail-card"><div class="dc-label">Bias AROME</div><div class="dc-val" style="color:var(--text);font-size:0.9rem">' + (s.bias_arome !== null ? s.bias_arome : '—') + '</div><div class="dc-sub">kn (stazione - AROME)</div></div>';
+  html += '<div class="detail-card" style="grid-column:1/-1"><div class="dc-label">AROME migliore di OM di</div><div class="dc-val" style="color:' + diffColor + ';font-size:1rem">' + diffStr + '</div><div class="dc-sub">positivo = AROME più preciso · campioni totali: ' + s.n + '</div></div>';
+  html += '</div>';
+
+  document.getElementById('detail-content').innerHTML = html;
+  document.getElementById('detail').classList.add('open');
+}
+
+function closeDetail() {
+  document.getElementById('detail').classList.remove('open');
+}
+
+load();
+</script>
+</body>
+</html>
 

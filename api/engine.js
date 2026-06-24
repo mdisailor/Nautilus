@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.25 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.26 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
@@ -1944,7 +1944,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.25', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.26', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -4833,6 +4833,112 @@ if (action === 'bias_stats') {
 }
 
 // action=mae_compare -- confronto MAE OM vs AROME per tutte le stazioni con bias_samples
+// action=bias_matrix -- bias storico stratificato per stazione × fascia velocità × settore × slot orario
+// Usato da OI in mappa.html per correggere la griglia con bias storici invece del singolo campione istantaneo
+if (action === 'bias_matrix') {
+  try {
+    var bmStations = [
+      'livorno','canale_piombino','viareggio','capraia_w','portoferraio','alberese','luri',
+      'barcaggio','bonifacio_pertusato','vada',
+      'gorgona_cfr','capraia_cfr','giglio_porto','giglio_castello','montecristo','portoferraio_cfr',
+      'orbetello','svincenzo_porto','casotto_pescatori','venturina','forte_dei_marmi','lido_camaiore',
+      'bocca_arno_cfr','follonica','capalbio'
+    ];
+    var bmSpeeds = [
+      { key:'low',  min:0,  max:8   },
+      { key:'mid',  min:8,  max:15  },
+      { key:'high', min:15, max:999 }
+    ];
+    var bmSectors = [
+      { key:'N', min:315, max:360, min2:0,   max2:45  },
+      { key:'E', min:45,  max:135, min2:null           },
+      { key:'S', min:135, max:225, min2:null           },
+      { key:'W', min:225, max:315, min2:null           }
+    ];
+
+    function bmInSector(dir, sec) {
+      if (dir === null || dir === undefined) return false;
+      if (sec.min2 !== null) return (dir >= sec.min && dir <= 360) || (dir >= 0 && dir <= sec.max2);
+      return dir >= sec.min && dir < sec.max;
+    }
+
+    function bmSlot(ts) {
+      if (!ts) return 'unknown';
+      var h = new Date(ts).getUTCHours() + 2; // UTC+2 approssimativo
+      if (h >= 24) h -= 24;
+      return h >= 6 && h < 14 ? 'morning' : 'afternoon';
+    }
+
+    var bmResults = {};
+    for (var bmi = 0; bmi < bmStations.length; bmi++) {
+      var bmId = bmStations[bmi];
+      try {
+        var bmSamples = await kvGet('bias_samples:' + bmId, kvUrl, kvToken);
+        if (!Array.isArray(bmSamples) || bmSamples.length === 0) {
+          bmResults[bmId] = null;
+          continue;
+        }
+
+        // Filtra campioni con delta valido
+        var bmValid = bmSamples.filter(function(s) {
+          return s.delta && s.delta.wind_kt !== null &&
+                 s.om && s.om.wind_kt !== null && s.om.direction !== null;
+        });
+
+        if (bmValid.length === 0) { bmResults[bmId] = null; continue; }
+
+        // Costruisce matrice stratificata
+        var bmMatrix = {};
+        bmSpeeds.forEach(function(spd) {
+          bmSectors.forEach(function(sec) {
+            ['morning','afternoon'].forEach(function(slot) {
+              var key = spd.key + '_' + sec.key + '_' + slot;
+              var filtered = bmValid.filter(function(s) {
+                var v = s.om.wind_kt;
+                var d = s.om.direction;
+                var sl = bmSlot(s.ts);
+                return v >= spd.min && v < spd.max && bmInSector(d, sec) && sl === slot;
+              });
+              if (filtered.length === 0) { bmMatrix[key] = null; return; }
+              var biasOm = filtered.reduce(function(a,s){ return a + s.delta.wind_kt; }, 0) / filtered.length;
+              var biasAr = null;
+              var filteredAr = filtered.filter(function(s){ return s.delta_arome && s.delta_arome.wind_kt !== null; });
+              if (filteredAr.length > 0) {
+                biasAr = filteredAr.reduce(function(a,s){ return a + s.delta_arome.wind_kt; }, 0) / filteredAr.length;
+              }
+              bmMatrix[key] = {
+                n: filtered.length,
+                bias_om: Math.round(biasOm * 100) / 100,
+                bias_arome: biasAr !== null ? Math.round(biasAr * 100) / 100 : null,
+                // Usa AROME se ha meno bias assoluto di OM e ha abbastanza campioni
+                preferred: (biasAr !== null && filteredAr.length >= 5 && Math.abs(biasAr) < Math.abs(biasOm)) ? 'arome' : 'om',
+                bias_preferred: (biasAr !== null && filteredAr.length >= 5 && Math.abs(biasAr) < Math.abs(biasOm)) ? Math.round(biasAr * 100) / 100 : Math.round(biasOm * 100) / 100
+              };
+            });
+          });
+        });
+
+        // Bias globale come fallback per celle senza dati sufficienti
+        var bmGlobalBiasOm = bmValid.reduce(function(a,s){ return a + s.delta.wind_kt; }, 0) / bmValid.length;
+        var bmValidAr = bmValid.filter(function(s){ return s.delta_arome && s.delta_arome.wind_kt !== null; });
+        var bmGlobalBiasAr = bmValidAr.length > 0 ? bmValidAr.reduce(function(a,s){ return a + s.delta_arome.wind_kt; }, 0) / bmValidAr.length : null;
+
+        bmResults[bmId] = {
+          n_total: bmValid.length,
+          global_bias_om: Math.round(bmGlobalBiasOm * 100) / 100,
+          global_bias_arome: bmGlobalBiasAr !== null ? Math.round(bmGlobalBiasAr * 100) / 100 : null,
+          global_preferred: (bmGlobalBiasAr !== null && Math.abs(bmGlobalBiasAr) < Math.abs(bmGlobalBiasOm)) ? 'arome' : 'om',
+          global_bias_preferred: (bmGlobalBiasAr !== null && Math.abs(bmGlobalBiasAr) < Math.abs(bmGlobalBiasOm)) ? Math.round(bmGlobalBiasAr * 100) / 100 : Math.round(bmGlobalBiasOm * 100) / 100,
+          matrix: bmMatrix
+        };
+      } catch(bmE) { bmResults[bmId] = null; }
+    }
+    return res.status(200).json({ stations: bmResults, generated_at: new Date().toISOString() });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
 if (action === 'mae_compare') {
   try {
     var mcStations = [
@@ -4905,7 +5011,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.25 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.26 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -5032,4 +5138,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.25
+// Fine codice - NAUTILUS ENGINE v2.13.26

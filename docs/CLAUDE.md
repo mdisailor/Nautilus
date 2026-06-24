@@ -5,6 +5,21 @@ Aggiornato: 2026-06-23 | Versione riferimento: engine v2.13.25
 
 ---
 
+## Link raw GitHub (da leggere all'inizio di ogni sessione)
+
+```
+https://raw.githubusercontent.com/mdisailor/Nautilus/refs/heads/main/docs/CLAUDE.md
+https://raw.githubusercontent.com/mdisailor/Nautilus/refs/heads/main/docs/METODOLOGIA.md
+https://raw.githubusercontent.com/mdisailor/Nautilus/refs/heads/main/docs/ROADMAP.md
+https://raw.githubusercontent.com/mdisailor/Nautilus/refs/heads/main/api/engine.js
+https://raw.githubusercontent.com/mdisailor/Nautilus/refs/heads/main/index.html
+https://raw.githubusercontent.com/mdisailor/Nautilus/refs/heads/main/mappa.html
+```
+
+**Istruzioni per Claude all'inizio sessione**: leggi prima i tre .md per il contesto, poi i file di codice solo se la sessione li tocca — index.html e engine.js sono grandi, consumano contesto, leggili solo se necessario.
+
+---
+
 ## Stack tecnico
 
 | Componente | Dettaglio |

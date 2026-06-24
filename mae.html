@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS MAE Compare v1.0</title>
+<title>NAUTILUS MAE Compare v1.1</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -109,7 +109,7 @@ html,body{min-height:100%;background:var(--bg);font-family:'DM Mono',monospace;c
 <div id="nav">
   <div style="display:flex;align-items:center">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <div id="nav-ver">mae v1.0</div>
+    <div id="nav-ver">mae v1.1</div>
   </div>
   <a id="nav-back" href="#" onclick="event.preventDefault();var p=prompt('Password:');if(p==='mdi'){window.location.href='/?k=mdi'}">APP</a>
 </div>
@@ -293,8 +293,88 @@ function showDetail(id) {
   html += '<div class="detail-card" style="grid-column:1/-1"><div class="dc-label">AROME migliore di OM di</div><div class="dc-val" style="color:' + diffColor + ';font-size:1rem">' + diffStr + '</div><div class="dc-sub">positivo = AROME più preciso · campioni totali: ' + s.n + '</div></div>';
   html += '</div>';
 
+  // Matrice stratificata — carica campioni grezzi e calcola
+  html += '<div style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--accent);letter-spacing:0.1em;text-transform:uppercase;margin:14px 0 6px;border-top:1px solid var(--border);padding-top:10px">Matrice MAE per velocità × settore</div>';
+  html += '<div id="matrix-' + id + '" style="font-size:0.55rem;color:var(--muted)">Caricamento...</div>';
+
   document.getElementById('detail-content').innerHTML = html;
   document.getElementById('detail').classList.add('open');
+
+  // Fetch campioni grezzi per matrice
+  fetch(ENGINE_URL + '?action=bias_history&station=' + id + '&limit=100&k=' + SECRET)
+    .then(function(r){ return r.json(); })
+    .then(function(data){ renderMatrix(id, data.samples || []); })
+    .catch(function(){ document.getElementById('matrix-' + id).textContent = 'Errore caricamento campioni'; });
+}
+
+function renderMatrix(id, samples) {
+  var el = document.getElementById('matrix-' + id);
+  if (!el) return;
+
+  var speeds = [
+    { label: '<8 kt',   min: 0,  max: 8  },
+    { label: '8-15 kt', min: 8,  max: 15 },
+    { label: '>15 kt',  min: 15, max: 999 }
+  ];
+  var sectors = [
+    { label: 'N',  min: 315, max: 360, min2: 0, max2: 45  },
+    { label: 'E',  min: 45,  max: 135, min2: null },
+    { label: 'S',  min: 135, max: 225, min2: null },
+    { label: 'W',  min: 225, max: 315, min2: null }
+  ];
+
+  function inSector(dir, sec) {
+    if (dir === null || dir === undefined) return false;
+    if (sec.min2 !== null) return (dir >= sec.min && dir <= 360) || (dir >= 0 && dir <= sec.max2);
+    return dir >= sec.min && dir < sec.max;
+  }
+
+  // Costruisce una cella MAE OM / AROME per combinazione velocità+settore
+  function cellMAE(spd, sec) {
+    var filtered = samples.filter(function(s) {
+      if (!s.om || s.om.wind_kt === null) return false;
+      var v = s.om.wind_kt;
+      return v >= spd.min && v < spd.max && inSector(s.om.direction, sec);
+    });
+    var omVals = filtered.filter(function(s){ return s.delta && s.delta.wind_kt !== null; });
+    var arVals = filtered.filter(function(s){ return s.delta_arome && s.delta_arome.wind_kt !== null; });
+    var maeOm = omVals.length > 0 ? Math.round(omVals.reduce(function(a,s){ return a + Math.abs(s.delta.wind_kt); }, 0) / omVals.length * 10) / 10 : null;
+    var maeAr = arVals.length > 0 ? Math.round(arVals.reduce(function(a,s){ return a + Math.abs(s.delta_arome.wind_kt); }, 0) / arVals.length * 10) / 10 : null;
+    return { maeOm: maeOm, maeAr: maeAr, n: filtered.length };
+  }
+
+  // Render tabella
+  var t = '<table style="width:100%;border-collapse:collapse;font-size:0.52rem">';
+  // Header settori
+  t += '<tr><th style="padding:3px;color:var(--muted);text-align:left">vel \\ dir</th>';
+  sectors.forEach(function(sec){
+    t += '<th style="padding:3px;color:var(--muted);text-align:center">' + sec.label + '</th>';
+  });
+  t += '</tr>';
+  // Righe velocità
+  speeds.forEach(function(spd) {
+    t += '<tr><td style="padding:3px;color:var(--text);white-space:nowrap">' + spd.label + '</td>';
+    sectors.forEach(function(sec) {
+      var c = cellMAE(spd, sec);
+      if (c.n === 0) {
+        t += '<td style="padding:3px;text-align:center;color:var(--border)">—</td>';
+      } else {
+        var winner = (c.maeOm !== null && c.maeAr !== null) ? (c.maeAr < c.maeOm ? 'arome' : c.maeOm < c.maeAr ? 'om' : 'tie') : 'nodata';
+        var bg = winner === 'arome' ? 'rgba(10,240,255,0.08)' : winner === 'om' ? 'rgba(255,170,0,0.08)' : 'transparent';
+        var omStr = c.maeOm !== null ? '<span style="color:var(--gold)">' + c.maeOm + '</span>' : '—';
+        var arStr = c.maeAr !== null ? '<span style="color:var(--accent)">' + c.maeAr + '</span>' : '—';
+        t += '<td style="padding:3px;text-align:center;background:' + bg + ';border-radius:3px">';
+        t += omStr + '<br>' + arStr;
+        t += '<div style="color:var(--muted);font-size:0.45rem">n=' + c.n + '</div>';
+        t += '</td>';
+      }
+    });
+    t += '</tr>';
+  });
+  t += '</table>';
+  t += '<div style="color:var(--muted);font-size:0.5rem;margin-top:6px">Ambra=OM · Ciano=AROME · sfondo colorato = vincitore · n = campioni</div>';
+
+  el.innerHTML = t;
 }
 
 function closeDetail() {
@@ -305,4 +385,3 @@ load();
 </script>
 </body>
 </html>
-

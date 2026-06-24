@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.6.26 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS MAPPA v1.6.28 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.6.26</title>
+<title>NAUTILUS Mappa Vento v1.6.28</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -199,7 +199,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.6.26</span>
+    <span id="nav-ver">mappa v1.6.28</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -264,11 +264,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.6.26 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.6.28 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.6.26
+// NAUTILUS MAPPA v1.6.28
 
 var ENGINE_URL = '/api/engine';
 
@@ -1048,8 +1048,10 @@ function activeGrid(){
 // Rif: Gandin 1963 OI; Hieta et al. 2025 FMI (-24-29% RMSE)
 // ============================================================
 var oiEnabled = false;
-var OI_MAX_DIST_KM = 120;
+var OI_MAX_DIST_KM = 60;
 var OI_MIN_STATIONS = 2;
+// Stazioni escluse da OI: dati inaffidabili, in osservazione. Rimuovere quando promosse.
+var OI_EXCLUDED = { 'bonifacio_pertusato': true, 'vada': true };
 var state_biasMatrix = null; // Cache bias_matrix caricata all'avvio
 
 // Carica bias_matrix all'avvio e la aggiorna ogni ora
@@ -1121,7 +1123,8 @@ function applyOI(gridData, stationData){
 
   var validStations = stationData.filter(function(s){
     return s && s.speed !== null && s.speed !== undefined && !isNaN(s.speed) &&
-           s.dir !== null && s.dir !== undefined && !isNaN(s.dir);
+           s.dir !== null && s.dir !== undefined && !isNaN(s.dir) &&
+           !OI_EXCLUDED[s.key];
   });
   if (validStations.length === 0) return gridData;
 
@@ -1452,7 +1455,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.6.26
+// Fine codice - NAUTILUS MAPPA v1.6.28
 </script>
 </body>
 </html>

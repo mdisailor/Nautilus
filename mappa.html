@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.6.24 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS MAPPA v1.6.25 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.6.24</title>
+<title>NAUTILUS Mappa Vento v1.6.25</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -187,7 +187,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.6.24</span>
+    <span id="nav-ver">mappa v1.6.25</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -213,6 +213,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   <button id="btn-gps" title="Posizione GPS">GPS</button>
   <button id="btn-refresh" title="Aggiorna">AGG</button>
   <button id="btn-flow" title="Animazione flusso vento">&#x1F300;<br>FLOW</button>
+  <button id="btn-oi" title="Correzione Optimal Interpolation: applica bias stazioni reali alla griglia OM" style="font-size:0.5rem;padding:4px 6px;background:rgba(0,230,118,0.1);border:1px solid #4a7a9b;border-radius:6px;color:#4a7a9b;cursor:pointer;letter-spacing:0.05em">OI<br>OFF</button>
   <div id="flow-mode-btns">
     <button class="btn-fmode" id="fmode-om"  title="Flusso basato su griglia Open-Meteo">OM</button>
     <button class="btn-fmode active" id="fmode-nau" title="Flusso basato su zone Nautilus + stazioni">NAU</button>
@@ -251,11 +252,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.6.24 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.6.25 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.6.24
+// NAUTILUS MAPPA v1.6.25
 
 var ENGINE_URL = '/api/engine';
 
@@ -339,7 +340,7 @@ for (var _la = 40.0; _la <= 44.6; _la = Math.round((_la+0.25)*100)/100) {
   }
 }
 
-var state = { zoneData:{}, gridData:[], stationData:[], gpsMarker:null, gpsCircle:null, lastUpdate:null };
+var state = { zoneData:{}, gridData:[], gridDataOI:[], stationData:[], gpsMarker:null, gpsCircle:null, lastUpdate:null };
 
 // MAPPA
 var map = L.map('map', {
@@ -485,7 +486,7 @@ function drawWind(){
   var zoom = map.getZoom();
   var minPx = zoom >= 10 ? 18 : zoom >= 9 ? 22 : 30;
   var drawn = [];
-  state.gridData.forEach(function(pt){
+  activeGrid().forEach(function(pt){
     if (!bounds.contains([pt.lat, pt.lon])) return;
     var ll = map.latLngToContainerPoint([pt.lat, pt.lon]);
     for (var di = 0; di < drawn.length; di++){
@@ -629,11 +630,11 @@ map.on('click', function(e){
     var dz = Math.abs(ZONES[zi].lat - clickLat) + Math.abs(ZONES[zi].lon - clickLon);
     if (dz < zoneThresh) return; // vicino a zona, ignora
   }
-  if (state.gridData.length === 0) return;
+  if (activeGrid().length === 0) return;
 
   // Trova punto griglia piu' vicino
   var best = null, bestDist = 999;
-  state.gridData.forEach(function(pt){
+  activeGrid().forEach(function(pt){
     var d = Math.sqrt(Math.pow(pt.lat - clickLat,2) + Math.pow(pt.lon - clickLon,2));
     if (d < bestDist){ bestDist = d; best = pt; }
   });
@@ -735,7 +736,7 @@ function buildVectorField(){
 
   // Sorgenti OM
   var omSources = [];
-  state.gridData.forEach(function(pt){
+  activeGrid().forEach(function(pt){
     var px = map.latLngToContainerPoint([pt.lat, pt.lon]);
     if (px.x < -50 || px.x > W+50 || px.y < -50 || px.y > H+50) return;
     var rad = pt.dir * Math.PI / 180;
@@ -830,7 +831,7 @@ function drawColorLayer(){
 
   var colorPoints = [];
   if (mode === 'om' || mode === 'all') {
-    state.gridData.forEach(function(pt){
+    activeGrid().forEach(function(pt){
       var px = map.latLngToContainerPoint([pt.lat, pt.lon]);
       if (px.x < -cellSize || px.x > W+cellSize || px.y < -cellSize || px.y > H+cellSize) return;
       colorPoints.push({x: px.x, y: px.y, spd: pt.speed});
@@ -1022,11 +1023,109 @@ document.getElementById('btn-flow').addEventListener('click', function(){
 });
 
 // LOAD ALL
+function activeGrid(){
+  return (oiEnabled && state.gridDataOI && state.gridDataOI.length > 0) ? state.gridDataOI : state.gridData;
+}
+
+// ============================================================
+// OPTIMAL INTERPOLATION (OI) — v1.0 — 2026-06-24
+// Corregge il campo OM usando le stazioni reali come punti di verità.
+// Metodo: IDW (Inverse Distance Weighting) sul campo di bias.
+// Per ogni punto griglia: correzione = somma(bias_i / dist_i^2) / somma(1/dist_i^2)
+// dove bias_i = stazione_i.speed - OM_nel_punto_più_vicino_alla_stazione_i
+// Rif: Gandin 1963 OI; Hieta et al. 2025 FMI (-24-29% RMSE)
+// ============================================================
+var oiEnabled = false;
+var OI_MAX_DIST_KM = 120;  // Stazioni oltre questa distanza non influenzano il punto
+var OI_MIN_STATIONS = 2;   // Almeno N stazioni vicine per applicare correzione
+
+function degToRad(d){ return d * Math.PI / 180; }
+
+function haversineKm(lat1, lon1, lat2, lon2){
+  var R = 6371;
+  var dLat = degToRad(lat2 - lat1);
+  var dLon = degToRad(lon2 - lon1);
+  var a = Math.sin(dLat/2)*Math.sin(dLat/2) +
+          Math.cos(degToRad(lat1))*Math.cos(degToRad(lat2))*
+          Math.sin(dLon/2)*Math.sin(dLon/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function applyOI(gridData, stationData){
+  if (!oiEnabled) return gridData;
+  if (!stationData || stationData.length === 0) return gridData;
+
+  // Filtra stazioni con dato valido
+  var validStations = stationData.filter(function(s){
+    return s && s.speed !== null && s.speed !== undefined && !isNaN(s.speed) &&
+           s.dir !== null && s.dir !== undefined && !isNaN(s.dir);
+  });
+  if (validStations.length === 0) return gridData;
+
+  // Per ogni stazione, trova il punto griglia più vicino e calcola bias locale
+  var stationBiases = validStations.map(function(st){
+    var bestDist = Infinity;
+    var bestPt = null;
+    gridData.forEach(function(pt){
+      var d = haversineKm(st.lat, st.lon, pt.lat, pt.lon);
+      if (d < bestDist){ bestDist = d; bestPt = pt; }
+    });
+    var omSpeed = bestPt ? bestPt.speed : null;
+    var bias = (omSpeed !== null && omSpeed !== undefined) ? st.speed - omSpeed : null;
+    return { lat: st.lat, lon: st.lon, bias: bias, key: st.key };
+  }).filter(function(s){ return s.bias !== null && Math.abs(s.bias) < 20; }); // Scarta outlier >20kt
+
+  if (stationBiases.length === 0) return gridData;
+
+  // Applica correzione IDW a ogni punto griglia
+  return gridData.map(function(pt){
+    var sumW = 0, sumBiasW = 0, nValid = 0;
+    stationBiases.forEach(function(st){
+      var d = haversineKm(pt.lat, pt.lon, st.lat, st.lon);
+      if (d > OI_MAX_DIST_KM) return;
+      if (d < 0.5) d = 0.5; // Evita divisione per zero
+      var w = 1 / (d * d);
+      sumW += w;
+      sumBiasW += st.bias * w;
+      nValid++;
+    });
+    if (nValid < OI_MIN_STATIONS || sumW === 0) return pt; // Non abbastanza stazioni vicine
+    var correction = sumBiasW / sumW;
+    // Applica correzione con smoothing: non più di 5kt di correzione per evitare artefatti
+    correction = Math.max(-5, Math.min(5, correction));
+    var correctedSpeed = Math.max(0, pt.speed + correction);
+    return Object.assign({}, pt, { speed: correctedSpeed, oi_correction: Math.round(correction * 10) / 10 });
+  });
+}
+
+// Toggle OI
+document.addEventListener('DOMContentLoaded', function(){
+  var btnOI = document.getElementById('btn-oi');
+  if (btnOI) {
+    btnOI.addEventListener('click', function(){
+      oiEnabled = !oiEnabled;
+      btnOI.textContent = oiEnabled ? 'OI\nON' : 'OI\nOFF';
+      btnOI.innerHTML = oiEnabled ? 'OI<br>ON' : 'OI<br>OFF';
+      btnOI.style.color = oiEnabled ? '#00e676' : '#4a7a9b';
+      btnOI.style.borderColor = oiEnabled ? '#00e676' : '#4a7a9b';
+      btnOI.style.background = oiEnabled ? 'rgba(0,230,118,0.15)' : 'rgba(0,230,118,0.1)';
+      // Ricalcola griglia con/senza correzione e ridisegna
+      if (state.gridData.length > 0 && state.stationData.length > 0) {
+        state.gridDataOI = applyOI(state.gridData, state.stationData);
+        drawWind();
+        if (particleState.active) rebuildAndAnimate();
+      }
+    });
+  }
+});
+
 async function loadAll(){
   document.getElementById('btn-refresh').style.opacity = '0.4';
   setHud('load', 'Caricamento...');
   try {
     await Promise.all([fetchZoneData(), fetchGridData(), fetchStationData()]);
+    // Applica Optimal Interpolation se attiva
+    state.gridDataOI = applyOI(state.gridData, state.stationData);
     updateZoneMarkers();
     resizeCanvas();
     drawWind();
@@ -1282,7 +1381,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.6.24
+// Fine codice - NAUTILUS MAPPA v1.6.25
 </script>
 </body>
 </html>

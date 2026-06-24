@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.26 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.27 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
@@ -1944,7 +1944,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.26', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.27', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -4920,15 +4920,23 @@ if (action === 'bias_matrix') {
 
         // Bias globale come fallback per celle senza dati sufficienti
         var bmGlobalBiasOm = bmValid.reduce(function(a,s){ return a + s.delta.wind_kt; }, 0) / bmValid.length;
+        var bmGlobalMaeOm  = bmValid.reduce(function(a,s){ return a + Math.abs(s.delta.wind_kt); }, 0) / bmValid.length;
         var bmValidAr = bmValid.filter(function(s){ return s.delta_arome && s.delta_arome.wind_kt !== null; });
         var bmGlobalBiasAr = bmValidAr.length > 0 ? bmValidAr.reduce(function(a,s){ return a + s.delta_arome.wind_kt; }, 0) / bmValidAr.length : null;
+        var bmGlobalMaeAr  = bmValidAr.length > 0 ? bmValidAr.reduce(function(a,s){ return a + Math.abs(s.delta_arome.wind_kt); }, 0) / bmValidAr.length : null;
+        // reliability_weight: inversamente proporzionale al MAE globale OM (0.1=inaffidabile, 1.0=perfetta)
+        // Formula: 1 / (1 + MAE) normalizzata — stazione con MAE=0.5 pesa ~0.67, MAE=3 pesa ~0.25, MAE=6 pesa ~0.14
+        var bmReliability = Math.round((1 / (1 + bmGlobalMaeOm)) * 100) / 100;
 
         bmResults[bmId] = {
           n_total: bmValid.length,
           global_bias_om: Math.round(bmGlobalBiasOm * 100) / 100,
           global_bias_arome: bmGlobalBiasAr !== null ? Math.round(bmGlobalBiasAr * 100) / 100 : null,
+          global_mae_om: Math.round(bmGlobalMaeOm * 100) / 100,
+          global_mae_arome: bmGlobalMaeAr !== null ? Math.round(bmGlobalMaeAr * 100) / 100 : null,
           global_preferred: (bmGlobalBiasAr !== null && Math.abs(bmGlobalBiasAr) < Math.abs(bmGlobalBiasOm)) ? 'arome' : 'om',
           global_bias_preferred: (bmGlobalBiasAr !== null && Math.abs(bmGlobalBiasAr) < Math.abs(bmGlobalBiasOm)) ? Math.round(bmGlobalBiasAr * 100) / 100 : Math.round(bmGlobalBiasOm * 100) / 100,
+          reliability_weight: bmReliability,
           matrix: bmMatrix
         };
       } catch(bmE) { bmResults[bmId] = null; }
@@ -5011,7 +5019,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.26 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.27 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -5138,4 +5146,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.26
+// Fine codice - NAUTILUS ENGINE v2.13.27

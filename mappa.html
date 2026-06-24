@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.6.25 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS MAPPA v1.6.26 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.6.25</title>
+<title>NAUTILUS Mappa Vento v1.6.26</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -199,7 +199,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.6.25</span>
+    <span id="nav-ver">mappa v1.6.26</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -264,11 +264,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.6.25 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.6.26 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.6.25
+// NAUTILUS MAPPA v1.6.26
 
 var ENGINE_URL = '/api/engine';
 
@@ -1048,8 +1048,18 @@ function activeGrid(){
 // Rif: Gandin 1963 OI; Hieta et al. 2025 FMI (-24-29% RMSE)
 // ============================================================
 var oiEnabled = false;
-var OI_MAX_DIST_KM = 120;  // Stazioni oltre questa distanza non influenzano il punto
-var OI_MIN_STATIONS = 2;   // Almeno N stazioni vicine per applicare correzione
+var OI_MAX_DIST_KM = 120;
+var OI_MIN_STATIONS = 2;
+var state_biasMatrix = null; // Cache bias_matrix caricata all'avvio
+
+// Carica bias_matrix all'avvio e la aggiorna ogni ora
+async function fetchBiasMatrix(){
+  try {
+    var r = await fetch(ENGINE_URL + '?action=bias_matrix', {cache:'no-store'});
+    var d = await r.json();
+    state_biasMatrix = d.stations || null;
+  } catch(e){ console.warn('bias_matrix fetch error:', e.message); }
+}
 
 function degToRad(d){ return d * Math.PI / 180; }
 
@@ -1063,47 +1073,99 @@ function haversineKm(lat1, lon1, lat2, lon2){
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
+// Determina fascia velocità dalla velocità OM nel punto
+function bmSpeedKey(v){
+  if (v === null || v === undefined) return null;
+  if (v < 8)  return 'low';
+  if (v < 15) return 'mid';
+  return 'high';
+}
+
+// Determina settore dai gradi
+function bmSectorKey(dir){
+  if (dir === null || dir === undefined) return null;
+  if (dir >= 315 || dir < 45)  return 'N';
+  if (dir >= 45  && dir < 135) return 'E';
+  if (dir >= 135 && dir < 225) return 'S';
+  return 'W';
+}
+
+// Slot orario corrente (ora locale Italia approssimativa)
+function bmCurrentSlot(){
+  var h = new Date().getUTCHours() + 2;
+  if (h >= 24) h -= 24;
+  return (h >= 6 && h < 14) ? 'morning' : 'afternoon';
+}
+
+// Legge il bias storico per una stazione in base alle condizioni OM locali
+// Usa la matrice stratificata se disponibile, altrimenti fallback al bias globale
+function getBiasForConditions(stationId, omSpeed, omDir){
+  if (!state_biasMatrix || !state_biasMatrix[stationId]) return null;
+  var bm = state_biasMatrix[stationId];
+  var spdKey = bmSpeedKey(omSpeed);
+  var secKey = bmSectorKey(omDir);
+  var slot   = bmCurrentSlot();
+  if (spdKey && secKey) {
+    var matrixKey = spdKey + '_' + secKey + '_' + slot;
+    var cell = bm.matrix && bm.matrix[matrixKey];
+    // Usa cella matrice solo se ha abbastanza campioni (almeno 5)
+    if (cell && cell.n >= 5) return cell.bias_preferred;
+  }
+  // Fallback: bias globale
+  return bm.global_bias_preferred !== undefined ? bm.global_bias_preferred : null;
+}
+
 function applyOI(gridData, stationData){
   if (!oiEnabled) return gridData;
   if (!stationData || stationData.length === 0) return gridData;
 
-  // Filtra stazioni con dato valido
   var validStations = stationData.filter(function(s){
     return s && s.speed !== null && s.speed !== undefined && !isNaN(s.speed) &&
            s.dir !== null && s.dir !== undefined && !isNaN(s.dir);
   });
   if (validStations.length === 0) return gridData;
 
-  // Per ogni stazione, trova il punto griglia più vicino e calcola bias locale
+  // Per ogni stazione, calcola bias da usare per OI
+  // Priorità: bias storico stratificato (bias_matrix) > bias istantaneo > scarta
   var stationBiases = validStations.map(function(st){
-    var bestDist = Infinity;
-    var bestPt = null;
+    // Trova punto griglia più vicino per leggere le condizioni OM locali
+    var bestDist = Infinity, bestPt = null;
     gridData.forEach(function(pt){
       var d = haversineKm(st.lat, st.lon, pt.lat, pt.lon);
       if (d < bestDist){ bestDist = d; bestPt = pt; }
     });
     var omSpeed = bestPt ? bestPt.speed : null;
-    var bias = (omSpeed !== null && omSpeed !== undefined) ? st.speed - omSpeed : null;
+    var omDir   = bestPt ? bestPt.dir   : null;
+
+    // 1. Prova bias storico stratificato
+    var bias = getBiasForConditions(st.key, omSpeed, omDir);
+
+    // 2. Fallback: bias istantaneo (stazione attuale - OM attuale)
+    if (bias === null && omSpeed !== null) {
+      bias = st.speed - omSpeed;
+      // Scarta bias istantanici troppo grandi (outlier)
+      if (Math.abs(bias) > 15) bias = null;
+    }
+
     return { lat: st.lat, lon: st.lon, bias: bias, key: st.key };
-  }).filter(function(s){ return s.bias !== null && Math.abs(s.bias) < 20; }); // Scarta outlier >20kt
+  }).filter(function(s){ return s.bias !== null; });
 
   if (stationBiases.length === 0) return gridData;
 
-  // Applica correzione IDW a ogni punto griglia
+  // Applica IDW a ogni punto griglia
   return gridData.map(function(pt){
     var sumW = 0, sumBiasW = 0, nValid = 0;
     stationBiases.forEach(function(st){
       var d = haversineKm(pt.lat, pt.lon, st.lat, st.lon);
       if (d > OI_MAX_DIST_KM) return;
-      if (d < 0.5) d = 0.5; // Evita divisione per zero
+      if (d < 0.5) d = 0.5;
       var w = 1 / (d * d);
       sumW += w;
       sumBiasW += st.bias * w;
       nValid++;
     });
-    if (nValid < OI_MIN_STATIONS || sumW === 0) return pt; // Non abbastanza stazioni vicine
+    if (nValid < OI_MIN_STATIONS || sumW === 0) return pt;
     var correction = sumBiasW / sumW;
-    // Applica correzione con smoothing: non più di 5kt di correzione per evitare artefatti
     correction = Math.max(-5, Math.min(5, correction));
     var correctedSpeed = Math.max(0, pt.speed + correction);
     return Object.assign({}, pt, { speed: correctedSpeed, oi_correction: Math.round(correction * 10) / 10 });
@@ -1132,7 +1194,7 @@ async function loadAll(){
   document.getElementById('btn-refresh').style.opacity = '0.4';
   setHud('load', 'Caricamento...');
   try {
-    await Promise.all([fetchZoneData(), fetchGridData(), fetchStationData()]);
+    await Promise.all([fetchZoneData(), fetchGridData(), fetchStationData(), fetchBiasMatrix()]);
     // Applica Optimal Interpolation se attiva
     state.gridDataOI = applyOI(state.gridData, state.stationData);
     updateZoneMarkers();
@@ -1390,7 +1452,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.6.25
+// Fine codice - NAUTILUS MAPPA v1.6.26
 </script>
 </body>
 </html>

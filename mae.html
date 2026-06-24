@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS MAE Compare v1.1</title>
+<title>NAUTILUS MAE Compare v1.2</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -109,7 +109,7 @@ html,body{min-height:100%;background:var(--bg);font-family:'DM Mono',monospace;c
 <div id="nav">
   <div style="display:flex;align-items:center">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <div id="nav-ver">mae v1.1</div>
+    <div id="nav-ver">mae v1.2</div>
   </div>
   <a id="nav-back" href="#" onclick="event.preventDefault();var p=prompt('Password:');if(p==='mdi'){window.location.href='/?k=mdi'}">APP</a>
 </div>
@@ -282,7 +282,8 @@ function showDetail(id) {
   var diff = (s.mae_om !== null && s.mae_arome !== null)
     ? Math.round((s.mae_om - s.mae_arome) * 100) / 100 : null;
   var diffStr = diff !== null ? (diff > 0 ? '+' + diff : '' + diff) + ' kn' : '—';
-  var diffColor = diff !== null ? (diff > 0 ? 'var(--safe)' : diff < 0 ? 'var(--danger)' : 'var(--muted)') : 'var(--muted)';
+  var diffColor = diff !== null ? (diff > 0 ? 'var(--accent)' : diff < 0 ? 'var(--gold)' : 'var(--muted)') : 'var(--muted)';
+  var diffWinner = diff !== null ? (diff > 0 ? 'AROME più preciso di OM di' : diff < 0 ? 'OM più preciso di AROME di' : 'Pari') : 'Confronto non disponibile';
 
   var html = '<div class="detail-title">' + name + '</div>';
   html += '<div class="detail-grid">';
@@ -290,7 +291,7 @@ function showDetail(id) {
   html += '<div class="detail-card"><div class="dc-label">MAE AROME</div><div class="dc-val" style="color:var(--accent)">' + (s.mae_arome !== null ? s.mae_arome : '—') + '</div><div class="dc-sub">kn · n=' + s.n_arome + '</div></div>';
   html += '<div class="detail-card"><div class="dc-label">Bias OM</div><div class="dc-val" style="color:var(--text);font-size:0.9rem">' + (s.bias_om !== null ? s.bias_om : '—') + '</div><div class="dc-sub">kn (stazione - OM)</div></div>';
   html += '<div class="detail-card"><div class="dc-label">Bias AROME</div><div class="dc-val" style="color:var(--text);font-size:0.9rem">' + (s.bias_arome !== null ? s.bias_arome : '—') + '</div><div class="dc-sub">kn (stazione - AROME)</div></div>';
-  html += '<div class="detail-card" style="grid-column:1/-1"><div class="dc-label">AROME migliore di OM di</div><div class="dc-val" style="color:' + diffColor + ';font-size:1rem">' + diffStr + '</div><div class="dc-sub">positivo = AROME più preciso · campioni totali: ' + s.n + '</div></div>';
+  html += '<div class="detail-card" style="grid-column:1/-1"><div class="dc-label">' + diffWinner + '</div><div class="dc-val" style="color:' + diffColor + ';font-size:1rem">' + (diff !== null ? Math.abs(diff) + ' kn' : '—') + '</div><div class="dc-sub">campioni totali: ' + s.n + '</div></div>';
   html += '</div>';
 
   // Matrice stratificata — carica campioni grezzi e calcola

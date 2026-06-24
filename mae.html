@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAE COMPARE v1.0 - mdisailor - 2026-06-20 -->
+<!-- NAUTILUS MAE COMPARE v1.3 - mdisailor - 2026-06-24 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS MAE Compare v1.2</title>
+<title>NAUTILUS MAE Compare v1.3</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -29,7 +29,16 @@ html,body{min-height:100%;background:var(--bg);font-family:'DM Mono',monospace;c
 #nav-back{font-size:0.6rem;color:var(--muted);text-decoration:none;letter-spacing:0.1em;border:1px solid var(--border);border-radius:6px;padding:4px 10px;cursor:pointer}
 #nav-back:hover{color:var(--accent);border-color:var(--accent)}
 
-#content{padding:16px;max-width:780px;margin:0 auto}
+/* Layout principale: lista a sinistra, dettaglio a destra su schermi larghi */
+#layout{display:flex;gap:0;align-items:flex-start}
+#content{padding:16px;flex:1;min-width:0}
+#detail-sidebar{
+  display:none;width:360px;flex-shrink:0;
+  position:sticky;top:48px;max-height:calc(100vh - 48px);
+  overflow-y:auto;padding:16px;
+  background:var(--card);border-left:2px solid var(--border);
+}
+#detail-sidebar.open{display:block}
 
 .section-title{
   font-size:0.6rem;color:var(--accent);letter-spacing:0.15em;text-transform:uppercase;
@@ -38,31 +47,23 @@ html,body{min-height:100%;background:var(--bg);font-family:'DM Mono',monospace;c
 
 /* Summary cards */
 #summary{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px}
-.sum-card{
-  background:var(--card);border:1px solid var(--border);border-radius:10px;
-  padding:12px;text-align:center;
-}
+.sum-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center}
 .sum-card .sum-val{font-size:1.6rem;font-weight:bold;margin:4px 0}
 .sum-card .sum-label{font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em}
 .sum-card .sum-sub{font-size:0.6rem;color:var(--text);margin-top:2px}
 
-/* Station table */
+/* Station list */
 #station-list{display:flex;flex-direction:column;gap:6px}
-.st-row{
-  background:var(--card);border:1px solid var(--border);border-radius:8px;
-  padding:10px 12px;cursor:pointer;transition:border-color 0.15s;
-}
+.st-row{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer;transition:border-color 0.15s}
 .st-row:hover{border-color:var(--accent)}
+.st-row.active{border-color:var(--accent);background:rgba(10,240,255,0.05)}
 .st-row.winner-arome{border-left:3px solid var(--accent)}
 .st-row.winner-om{border-left:3px solid var(--gold)}
 .st-row.winner-tie{border-left:3px solid var(--muted)}
 .st-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
 .st-name{font-size:0.75rem;color:var(--white);font-weight:bold}
 .st-n{font-size:0.55rem;color:var(--muted)}
-.winner-badge{
-  font-size:0.55rem;letter-spacing:0.08em;text-transform:uppercase;
-  padding:2px 8px;border-radius:4px;font-weight:bold;
-}
+.winner-badge{font-size:0.55rem;letter-spacing:0.08em;text-transform:uppercase;padding:2px 8px;border-radius:4px;font-weight:bold}
 .badge-arome{background:rgba(10,240,255,0.15);color:var(--accent);border:1px solid var(--accent)}
 .badge-om{background:rgba(255,170,0,0.15);color:var(--gold);border:1px solid var(--gold)}
 .badge-tie{background:rgba(74,122,155,0.2);color:var(--muted);border:1px solid var(--muted)}
@@ -76,30 +77,42 @@ html,body{min-height:100%;background:var(--bg);font-family:'DM Mono',monospace;c
 .bar-fill-arome{background:var(--accent)}
 .bar-val{font-size:0.6rem;width:36px;flex-shrink:0}
 
-/* Detail panel */
-#detail{
+/* Detail panel — mobile: overlay in basso scorrevole */
+#detail-mobile{
   display:none;position:fixed;bottom:0;left:0;right:0;
   background:var(--card);border-top:2px solid var(--border);
-  padding:16px;max-height:50vh;overflow-y:auto;z-index:200;
+  padding:16px;height:60vh;overflow-y:auto;z-index:200;
 }
-#detail.open{display:block}
-#detail-close{
+#detail-mobile.open{display:block}
+#detail-close-mobile{
   position:absolute;top:10px;right:14px;font-size:0.7rem;
   color:var(--muted);cursor:pointer;padding:4px 8px;
 }
-#detail-close:hover{color:var(--accent)}
-.detail-title{font-size:0.8rem;color:var(--white);margin-bottom:10px;font-weight:bold}
+#detail-close-mobile:hover{color:var(--accent)}
+
+/* Detail card style — font più grande */
+.detail-title{font-size:1rem;color:var(--white);margin-bottom:12px;font-weight:bold}
 .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .detail-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center}
-.detail-card .dc-label{font-size:0.5rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em}
-.detail-card .dc-val{font-size:1.2rem;font-weight:bold;margin:4px 0}
-.detail-card .dc-sub{font-size:0.55rem;color:var(--muted)}
+.detail-card .dc-label{font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px}
+.detail-card .dc-val{font-size:1.4rem;font-weight:bold;margin:4px 0}
+.detail-card .dc-sub{font-size:0.65rem;color:var(--muted)}
 
 /* States */
 #loading{text-align:center;padding:60px 20px;color:var(--muted);font-size:0.7rem}
 #error{text-align:center;padding:40px 20px;color:var(--danger);font-size:0.7rem}
 .spinner{display:inline-block;width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:10px}
 @keyframes spin{to{transform:rotate(360deg)}}
+
+/* Su schermi larghi (≥700px) usa sidebar, nascondi mobile overlay */
+@media (min-width:700px){
+  #detail-mobile{display:none !important}
+  #layout{align-items:flex-start}
+}
+/* Su mobile (< 700px) nascondi sidebar, usa overlay */
+@media (max-width:699px){
+  #detail-sidebar{display:none !important}
+}
 
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&display=swap');
 </style>
@@ -109,11 +122,12 @@ html,body{min-height:100%;background:var(--bg);font-family:'DM Mono',monospace;c
 <div id="nav">
   <div style="display:flex;align-items:center">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <div id="nav-ver">mae v1.2</div>
+    <div id="nav-ver">mae v1.3</div>
   </div>
   <a id="nav-back" href="#" onclick="event.preventDefault();var p=prompt('Password:');if(p==='mdi'){window.location.href='/?k=mdi'}">APP</a>
 </div>
 
+<div id="layout">
 <div id="content">
   <div class="section-title">Confronto MAE — OM vs AROME</div>
 
@@ -141,11 +155,22 @@ html,body{min-height:100%;background:var(--bg);font-family:'DM Mono',monospace;c
   </div>
   <div id="error" style="display:none"></div>
   <div id="station-list"></div>
+</div><!-- fine #content -->
+
+<!-- Sidebar dettaglio (desktop ≥700px) -->
+<div id="detail-sidebar">
+  <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+    <span onclick="closeDetail()" style="font-size:0.65rem;color:var(--muted);cursor:pointer;padding:4px 8px;border:1px solid var(--border);border-radius:6px">✕ chiudi</span>
+  </div>
+  <div id="detail-content-sidebar"></div>
 </div>
 
-<div id="detail">
-  <span id="detail-close" onclick="closeDetail()">✕ chiudi</span>
-  <div id="detail-content"></div>
+</div><!-- fine #layout -->
+
+<!-- Overlay dettaglio (mobile <700px) -->
+<div id="detail-mobile">
+  <span id="detail-close-mobile" onclick="closeDetail()">✕ chiudi</span>
+  <div id="detail-content-mobile"></div>
 </div>
 
 <script>
@@ -250,7 +275,7 @@ function render(data) {
     var omColor = s.winner === 'om' ? 'var(--gold)' : 'var(--text)';
     var aromeColor = s.winner === 'arome' ? 'var(--accent)' : 'var(--text)';
 
-    html += '<div class="st-row ' + winnerClass + '" onclick="showDetail(\'' + id + '\')">';
+    html += '<div class="st-row ' + winnerClass + '" data-id="' + id + '" onclick="showDetail(\'' + id + '\')">';
     html += '<div class="st-header">';
     html += '<div><span class="st-name">' + name + '</span> <span class="st-n">n=' + s.n + '</span></div>';
     html += badge;
@@ -298,89 +323,34 @@ function showDetail(id) {
   html += '<div style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--accent);letter-spacing:0.1em;text-transform:uppercase;margin:14px 0 6px;border-top:1px solid var(--border);padding-top:10px">Matrice MAE per velocità × settore</div>';
   html += '<div id="matrix-' + id + '" style="font-size:0.55rem;color:var(--muted)">Caricamento...</div>';
 
-  document.getElementById('detail-content').innerHTML = html;
-  document.getElementById('detail').classList.add('open');
+  // Mostra nel container giusto in base alla viewport
+  var isMobile = window.innerWidth < 700;
+  var matrixElId = 'matrix-' + id + '-' + Date.now();
+  html = html.replace('id="matrix-' + id + '"', 'id="' + matrixElId + '"');
+  if (isMobile) {
+    document.getElementById('detail-content-mobile').innerHTML = html;
+    document.getElementById('detail-mobile').classList.add('open');
+  } else {
+    document.getElementById('detail-content-sidebar').innerHTML = html;
+    document.getElementById('detail-sidebar').classList.add('open');
+  }
+  document.querySelectorAll('.st-row').forEach(function(r){ r.classList.remove('active'); });
+  var activeRow = document.querySelector('.st-row[data-id="' + id + '"]');
+  if (activeRow) activeRow.classList.add('active');
 
   // Fetch campioni grezzi per matrice
   fetch(ENGINE_URL + '?action=bias_history&station=' + id + '&limit=100&k=' + SECRET)
     .then(function(r){ return r.json(); })
-    .then(function(data){ renderMatrix(id, data.samples || []); })
-    .catch(function(){ document.getElementById('matrix-' + id).textContent = 'Errore caricamento campioni'; });
-}
-
-function renderMatrix(id, samples) {
-  var el = document.getElementById('matrix-' + id);
-  if (!el) return;
-
-  var speeds = [
-    { label: '<8 kt',   min: 0,  max: 8  },
-    { label: '8-15 kt', min: 8,  max: 15 },
-    { label: '>15 kt',  min: 15, max: 999 }
-  ];
-  var sectors = [
-    { label: 'N',  min: 315, max: 360, min2: 0, max2: 45  },
-    { label: 'E',  min: 45,  max: 135, min2: null },
-    { label: 'S',  min: 135, max: 225, min2: null },
-    { label: 'W',  min: 225, max: 315, min2: null }
-  ];
-
-  function inSector(dir, sec) {
-    if (dir === null || dir === undefined) return false;
-    if (sec.min2 !== null) return (dir >= sec.min && dir <= 360) || (dir >= 0 && dir <= sec.max2);
-    return dir >= sec.min && dir < sec.max;
-  }
-
-  // Costruisce una cella MAE OM / AROME per combinazione velocità+settore
-  function cellMAE(spd, sec) {
-    var filtered = samples.filter(function(s) {
-      if (!s.om || s.om.wind_kt === null) return false;
-      var v = s.om.wind_kt;
-      return v >= spd.min && v < spd.max && inSector(s.om.direction, sec);
-    });
-    var omVals = filtered.filter(function(s){ return s.delta && s.delta.wind_kt !== null; });
-    var arVals = filtered.filter(function(s){ return s.delta_arome && s.delta_arome.wind_kt !== null; });
-    var maeOm = omVals.length > 0 ? Math.round(omVals.reduce(function(a,s){ return a + Math.abs(s.delta.wind_kt); }, 0) / omVals.length * 10) / 10 : null;
-    var maeAr = arVals.length > 0 ? Math.round(arVals.reduce(function(a,s){ return a + Math.abs(s.delta_arome.wind_kt); }, 0) / arVals.length * 10) / 10 : null;
-    return { maeOm: maeOm, maeAr: maeAr, n: filtered.length };
-  }
-
-  // Render tabella
-  var t = '<table style="width:100%;border-collapse:collapse;font-size:0.52rem">';
-  // Header settori
-  t += '<tr><th style="padding:3px;color:var(--muted);text-align:left">vel \\ dir</th>';
-  sectors.forEach(function(sec){
-    t += '<th style="padding:3px;color:var(--muted);text-align:center">' + sec.label + '</th>';
-  });
-  t += '</tr>';
-  // Righe velocità
-  speeds.forEach(function(spd) {
-    t += '<tr><td style="padding:3px;color:var(--text);white-space:nowrap">' + spd.label + '</td>';
-    sectors.forEach(function(sec) {
-      var c = cellMAE(spd, sec);
-      if (c.n === 0) {
-        t += '<td style="padding:3px;text-align:center;color:var(--border)">—</td>';
-      } else {
-        var winner = (c.maeOm !== null && c.maeAr !== null) ? (c.maeAr < c.maeOm ? 'arome' : c.maeOm < c.maeAr ? 'om' : 'tie') : 'nodata';
-        var bg = winner === 'arome' ? 'rgba(10,240,255,0.08)' : winner === 'om' ? 'rgba(255,170,0,0.08)' : 'transparent';
-        var omStr = c.maeOm !== null ? '<span style="color:var(--gold)">' + c.maeOm + '</span>' : '—';
-        var arStr = c.maeAr !== null ? '<span style="color:var(--accent)">' + c.maeAr + '</span>' : '—';
-        t += '<td style="padding:3px;text-align:center;background:' + bg + ';border-radius:3px">';
-        t += omStr + '<br>' + arStr;
-        t += '<div style="color:var(--muted);font-size:0.45rem">n=' + c.n + '</div>';
-        t += '</td>';
-      }
-    });
-    t += '</tr>';
-  });
-  t += '</table>';
-  t += '<div style="color:var(--muted);font-size:0.5rem;margin-top:6px">Ambra=OM · Ciano=AROME · sfondo colorato = vincitore · n = campioni</div>';
-
-  el.innerHTML = t;
+    .then(function(data){ renderMatrix(matrixElId, data.samples || []); })
+    .catch(function(){ var el = document.getElementById(matrixElId); if(el) el.textContent = 'Errore caricamento campioni'; });
 }
 
 function closeDetail() {
-  document.getElementById('detail').classList.remove('open');
+  document.getElementById('detail-mobile').classList.remove('open');
+  document.getElementById('detail-sidebar').classList.remove('open');
+  document.querySelectorAll('.st-row').forEach(function(r){ r.classList.remove('active'); });
 }
+
 
 load();
 </script>

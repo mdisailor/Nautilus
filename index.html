@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.7.24 -- 2026-04-14 -->
+<!-- NAUTILUS v5.7.26 -- 2026-04-14 -->
 
 <html lang="it">
 <head>
@@ -600,7 +600,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.24  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.26  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -2010,7 +2010,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.24  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.26  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -3727,17 +3727,7 @@ function renderEngineResults() {
   sitZones.forEach(function(zk){ state.situazione[zk] = null; });
 
   cont.innerHTML = detailHtml || '<div class="engine-empty">Nessun dato disponibile</div>';
-  // Caricamento situazione in CODA con timeout per zona (non blocca il queue)
-  var sitZones = Object.keys(engineResults).filter(function(zk){ return !engineResults[zk].error; });
-  (async function loadSitQueue() {
-    for (var qi = 0; qi < sitZones.length; qi++) {
-      await Promise.race([
-        loadSituazione(sitZones[qi]),
-        new Promise(function(r){ setTimeout(r, 12000); })
-      ]);
-      if (qi < sitZones.length - 1) await new Promise(function(r){ setTimeout(r, 300); });
-    }
-  })();
+  // Nessun caricamento automatico situazione — l'utente usa "Genera nuovo" o "Vedi storico"
 
   // Show briefing section and enable button
   var bsec = document.getElementById('engine-briefing-section');
@@ -5301,6 +5291,25 @@ document.addEventListener('click', function(e) {
   if (!zone) return;
   if (action === 'toggle-sit') toggleSituazione(zone);
   if (action === 'regen-sit') { e.stopPropagation(); generateSituazione(zone); }
+  if (action === 'load-sit-history') {
+    e.stopPropagation();
+    // Mostra lo storico previsioni senza generare una nuova situazione
+    var container = document.getElementById('sit-container-' + zone);
+    if (container) {
+      container.innerHTML = '<div class="sit-panel"><div style="padding:8px 16px;background:var(--card);border:1px solid var(--border);border-radius:10px">' +
+        '<div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);margin-bottom:8px">Storico previsioni — ' + (zone) + '</div>' +
+        '<div id="sit-predict-hist-' + zone + '">' +
+        '<div style="font-family:DM Mono,monospace;font-size:0.44rem;color:var(--muted);margin-bottom:6px;letter-spacing:0.05em">PREVISIONI PRECEDENTI</div>' +
+        '<div id="sit-predict-btns-' + zone + '" style="display:flex;flex-wrap:wrap;gap:5px"><span style="font-family:DM Mono,monospace;font-size:0.44rem;color:var(--muted)">Caricamento...</span></div>' +
+        '<div id="sit-predict-detail-' + zone + '" style="margin-top:8px"></div>' +
+        '</div>' +
+        '<div style="margin-top:10px">' +
+        '<span class="sit-regen" data-action="regen-sit" data-zone="' + zone + '" style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--accent);cursor:pointer;padding:6px 10px;border:1px solid var(--accent);border-radius:8px">&#43; Genera nuovo</span>' +
+        '</div>' +
+        '</div></div>';
+      loadSitPredictHistory(zone);
+    }
+  }
 });
 
 function toggleSituazione(zoneKey) {
@@ -5365,9 +5374,10 @@ function showSitPredict(zoneKey, idx) {
 }
 function renderSituazionePanel(zoneKey, data) {
   if (!data || !data.found || !data.situazione) {
-    return '<div class="sit-panel"><div style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:var(--card);border:1px solid var(--border);border-radius:10px">' +
-      '<span style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted)">Scheda situazione non ancora generata</span>' +
-      '<span class="sit-regen" data-action="regen-sit" data-zone="' + zoneKey + '" style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--accent);cursor:pointer;text-decoration:underline;padding:8px 12px;min-height:44px;display:inline-flex;align-items:center;border:1px solid var(--accent);border-radius:8px">Genera ora</span>' +
+    return '<div class="sit-panel"><div style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:var(--card);border:1px solid var(--border);border-radius:10px;gap:8px">' +
+      '<span style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);flex:1">Scheda situazione non ancora generata</span>' +
+      '<span class="sit-regen" data-action="regen-sit" data-zone="' + zoneKey + '" style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--accent);cursor:pointer;padding:6px 10px;border:1px solid var(--accent);border-radius:8px;white-space:nowrap">&#43; Genera nuovo</span>' +
+      '<span data-action="load-sit-history" data-zone="' + zoneKey + '" style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);cursor:pointer;padding:6px 10px;border:1px solid var(--border);border-radius:8px;white-space:nowrap">&#128337; Vedi storico</span>' +
       '</div></div>';
   }
   var sit = data.situazione;
@@ -5466,16 +5476,6 @@ async function loadSituazione(zoneKey) {
   var sitDone = false;
   var container = document.getElementById('sit-container-' + zoneKey);
   if (container) container.innerHTML = '<div class="sit-panel"><div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--card);border:1px solid var(--border);border-radius:10px"><span style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--white)">Ricerca dati in corso, attendere...</span><span style="width:12px;height:12px;border:2px solid rgba(0,240,255,0.3);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;flex-shrink:0;display:inline-block"></span></div></div>';
-  setTimeout(function() {
-    if (sitDone) return;
-    var c = document.getElementById('sit-container-' + zoneKey);
-    if (c && c.innerHTML.indexOf('Ricerca dati') !== -1) {
-      c.innerHTML = '<div class="sit-panel"><div style="padding:10px 16px;background:var(--card);border:1px solid var(--border);border-radius:10px;font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);display:flex;align-items:center;justify-content:space-between">'
-        + '<span>Caricamento lento...</span>'
-        + '<button onclick="loadSituazione(\'' + zoneKey + '\')" style="font-family:DM Mono,monospace;font-size:0.5rem;padding:3px 8px;background:rgba(0,240,255,0.1);border:1px solid var(--accent);border-radius:6px;color:var(--accent);cursor:pointer">Riprova</button>'
-        + '</div></div>';
-    }
-  }, 7000);
   try {
     var res = await fetch(ENGINE_URL + '?action=situazione_get&zone=' + zoneKey);
     var data = await res.json();
@@ -5484,7 +5484,6 @@ async function loadSituazione(zoneKey) {
     var container = document.getElementById('sit-container-' + zoneKey);
     if (container) {
       container.innerHTML = renderSituazionePanel(zoneKey, data);
-      // Auto-apri se giallo o rosso
       if (data && data.found && data.situazione) {
         var allertaVal = (data.situazione.allerta || 'VERDE').toLowerCase();
         if (allertaVal === 'giallo' || allertaVal === 'rosso') {
@@ -5494,9 +5493,7 @@ async function loadSituazione(zoneKey) {
           if (togEl)  togEl.textContent = '';
         }
       }
-      // Carica storico previsioni automaticamente (non aspetta apertura manuale)
       setTimeout(function() { loadSitPredictHistory(zoneKey); }, 300);
-
     }
   } catch(e) {
     sitDone = true;
@@ -5990,7 +5987,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.7.24
+// Fine codice - NAUTILUS v5.7.26
 // ===== TRIPLE COMPASS =====
 var tcData = [null, null, null];
 var tcSelected = 0;

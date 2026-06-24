@@ -63,6 +63,18 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 #btn-flow.active{color:var(--accent);border-color:var(--accent);box-shadow:0 0 14px rgba(0,240,255,0.3)}
 #btn-flow:hover{color:var(--accent);border-color:var(--accent)}
 
+#btn-oi{
+  position:absolute;z-index:600;width:46px;height:46px;border-radius:12px;
+  background:rgba(6,24,46,0.97);border:1px solid var(--border);
+  color:var(--muted);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  backdrop-filter:blur(8px);transition:all 0.2s;
+  bottom:192px;left:14px;font-size:0.55rem;font-family:'DM Mono',monospace;
+  letter-spacing:0.04em;flex-direction:column;gap:1px;
+}
+#btn-oi.active{color:#00e676;border-color:#00e676;box-shadow:0 0 14px rgba(0,230,118,0.3)}
+#btn-oi:hover{color:#00e676;border-color:#00e676}
+
 /* BOTTONI MODALITA' FLUSSO */
 #flow-mode-btns{
   position:absolute;z-index:600;
@@ -213,7 +225,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   <button id="btn-gps" title="Posizione GPS">GPS</button>
   <button id="btn-refresh" title="Aggiorna">AGG</button>
   <button id="btn-flow" title="Animazione flusso vento">&#x1F300;<br>FLOW</button>
-  <button id="btn-oi" title="Correzione Optimal Interpolation: applica bias stazioni reali alla griglia OM" style="font-size:0.5rem;padding:4px 6px;background:rgba(0,230,118,0.1);border:1px solid #4a7a9b;border-radius:6px;color:#4a7a9b;cursor:pointer;letter-spacing:0.05em">OI<br>OFF</button>
+  <button id="btn-oi" title="Correzione Optimal Interpolation: applica bias stazioni reali alla griglia OM">OI<br>OFF</button>
   <div id="flow-mode-btns">
     <button class="btn-fmode" id="fmode-om"  title="Flusso basato su griglia Open-Meteo">OM</button>
     <button class="btn-fmode active" id="fmode-nau" title="Flusso basato su zone Nautilus + stazioni">NAU</button>
@@ -1104,11 +1116,8 @@ document.addEventListener('DOMContentLoaded', function(){
   if (btnOI) {
     btnOI.addEventListener('click', function(){
       oiEnabled = !oiEnabled;
-      btnOI.textContent = oiEnabled ? 'OI\nON' : 'OI\nOFF';
       btnOI.innerHTML = oiEnabled ? 'OI<br>ON' : 'OI<br>OFF';
-      btnOI.style.color = oiEnabled ? '#00e676' : '#4a7a9b';
-      btnOI.style.borderColor = oiEnabled ? '#00e676' : '#4a7a9b';
-      btnOI.style.background = oiEnabled ? 'rgba(0,230,118,0.15)' : 'rgba(0,230,118,0.1)';
+      btnOI.classList.toggle('active', oiEnabled);
       // Ricalcola griglia con/senza correzione e ridisegna
       if (state.gridData.length > 0 && state.stationData.length > 0) {
         state.gridDataOI = applyOI(state.gridData, state.stationData);

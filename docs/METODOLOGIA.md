@@ -1,6 +1,6 @@
 # NAUTILUS — Metodologia di Calcolo (METODOLOGIA.md)
 
-Documento tecnico-scientifico sulle logiche di calcolo, fonti e assunzioni.
+Documento Tecnico-Scientifico sulle logiche di calcolo, fonti e assunzioni.
 Aggiornato: 2026-06-23
 
 ---

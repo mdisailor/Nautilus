@@ -24,11 +24,11 @@ Aggiornato: 2026-06-23 | Versione riferimento: engine v2.13.25
 
 | File | Versione | Note |
 |---|---|---|
-| `api/engine.txt` | v2.13.25 | Engine principale, tutte le action |
+| `api/engine.txt` | v2.13.26 | Engine principale, tutte le action |
 | `public/index.html` | v5.7.21 | App principale (meteo, engine, bias) |
-| `public/mappa.html` | v1.6.24 | Mappa vento con stazioni e griglia |
+| `public/mappa.html` | v1.6.28 | Mappa vento con stazioni e griglia |
 | `public/stats.html` | v1.18 | Accuratezza previsioni AI |
-| `public/mae.html` | v1.0 | Comparazione MAE OM vs AROME |
+| `public/mae.html` | v1.7 | Comparazione MAE OM vs AROME |
 
 ---
 
@@ -100,22 +100,33 @@ Corsica: **Barcaggio** (Capo Corso) — predict attivo dal 2026-06-19
 - **scrape_web e scrape_web2 separati** — MeteoNetwork (stesso dominio, sensibile al carico concorrente) separato da Windfinder/Meteosystem
 - **Timeout fetch HTML**: 6s in scrape_web (MeteoNetwork), 8s in scrape_web2 (Windfinder/Meteosystem)
 - **Anti-duplicato Windfinder** — campo `obs_time` da campo `dtl` nel JSON embedded; se coincide con l'ultimo campione, scarta senza salvare
+- **OI (Optimal Interpolation) implementato** — in mappa.html v1.6.28. Toggle ON/OFF con bottone OI. Raggio 60km, IDW peso 1/d². Usa bias storico stratificato da `action=bias_matrix` (fascia velocità × settore × slot orario) invece del campione istantaneo. Fallback su bias globale se cella matrice ha n<5. Stazioni escluse: `bonifacio_pertusato`, `vada` (dati inaffidabili). Correzione cappata a ±5kt.
 
 ---
 
+## Problemi aperti / in osservazione
+
+- Vada e Bonifacio/Cap Pertusato: dati inaffidabili, in osservazione da >4 settimane. Decisione rinviata.
+- Populonia CFR: altitudine codificata come 164m invece di 0m (stazione marina) — bias non affidabile per navigazione, badge rosso quota in UI
+- Giglio, Montecristo, Gorgona: timeout `situazione` occasionale per fetch OWM/ICON lenti su isole remote
+- Bias injection AI: non confermato che il modello applichi effettivamente la correzione nel prompt — da verificare con `predict_log` strutturato
+
+---
 
 ## Bug aperti / problemi noti
 
 | Bug | File | Stato | Note |
 |---|---|---|---|
-| Timeout `action=situazione` su Isole remote | engine.txt | Aperto | Giglio, Montecristo, Gorgona: fetch lente causano timeout occasionale — fix: timeout esplicito 5-8s |
+| Timeout `action=situazione` su isole remote | engine.txt | Aperto | Giglio, Montecristo, Gorgona: fetch lente causano timeout occasionale — fix: timeout esplicito 5-8s |
 | Porto Pollo coordinata in mare | index.html + mappa.html | Aperto | Coordinata 41.2875052, 9.2243077 cade nello stretto invece che sulla spiaggia — errore fonte Google Maps |
 | Bias injection AI non verificata per Barcaggio | engine.txt | Aperto | Non confermato che bias_station venga effettivamente applicata nel prompt per le nuove stazioni |
 | `lamma_bias` non integrato in predict | engine.txt | Aperto | action=lamma_bias_get esiste come monitoring ma non iniettato nel prompt AI |
 | Populonia quota 164m errata | engine.txt / index.html | Aperto | È una stazione marina, dovrebbe essere 0m — badge rosso quota in UI |
 | Livorno CFR da rinominare | index.html | Aperto | È un mareografo, non una stazione vento — il nome inganna |
+| `action=debug_fs` da rimuovere | engine.txt | Aperto | Action di debug per Livorno, non serve in produzione — rischio sicurezza |
 | Subtitle stats.html versione engine hardcoded | stats.html | Aperto | Da aggiornare manualmente ad ogni release engine |
 | Mappa layer colore WebGL inguardabile oltre Z10 | mappa.html | Aperto | 5 fix pendenti: (1) viewport +400px per punti fuori schermo, (2) isNaN check punti (Marina di Pisa causa buchi), (3) kernel gaussiano invece IDW puro, (4) limite 60 punti vicini al centro, (5) texture size adattiva per zoom |
+| Cron backfill 14:35 e 22:35 mancanti | cron-job.org | Aperto | H+1 pomeridiano (14:35) e H+9 pomeridiano (22:35) non ancora configurati |
 | Windfinder Barcaggio direzione fissa NNE 30-31° | bias_samples | In osservazione | Potrebbe essere effetto locale reale o problema sensore |
 | **Sicurezza** — nuovo giro di audit | engine.txt | ⚠️ Pianificato | Sessione Fable ha identificato vulnerabilità (action=agent proxy aperto, action=debug_fs non autenticato, inconsistenza secret enforcement). Implementazioni parziali — da completare |
 

@@ -51,10 +51,10 @@ Aggiornato: 2026-06-23
 | 3.1 | Definizione bbox e passo griglia | ⏳ | Proposta: 42-44N / 9-12E, passo 0.1° (~11km) |
 | 3.2 | Fetch OM/AROME per tutti i punti griglia | 🔄 | Parzialmente implementato, serve proxy Vercel per evitare rate limit |
 | 3.3 | Scelta campo di background per zona | ⏳ | Dipende da 2.3: AROME su isole piccole, OM su costa |
-| 3.4 | Implementazione OI (Optimal Interpolation) | 🔒 | Dipende da 3.1, 3.2, 3.3 |
-| 3.5 | Implementazione Kriging come algoritmo di peso in OI | 🔒 | Dipende da 3.4 |
-| 3.6 | Validazione griglia vs stazioni reali | 🔒 | Dipende da 3.5 |
-| 3.7 | Integrazione griglia in mappa.html | 🔒 | Dipende da 3.6 |
+| 3.4 | Implementazione OI (Optimal Interpolation) | ✅ | mappa v1.6.28 — IDW con bias storico stratificato da bias_matrix, raggio 60km |
+| 3.5 | Implementazione Kriging come algoritmo di peso in OI | 🔄 | Parziale: IDW con 1/d². Peso per MAE stazione da aggiungere come upgrade |
+| 3.6 | Validazione griglia vs stazioni reali | 🔄 | In osservazione — attendere condizioni vento variabile |
+| 3.7 | Integrazione griglia in mappa.html | ✅ | Toggle OI ON/OFF in navbar |
 
 ---
 
@@ -94,12 +94,14 @@ Aggiornato: 2026-06-23
 
 ## Prossimi passi immediati
 
-1. **Caricare CLAUDE.md, METODOLOGIA.md, ROADMAP.md su GitHub** (istruzioni sotto)
-2. **Implementare stratificazione MAE** in mae.html (attività 2.3)
-3. **Tenere d'occhio Vada e Cap Pertusato** — raccogliere altri 2-3 settimane prima della decisione D1/D2
-4. **Verificare bias injection AI per Barcaggio**
-5. **Rimuovere `action=debug_fs`** dall'engine — rischio sicurezza
-6. **Nuovo giro di audit sicurezza** — sessione Fable identificò vulnerabilità parzialmente risolte (action=agent proxy aperto, debug_fs non autenticato, inconsistenza secret enforcement)
+1. **Caricare CLAUDE.md, METODOLOGIA.md, ROADMAP.md su GitHub** (già fatto — link raw disponibili)
+2. **Osservare OI con vento variabile** — validare che le correzioni abbiano senso geografico con condizioni diverse da bonaccia
+3. **Aggiungere peso MAE in OI** — stazioni con MAE basso pesano di più, stazioni inaffidabili pesano meno automaticamente (upgrade Kriging)
+4. **Correzione direzione in OI** — lavorare su componenti U/V separatamente per correggere anche la direzione
+5. **Implementare `save_oi_validation`** — salva confronto OM grezzo vs OI corretto nei punti stazione per statistiche correttive
+6. **Verificare bias injection AI per Barcaggio**
+7. **Rimuovere `action=debug_fs`** dall'engine — rischio sicurezza
+8. **Nuovo giro di audit sicurezza**
 
 ---
 

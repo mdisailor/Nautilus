@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS MAE Compare v1.4</title>
+<title>NAUTILUS MAE Compare v1.5</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -122,7 +122,7 @@ html,body{min-height:100%;background:var(--bg);font-family:'DM Mono',monospace;c
 <div id="nav">
   <div style="display:flex;align-items:center">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <div id="nav-ver">mae v1.4</div>
+    <div id="nav-ver">mae v1.5</div>
   </div>
   <a id="nav-back" href="#" onclick="event.preventDefault();var p=prompt('Password:');if(p==='mdi'){window.location.href='/?k=mdi'}">APP</a>
 </div>
@@ -341,13 +341,76 @@ function showDetail(id) {
   fetch(ENGINE_URL + '?action=bias_history&station=' + id + '&limit=100&k=' + SECRET)
     .then(function(r){ return r.json(); })
     .then(function(data){ renderMatrix(matrixElId, data.samples || []); })
-    .catch(function(){ var el = document.getElementById(matrixElId); if(el) el.textContent = 'Errore caricamento campioni'; });
+    .catch(function(e){ console.error('Matrix fetch error:', e); var el = document.getElementById(matrixElId); if(el) el.textContent = 'Errore: ' + (e.message || e); });
 }
 
 function closeDetail() {
   document.getElementById('detail-mobile').classList.remove('open');
   document.getElementById('detail-sidebar').classList.remove('open');
   document.querySelectorAll('.st-row').forEach(function(r){ r.classList.remove('active'); });
+}
+
+function renderMatrix(elId, samples) {
+  var el = document.getElementById(elId);
+  if (!el) return;
+
+  var speeds = [
+    { label: '<8 kt',   min: 0,  max: 8   },
+    { label: '8-15 kt', min: 8,  max: 15  },
+    { label: '>15 kt',  min: 15, max: 999 }
+  ];
+  var sectors = [
+    { label: 'N',  min: 315, max: 360, min2: 0,    max2: 45  },
+    { label: 'E',  min: 45,  max: 135, min2: null              },
+    { label: 'S',  min: 135, max: 225, min2: null              },
+    { label: 'W',  min: 225, max: 315, min2: null              }
+  ];
+
+  function inSector(dir, sec) {
+    if (dir === null || dir === undefined) return false;
+    if (sec.min2 !== null) return (dir >= sec.min && dir <= 360) || (dir >= 0 && dir <= sec.max2);
+    return dir >= sec.min && dir < sec.max;
+  }
+
+  function cellMAE(spd, sec) {
+    var filtered = samples.filter(function(s) {
+      if (!s.om || s.om.wind_kt === null || s.om.wind_kt === undefined) return false;
+      return s.om.wind_kt >= spd.min && s.om.wind_kt < spd.max && inSector(s.om.direction, sec);
+    });
+    var omVals  = filtered.filter(function(s){ return s.delta       && s.delta.wind_kt       !== null; });
+    var arVals  = filtered.filter(function(s){ return s.delta_arome && s.delta_arome.wind_kt !== null; });
+    var maeOm = omVals.length  > 0 ? Math.round(omVals.reduce(function(a,s){ return a + Math.abs(s.delta.wind_kt);       }, 0) / omVals.length  * 10) / 10 : null;
+    var maeAr = arVals.length  > 0 ? Math.round(arVals.reduce(function(a,s){ return a + Math.abs(s.delta_arome.wind_kt); }, 0) / arVals.length  * 10) / 10 : null;
+    return { maeOm: maeOm, maeAr: maeAr, n: filtered.length };
+  }
+
+  var t = '<table style="width:100%;border-collapse:collapse;font-size:0.6rem">';
+  t += '<tr><th style="padding:3px;color:var(--muted);text-align:left;font-weight:normal">vel \\ dir</th>';
+  sectors.forEach(function(sec){ t += '<th style="padding:3px;color:var(--muted);text-align:center;font-weight:normal">' + sec.label + '</th>'; });
+  t += '</tr>';
+
+  speeds.forEach(function(spd) {
+    t += '<tr><td style="padding:4px 3px;color:var(--text);white-space:nowrap">' + spd.label + '</td>';
+    sectors.forEach(function(sec) {
+      var c = cellMAE(spd, sec);
+      if (c.n === 0) {
+        t += '<td style="padding:3px;text-align:center;color:var(--border)">—</td>';
+      } else {
+        var winner = (c.maeOm !== null && c.maeAr !== null) ? (c.maeAr < c.maeOm ? 'arome' : c.maeOm < c.maeAr ? 'om' : 'tie') : 'nodata';
+        var bg = winner === 'arome' ? 'rgba(10,240,255,0.1)' : winner === 'om' ? 'rgba(255,170,0,0.1)' : 'transparent';
+        var omStr = c.maeOm !== null ? '<span style="color:var(--gold)">' + c.maeOm + '</span>' : '—';
+        var arStr = c.maeAr !== null ? '<span style="color:var(--accent)">' + c.maeAr + '</span>' : '—';
+        t += '<td style="padding:3px;text-align:center;background:' + bg + ';border-radius:3px">';
+        t += omStr + '<br>' + arStr;
+        t += '<div style="color:var(--muted);font-size:0.5rem">n=' + c.n + '</div>';
+        t += '</td>';
+      }
+    });
+    t += '</tr>';
+  });
+  t += '</table>';
+  t += '<div style="color:var(--muted);font-size:0.55rem;margin-top:6px">Ambra=OM · Ciano=AROME · sfondo = vincitore · n=campioni</div>';
+  el.innerHTML = t;
 }
 
 

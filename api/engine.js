@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.27 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.28 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
@@ -1944,7 +1944,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.27', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.28', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -4947,6 +4947,66 @@ if (action === 'bias_matrix') {
   }
 }
 
+// action=obs_save -- salva osservazione manuale (pin + velocità + direzione + lat/lon + ts)
+if (action === 'obs_save') {
+  try {
+    var oPin  = (req.query.pin  || '').replace(/[^0-9a-zA-Z]/g, '').slice(0,8);
+    var oLat  = parseFloat(req.query.lat  || '');
+    var oLon  = parseFloat(req.query.lon  || '');
+    var oSpd  = parseFloat(req.query.spd  || '');
+    var oDir  = parseFloat(req.query.dir  || '');
+    var oNote = (req.query.note || '').slice(0, 120);
+    var oTs   = req.query.ts ? new Date(req.query.ts).toISOString() : new Date().toISOString();
+    if (!oPin) return res.status(400).json({ error: 'Pin mancante' });
+    if (isNaN(oLat) || isNaN(oLon)) return res.status(400).json({ error: 'Coordinate non valide' });
+    if (isNaN(oSpd) || oSpd < 0 || oSpd > 100) return res.status(400).json({ error: 'Velocita non valida' });
+    if (isNaN(oDir) || oDir < 0 || oDir > 360) return res.status(400).json({ error: 'Direzione non valida' });
+    // Fetch OM per le coordinate al momento dell'osservazione
+    var oOmUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + oLat + '&longitude=' + oLon + '&current=wind_speed_10m,wind_gusts_10m,wind_direction_10m,surface_pressure&wind_speed_unit=kn';
+    var oOmJson = await fetch(oOmUrl).then(function(r){ return r.json(); }).catch(function(){ return null; });
+    var oOm = oOmJson && oOmJson.current ? {
+      wind_kt: Math.round(oOmJson.current.wind_speed_10m * 10) / 10,
+      gust_kt: Math.round(oOmJson.current.wind_gusts_10m * 10) / 10,
+      direction: oOmJson.current.wind_direction_10m,
+      pressure_mb: Math.round(oOmJson.current.surface_pressure * 10) / 10
+    } : null;
+    var oSample = {
+      ts: oTs,
+      ts_saved: new Date().toISOString(),
+      pin: oPin,
+      lat: Math.round(oLat * 10000) / 10000,
+      lon: Math.round(oLon * 10000) / 10000,
+      wind_kt: Math.round(oSpd * 10) / 10,
+      direction: Math.round(oDir),
+      note: oNote || null,
+      om: oOm
+    };
+    // Salva in lista globale obs_manual (max 200 osservazioni totali)
+    var oList = await kvGet('obs_manual', kvUrl, kvToken);
+    if (!Array.isArray(oList)) oList = [];
+    oList.unshift(oSample);
+    if (oList.length > 200) oList.length = 200;
+    await kvSet('obs_manual', oList, 31536000, kvUrl, kvToken);
+    return res.status(200).json({ ok: true, saved: oSample });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+// action=obs_list -- legge le ultime N osservazioni manuali
+if (action === 'obs_list') {
+  try {
+    var olLimit = Math.min(parseInt(req.query.limit || '50'), 200);
+    var olPin   = req.query.pin || null;
+    var oList2  = await kvGet('obs_manual', kvUrl, kvToken);
+    if (!Array.isArray(oList2)) oList2 = [];
+    if (olPin) oList2 = oList2.filter(function(o){ return o.pin === olPin; });
+    return res.status(200).json({ observations: oList2.slice(0, olLimit), total: oList2.length });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
 if (action === 'mae_compare') {
   try {
     var mcStations = [
@@ -5019,7 +5079,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.27 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.28 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -5146,4 +5206,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.27
+// Fine codice - NAUTILUS ENGINE v2.13.28

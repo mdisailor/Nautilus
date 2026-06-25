@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.6.30 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS MAPPA v1.6.31 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.6.30</title>
+<title>NAUTILUS Mappa Vento v1.6.31</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -150,6 +150,32 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 #btn-gps:hover,#btn-gps.active{color:var(--accent);border-color:var(--accent);box-shadow:0 0 14px rgba(0,240,255,0.3)}
 #btn-refresh:hover{color:var(--gold);border-color:var(--gold)}
 
+/* Pannello inserimento osservazione */
+#obs-panel{
+  display:none;position:fixed;bottom:0;left:0;right:0;z-index:900;
+  background:var(--card);border-top:2px solid #ff9500;
+  padding:16px;max-height:80vh;overflow-y:auto;
+}
+#obs-panel.open{display:block}
+#obs-panel h3{font-family:'DM Mono',monospace;font-size:0.7rem;color:#ff9500;
+  letter-spacing:0.1em;text-transform:uppercase;margin-bottom:12px}
+.obs-field{margin-bottom:10px}
+.obs-field label{display:block;font-family:'DM Mono',monospace;font-size:0.55rem;
+  color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.08em}
+.obs-field input{width:100%;background:var(--bg);border:1px solid var(--border);
+  border-radius:8px;padding:8px 12px;font-family:'DM Mono',monospace;font-size:0.8rem;
+  color:var(--white);outline:none}
+.obs-field input:focus{border-color:#ff9500}
+.obs-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#obs-submit{width:100%;padding:12px;background:#ff9500;border:none;border-radius:10px;
+  font-family:'DM Mono',monospace;font-size:0.7rem;color:#000;font-weight:bold;
+  cursor:pointer;margin-top:4px;letter-spacing:0.08em}
+#obs-cancel{width:100%;padding:10px;background:transparent;border:1px solid var(--border);
+  border-radius:10px;font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--muted);
+  cursor:pointer;margin-top:6px}
+#obs-status{font-family:'DM Mono',monospace;font-size:0.6rem;margin-top:8px;
+  text-align:center;min-height:20px}
+
 /* FOOTER */
 #footer{
   position:relative;z-index:1000;
@@ -199,7 +225,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.6.30</span>
+    <span id="nav-ver">mappa v1.6.31</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -264,11 +290,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.6.30 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.6.31 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.6.30
+// NAUTILUS MAPPA v1.6.31
 
 var ENGINE_URL = '/api/engine';
 
@@ -656,12 +682,15 @@ map.on('click', function(e){
   var dirName = best.dir != null ? dirs[Math.round(best.dir/22.5)%16] : '--';
   var spd = best.speed != null ? best.speed.toFixed(1) : '--';
   var gustGrid = (best.gust != null && !isNaN(best.gust)) ? best.gust.toFixed(0) + ' kn' : '--';
+  var oiStr = (oiEnabled && best.oi_correction !== undefined) ?
+    '<div class="popup-ts" style="color:#00e676">OI: ' + (best.oi_correction >= 0 ? '+' : '') + best.oi_correction + ' kn</div>' : '';
   var html =
     '<div class="popup-name" style="font-size:0.85rem">Griglia OM</div>' +
     '<div class="popup-wind">' + spd + ' kn ' + dirName + '</div>' +
     '<div class="popup-wind" style="color:#ffaa00;font-size:0.85rem">Raffica: ' + gustGrid + '</div>' +
     '<div class="popup-ts">Modello OM ore ' + (best.time || '--') + '</div>' +
-    '<div class="popup-ts" style="margin-top:3px;color:var(--muted)">Dato modello ~15-30 min fa</div>';
+    oiStr +
+    '<div style="margin-top:8px"><button onclick="openObsPanel(' + clickLat.toFixed(5) + ',' + clickLon.toFixed(5) + ')" style="width:100%;padding:7px;background:rgba(255,149,0,0.15);border:1px solid #ff9500;border-radius:8px;font-family:DM Mono,monospace;font-size:0.55rem;color:#ff9500;cursor:pointer;letter-spacing:0.05em">📍 Inserisci osservazione</button></div>';
   gridPopup.setLatLng(e.latlng).setContent(html).openOn(map);
 });
 
@@ -1337,7 +1366,111 @@ BUOYS.forEach(function(b) {
     '</div>', { maxWidth: 240 });
 });
 
+// ============================================================
+// OSSERVAZIONI MANUALI — v1.0 — 2026-06-25
+// ============================================================
+var obsCurrentLat = null, obsCurrentLon = null;
+var obsMarkers = [];
+
+function openObsPanel(lat, lon) {
+  obsCurrentLat = lat;
+  obsCurrentLon = lon;
+  // Pre-compila data/ora con adesso
+  var now = new Date();
+  var tzOffset = now.getTimezoneOffset() * 60000;
+  var localIso = new Date(now - tzOffset).toISOString().slice(0,16);
+  document.getElementById('obs-ts').value = localIso;
+  document.getElementById('obs-spd').value = '';
+  document.getElementById('obs-dir').value = '';
+  document.getElementById('obs-note').value = '';
+  document.getElementById('obs-status').textContent = '';
+  document.getElementById('obs-coords').textContent =
+    'Posizione: ' + lat.toFixed(4) + '°N  ' + lon.toFixed(4) + '°E';
+  // Ricorda ultimo pin usato
+  var lastPin = localStorage.getItem('obs_pin') || '';
+  document.getElementById('obs-pin').value = lastPin;
+  document.getElementById('obs-panel').classList.add('open');
+}
+
+function closeObsPanel() {
+  document.getElementById('obs-panel').classList.remove('open');
+}
+
+async function submitObs() {
+  var spd  = parseFloat(document.getElementById('obs-spd').value);
+  var dir  = parseFloat(document.getElementById('obs-dir').value);
+  var pin  = document.getElementById('obs-pin').value.trim();
+  var note = document.getElementById('obs-note').value.trim();
+  var ts   = document.getElementById('obs-ts').value;
+  var status = document.getElementById('obs-status');
+
+  if (!pin) { status.style.color = '#ff4444'; status.textContent = 'Pin mancante'; return; }
+  if (isNaN(spd) || spd < 0) { status.style.color = '#ff4444'; status.textContent = 'Velocità non valida'; return; }
+  if (isNaN(dir) || dir < 0 || dir > 360) { status.style.color = '#ff4444'; status.textContent = 'Direzione non valida (0-360)'; return; }
+
+  localStorage.setItem('obs_pin', pin);
+  status.style.color = 'var(--muted)';
+  status.textContent = 'Invio in corso...';
+
+  var tsIso = ts ? new Date(ts).toISOString() : new Date().toISOString();
+  var url = ENGINE_URL + '?action=obs_save&lat=' + obsCurrentLat + '&lon=' + obsCurrentLon +
+    '&spd=' + spd + '&dir=' + dir + '&pin=' + encodeURIComponent(pin) +
+    '&ts=' + encodeURIComponent(tsIso) +
+    (note ? '&note=' + encodeURIComponent(note) : '');
+
+  try {
+    var r = await fetch(url);
+    var d = await r.json();
+    if (d.ok) {
+      status.style.color = '#00e676';
+      status.textContent = '✓ Osservazione salvata';
+      setTimeout(function(){ closeObsPanel(); loadObsMarkers(); }, 1200);
+    } else {
+      status.style.color = '#ff4444';
+      status.textContent = 'Errore: ' + (d.error || 'sconosciuto');
+    }
+  } catch(e) {
+    status.style.color = '#ff4444';
+    status.textContent = 'Errore di rete';
+  }
+}
+
+async function loadObsMarkers() {
+  try {
+    var r = await fetch(ENGINE_URL + '?action=obs_list&limit=50');
+    var d = await r.json();
+    // Rimuovi marker esistenti
+    obsMarkers.forEach(function(m){ map.removeLayer(m); });
+    obsMarkers = [];
+    (d.observations || []).forEach(function(obs) {
+      var ageMin = Math.round((Date.now() - new Date(obs.ts).getTime()) / 60000);
+      var ageStr = ageMin < 60 ? ageMin + 'min fa' : Math.round(ageMin/60) + 'h fa';
+      var col = ageMin < 60 ? '#ff9500' : ageMin < 360 ? '#ffcc00' : '#888';
+      var icon = L.divIcon({
+        className: '',
+        html: '<div style="width:28px;height:28px;border-radius:50%;background:' + col + ';border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:0.5rem;font-family:DM Mono,monospace;color:#000;font-weight:bold">' + obs.pin + '</div>',
+        iconSize: [28,28], iconAnchor: [14,14]
+      });
+      var mk = L.marker([obs.lat, obs.lon], { icon: icon });
+      var omStr = obs.om ? obs.om.wind_kt + 'kt ' + obs.om.direction + '°' : '—';
+      mk.bindPopup(
+        '<div style="font-family:DM Mono,monospace;font-size:0.6rem;min-width:160px">' +
+        '<div style="font-weight:bold;color:#ff9500;margin-bottom:6px">📍 Osservazione #' + obs.pin + '</div>' +
+        '<div style="margin-bottom:2px">' + ageStr + ' — ' + new Date(obs.ts).toLocaleString('it-IT',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'}) + '</div>' +
+        '<div style="margin-bottom:2px">Vento: <b>' + obs.wind_kt + ' kt</b> da <b>' + obs.direction + '°</b></div>' +
+        '<div style="color:#888">OM: ' + omStr + '</div>' +
+        (obs.note ? '<div style="color:#aaa;margin-top:4px">' + obs.note + '</div>' : '') +
+        '</div>'
+      );
+      mk.addTo(map);
+      obsMarkers.push(mk);
+    });
+  } catch(e) { console.warn('obs_list error:', e); }
+}
+
 loadAll();
+// Carica osservazioni esistenti all'avvio
+setTimeout(loadObsMarkers, 2000);
 
 try {
 MNW_LIVE.forEach(function(st) {
@@ -1514,7 +1647,40 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.6.30
+// Fine codice - NAUTILUS MAPPA v1.6.31
 </script>
+<!-- Pannello inserimento osservazione manuale -->
+<div id="obs-panel">
+  <h3>📍 Osservazione vento</h3>
+  <div id="obs-coords" style="font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);margin-bottom:10px"></div>
+  <div class="obs-row">
+    <div class="obs-field">
+      <label>Velocità (nodi)</label>
+      <input type="number" id="obs-spd" min="0" max="100" step="0.1" placeholder="es. 12.5">
+    </div>
+    <div class="obs-field">
+      <label>Direzione (gradi)</label>
+      <input type="number" id="obs-dir" min="0" max="360" step="1" placeholder="es. 270">
+    </div>
+  </div>
+  <div class="obs-row">
+    <div class="obs-field">
+      <label>Pin osservatore</label>
+      <input type="text" id="obs-pin" maxlength="8" placeholder="es. 01">
+    </div>
+    <div class="obs-field">
+      <label>Data/Ora</label>
+      <input type="datetime-local" id="obs-ts">
+    </div>
+  </div>
+  <div class="obs-field">
+    <label>Nota (opzionale)</label>
+    <input type="text" id="obs-note" maxlength="120" placeholder="es. vento in aumento">
+  </div>
+  <button id="obs-submit" onclick="submitObs()">INVIA OSSERVAZIONE</button>
+  <button id="obs-cancel" onclick="closeObsPanel()">Annulla</button>
+  <div id="obs-status"></div>
+</div>
+
 </body>
 </html>

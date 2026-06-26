@@ -51,10 +51,10 @@ Aggiornato: 2026-06-23
 | 3.1 | Definizione bbox e passo griglia | ⏳ | Proposta: 42-44N / 9-12E, passo 0.1° (~11km) |
 | 3.2 | Fetch OM/AROME per tutti i punti griglia | 🔄 | Parzialmente implementato, serve proxy Vercel per evitare rate limit |
 | 3.3 | Scelta campo di background per zona | ⏳ | Dipende da 2.3: AROME su isole piccole, OM su costa |
-| 3.4 | Implementazione OI (Optimal Interpolation) | ✅ | mappa v1.6.28 — IDW con bias storico stratificato da bias_matrix, raggio 60km |
-| 3.5 | Implementazione Kriging come algoritmo di peso in OI | 🔄 | Parziale: IDW con 1/d². Peso per MAE stazione da aggiungere come upgrade |
-| 3.6 | Validazione griglia vs stazioni reali | 🔄 | In osservazione — attendere condizioni vento variabile |
-| 3.7 | Integrazione griglia in mappa.html | ✅ | Toggle OI ON/OFF in navbar |
+| 3.4 | Implementazione OI (Optimal Interpolation) | ✅ | mappa v1.6.32 — IDW bias storico stratificato, raggio 60km |
+| 3.5 | Kriging con peso MAE stazione | ✅ | reliability_weight = 1/(1+MAE) nel peso IDW |
+| 3.6 | Correzione direzione in OI | ✅ | Componenti U/V, cap ±30°, mappa v1.6.32 |
+| 3.7 | Validazione griglia vs stazioni reali | 🔄 | In osservazione — attendere vento variabile |
 
 ---
 
@@ -94,14 +94,13 @@ Aggiornato: 2026-06-23
 
 ## Prossimi passi immediati
 
-1. **Caricare CLAUDE.md, METODOLOGIA.md, ROADMAP.md su GitHub** (già fatto — link raw disponibili)
-2. **Osservare OI con vento variabile** — validare che le correzioni abbiano senso geografico con condizioni diverse da bonaccia
-3. **Aggiungere peso MAE in OI** — stazioni con MAE basso pesano di più, stazioni inaffidabili pesano meno automaticamente (upgrade Kriging)
-4. **Correzione direzione in OI** — lavorare su componenti U/V separatamente per correggere anche la direzione
-5. **Implementare `save_oi_validation`** — salva confronto OM grezzo vs OI corretto nei punti stazione per statistiche correttive
-6. **Verificare bias injection AI per Barcaggio**
-7. **Rimuovere `action=debug_fs`** dall'engine — rischio sicurezza
-8. **Nuovo giro di audit sicurezza**
+1. **Caricare docs aggiornati su GitHub**
+2. **Osservare OI con vento variabile** — validare correzioni velocità e direzione
+3. **Sezione osservazioni in mae.html** — affiancamento osservato/OM/AROME/OI
+4. **Validazione pin osservatori** — lista autorizzati in Redis `obs_pins_authorized`
+5. **save_oi_validation** — salva confronto OM vs OI nei punti stazione per statistiche
+6. **Audit sicurezza** — nuovo giro completo
+7. **Verificare bias injection AI per Barcaggio**
 
 ---
 

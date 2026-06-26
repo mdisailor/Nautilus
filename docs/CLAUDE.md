@@ -39,9 +39,9 @@ https://raw.githubusercontent.com/mdisailor/Nautilus/refs/heads/main/mappa.html
 
 | File | Versione | Note |
 |---|---|---|
-| `api/engine.txt` | v2.13.26 | Engine principale, tutte le action |
-| `public/index.html` | v5.7.21 | App principale (meteo, engine, bias) |
-| `public/mappa.html` | v1.6.28 | Mappa vento con stazioni e griglia |
+| `api/engine.js` | v2.13.28 | Engine principale, tutte le action |
+| `public/index.html` | v5.7.27 | App principale (meteo, engine, bias) |
+| `public/mappa.html` | v1.6.32 | Mappa vento con stazioni e griglia |
 | `public/stats.html` | v1.18 | Accuratezza previsioni AI |
 | `public/mae.html` | v1.7 | Comparazione MAE OM vs AROME |
 
@@ -115,7 +115,8 @@ Corsica: **Barcaggio** (Capo Corso) — predict attivo dal 2026-06-19
 - **scrape_web e scrape_web2 separati** — MeteoNetwork (stesso dominio, sensibile al carico concorrente) separato da Windfinder/Meteosystem
 - **Timeout fetch HTML**: 6s in scrape_web (MeteoNetwork), 8s in scrape_web2 (Windfinder/Meteosystem)
 - **Anti-duplicato Windfinder** — campo `obs_time` da campo `dtl` nel JSON embedded; se coincide con l'ultimo campione, scarta senza salvare
-- **OI (Optimal Interpolation) implementato** — in mappa.html v1.6.28. Toggle ON/OFF con bottone OI. Raggio 60km, IDW peso 1/d². Usa bias storico stratificato da `action=bias_matrix` (fascia velocità × settore × slot orario) invece del campione istantaneo. Fallback su bias globale se cella matrice ha n<5. Stazioni escluse: `bonifacio_pertusato`, `vada` (dati inaffidabili). Correzione cappata a ±5kt.
+- **OI (Optimal Interpolation) implementato** — mappa v1.6.32. Toggle ON/OFF bottone OI. Raggio 60km, IDW peso 1/d² × reliability_weight. Bias storico stratificato da `action=bias_matrix` (fascia velocità × settore × slot orario). Correzione velocità ±5kt cap. Correzione direzione via componenti U/V, cap ±30°. Stazioni escluse: `bonifacio_pertusato`, `vada`.
+- **Osservazioni manuali** — mappa v1.6.32 + engine v2.13.28. Bottone arancione in ogni popup punto giallo. Form: velocità, direzione, pin (1-8 char), data/ora modificabile, nota. Salva in `obs_manual` Redis (max 200). Marker arancioni sulla mappa con colore per età. Pin non ancora validati — lista autorizzati da aggiungere in futuro con chiave `obs_pins_authorized` in Redis.
 
 ---
 
@@ -142,6 +143,7 @@ Corsica: **Barcaggio** (Capo Corso) — predict attivo dal 2026-06-19
 | Subtitle stats.html versione engine hardcoded | stats.html | Aperto | Da aggiornare manualmente ad ogni release engine |
 | Mappa layer colore WebGL inguardabile oltre Z10 | mappa.html | Aperto | 5 fix pendenti: (1) viewport +400px per punti fuori schermo, (2) isNaN check punti (Marina di Pisa causa buchi), (3) kernel gaussiano invece IDW puro, (4) limite 60 punti vicini al centro, (5) texture size adattiva per zoom |
 | Cron backfill 14:35 e 22:35 mancanti | cron-job.org | Aperto | H+1 pomeridiano (14:35) e H+9 pomeridiano (22:35) non ancora configurati |
+| Pin osservatori non validati | engine.txt | Aperto | obs_save accetta qualsiasi pin — aggiungere lista autorizzati in `obs_pins_authorized` Redis |
 | Windfinder Barcaggio direzione fissa NNE 30-31° | bias_samples | In osservazione | Potrebbe essere effetto locale reale o problema sensore |
 | **Sicurezza** — nuovo giro di audit | engine.txt | ⚠️ Pianificato | Sessione Fable ha identificato vulnerabilità (action=agent proxy aperto, action=debug_fs non autenticato, inconsistenza secret enforcement). Implementazioni parziali — da completare |
 

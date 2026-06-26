@@ -1,6 +1,6 @@
 # NAUTILUS — Metodologia di Calcolo (METODOLOGIA.md)
 
-Documento Tecnico-Scientifico sulle logiche di calcolo, fonti e assunzioni.
+Documento tecnico-scientifico sulle logiche di calcolo, fonti e assunzioni.
 Aggiornato: 2026-06-23
 
 ---
@@ -165,3 +165,4 @@ Invece di una funzione di peso semplice basata sulla distanza, Kriging stima la 
 | Huang et al. | 2026 | LightGBM wind correction NWP | Stratificazione per fascia velocità, -20-40% RMSE |
 | Qiu et al. | 2025 | NWP 2km vs ERA5 offshore | NWP lower mean bias but higher absolute error |
 | arxiv 2512.03606 | 2025 | Transformer observation-driven correction marine winds | -45% errore GFS a 1h, migliore lungo coste |
+ 

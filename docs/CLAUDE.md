@@ -1,7 +1,7 @@
 # NAUTILUS — Contesto Sessione (CLAUDE.md)
 
 Documento di contesto persistente per sessioni di lavoro con Claude.
-Aggiornato: 2026-06-23 | Versione riferimento: engine v2.13.25
+Aggiornato: 2026-06-26 | Versione riferimento: engine v2.13.28
 
 ---
 

@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS MAE Compare v1.9</title>
+<title>NAUTILUS MAE Compare v1.10</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -122,7 +122,7 @@ html,body{min-height:100%;background:var(--bg);font-family:'DM Mono',monospace;c
 <div id="nav">
   <div style="display:flex;align-items:center">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <div id="nav-ver">mae v1.9</div>
+    <div id="nav-ver">mae v1.10</div>
   </div>
   <a id="nav-back" href="#" onclick="event.preventDefault();var p=prompt('Password:');if(p==='mdi'){window.location.href='/?k=mdi'}">APP</a>
 </div>
@@ -471,14 +471,14 @@ async function loadObs() {
       var omDir = o.om ? o.om.direction : null;
 
       // Delta velocità
-      var dv = (omKt !== null) ? Math.round((o.wind_kt - omKt) * 10) / 10 : null;
+      // Errore OM: positivo = OM sovrastima, negativo = OM sottostima
+      var dv = (omKt !== null) ? Math.round((omKt - o.wind_kt) * 10) / 10 : null;
       var dvStr = dv !== null ? (dv >= 0 ? '+' + dv : '' + dv) : '—';
       var dvCol = dv === null ? 'var(--muted)' : Math.abs(dv) < 2 ? 'var(--safe)' : Math.abs(dv) < 5 ? 'var(--gold)' : 'var(--danger)';
 
-      // Delta direzione (circolare)
       var dd = null;
       if (omDir !== null && omDir !== undefined) {
-        dd = o.direction - omDir;
+        dd = omDir - o.direction;
         if (dd > 180) dd -= 360;
         if (dd < -180) dd += 360;
         dd = Math.round(dd);
@@ -506,7 +506,7 @@ async function loadObs() {
     });
 
     html += '</tbody></table></div>';
-    html += '<div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);margin-top:8px">Errore OM = osservato - OM · Verde=errore&lt;2kt/20° · Ambra=errore&lt;5kt/45° · Rosso=errore maggiore · Righe sbiadite=&gt;6h fa</div>';
+    html += '<div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);margin-top:8px">Errore OM = OM - osservato · + = OM sovrastima · - = OM sottostima · Verde=&lt;2kt/20° · Ambra=&lt;5kt/45° · Rosso=errore maggiore</div>';
     el.innerHTML = html;
   } catch(e) {
     el.innerHTML = '<div style="font-family:DM Mono,monospace;font-size:0.6rem;color:var(--danger)">Errore caricamento osservazioni: ' + e.message + '</div>';

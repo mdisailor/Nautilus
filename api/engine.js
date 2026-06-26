@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.29 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.31 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
@@ -1944,7 +1944,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.29', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.31', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -4835,6 +4835,194 @@ if (action === 'bias_stats') {
 // action=mae_compare -- confronto MAE OM vs AROME per tutte le stazioni con bias_samples
 // action=bias_matrix -- bias storico stratificato per stazione × fascia velocità × settore × slot orario
 // Usato da OI in mappa.html per correggere la griglia con bias storici invece del singolo campione istantaneo
+// action=compute_scores -- calcola e salva score affidabilità OM vs AROME per ogni stazione
+// Chiamato da cron orario. Salva in model_score:<stazione> senza influenzare OI (accumulo dati puro).
+// action=score_get -- legge model_score per una stazione o tutte
+if (action === 'score_get') {
+  try {
+    var sgStation = req.query.station || null;
+    if (sgStation) {
+      var sgScore = await kvGet('model_score:' + sgStation, kvUrl, kvToken);
+      return res.status(200).json({ station: sgStation, score: sgScore || null });
+    }
+    // Tutte le stazioni
+    var sgStations = [
+      'livorno','canale_piombino','viareggio','capraia_w','portoferraio','alberese','luri',
+      'barcaggio','gorgona_cfr','capraia_cfr','giglio_porto','giglio_castello','montecristo',
+      'portoferraio_cfr','orbetello','svincenzo_porto','casotto_pescatori','venturina',
+      'forte_dei_marmi','lido_camaiore','bocca_arno_cfr','follonica','capalbio'
+    ];
+    var sgResults = {};
+    for (var sgi = 0; sgi < sgStations.length; sgi++) {
+      var sgId = sgStations[sgi];
+      var sgVal = await kvGet('model_score:' + sgId, kvUrl, kvToken);
+      if (sgVal) sgResults[sgId] = {
+        computed_at: sgVal.computed_at,
+        n_total: sgVal.n_total,
+        global_best: sgVal.global ? sgVal.global.best : null,
+        global_mae_om: sgVal.global ? sgVal.global.mae_om : null,
+        global_mae_arome: sgVal.global ? sgVal.global.mae_arome : null,
+        current_best: sgVal.current_best,
+        current_conditions: sgVal.current_conditions,
+        current_n: sgVal.current_n
+      };
+    }
+    return res.status(200).json({ scores: sgResults, generated_at: new Date().toISOString() });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+if (action === 'compute_scores') {
+  try {
+    var csSecret = req.query.secret || req.query.k || '';
+    var csCronSecret = process.env.CRON_SECRET || null;
+    if (csSecret !== 'mdi' && (!csCronSecret || csSecret !== csCronSecret)) return res.status(401).json({ error: 'Unauthorized' });
+
+    var csStations = [
+      'livorno','canale_piombino','viareggio','capraia_w','portoferraio','alberese','luri',
+      'barcaggio','bonifacio_pertusato','vada',
+      'gorgona_cfr','capraia_cfr','giglio_porto','giglio_castello','montecristo','portoferraio_cfr',
+      'orbetello','svincenzo_porto','casotto_pescatori','venturina','forte_dei_marmi','lido_camaiore',
+      'bocca_arno_cfr','follonica','capalbio'
+    ];
+
+    var csSpeeds  = [
+      { key:'low',  min:0,  max:8   },
+      { key:'mid',  min:8,  max:15  },
+      { key:'high', min:15, max:999 }
+    ];
+    var csSectors = [
+      { key:'N', min:315, max:360, min2:0,   max2:45  },
+      { key:'E', min:45,  max:135, min2:null           },
+      { key:'S', min:135, max:225, min2:null           },
+      { key:'W', min:225, max:315, min2:null           }
+    ];
+
+    function csInSector(dir, sec) {
+      if (dir === null || dir === undefined) return false;
+      if (sec.min2 !== null) return (dir >= sec.min && dir <= 360) || (dir >= 0 && dir <= sec.max2);
+      return dir >= sec.min && dir < sec.max;
+    }
+
+    function csSlot(ts) {
+      var h = new Date(ts).getUTCHours() + 2;
+      if (h >= 24) h -= 24;
+      return h >= 6 && h < 14 ? 'morning' : 'afternoon';
+    }
+
+    var csResults = {};
+    var csNow = new Date().toISOString();
+
+    for (var csi = 0; csi < csStations.length; csi++) {
+      var csId = csStations[csi];
+      try {
+        var csSamples = await kvGet('bias_samples:' + csId, kvUrl, kvToken);
+        if (!Array.isArray(csSamples) || csSamples.length === 0) continue;
+
+        // Campioni validi con entrambi i delta
+        var csValid = csSamples.filter(function(s) {
+          return s.delta && s.delta.wind_kt !== null &&
+                 s.om && s.om.wind_kt !== null && s.om.direction !== null;
+        });
+        if (csValid.length === 0) continue;
+
+        // Score globale: MAE OM e AROME su tutti i campioni
+        var csOmAll  = csValid.filter(function(s){ return s.delta && s.delta.wind_kt !== null; });
+        var csArAll  = csValid.filter(function(s){ return s.delta_arome && s.delta_arome.wind_kt !== null; });
+        var csMaeOmGlobal = csOmAll.length > 0
+          ? csOmAll.reduce(function(a,s){ return a + Math.abs(s.delta.wind_kt); }, 0) / csOmAll.length : null;
+        var csMaeArGlobal = csArAll.length > 0
+          ? csArAll.reduce(function(a,s){ return a + Math.abs(s.delta_arome.wind_kt); }, 0) / csArAll.length : null;
+
+        // Score contestuale: matrice fascia × settore × slot
+        var csMatrix = {};
+        csSpeeds.forEach(function(spd) {
+          csSectors.forEach(function(sec) {
+            ['morning','afternoon'].forEach(function(slot) {
+              var key = spd.key + '_' + sec.key + '_' + slot;
+              var filtered = csValid.filter(function(s) {
+                return s.om.wind_kt >= spd.min && s.om.wind_kt < spd.max &&
+                       csInSector(s.om.direction, sec) &&
+                       csSlot(s.ts) === slot;
+              });
+              if (filtered.length === 0) { csMatrix[key] = null; return; }
+
+              var omVals = filtered.filter(function(s){ return s.delta && s.delta.wind_kt !== null; });
+              var arVals = filtered.filter(function(s){ return s.delta_arome && s.delta_arome.wind_kt !== null; });
+
+              var maeOm = omVals.length > 0
+                ? omVals.reduce(function(a,s){ return a + Math.abs(s.delta.wind_kt); }, 0) / omVals.length : null;
+              var maeAr = arVals.length > 0
+                ? arVals.reduce(function(a,s){ return a + Math.abs(s.delta_arome.wind_kt); }, 0) / arVals.length : null;
+
+              var best = null;
+              if (maeOm !== null && maeAr !== null) best = maeAr < maeOm ? 'arome' : 'om';
+              else if (maeOm !== null) best = 'om';
+              else if (maeAr !== null) best = 'arome';
+
+              // Score 0-1: quanto è migliore il modello vincente rispetto all'altro
+              // 1.0 = differenza enorme, 0.5 = parità, valori intermedi proporzionali
+              var advantage = null;
+              if (maeOm !== null && maeAr !== null && (maeOm + maeAr) > 0) {
+                advantage = Math.round(Math.abs(maeOm - maeAr) / (maeOm + maeAr) * 100) / 100;
+              }
+
+              csMatrix[key] = {
+                n: filtered.length,
+                mae_om: maeOm !== null ? Math.round(maeOm * 100) / 100 : null,
+                mae_arome: maeAr !== null ? Math.round(maeAr * 100) / 100 : null,
+                best: best,
+                advantage: advantage  // 0=parità, 1=un modello nettamente migliore
+              };
+            });
+          });
+        });
+
+        // Score corrente: leggi le condizioni OM più recenti per determinare il best model NOW
+        var csLatest = csValid[0];
+        var csCurrSpd = csLatest ? csLatest.om.wind_kt : null;
+        var csCurrDir = csLatest ? csLatest.om.direction : null;
+        var csCurrSlot = csLatest ? csSlot(csLatest.ts) : null;
+        var csCurrKey = null, csCurrCell = null;
+        if (csCurrSpd !== null && csCurrDir !== null) {
+          var csCurrSpdKey = csCurrSpd < 8 ? 'low' : csCurrSpd < 15 ? 'mid' : 'high';
+          var csCurrSecKey = csCurrDir >= 315 || csCurrDir < 45 ? 'N' :
+                             csCurrDir < 135 ? 'E' : csCurrDir < 225 ? 'S' : 'W';
+          csCurrKey = csCurrSpdKey + '_' + csCurrSecKey + '_' + csCurrSlot;
+          csCurrCell = csMatrix[csCurrKey];
+        }
+
+        var csScore = {
+          station: csId,
+          computed_at: csNow,
+          n_total: csValid.length,
+          global: {
+            mae_om: csMaeOmGlobal !== null ? Math.round(csMaeOmGlobal * 100) / 100 : null,
+            mae_arome: csMaeArGlobal !== null ? Math.round(csMaeArGlobal * 100) / 100 : null,
+            best: (csMaeOmGlobal !== null && csMaeArGlobal !== null)
+              ? (csMaeArGlobal < csMaeOmGlobal ? 'arome' : 'om') : null
+          },
+          current_conditions: csCurrKey,
+          current_best: csCurrCell ? csCurrCell.best : null,
+          current_advantage: csCurrCell ? csCurrCell.advantage : null,
+          current_n: csCurrCell ? csCurrCell.n : 0,
+          matrix: csMatrix
+        };
+
+        await kvSet('model_score:' + csId, csScore, 31536000, kvUrl, kvToken);
+        csResults[csId] = { ok: true, n: csValid.length, current_best: csScore.current_best, current_n: csScore.current_n };
+      } catch(csE) {
+        csResults[csId] = { ok: false, error: csE.message };
+      }
+    }
+
+    return res.status(200).json({ ok: true, computed_at: csNow, stations: csResults });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
 if (action === 'bias_matrix') {
   try {
     var bmStations = [
@@ -5081,7 +5269,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.29 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.31 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -5208,4 +5396,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.29
+// Fine codice - NAUTILUS ENGINE v2.13.31

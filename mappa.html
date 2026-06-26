@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.6.32 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS MAPPA v1.6.33 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.6.32</title>
+<title>NAUTILUS Mappa Vento v1.6.33</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -225,7 +225,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.6.32</span>
+    <span id="nav-ver">mappa v1.6.33</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -290,11 +290,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.6.32 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.6.33 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.6.32
+// NAUTILUS MAPPA v1.6.33
 
 var ENGINE_URL = '/api/engine';
 
@@ -690,7 +690,7 @@ map.on('click', function(e){
     '<div class="popup-wind" style="color:#ffaa00;font-size:0.85rem">Raffica: ' + gustGrid + '</div>' +
     '<div class="popup-ts">Modello OM ore ' + (best.time || '--') + '</div>' +
     oiStr +
-    '<div style="margin-top:8px"><button onclick="openObsPanel(' + clickLat.toFixed(5) + ',' + clickLon.toFixed(5) + ')" style="width:100%;padding:7px;background:rgba(255,149,0,0.15);border:1px solid #ff9500;border-radius:8px;font-family:DM Mono,monospace;font-size:0.55rem;color:#ff9500;cursor:pointer;letter-spacing:0.05em">📍 Inserisci osservazione</button></div>';
+    '<div style="margin-top:8px"><button onclick="openObsPanel(' + clickLat.toFixed(5) + ',' + clickLon.toFixed(5) + ',\'\')" style="width:100%;padding:7px;background:rgba(255,149,0,0.15);border:1px solid #ff9500;border-radius:8px;font-family:DM Mono,monospace;font-size:0.55rem;color:#ff9500;cursor:pointer;letter-spacing:0.05em">📍 Inserisci osservazione</button></div>';
   gridPopup.setLatLng(e.latlng).setContent(html).openOn(map);
 });
 
@@ -1369,12 +1369,13 @@ BUOYS.forEach(function(b) {
 // ============================================================
 // OSSERVAZIONI MANUALI — v1.0 — 2026-06-25
 // ============================================================
-var obsCurrentLat = null, obsCurrentLon = null;
+var obsCurrentLat = null, obsCurrentLon = null, obsCurrentName = null;
 var obsMarkers = [];
 
-function openObsPanel(lat, lon) {
+function openObsPanel(lat, lon, name) {
   obsCurrentLat = lat;
   obsCurrentLon = lon;
+  obsCurrentName = name || null;
   // Pre-compila data/ora con adesso
   var now = new Date();
   var tzOffset = now.getTimezoneOffset() * 60000;
@@ -1384,8 +1385,13 @@ function openObsPanel(lat, lon) {
   document.getElementById('obs-dir').value = '';
   document.getElementById('obs-note').value = '';
   document.getElementById('obs-status').textContent = '';
-  document.getElementById('obs-coords').textContent =
-    'Posizione: ' + lat.toFixed(4) + '°N  ' + lon.toFixed(4) + '°E';
+  var coordsEl = document.getElementById('obs-coords');
+  if (name) {
+    coordsEl.innerHTML = '<span style="color:var(--white);font-weight:bold">' + name + '</span><br>' +
+      lat.toFixed(4) + '°N  ' + lon.toFixed(4) + '°E';
+  } else {
+    coordsEl.textContent = 'Posizione: ' + lat.toFixed(4) + '°N  ' + lon.toFixed(4) + '°E';
+  }
   // Ricorda ultimo pin usato
   var lastPin = localStorage.getItem('obs_pin') || '';
   document.getElementById('obs-pin').value = lastPin;
@@ -1416,6 +1422,7 @@ async function submitObs() {
   var url = ENGINE_URL + '?action=obs_save&lat=' + obsCurrentLat + '&lon=' + obsCurrentLon +
     '&spd=' + spd + '&dir=' + dir + '&pin=' + encodeURIComponent(pin) +
     '&ts=' + encodeURIComponent(tsIso) +
+    (obsCurrentName ? '&name=' + encodeURIComponent(obsCurrentName) : '') +
     (note ? '&note=' + encodeURIComponent(note) : '');
 
   try {
@@ -1584,7 +1591,7 @@ CALC_ONLY.forEach(function(c) {
           '</div>' +
           '<div style="color:#ffaa00;font-size:0.58rem;margin-top:4px">Solo dato calcolato (Open-Meteo)</div>' +
           '<div style="color:#888;font-size:0.56rem">Nessuna stazione meteo reale nelle vicinanze - valore non verificato</div>' +
-          '<div style="margin-top:8px"><button onclick="openObsPanel(' + c.lat + ',' + c.lon + ')" style="width:100%;padding:7px;background:rgba(255,149,0,0.15);border:1px solid #ff9500;border-radius:8px;font-family:DM Mono,monospace;font-size:0.55rem;color:#ff9500;cursor:pointer;letter-spacing:0.05em">📍 Inserisci osservazione</button></div>';
+          '<div style="margin-top:8px"><button onclick="openObsPanel(' + c.lat + ',' + c.lon + ',\'' + c.name.replace(/'/g,"\\'") + '\')" style="width:100%;padding:7px;background:rgba(255,149,0,0.15);border:1px solid #ff9500;border-radius:8px;font-family:DM Mono,monospace;font-size:0.55rem;color:#ff9500;cursor:pointer;letter-spacing:0.05em">📍 Inserisci osservazione</button></div>';
       }).catch(function() {
         var el = document.getElementById(calcPopupId);
         if (el) el.innerHTML = '<div style="font-weight:bold;color:#ffaa00;margin-bottom:4px">' + c.name + '</div><div style="color:#fff;font-size:0.62rem">Errore caricamento dato</div>';
@@ -1648,7 +1655,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.6.32
+// Fine codice - NAUTILUS MAPPA v1.6.33
 </script>
 <!-- Pannello inserimento osservazione manuale -->
 <div id="obs-panel">

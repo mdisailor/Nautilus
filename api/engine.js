@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.28 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.29 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
@@ -1944,7 +1944,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.28', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.29', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -4956,6 +4956,7 @@ if (action === 'obs_save') {
     var oSpd  = parseFloat(req.query.spd  || '');
     var oDir  = parseFloat(req.query.dir  || '');
     var oNote = (req.query.note || '').slice(0, 120);
+    var oName = (req.query.name || '').slice(0, 60);
     var oTs   = req.query.ts ? new Date(req.query.ts).toISOString() : new Date().toISOString();
     if (!oPin) return res.status(400).json({ error: 'Pin mancante' });
     if (isNaN(oLat) || isNaN(oLon)) return res.status(400).json({ error: 'Coordinate non valide' });
@@ -4974,6 +4975,7 @@ if (action === 'obs_save') {
       ts: oTs,
       ts_saved: new Date().toISOString(),
       pin: oPin,
+      name: oName || null,
       lat: Math.round(oLat * 10000) / 10000,
       lon: Math.round(oLon * 10000) / 10000,
       wind_kt: Math.round(oSpd * 10) / 10,
@@ -5079,7 +5081,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.28 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.29 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -5206,4 +5208,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.28
+// Fine codice - NAUTILUS ENGINE v2.13.29

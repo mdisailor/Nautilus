@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS MAE Compare v1.8</title>
+<title>NAUTILUS MAE Compare v1.9</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -122,7 +122,7 @@ html,body{min-height:100%;background:var(--bg);font-family:'DM Mono',monospace;c
 <div id="nav">
   <div style="display:flex;align-items:center">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <div id="nav-ver">mae v1.8</div>
+    <div id="nav-ver">mae v1.9</div>
   </div>
   <a id="nav-back" href="#" onclick="event.preventDefault();var p=prompt('Password:');if(p==='mdi'){window.location.href='/?k=mdi'}">APP</a>
 </div>
@@ -455,11 +455,11 @@ async function loadObs() {
     html += '<thead><tr style="border-bottom:1px solid var(--border);color:var(--muted)">';
     html += '<th style="padding:6px 4px;text-align:left">Ora</th>';
     html += '<th style="padding:6px 4px;text-align:left">Pin</th>';
-    html += '<th style="padding:6px 4px;text-align:left">Posizione</th>';
-    html += '<th style="padding:6px 4px;text-align:center">Obs<br>kt / °</th>';
+    html += '<th style="padding:6px 4px;text-align:left">Punto</th>';
+    html += '<th style="padding:6px 4px;text-align:center">Osservato<br>kt / °</th>';
     html += '<th style="padding:6px 4px;text-align:center;color:var(--gold)">OM<br>kt / °</th>';
-    html += '<th style="padding:6px 4px;text-align:center">Δ vel<br>kt</th>';
-    html += '<th style="padding:6px 4px;text-align:center">Δ dir<br>°</th>';
+    html += '<th style="padding:6px 4px;text-align:center">Errore OM<br>vel (kt)</th>';
+    html += '<th style="padding:6px 4px;text-align:center">Errore OM<br>dir (°)</th>';
     html += '<th style="padding:6px 4px;text-align:left;color:var(--muted)">Nota</th>';
     html += '</tr></thead><tbody>';
 
@@ -493,7 +493,10 @@ async function loadObs() {
       html += '<tr style="border-bottom:1px solid rgba(26,58,92,0.4);opacity:' + rowOpacity + '">';
       html += '<td style="padding:5px 4px;color:var(--text)">' + dtStr + '</td>';
       html += '<td style="padding:5px 4px"><span style="background:rgba(255,149,0,0.15);color:#ff9500;border:1px solid rgba(255,149,0,0.4);border-radius:4px;padding:1px 5px">' + o.pin + '</span></td>';
-      html += '<td style="padding:5px 4px;color:var(--muted)">' + o.lat.toFixed(3) + ',' + o.lon.toFixed(3) + '</td>';
+      var posCell = o.name
+        ? '<span style="color:var(--white)">' + o.name + '</span><br><span style="color:var(--muted);font-size:0.48rem">' + o.lat.toFixed(3) + ',' + o.lon.toFixed(3) + '</span>'
+        : '<span style="color:var(--muted)">' + o.lat.toFixed(3) + ',' + o.lon.toFixed(3) + '</span>';
+      html += '<td style="padding:5px 4px">' + posCell + '</td>';
       html += '<td style="padding:5px 4px;text-align:center;color:var(--white)">' + o.wind_kt + ' / ' + o.direction + '°</td>';
       html += '<td style="padding:5px 4px;text-align:center;color:var(--gold)">' + (omKt !== null ? omKt + ' / ' + omDir + '°' : '—') + '</td>';
       html += '<td style="padding:5px 4px;text-align:center;color:' + dvCol + '">' + dvStr + '</td>';
@@ -503,7 +506,7 @@ async function loadObs() {
     });
 
     html += '</tbody></table></div>';
-    html += '<div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);margin-top:8px">Verde=Δ&lt;2kt/20° · Ambra=Δ&lt;5kt/45° · Rosso=Δ maggiore · Righe sbiadite=&gt;6h fa</div>';
+    html += '<div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);margin-top:8px">Errore OM = osservato - OM · Verde=errore&lt;2kt/20° · Ambra=errore&lt;5kt/45° · Rosso=errore maggiore · Righe sbiadite=&gt;6h fa</div>';
     el.innerHTML = html;
   } catch(e) {
     el.innerHTML = '<div style="font-family:DM Mono,monospace;font-size:0.6rem;color:var(--danger)">Errore caricamento osservazioni: ' + e.message + '</div>';

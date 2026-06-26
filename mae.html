@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS MAE Compare v1.7</title>
+<title>NAUTILUS MAE Compare v1.8</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -122,7 +122,7 @@ html,body{min-height:100%;background:var(--bg);font-family:'DM Mono',monospace;c
 <div id="nav">
   <div style="display:flex;align-items:center">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <div id="nav-ver">mae v1.7</div>
+    <div id="nav-ver">mae v1.8</div>
   </div>
   <a id="nav-back" href="#" onclick="event.preventDefault();var p=prompt('Password:');if(p==='mdi'){window.location.href='/?k=mdi'}">APP</a>
 </div>
@@ -155,6 +155,19 @@ html,body{min-height:100%;background:var(--bg);font-family:'DM Mono',monospace;c
   </div>
   <div id="error" style="display:none"></div>
   <div id="station-list"></div>
+
+  <div class="section-title" style="margin-top:24px">Osservazioni Manuali</div>
+  <div id="obs-summary" style="display:none;margin-bottom:12px">
+    <div class="sum-card" style="display:inline-block;padding:10px 16px;margin-right:8px">
+      <div class="sum-label">Totale osservazioni</div>
+      <div class="sum-val" id="obs-count" style="color:var(--accent)">—</div>
+    </div>
+    <div class="sum-card" style="display:inline-block;padding:10px 16px;margin-right:8px">
+      <div class="sum-label">Osservatori attivi</div>
+      <div class="sum-val" id="obs-pins" style="color:var(--gold)">—</div>
+    </div>
+  </div>
+  <div id="obs-list"><div style="font-family:DM Mono,monospace;font-size:0.6rem;color:var(--muted)">Caricamento osservazioni...</div></div>
 </div><!-- fine #content -->
 
 <!-- Sidebar dettaglio (desktop ≥700px) -->
@@ -416,6 +429,86 @@ function renderMatrix(elId, samples) {
 
 
 load();
+loadObs();
+
+async function loadObs() {
+  var el = document.getElementById('obs-list');
+  try {
+    var r = await fetch(ENGINE_URL + '?action=obs_list&limit=100&k=' + SECRET);
+    var d = await r.json();
+    var obs = d.observations || [];
+
+    if (obs.length === 0) {
+      el.innerHTML = '<div style="font-family:DM Mono,monospace;font-size:0.6rem;color:var(--muted)">Nessuna osservazione ancora inserita.</div>';
+      return;
+    }
+
+    // Summary
+    var pins = [...new Set(obs.map(function(o){ return o.pin; }))];
+    document.getElementById('obs-count').textContent = obs.length;
+    document.getElementById('obs-pins').textContent = pins.length;
+    document.getElementById('obs-summary').style.display = 'block';
+
+    // Tabella
+    var html = '<div style="overflow-x:auto">';
+    html += '<table style="width:100%;border-collapse:collapse;font-family:DM Mono,monospace;font-size:0.55rem">';
+    html += '<thead><tr style="border-bottom:1px solid var(--border);color:var(--muted)">';
+    html += '<th style="padding:6px 4px;text-align:left">Ora</th>';
+    html += '<th style="padding:6px 4px;text-align:left">Pin</th>';
+    html += '<th style="padding:6px 4px;text-align:left">Posizione</th>';
+    html += '<th style="padding:6px 4px;text-align:center">Obs<br>kt / °</th>';
+    html += '<th style="padding:6px 4px;text-align:center;color:var(--gold)">OM<br>kt / °</th>';
+    html += '<th style="padding:6px 4px;text-align:center">Δ vel<br>kt</th>';
+    html += '<th style="padding:6px 4px;text-align:center">Δ dir<br>°</th>';
+    html += '<th style="padding:6px 4px;text-align:left;color:var(--muted)">Nota</th>';
+    html += '</tr></thead><tbody>';
+
+    obs.forEach(function(o) {
+      var dt = new Date(o.ts);
+      var dtStr = dt.toLocaleDateString('it-IT', {day:'2-digit',month:'2-digit'}) + ' ' +
+                  dt.toLocaleTimeString('it-IT', {hour:'2-digit',minute:'2-digit'});
+      var omKt  = o.om ? o.om.wind_kt  : null;
+      var omDir = o.om ? o.om.direction : null;
+
+      // Delta velocità
+      var dv = (omKt !== null) ? Math.round((o.wind_kt - omKt) * 10) / 10 : null;
+      var dvStr = dv !== null ? (dv >= 0 ? '+' + dv : '' + dv) : '—';
+      var dvCol = dv === null ? 'var(--muted)' : Math.abs(dv) < 2 ? 'var(--safe)' : Math.abs(dv) < 5 ? 'var(--gold)' : 'var(--danger)';
+
+      // Delta direzione (circolare)
+      var dd = null;
+      if (omDir !== null && omDir !== undefined) {
+        dd = o.direction - omDir;
+        if (dd > 180) dd -= 360;
+        if (dd < -180) dd += 360;
+        dd = Math.round(dd);
+      }
+      var ddStr = dd !== null ? (dd >= 0 ? '+' + dd : '' + dd) + '°' : '—';
+      var ddCol = dd === null ? 'var(--muted)' : Math.abs(dd) < 20 ? 'var(--safe)' : Math.abs(dd) < 45 ? 'var(--gold)' : 'var(--danger)';
+
+      // Colore riga per età
+      var ageMin = Math.round((Date.now() - dt.getTime()) / 60000);
+      var rowOpacity = ageMin > 360 ? '0.5' : '1';
+
+      html += '<tr style="border-bottom:1px solid rgba(26,58,92,0.4);opacity:' + rowOpacity + '">';
+      html += '<td style="padding:5px 4px;color:var(--text)">' + dtStr + '</td>';
+      html += '<td style="padding:5px 4px"><span style="background:rgba(255,149,0,0.15);color:#ff9500;border:1px solid rgba(255,149,0,0.4);border-radius:4px;padding:1px 5px">' + o.pin + '</span></td>';
+      html += '<td style="padding:5px 4px;color:var(--muted)">' + o.lat.toFixed(3) + ',' + o.lon.toFixed(3) + '</td>';
+      html += '<td style="padding:5px 4px;text-align:center;color:var(--white)">' + o.wind_kt + ' / ' + o.direction + '°</td>';
+      html += '<td style="padding:5px 4px;text-align:center;color:var(--gold)">' + (omKt !== null ? omKt + ' / ' + omDir + '°' : '—') + '</td>';
+      html += '<td style="padding:5px 4px;text-align:center;color:' + dvCol + '">' + dvStr + '</td>';
+      html += '<td style="padding:5px 4px;text-align:center;color:' + ddCol + '">' + ddStr + '</td>';
+      html += '<td style="padding:5px 4px;color:var(--muted);font-size:0.5rem">' + (o.note || '') + '</td>';
+      html += '</tr>';
+    });
+
+    html += '</tbody></table></div>';
+    html += '<div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--muted);margin-top:8px">Verde=Δ&lt;2kt/20° · Ambra=Δ&lt;5kt/45° · Rosso=Δ maggiore · Righe sbiadite=&gt;6h fa</div>';
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = '<div style="font-family:DM Mono,monospace;font-size:0.6rem;color:var(--danger)">Errore caricamento osservazioni: ' + e.message + '</div>';
+  }
+}
 </script>
 </body>
 </html>

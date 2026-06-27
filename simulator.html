@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Simulator v1.0</title>
+<title>NAUTILUS Simulator v1.1</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -91,7 +91,7 @@ html,body{min-height:100%;background:var(--bg);font-family:'DM Mono',monospace;c
 <div id="nav">
   <div style="display:flex;align-items:center">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <div id="nav-ver">simulator v1.0</div>
+    <div id="nav-ver">simulator v1.1</div>
   </div>
   <a id="nav-back" href="#" onclick="event.preventDefault();var p=prompt('Password:');if(p==='mdi'){window.location.href='/?k=mdi'}">APP</a>
 </div>
@@ -168,10 +168,10 @@ function renderPilot(pilot, score, omData) {
   var sem = semaforo(currentN);
 
   // Decisione modello
-  var chosen = currentCell ? currentCell.best : (score ? score.global_best : null);
+  var chosen = currentCell ? currentCell.best : (score ? score.global ? score.global.best : null : null);
   var fallback = !currentCell || currentCell.n === 0;
-  var maeOm  = currentCell && currentCell.mae_om    ? currentCell.mae_om    : (score ? score.global_mae_om : null);
-  var maeAr  = currentCell && currentCell.mae_arome ? currentCell.mae_arome : (score ? score.global_mae_arome : null);
+  var maeOm  = currentCell && currentCell.mae_om    ? currentCell.mae_om    : (score ? score.global ? score.global.mae_om : null : null);
+  var maeAr  = currentCell && currentCell.mae_arome ? currentCell.mae_arome : (score ? score.global ? score.global.mae_arome : null : null);
 
   // Valore corretto: valore OM - bias del modello scelto
   // bias = delta medio = stazione - modello (già in bias_samples)
@@ -241,14 +241,14 @@ function renderPilot(pilot, score, omData) {
     html += '<tr class="' + (omWins ? 'chosen-row-om' : '') + '">';
     html += '<td style="color:var(--gold)">OM</td>';
     html += '<td>' + (currentCell && currentCell.mae_om ? currentCell.mae_om + ' kt' : '—') + '</td>';
-    html += '<td>' + (score && score.global_mae_om ? score.global_mae_om + ' kt' : '—') + '</td>';
+    html += '<td>' + (score && score.global ? score.global.mae_om : null ? score.global ? score.global.mae_om : null + ' kt' : '—') + '</td>';
     html += '<td>' + (omWins ? '<span style="color:var(--gold)">✓</span>' : '') + '</td>';
     html += '</tr>';
 
     html += '<tr class="' + (arWins ? 'chosen-row' : '') + '">';
     html += '<td style="color:var(--accent)">AROME</td>';
     html += '<td>' + (currentCell && currentCell.mae_arome ? currentCell.mae_arome + ' kt' : '—') + '</td>';
-    html += '<td>' + (score && score.global_mae_arome ? score.global_mae_arome + ' kt' : '—') + '</td>';
+    html += '<td>' + (score && score.global ? score.global.mae_arome : null ? score.global ? score.global.mae_arome : null + ' kt' : '—') + '</td>';
     html += '<td>' + (arWins ? '<span style="color:var(--accent)">✓</span>' : '') + '</td>';
     html += '</tr>';
 
@@ -302,11 +302,23 @@ async function load() {
       var scoreP = fetch(ENGINE_URL + '?action=score_get&station=' + pilot.id + '&k=' + SECRET)
         .then(function(r){ return r.json(); })
         .catch(function(){ return null; });
-      var omP = fetch(ENGINE_URL + '?action=grid&lats=' + pilot.lat + '&lons=' + pilot.lon)
+      var omP = fetch(ENGINE_URL + '?action=meteo&lat=' + pilot.lat + '&lon=' + pilot.lon)
         .then(function(r){ return r.json(); })
         .catch(function(){ return null; });
       var both = await Promise.all([scoreP, omP]);
-      return { pilot: pilot, score: both[0] ? both[0].score : null, omData: both[1] ? both[1][0] : null };
+      return { pilot: pilot, score: both[0] ? both[0].score : null, omData: (function(){
+          var d = both[1];
+          if (!d || !d.atm || !d.atm.hourly || !d.atm.hourly.windspeed_10m) return null;
+          var h = d.atm.hourly;
+          // Trova indice ora corrente
+          var now = new Date();
+          var idx = now.getHours();
+          return {
+            wind_kt: h.windspeed_10m[idx] || null,
+            gust_kt: h.windgusts_10m ? h.windgusts_10m[idx] : null,
+            direction: h.winddirection_10m ? h.winddirection_10m[idx] : null
+          };
+        })() };
     }));
 
     var html = '';

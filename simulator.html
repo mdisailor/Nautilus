@@ -1,0 +1,326 @@
+<!-- NAUTILUS SIMULATOR v1.0 - mdisailor - 2026-06-27 -->
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#020e1c">
+<title>NAUTILUS Simulator v1.0</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#020e1c;--card:#06182e;--border:#1a3a5c;
+  --accent:#0af0ff;--gold:#ffaa00;--warn:#ff7a00;
+  --danger:#ff2d2d;--safe:#00e676;--muted:#4a7a9b;
+  --text:#c8dff0;--white:#e8f4ff;
+}
+html,body{min-height:100%;background:var(--bg);font-family:'DM Mono',monospace;color:var(--text)}
+#nav{display:flex;align-items:center;justify-content:space-between;padding:0 16px;height:48px;background:rgba(2,14,28,0.97);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+#nav-logo{font-family:'Bebas Neue',cursive;font-size:1.4rem;color:var(--white);letter-spacing:0.12em}
+#nav-logo span{color:var(--accent)}
+#nav-ver{font-size:0.5rem;color:#fff;margin-left:8px}
+#nav-back{font-size:0.6rem;color:var(--muted);text-decoration:none;letter-spacing:0.1em;border:1px solid var(--border);border-radius:6px;padding:4px 10px;cursor:pointer}
+#nav-back:hover{color:var(--accent);border-color:var(--accent)}
+#content{padding:16px;max-width:900px;margin:0 auto}
+.section-title{font-size:0.6rem;color:var(--accent);letter-spacing:0.15em;text-transform:uppercase;margin:20px 0 10px;border-bottom:1px solid var(--border);padding-bottom:6px}
+
+/* Pilot cards */
+.pilot-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px}
+.pilot-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.pilot-name{font-size:1rem;color:var(--white);font-weight:bold}
+.pilot-type{font-size:0.5rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-top:2px}
+
+/* Semaforo */
+.semaforo{display:flex;flex-direction:column;align-items:center;gap:3px}
+.sem-light{width:16px;height:16px;border-radius:50%;border:1px solid rgba(255,255,255,0.2)}
+.sem-red{background:#ff2d2d}
+.sem-yellow{background:#ffaa00}
+.sem-green{background:#00e676}
+.sem-off{background:rgba(255,255,255,0.08)}
+.sem-label{font-size:0.42rem;color:var(--white);text-align:center;margin-top:2px;letter-spacing:0.05em;text-transform:uppercase}
+
+/* Conditions bar */
+.conditions-bar{background:rgba(10,240,255,0.05);border:1px solid rgba(10,240,255,0.15);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:0.6rem;color:var(--white)}
+.cond-label{font-size:0.48rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px}
+
+/* Decision panel */
+.decision-panel{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.dec-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center}
+.dec-card.winner{border-color:var(--accent);background:rgba(10,240,255,0.05)}
+.dec-card.winner-om{border-color:var(--gold);background:rgba(255,170,0,0.05)}
+.dec-label{font-size:0.5rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px}
+.dec-val{font-size:1.3rem;font-weight:bold;margin:4px 0}
+.dec-sub{font-size:0.55rem;color:var(--white)}
+.dec-mae{font-size:0.55rem;color:var(--white);margin-top:3px}
+
+/* Comparison table */
+.comp-table{width:100%;border-collapse:collapse;font-size:0.58rem;margin-bottom:10px}
+.comp-table th{padding:5px 8px;color:var(--muted);text-align:left;border-bottom:1px solid var(--border);font-weight:normal;text-transform:uppercase;letter-spacing:0.06em}
+.comp-table td{padding:6px 8px;border-bottom:1px solid rgba(26,58,92,0.3);color:var(--white)}
+.comp-table tr:last-child td{border-bottom:none}
+.chosen-row td{background:rgba(10,240,255,0.06)}
+.chosen-row-om td{background:rgba(255,170,0,0.06)}
+
+/* Advantage bar */
+.adv-wrap{margin:10px 0}
+.adv-label{font-size:0.5rem;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.06em}
+.adv-bar{display:flex;height:10px;border-radius:5px;overflow:hidden;background:rgba(26,58,92,0.4)}
+.adv-om{background:var(--gold);transition:width 0.4s}
+.adv-arome{background:var(--accent);transition:width 0.4s}
+.adv-labels{display:flex;justify-content:space-between;font-size:0.48rem;margin-top:3px}
+
+/* N cells breakdown */
+.cells-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:8px}
+.cell-mini{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:4px;text-align:center;font-size:0.48rem}
+.cell-mini.win-arome{border-color:rgba(10,240,255,0.4);background:rgba(10,240,255,0.06)}
+.cell-mini.win-om{border-color:rgba(255,170,0,0.4);background:rgba(255,170,0,0.06)}
+.cell-mini.current{box-shadow:0 0 0 2px var(--white)}
+.cell-mini-key{color:var(--muted);font-size:0.42rem}
+.cell-mini-n{color:var(--white);font-weight:bold}
+
+.spinner{display:inline-block;width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&display=swap');
+</style>
+</head>
+<body>
+
+<div id="nav">
+  <div style="display:flex;align-items:center">
+    <div id="nav-logo">NAUTI<span>LUS</span></div>
+    <div id="nav-ver">simulator v1.0</div>
+  </div>
+  <a id="nav-back" href="#" onclick="event.preventDefault();var p=prompt('Password:');if(p==='mdi'){window.location.href='/?k=mdi'}">APP</a>
+</div>
+
+<div id="content">
+  <div class="section-title">Simulatore decisioni — 3 punti pilota</div>
+  <div style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--muted);margin-bottom:16px">
+    Mostra come il sistema sceglierebbe il modello e correggerebbe i dati in questo momento.
+    I valori sono già preparati — nessun calcolo al click.
+  </div>
+
+  <div id="pilots-container">
+    <div style="text-align:center;padding:40px;color:var(--muted)"><div class="spinner"></div><br><br>Caricamento dati...</div>
+  </div>
+
+  <div style="font-size:0.5rem;color:var(--muted);margin-top:16px;padding-top:12px;border-top:1px solid var(--border)">
+    🔴 n=0-2 · 🟡 n=3-9 · 🟢 n≥10 — affidabilità basata sui campioni nella cella condizione attuale
+  </div>
+</div>
+
+<script>
+var ENGINE_URL = '/api/engine';
+var SECRET = 'mdi';
+
+var PILOTS = [
+  { id: 'gorgona_cfr',  name: 'Gorgona CFR',    type: 'AROME previsto vincitore',  lat: 43.433, lon: 9.883  },
+  { id: 'bocca_arno_cfr', name: 'Bocca d\'Arno CFR', type: 'OM previsto vincitore', lat: 43.680, lon: 10.270 },
+  { id: 'viareggio',    name: 'Viareggio',       type: 'Borderline — punto ibrido', lat: 43.870, lon: 10.230 }
+];
+
+var SPEED_LABELS  = { low:'< 8 kt', mid:'8-15 kt', high:'> 15 kt' };
+var SECTOR_LABELS = { N:'Nord (315-45°)', E:'Est (45-135°)', S:'Sud (135-225°)', W:'Ovest (225-315°)' };
+var SLOT_LABELS   = { morning:'Mattina (6-14h)', afternoon:'Pomeriggio (14-24h)' };
+
+function semaforo(n) {
+  if (n === 0)      return { color: 'red',    label: 'Nessun dato' };
+  if (n <= 2)       return { color: 'red',    label: 'Dati scarsi' };
+  if (n <= 9)       return { color: 'yellow', label: 'Tendenza' };
+  return             { color: 'green',   label: 'Affidabile' };
+}
+
+function renderSemaforo(n) {
+  var s = semaforo(n);
+  return '<div class="semaforo">' +
+    '<div class="sem-light ' + (s.color === 'green'  ? 'sem-green'  : 'sem-off') + '"></div>' +
+    '<div class="sem-light ' + (s.color === 'yellow' ? 'sem-yellow' : 'sem-off') + '"></div>' +
+    '<div class="sem-light ' + (s.color === 'red'    ? 'sem-red'    : 'sem-off') + '"></div>' +
+    '<div class="sem-label">' + s.label + '</div>' +
+    '</div>';
+}
+
+function currentSlot() {
+  var h = new Date().getHours();
+  return h >= 6 && h < 14 ? 'morning' : 'afternoon';
+}
+
+function renderPilot(pilot, score, omData) {
+  var matrix = score ? score.matrix : null;
+  var slot = currentSlot();
+
+  // Condizioni OM attuali
+  var omSpeed = omData ? omData.wind_kt : null;
+  var omDir   = omData ? omData.direction : null;
+  var omGust  = omData ? omData.gust_kt : null;
+
+  var spdKey = omSpeed === null ? null : omSpeed < 8 ? 'low' : omSpeed < 15 ? 'mid' : 'high';
+  var secKey = omDir === null ? null :
+    (omDir >= 315 || omDir < 45) ? 'N' :
+    omDir < 135 ? 'E' : omDir < 225 ? 'S' : 'W';
+
+  var currentKey = spdKey && secKey ? spdKey + '_' + secKey + '_' + slot : null;
+  var currentCell = matrix && currentKey ? matrix[currentKey] : null;
+  var currentN = currentCell ? currentCell.n : 0;
+  var sem = semaforo(currentN);
+
+  // Decisione modello
+  var chosen = currentCell ? currentCell.best : (score ? score.global_best : null);
+  var fallback = !currentCell || currentCell.n === 0;
+  var maeOm  = currentCell && currentCell.mae_om    ? currentCell.mae_om    : (score ? score.global_mae_om : null);
+  var maeAr  = currentCell && currentCell.mae_arome ? currentCell.mae_arome : (score ? score.global_mae_arome : null);
+
+  // Valore corretto: valore OM - bias del modello scelto
+  // bias = delta medio = stazione - modello (già in bias_samples)
+  // Qui usiamo MAE come proxy dell'entità della correzione attesa
+  var correctionHint = null;
+  if (chosen && maeOm && maeAr) {
+    var winnerMae = chosen === 'arome' ? maeAr : maeOm;
+    correctionHint = winnerMae;
+  }
+
+  var chosenColor = chosen === 'arome' ? 'var(--accent)' : chosen === 'om' ? 'var(--gold)' : 'var(--muted)';
+  var chosenLabel = chosen ? chosen.toUpperCase() : '—';
+
+  var html = '<div class="pilot-card">';
+
+  // Header
+  html += '<div class="pilot-header">';
+  html += '<div><div class="pilot-name">' + pilot.name + '</div><div class="pilot-type">' + pilot.type + '</div></div>';
+  html += renderSemaforo(currentN);
+  html += '</div>';
+
+  // Condizioni attuali
+  if (omData) {
+    html += '<div class="conditions-bar">';
+    html += '<div class="cond-label">Condizioni OM attuali</div>';
+    html += '<span style="color:var(--white)">' +
+      (omSpeed !== null ? omSpeed + ' kt' : '—') + ' · ' +
+      (omDir   !== null ? omDir + '° ' + (secKey ? '(' + secKey + ')' : '') : '—') + ' · ' +
+      (omGust  !== null ? 'raffica ' + omGust + ' kt' : '') + ' · ' +
+      SLOT_LABELS[slot] +
+      '</span>';
+    if (spdKey && secKey) {
+      html += '<span style="color:var(--muted);font-size:0.5rem"> → ' + SPEED_LABELS[spdKey] + ' · ' + SECTOR_LABELS[secKey] + '</span>';
+    }
+    html += '</div>';
+  }
+
+  // Decisione principale
+  html += '<div class="decision-panel">';
+
+  // Modello scelto
+  html += '<div class="dec-card ' + (chosen === 'arome' ? 'winner' : chosen === 'om' ? 'winner-om' : '') + '">';
+  html += '<div class="dec-label">Modello scelto</div>';
+  html += '<div class="dec-val" style="color:' + chosenColor + '">' + chosenLabel + '</div>';
+  html += '<div class="dec-sub">' + (fallback ? 'fallback globale' : 'cella: n=' + currentN) + '</div>';
+  html += '<div class="dec-mae">MAE atteso: ' + (correctionHint !== null ? correctionHint + ' kt' : '—') + '</div>';
+  html += '</div>';
+
+  // Semaforo verbale
+  html += '<div class="dec-card">';
+  html += '<div class="dec-label">Affidabilità scelta</div>';
+  html += '<div class="dec-val" style="color:' + (sem.color === 'green' ? 'var(--safe)' : sem.color === 'yellow' ? 'var(--gold)' : 'var(--danger)') + ';font-size:1rem">' + sem.label + '</div>';
+  html += '<div class="dec-sub">n=' + currentN + ' campioni</div>';
+  html += '<div class="dec-mae">' + (currentKey ? currentKey.replace(/_/g,' · ') : 'condizioni non disponibili') + '</div>';
+  html += '</div>';
+
+  html += '</div>';
+
+  // Tabella comparativa OM vs AROME
+  if (maeOm !== null || maeAr !== null) {
+    html += '<table class="comp-table">';
+    html += '<thead><tr><th>Modello</th><th>MAE cella</th><th>MAE globale</th><th>Vince?</th></tr></thead><tbody>';
+
+    var omWins = chosen === 'om';
+    var arWins = chosen === 'arome';
+
+    html += '<tr class="' + (omWins ? 'chosen-row-om' : '') + '">';
+    html += '<td style="color:var(--gold)">OM</td>';
+    html += '<td>' + (currentCell && currentCell.mae_om ? currentCell.mae_om + ' kt' : '—') + '</td>';
+    html += '<td>' + (score && score.global_mae_om ? score.global_mae_om + ' kt' : '—') + '</td>';
+    html += '<td>' + (omWins ? '<span style="color:var(--gold)">✓</span>' : '') + '</td>';
+    html += '</tr>';
+
+    html += '<tr class="' + (arWins ? 'chosen-row' : '') + '">';
+    html += '<td style="color:var(--accent)">AROME</td>';
+    html += '<td>' + (currentCell && currentCell.mae_arome ? currentCell.mae_arome + ' kt' : '—') + '</td>';
+    html += '<td>' + (score && score.global_mae_arome ? score.global_mae_arome + ' kt' : '—') + '</td>';
+    html += '<td>' + (arWins ? '<span style="color:var(--accent)">✓</span>' : '') + '</td>';
+    html += '</tr>';
+
+    html += '</tbody></table>';
+
+    // Barra vantaggio
+    if (maeOm && maeAr) {
+      var total = maeOm + maeAr;
+      var omPct  = Math.round(maeOm / total * 100);
+      var arPct  = 100 - omPct;
+      html += '<div class="adv-wrap">';
+      html += '<div class="adv-label">Distribuzione MAE (meno è meglio)</div>';
+      html += '<div class="adv-bar"><div class="adv-om" style="width:' + omPct + '%"></div><div class="adv-arome" style="width:' + arPct + '%"></div></div>';
+      html += '<div class="adv-labels"><span style="color:var(--gold)">OM ' + maeOm + 'kt (' + omPct + '%)</span><span style="color:var(--accent)">AROME ' + maeAr + 'kt (' + arPct + '%)</span></div>';
+      html += '</div>';
+    }
+  }
+
+  // Mini-grid celle vicine per slot corrente
+  if (matrix) {
+    var speeds  = ['low','mid','high'];
+    var sectors = ['N','E','S','W'];
+    html += '<div style="font-size:0.5rem;color:var(--muted);margin-top:10px;text-transform:uppercase;letter-spacing:0.08em">' + SLOT_LABELS[slot] + ' — tutte le celle</div>';
+    html += '<div class="cells-grid">';
+    speeds.forEach(function(spd) {
+      sectors.forEach(function(sec) {
+        var key = spd + '_' + sec + '_' + slot;
+        var cell = matrix[key];
+        var n = cell ? cell.n : 0;
+        var best = cell ? cell.best : null;
+        var isCurrent = key === currentKey;
+        var cls = 'cell-mini' + (best === 'arome' ? ' win-arome' : best === 'om' ? ' win-om' : '') + (isCurrent ? ' current' : '');
+        html += '<div class="' + cls + '">';
+        html += '<div class="cell-mini-key">' + spd[0].toUpperCase() + sec + '</div>';
+        html += '<div class="cell-mini-n" style="color:' + (n === 0 ? 'var(--muted)' : n < 3 ? 'var(--gold)' : 'var(--white)') + '">' + n + '</div>';
+        html += '<div style="font-size:0.4rem;color:' + (best === 'arome' ? 'var(--accent)' : best === 'om' ? 'var(--gold)' : 'var(--muted)') + '">' + (best ? best.toUpperCase() : '—') + '</div>';
+        html += '</div>';
+      });
+    });
+    html += '</div>';
+  }
+
+  html += '</div>'; // pilot-card
+  return html;
+}
+
+async function load() {
+  try {
+    // Carica score e dati OM in parallelo per i 3 punti pilota
+    var results = await Promise.all(PILOTS.map(async function(pilot) {
+      var scoreP = fetch(ENGINE_URL + '?action=score_get&station=' + pilot.id + '&k=' + SECRET)
+        .then(function(r){ return r.json(); })
+        .catch(function(){ return null; });
+      var omP = fetch(ENGINE_URL + '?action=grid&lats=' + pilot.lat + '&lons=' + pilot.lon)
+        .then(function(r){ return r.json(); })
+        .catch(function(){ return null; });
+      var both = await Promise.all([scoreP, omP]);
+      return { pilot: pilot, score: both[0] ? both[0].score : null, omData: both[1] ? both[1][0] : null };
+    }));
+
+    var html = '';
+    results.forEach(function(res) {
+      html += renderPilot(res.pilot, res.score, res.omData);
+    });
+    document.getElementById('pilots-container').innerHTML = html;
+  } catch(e) {
+    document.getElementById('pilots-container').innerHTML =
+      '<div style="color:var(--danger);font-family:DM Mono,monospace;font-size:0.6rem">Errore: ' + e.message + '</div>';
+  }
+}
+
+load();
+</script>
+</body>
+</html>

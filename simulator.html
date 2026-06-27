@@ -1,20 +1,18 @@
-<!-- NAUTILUS SIMULATOR v1.0 - mdisailor - 2026-06-27 -->
+<!-- NAUTILUS SIMULATOR v1.6 - mdisailor - 2026-06-27 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Simulator v1.4</title>
+<title>NAUTILUS Simulator v1.6</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
   --bg:#020e1c;--card:#06182e;--border:#1a3a5c;
-  --accent:#0af0ff;--gold:#ffaa00;--warn:#ff7a00;
-  --danger:#ff2d2d;--safe:#00e676;--muted:#4a7a9b;
-  --text:#c8dff0;--white:#e8f4ff;
+  --accent:#0af0ff;--gold:#ffaa00;--safe:#00e676;
+  --danger:#ff2d2d;--muted:#4a7a9b;--white:#e8f4ff;--text:#c8dff0;
 }
 html,body{min-height:100%;background:var(--bg);font-family:'DM Mono',monospace;color:var(--text)}
 #nav{display:flex;align-items:center;justify-content:space-between;padding:0 16px;height:48px;background:rgba(2,14,28,0.97);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
@@ -26,164 +24,179 @@ html,body{min-height:100%;background:var(--bg);font-family:'DM Mono',monospace;c
 #content{padding:16px;max-width:900px;margin:0 auto}
 .section-title{font-size:0.6rem;color:var(--accent);letter-spacing:0.15em;text-transform:uppercase;margin:20px 0 10px;border-bottom:1px solid var(--border);padding-bottom:6px}
 
-/* Pilot cards */
-.pilot-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px}
-.pilot-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.pilot-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:20px}
+.pilot-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
 .pilot-name{font-size:1rem;color:var(--white);font-weight:bold}
 .pilot-type{font-size:0.5rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-top:2px}
 
 /* Semaforo */
 .semaforo{display:flex;flex-direction:column;align-items:center;gap:3px}
-.sem-light{width:16px;height:16px;border-radius:50%;border:1px solid rgba(255,255,255,0.2)}
+.sem-light{width:14px;height:14px;border-radius:50%;border:1px solid rgba(255,255,255,0.15)}
 .sem-red{background:#ff2d2d}
 .sem-yellow{background:#ffaa00}
 .sem-green{background:#00e676}
-.sem-off{background:rgba(255,255,255,0.08)}
-.sem-label{font-size:0.42rem;color:var(--white);text-align:center;margin-top:2px;letter-spacing:0.05em;text-transform:uppercase}
+.sem-off{background:rgba(255,255,255,0.06)}
+.sem-label{font-size:0.42rem;color:var(--white);text-align:center;margin-top:2px}
 
-/* Conditions bar */
-.conditions-bar{background:rgba(10,240,255,0.05);border:1px solid rgba(10,240,255,0.15);border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:0.6rem;color:var(--white)}
-.cond-label{font-size:0.48rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:3px}
+/* Tabella spiegazione */
+.sim-table{width:100%;border-collapse:collapse;font-size:0.6rem;margin-bottom:12px}
+.sim-table th{padding:5px 10px;color:var(--muted);text-align:left;border-bottom:1px solid var(--border);font-weight:normal;font-size:0.5rem;text-transform:uppercase;letter-spacing:0.06em}
+.sim-table td{padding:7px 10px;border-bottom:1px solid rgba(26,58,92,0.3);vertical-align:top}
+.sim-table td:first-child{color:var(--muted);font-size:0.52rem;white-space:nowrap;width:38%}
+.sim-table td:last-child{color:var(--white);font-weight:500}
+.sim-table tr.highlight td{background:rgba(10,240,255,0.05)}
+.sim-table tr.highlight-om td{background:rgba(255,170,0,0.05)}
+.sim-table tr.result td{background:rgba(0,230,118,0.06)}
+.sim-table tr.result td:last-child{font-size:0.75rem;font-weight:bold;color:var(--safe)}
+.sim-table tr:last-child td{border-bottom:none}
+.tag{display:inline-block;font-size:0.45rem;padding:1px 5px;border-radius:3px;margin-left:6px;vertical-align:middle}
+.tag-arome{background:rgba(10,240,255,0.15);color:var(--accent);border:1px solid rgba(10,240,255,0.4)}
+.tag-om{background:rgba(255,170,0,0.15);color:var(--gold);border:1px solid rgba(255,170,0,0.4)}
+.tag-oi{background:rgba(0,230,118,0.12);color:var(--safe);border:1px solid rgba(0,230,118,0.3)}
 
-/* Decision panel */
-.decision-panel{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
-.dec-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center}
-.dec-card.winner{border-color:var(--accent);background:rgba(10,240,255,0.05)}
-.dec-card.winner-om{border-color:var(--gold);background:rgba(255,170,0,0.05)}
-.dec-label{font-size:0.5rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px}
-.dec-val{font-size:1.3rem;font-weight:bold;margin:4px 0}
-.dec-sub{font-size:0.55rem;color:var(--white)}
-.dec-mae{font-size:0.55rem;color:var(--white);margin-top:3px}
-
-/* Comparison table */
-.comp-table{width:100%;border-collapse:collapse;font-size:0.58rem;margin-bottom:10px}
-.comp-table th{padding:5px 8px;color:var(--muted);text-align:left;border-bottom:1px solid var(--border);font-weight:normal;text-transform:uppercase;letter-spacing:0.06em}
-.comp-table td{padding:6px 8px;border-bottom:1px solid rgba(26,58,92,0.3);color:var(--white)}
-.comp-table tr:last-child td{border-bottom:none}
-.chosen-row td{background:rgba(10,240,255,0.06)}
-.chosen-row-om td{background:rgba(255,170,0,0.06)}
-
-/* Advantage bar */
-.adv-wrap{margin:10px 0}
-.adv-label{font-size:0.5rem;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.06em}
-.adv-bar{display:flex;height:10px;border-radius:5px;overflow:hidden;background:rgba(26,58,92,0.4)}
-.adv-om{background:var(--gold);transition:width 0.4s}
-.adv-arome{background:var(--accent);transition:width 0.4s}
-.adv-labels{display:flex;justify-content:space-between;font-size:0.48rem;margin-top:3px}
-
-/* N cells breakdown */
-.cells-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:8px}
+/* Griglie celle */
+.grids-wrap{margin-top:12px}
+.grid-title{font-size:0.5rem;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px}
+.cells-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin-bottom:10px}
 .cell-mini{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:4px;text-align:center;font-size:0.48rem}
 .cell-mini.win-arome{border-color:rgba(10,240,255,0.4);background:rgba(10,240,255,0.06)}
 .cell-mini.win-om{border-color:rgba(255,170,0,0.4);background:rgba(255,170,0,0.06)}
 .cell-mini.current{box-shadow:0 0 0 2px var(--white)}
-.cell-mini-key{color:var(--muted);font-size:0.42rem}
-.cell-mini-n{color:var(--white);font-weight:bold}
+.cell-key{color:var(--muted);font-size:0.42rem}
+.cell-n{font-weight:bold}
+.cell-best{font-size:0.4rem}
 
 .spinner{display:inline-block;width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&display=swap');
 </style>
 </head>
 <body>
-
 <div id="nav">
   <div style="display:flex;align-items:center">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <div id="nav-ver">simulator v1.4</div>
+    <div id="nav-ver">simulator v1.6</div>
   </div>
   <a id="nav-back" href="#" onclick="event.preventDefault();var p=prompt('Password:');if(p==='mdi'){window.location.href='/?k=mdi'}">APP</a>
 </div>
-
 <div id="content">
-  <div class="section-title">Simulatore decisioni — 3 punti pilota</div>
-  <div style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--muted);margin-bottom:16px">
-    Per ogni punto pilota: quale modello il sistema sceglierebbe ora e con quale affidabilità storica.
-    I valori corretti (AROME + correzione OI) saranno aggiunti nella prossima versione.
-  </div>
-
-  <div id="pilots-container">
-    <div style="text-align:center;padding:40px;color:var(--muted)"><div class="spinner"></div><br><br>Caricamento dati...</div>
-  </div>
-
-  <div style="font-size:0.5rem;color:var(--muted);margin-top:16px;padding-top:12px;border-top:1px solid var(--border)">
-    🔴 n=0-2 · 🟡 n=3-9 · 🟢 n≥10 — affidabilità basata sui campioni nella cella condizione attuale
-  </div>
+  <div class="section-title">Simulatore — spiegazione valori mappa</div>
+  <div style="font-size:0.55rem;color:var(--muted);margin-bottom:16px">Per ogni punto pilota: da dove vengono i dati, quale correzione viene applicata, qual è il valore finale che apparirà sulla mappa.</div>
+  <div id="pilots-container"><div style="text-align:center;padding:40px;color:var(--muted)"><div class="spinner"></div><br><br>Caricamento...</div></div>
+  <div style="font-size:0.48rem;color:var(--muted);margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">🔴 n=0-2 dati scarsi · 🟡 n=3-9 tendenza · 🟢 n≥10 affidabile</div>
 </div>
 
 <script>
 var ENGINE_URL = '/api/engine';
 var SECRET = 'mdi';
+var OI_MAX_KM = 60;
+var OI_MIN_STATIONS = 2;
+var OI_EXCLUDED = { bonifacio_pertusato: true, vada: true };
 
 var PILOTS = [
-  { id: 'gorgona_cfr',  name: 'Gorgona CFR',    type: 'AROME previsto vincitore',  lat: 43.433, lon: 9.883  },
-  { id: 'bocca_arno_cfr', name: 'Bocca d\'Arno CFR', type: 'OM previsto vincitore', lat: 43.680, lon: 10.270 },
-  { id: 'viareggio',    name: 'Viareggio',       type: 'Borderline — punto ibrido', lat: 43.870, lon: 10.230 }
+  { id:'gorgona_cfr',    name:'Gorgona CFR',      type:'AROME previsto vincitore', lat:43.433, lon:9.883  },
+  { id:'bocca_arno_cfr', name:'Bocca d\'Arno CFR', type:'OM previsto vincitore',   lat:43.680, lon:10.270 },
+  { id:'viareggio',      name:'Viareggio',          type:'Borderline — ibrido',    lat:43.870, lon:10.230 }
 ];
 
 var SPEED_LABELS  = { low:'< 8 kt', mid:'8-15 kt', high:'> 15 kt' };
-var SECTOR_LABELS = { N:'Nord (315-45°)', E:'Est (45-135°)', S:'Sud (135-225°)', W:'Ovest (225-315°)' };
+var SECTOR_LABELS = { N:'Nord', E:'Est', S:'Sud', W:'Ovest' };
 var SLOT_LABELS   = { morning:'Mattina (6-14h)', afternoon:'Pomeriggio (14-24h)' };
 
 function semaforo(n) {
-  if (n === 0)      return { color: 'red',    label: 'Nessun dato' };
-  if (n <= 2)       return { color: 'red',    label: 'Dati scarsi' };
-  if (n <= 9)       return { color: 'yellow', label: 'Tendenza' };
-  return             { color: 'green',   label: 'Affidabile' };
+  if (n <= 2) return { color:'red',    label:'Dati scarsi', css:'var(--danger)' };
+  if (n <= 9) return { color:'yellow', label:'Tendenza',    css:'var(--gold)'   };
+  return             { color:'green',  label:'Affidabile',  css:'var(--safe)'   };
 }
 
 function renderSemaforo(n) {
   var s = semaforo(n);
   return '<div class="semaforo">' +
-    '<div class="sem-light ' + (s.color === 'green'  ? 'sem-green'  : 'sem-off') + '"></div>' +
-    '<div class="sem-light ' + (s.color === 'yellow' ? 'sem-yellow' : 'sem-off') + '"></div>' +
-    '<div class="sem-light ' + (s.color === 'red'    ? 'sem-red'    : 'sem-off') + '"></div>' +
-    '<div class="sem-label">' + s.label + '</div>' +
-    '</div>';
+    '<div class="sem-light ' + (s.color==='green'  ? 'sem-green'  : 'sem-off') + '"></div>' +
+    '<div class="sem-light ' + (s.color==='yellow' ? 'sem-yellow' : 'sem-off') + '"></div>' +
+    '<div class="sem-light ' + (s.color==='red'    ? 'sem-red'    : 'sem-off') + '"></div>' +
+    '<div class="sem-label" style="color:' + s.css + '">' + s.label + '</div></div>';
 }
 
-function currentSlot() {
-  var h = (new Date().getUTCHours() + 2) % 24; // ora italiana UTC+2
-  return h >= 6 && h < 14 ? 'morning' : 'afternoon';
+function degToRad(d){ return d * Math.PI / 180; }
+function haversineKm(lat1,lon1,lat2,lon2){
+  var R=6371,dLat=degToRad(lat2-lat1),dLon=degToRad(lon2-lon1);
+  var a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(degToRad(lat1))*Math.cos(degToRad(lat2))*Math.sin(dLon/2)*Math.sin(dLon/2);
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
 
-function renderPilot(pilot, score, omData) {
+function computeOI(pilotLat, pilotLon, pilotOmSpeed, stations, biasMatrix) {
+  // Per ogni stazione, determina il bias da usare
+  var stBiases = [];
+  Object.keys(stations).forEach(function(id) {
+    if (OI_EXCLUDED[id]) return;
+    var st = stations[id];
+    if (st.wind_kt === null || st.wind_kt === undefined) return;
+    var d = haversineKm(pilotLat, pilotLon, st.lat, st.lon);
+    if (d > OI_MAX_KM) return;
+    // Bias = stazione - OM locale
+    var bias = st.om_wind_kt !== null ? st.wind_kt - st.om_wind_kt : null;
+    if (bias === null || Math.abs(bias) > 15) return;
+    var reliability = 0.5;
+    if (biasMatrix && biasMatrix[id] && biasMatrix[id].reliability_weight) {
+      reliability = biasMatrix[id].reliability_weight;
+    }
+    if (d < 0.5) d = 0.5;
+    var w = (1/(d*d)) * reliability;
+    stBiases.push({ id:id, d:Math.round(d), bias:bias, w:w, reliability:reliability, wind_kt:st.wind_kt });
+  });
+  if (stBiases.length < OI_MIN_STATIONS) return { correction: null, stations_used: stBiases, reason: 'Stazioni insufficienti nel raggio ' + OI_MAX_KM + 'km' };
+  var sumW = stBiases.reduce(function(a,s){ return a+s.w; }, 0);
+  var sumBW = stBiases.reduce(function(a,s){ return a+s.bias*s.w; }, 0);
+  var corr = sumBW / sumW;
+  corr = Math.max(-5, Math.min(5, corr));
+  return { correction: Math.round(corr*10)/10, stations_used: stBiases, reason: null };
+}
+
+function renderPilot(pilot, omData, scoreData, biasMatrixData, stationsData) {
+  var score = scoreData ? scoreData.score : null;
   var matrix = score ? score.matrix : null;
-  var slot = currentSlot();
+  var biasMatrix = biasMatrixData ? biasMatrixData.stations : null;
 
-  // Condizioni OM attuali
+  // Condizioni correnti
   var omSpeed = omData ? omData.wind_kt : null;
   var omDir   = omData ? omData.direction : null;
   var omGust  = omData ? omData.gust_kt : null;
-
-  var spdKey = omSpeed === null ? null : omSpeed < 8 ? 'low' : omSpeed < 15 ? 'mid' : 'high';
-  var secKey = omDir === null ? null :
-    (omDir >= 315 || omDir < 45) ? 'N' :
-    omDir < 135 ? 'E' : omDir < 225 ? 'S' : 'W';
-
-  var currentKey = spdKey && secKey ? spdKey + '_' + secKey + '_' + slot : null;
+  var slot    = ((new Date().getUTCHours()+2)%24) >= 6 && ((new Date().getUTCHours()+2)%24) < 14 ? 'morning' : 'afternoon';
+  var spdKey  = omSpeed===null ? null : omSpeed<8 ? 'low' : omSpeed<15 ? 'mid' : 'high';
+  var secKey  = omDir===null   ? null : (omDir>=315||omDir<45)?'N':omDir<135?'E':omDir<225?'S':'W';
+  var currentKey = spdKey && secKey ? spdKey+'_'+secKey+'_'+slot : null;
   var currentCell = matrix && currentKey ? matrix[currentKey] : null;
   var currentN = currentCell ? currentCell.n : 0;
   var sem = semaforo(currentN);
 
-  // Decisione modello
-  var chosen = currentCell ? currentCell.best : (score ? score.global ? score.global.best : null : null);
+  // Modello scelto
+  var chosen = currentCell ? currentCell.best : (score && score.global ? score.global.best : null);
   var fallback = !currentCell || currentCell.n === 0;
-  var maeOm  = currentCell && currentCell.mae_om    ? currentCell.mae_om    : (score ? score.global ? score.global.mae_om : null : null);
-  var maeAr  = currentCell && currentCell.mae_arome ? currentCell.mae_arome : (score ? score.global ? score.global.mae_arome : null : null);
+  var maeOm  = currentCell ? currentCell.mae_om    : (score && score.global ? score.global.mae_om    : null);
+  var maeAr  = currentCell ? currentCell.mae_arome : (score && score.global ? score.global.mae_arome : null);
+  var chosenMae = chosen === 'arome' ? maeAr : maeOm;
+  var chosenColor = chosen === 'arome' ? 'var(--accent)' : chosen === 'om' ? 'var(--gold)' : 'var(--muted)';
 
-  // Valore corretto: valore OM - bias del modello scelto
-  // bias = delta medio = stazione - modello (già in bias_samples)
-  // Qui usiamo MAE come proxy dell'entità della correzione attesa
-  var correctionHint = null;
-  if (chosen && maeOm && maeAr) {
-    var winnerMae = chosen === 'arome' ? maeAr : maeOm;
-    correctionHint = winnerMae;
+  // Bias dalla bias_matrix per questo punto nelle condizioni correnti
+  var biasBm = null;
+  if (biasMatrix && biasMatrix[pilot.id]) {
+    var bm = biasMatrix[pilot.id];
+    if (currentKey && bm.matrix && bm.matrix[currentKey] && bm.matrix[currentKey].n >= 5) {
+      biasBm = bm.matrix[currentKey].bias_preferred;
+    } else {
+      biasBm = bm.global_bias_preferred !== undefined ? bm.global_bias_preferred : null;
+    }
   }
 
-  var chosenColor = chosen === 'arome' ? 'var(--accent)' : chosen === 'om' ? 'var(--gold)' : 'var(--muted)';
-  var chosenLabel = chosen ? chosen.toUpperCase() : '—';
+  // Calcolo OI
+  var oiResult = stationsData ? computeOI(pilot.lat, pilot.lon, omSpeed, stationsData, biasMatrix) : null;
+  var oiCorrection = oiResult ? oiResult.correction : null;
+
+  // Valore finale
+  var finalSpeed = omSpeed !== null ? omSpeed : null;
+  if (finalSpeed !== null && oiCorrection !== null) finalSpeed = Math.round(Math.max(0, finalSpeed + oiCorrection) * 10) / 10;
+  else if (finalSpeed !== null && biasBm !== null) finalSpeed = Math.round(Math.max(0, finalSpeed + biasBm) * 10) / 10;
 
   var html = '<div class="pilot-card">';
 
@@ -193,146 +206,133 @@ function renderPilot(pilot, score, omData) {
   html += renderSemaforo(currentN);
   html += '</div>';
 
-  // RISPOSTA PRINCIPALE — grande e immediata
-  var answerBg = chosen === 'arome' ? 'rgba(10,240,255,0.07)' : chosen === 'om' ? 'rgba(255,170,0,0.07)' : 'rgba(26,58,92,0.3)';
-  var answerBorder = chosen === 'arome' ? 'var(--accent)' : chosen === 'om' ? 'var(--gold)' : 'var(--border)';
-  html += '<div style="background:' + answerBg + ';border:2px solid ' + answerBorder + ';border-radius:10px;padding:14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">';
-  html += '<div>';
-  html += '<div style="font-size:0.5rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px">Usa questo modello</div>';
-  html += '<div style="font-size:1.8rem;font-weight:bold;color:' + chosenColor + ';letter-spacing:0.05em">' + chosenLabel + '</div>';
-  html += '<div style="font-size:0.6rem;color:var(--white);margin-top:4px">Sbaglia in media <b>' + (correctionHint !== null ? correctionHint + ' kt' : '—') + '</b> in queste condizioni</div>';
-  html += '<div style="font-size:0.5rem;color:var(--muted);margin-top:2px">' + (fallback ? 'Nessun dato per questa condizione — uso media globale' : 'Su ' + currentN + ' casi simili passati') + '</div>';
-  html += '</div>';
-  html += '<div style="text-align:right">';
+  // Tabella spiegazione
+  html += '<table class="sim-table">';
+  html += '<thead><tr><th>Passaggio</th><th>Valore / Spiegazione</th></tr></thead><tbody>';
+
+  // 1. OM grezzo
+  html += '<tr><td>1. OM grezzo</td><td>';
+  if (omSpeed !== null) {
+    html += omSpeed + ' kt · ' + (omDir !== null ? omDir + '° (' + (secKey||'?') + ')' : '?');
+    if (omGust) html += ' · raffica ' + omGust + ' kt';
+  } else { html += '— (dati non disponibili)'; }
+  html += '<br><span style="font-size:0.48rem;color:var(--muted)">Fonte: Open-Meteo best_match per questo punto</span>';
+  html += '</td></tr>';
+
+  // 2. Condizioni → selezione cella
+  html += '<tr><td>2. Condizioni attuali</td><td>';
+  html += (spdKey ? SPEED_LABELS[spdKey] : '—') + ' · ' + (secKey ? SECTOR_LABELS[secKey] : '—') + ' · ' + SLOT_LABELS[slot];
+  html += '<br><span style="font-size:0.48rem;color:var(--muted)">Usate per selezionare la cella nella matrice score</span>';
+  html += '</td></tr>';
+
+  // 3. Modello scelto
+  html += '<tr class="' + (chosen==='arome'?'highlight':'highlight-om') + '"><td>3. Modello scelto</td><td>';
+  html += '<span style="color:' + chosenColor + ';font-weight:bold">' + (chosen ? chosen.toUpperCase() : '—') + '</span>';
+  if (chosen) html += '<span class="tag ' + (chosen==='arome'?'tag-arome':'tag-om') + '">' + (fallback ? 'fallback globale' : 'cella n='+currentN) + '</span>';
   if (maeOm && maeAr) {
-    var loser = chosen === 'arome' ? 'OM' : 'AROME';
-    var loserMae = chosen === 'arome' ? maeOm : maeAr;
-    var winnerMaeVal = chosen === 'arome' ? maeAr : maeOm;
-    var saving = Math.round((loserMae - winnerMaeVal) * 10) / 10;
-    html += '<div style="font-size:0.5rem;color:var(--muted)">vs ' + loser + '</div>';
-    html += '<div style="font-size:1rem;color:var(--safe);font-weight:bold">-' + saving + ' kt</div>';
-    html += '<div style="font-size:0.48rem;color:var(--muted)">errore risparmiato</div>';
+    html += '<br><span style="font-size:0.5rem;color:var(--white)">MAE cella: OM ' + (maeOm||'—') + ' kt · AROME ' + (maeAr||'—') + ' kt</span>';
+    html += '<br><span style="font-size:0.48rem;color:var(--muted)">' + (chosen==='arome'?'AROME sbaglia meno in queste condizioni':'OM sbaglia meno in queste condizioni') + '</span>';
   }
-  html += '</div>';
-  html += '</div>';
+  html += '</td></tr>';
 
-  // Regime meteorologico (collassato, dettaglio)
-  if (omData) {
-    html += '<div class="conditions-bar">';
-    html += '<div class="cond-label">Regime meteorologico (da OM — usato per selezione cella)</div>';
-    html += '<span style="color:var(--white)">' +
-      (omSpeed !== null ? omSpeed + ' kt' : '—') + ' · ' +
-      (omDir   !== null ? omDir + '° ' + (secKey ? '(' + secKey + ')' : '') : '—') + ' · ' +
-      (omGust  !== null ? 'raffica ' + omGust + ' kt' : '') + ' · ' +
-      SLOT_LABELS[slot] +
-      '</span>';
-    if (spdKey && secKey) {
-      html += '<span style="color:var(--muted);font-size:0.5rem"> → ' + SPEED_LABELS[spdKey] + ' · ' + SECTOR_LABELS[secKey] + '</span>';
-    }
-    html += '</div>';
+  // 4. Dati sorgente (modello scelto)
+  html += '<tr><td>4. Dati sorgente</td><td>';
+  html += 'Valore ' + (chosen ? chosen.toUpperCase() : 'modello') + ' = <b>' + (omSpeed !== null ? omSpeed + ' kt' : '—') + '</b>';
+  html += '<br><span style="font-size:0.48rem;color:var(--muted)">Nota: per ora usiamo OM come base — integrazione AROME diretta in sviluppo</span>';
+  html += '</td></tr>';
+
+  // 5. Correzione OI
+  html += '<tr><td>5. Correzione OI</td><td>';
+  if (oiResult && oiCorrection !== null) {
+    html += '<span class="tag tag-oi">OI attivo</span> ' + (oiCorrection >= 0 ? '+' : '') + oiCorrection + ' kt';
+    html += '<br><span style="font-size:0.48rem;color:var(--muted)">Da ' + oiResult.stations_used.length + ' stazioni nel raggio ' + OI_MAX_KM + 'km:</span>';
+    oiResult.stations_used.slice(0,3).forEach(function(st){
+      html += '<br><span style="font-size:0.46rem;color:var(--text)">· ' + st.id + ' (' + st.d + 'km) bias=' + (st.bias>=0?'+':'') + Math.round(st.bias*10)/10 + 'kt w=' + Math.round(st.reliability*100)/100 + '</span>';
+    });
+    if (oiResult.stations_used.length > 3) html += '<br><span style="font-size:0.46rem;color:var(--muted)">+ altre ' + (oiResult.stations_used.length-3) + ' stazioni</span>';
+  } else if (oiResult && oiResult.reason) {
+    html += '<span style="color:var(--muted)">Non applicata — ' + oiResult.reason + '</span>';
+  } else {
+    html += '<span style="color:var(--muted)">Dati stazioni non disponibili</span>';
   }
+  html += '</td></tr>';
 
-  // Decisione principale
-  // Tabella comparativa OM vs AROME
-  if (maeOm !== null || maeAr !== null) {
-    html += '<table class="comp-table">';
-    html += '<thead><tr><th>Modello</th><th>MAE cella</th><th>MAE globale</th><th>Vince?</th></tr></thead><tbody>';
-
-    var omWins = chosen === 'om';
-    var arWins = chosen === 'arome';
-
-    html += '<tr class="' + (omWins ? 'chosen-row-om' : '') + '">';
-    html += '<td style="color:var(--gold)">OM</td>';
-    html += '<td>' + (currentCell && currentCell.mae_om ? currentCell.mae_om + ' kt' : '—') + '</td>';
-    html += '<td>' + (score && score.global ? score.global.mae_om : null ? score.global ? score.global.mae_om : null + ' kt' : '—') + '</td>';
-    html += '<td>' + (omWins ? '<span style="color:var(--gold)">✓</span>' : '') + '</td>';
-    html += '</tr>';
-
-    html += '<tr class="' + (arWins ? 'chosen-row' : '') + '">';
-    html += '<td style="color:var(--accent)">AROME</td>';
-    html += '<td>' + (currentCell && currentCell.mae_arome ? currentCell.mae_arome + ' kt' : '—') + '</td>';
-    html += '<td>' + (score && score.global ? score.global.mae_arome : null ? score.global ? score.global.mae_arome : null + ' kt' : '—') + '</td>';
-    html += '<td>' + (arWins ? '<span style="color:var(--accent)">✓</span>' : '') + '</td>';
-    html += '</tr>';
-
-    html += '</tbody></table>';
-
-    // Barra vantaggio
-    if (maeOm && maeAr) {
-      var total = maeOm + maeAr;
-      var omPct  = Math.round(maeOm / total * 100);
-      var arPct  = 100 - omPct;
-      html += '<div class="adv-wrap">';
-      html += '<div class="adv-label">Distribuzione MAE (meno è meglio)</div>';
-      html += '<div class="adv-bar"><div class="adv-om" style="width:' + omPct + '%"></div><div class="adv-arome" style="width:' + arPct + '%"></div></div>';
-      html += '<div class="adv-labels"><span style="color:var(--gold)">OM ' + maeOm + 'kt (' + omPct + '%)</span><span style="color:var(--accent)">AROME ' + maeAr + 'kt (' + arPct + '%)</span></div>';
-      html += '</div>';
-    }
+  // 6. Valore finale
+  html += '<tr class="result"><td>6. Valore finale mappa</td><td>';
+  html += finalSpeed !== null ? finalSpeed + ' kt' : '—';
+  if (omSpeed !== null && finalSpeed !== null && finalSpeed !== omSpeed) {
+    var delta = Math.round((finalSpeed - omSpeed)*10)/10;
+    html += ' <span style="font-size:0.55rem;color:' + (Math.abs(delta)<1?'var(--safe)':Math.abs(delta)<3?'var(--gold)':'var(--danger)') + '">(' + (delta>=0?'+':'') + delta + ' kt vs OM)</span>';
   }
+  html += '<br><span style="font-size:0.48rem;color:var(--muted)">Questo è il valore che apparirà sulla mappa con OI attivo</span>';
+  html += '</td></tr>';
 
-  // Mini-grid celle vicine per slot corrente
+  html += '</tbody></table>';
+
+  // Griglie celle — mattina e pomeriggio
   if (matrix) {
-    var speeds  = ['low','mid','high'];
-    var sectors = ['N','E','S','W'];
-    html += '<div style="font-size:0.5rem;color:var(--muted);margin-top:10px;text-transform:uppercase;letter-spacing:0.08em">' + SLOT_LABELS[slot] + ' — tutte le celle</div>';
-    html += '<div class="cells-grid">';
-    speeds.forEach(function(spd) {
-      sectors.forEach(function(sec) {
-        var key = spd + '_' + sec + '_' + slot;
-        var cell = matrix[key];
-        var n = cell ? cell.n : 0;
-        var best = cell ? cell.best : null;
-        var isCurrent = key === currentKey;
-        var cls = 'cell-mini' + (best === 'arome' ? ' win-arome' : best === 'om' ? ' win-om' : '') + (isCurrent ? ' current' : '');
-        html += '<div class="' + cls + '">';
-        var spdShort = spd === 'low' ? '<8' : spd === 'mid' ? '8-15' : '>15';
-        html += '<div class="cell-mini-key">' + spdShort + ' ' + sec + '</div>';
-        html += '<div class="cell-mini-n" style="color:' + (n === 0 ? 'var(--muted)' : n < 3 ? 'var(--gold)' : 'var(--white)') + '">' + n + '</div>';
-        html += '<div style="font-size:0.4rem;color:' + (best === 'arome' ? 'var(--accent)' : best === 'om' ? 'var(--gold)' : 'var(--muted)') + '">' + (best ? best.toUpperCase() : '—') + '</div>';
-        html += '</div>';
+    html += '<div class="grids-wrap">';
+    ['morning','afternoon'].forEach(function(sl){
+      var isCurr = sl === slot;
+      html += '<div class="grid-title" style="color:' + (isCurr?'var(--white)':'var(--muted)') + '">' + SLOT_LABELS[sl] + (isCurr?' ◀ ora':'') + '</div>';
+      html += '<div class="cells-grid">';
+      ['low','mid','high'].forEach(function(spd){
+        ['N','E','S','W'].forEach(function(sec){
+          var key = spd+'_'+sec+'_'+sl;
+          var cell = matrix[key];
+          var n = cell ? cell.n : 0;
+          var best = cell ? cell.best : null;
+          var isCurrent = key === currentKey;
+          var cls = 'cell-mini' + (best==='arome'?' win-arome':best==='om'?' win-om':'') + (isCurrent?' current':'');
+          var spdShort = spd==='low'?'<8':spd==='mid'?'8-15':'>15';
+          html += '<div class="' + cls + '">';
+          html += '<div class="cell-key">' + spdShort + ' ' + sec + '</div>';
+          html += '<div class="cell-n" style="color:' + (n===0?'var(--muted)':n<3?'var(--gold)':'var(--white)') + '">' + n + '</div>';
+          html += '<div class="cell-best" style="color:' + (best==='arome'?'var(--accent)':best==='om'?'var(--gold)':'var(--muted)') + '">' + (best?best.toUpperCase():'—') + '</div>';
+          html += '</div>';
+        });
       });
+      html += '</div>';
     });
     html += '</div>';
   }
 
-  html += '</div>'; // pilot-card
+  html += '</div>';
   return html;
 }
 
 async function load() {
   try {
-    // Carica score e dati OM in parallelo per i 3 punti pilota
-    var results = await Promise.all(PILOTS.map(async function(pilot) {
-      var scoreP = fetch(ENGINE_URL + '?action=score_get&station=' + pilot.id + '&k=' + SECRET)
-        .then(function(r){ return r.json(); })
-        .catch(function(){ return null; });
-      var omP = fetch(ENGINE_URL + '?action=meteo&lat=' + pilot.lat + '&lon=' + pilot.lon)
-        .then(function(r){ return r.json(); })
-        .catch(function(){ return null; });
-      var both = await Promise.all([scoreP, omP]);
-      return { pilot: pilot, score: both[0] ? both[0].score : null, omData: (function(){
-          var d = both[1];
-          if (!d || !d.atm || !d.atm.hourly || !d.atm.hourly.windspeed_10m) return null;
-          var h = d.atm.hourly;
-          // Trova indice ora corrente
-          var now = new Date();
-          var idx = (now.getUTCHours() + 2) % 24; // ora italiana
-          return {
-            wind_kt: h.windspeed_10m[idx] || null,
-            gust_kt: h.windgusts_10m ? h.windgusts_10m[idx] : null,
-            direction: h.winddirection_10m ? h.winddirection_10m[idx] : null
-          };
-        })() };
-    }));
+    var idxNow = (new Date().getUTCHours()+2)%24;
+
+    // Carica tutto in parallelo
+    var [snapshotRes, biasMatrixRes, ...pilotResults] = await Promise.all([
+      fetch(ENGINE_URL + '?action=stations_snapshot&k=' + SECRET).then(function(r){ return r.json(); }).catch(function(){ return null; }),
+      fetch(ENGINE_URL + '?action=bias_matrix&k=' + SECRET).then(function(r){ return r.json(); }).catch(function(){ return null; }),
+      ...PILOTS.map(function(p){
+        return Promise.all([
+          fetch(ENGINE_URL + '?action=score_get&station=' + p.id + '&k=' + SECRET).then(function(r){ return r.json(); }).catch(function(){ return null; }),
+          fetch(ENGINE_URL + '?action=meteo&lat=' + p.lat + '&lon=' + p.lon).then(function(r){ return r.json(); }).catch(function(){ return null; })
+        ]);
+      })
+    ]);
+
+    var stationsData = snapshotRes ? snapshotRes.stations : null;
 
     var html = '';
-    results.forEach(function(res) {
-      html += renderPilot(res.pilot, res.score, res.omData);
+    PILOTS.forEach(function(pilot, i) {
+      var scoreData = pilotResults[i][0];
+      var meteoRaw  = pilotResults[i][1];
+      var omData = meteoRaw && meteoRaw.atm && meteoRaw.atm.hourly && meteoRaw.atm.hourly.windspeed_10m ? {
+        wind_kt:   meteoRaw.atm.hourly.windspeed_10m[idxNow]  || null,
+        gust_kt:   meteoRaw.atm.hourly.windgusts_10m  ? meteoRaw.atm.hourly.windgusts_10m[idxNow]  : null,
+        direction: meteoRaw.atm.hourly.winddirection_10m ? meteoRaw.atm.hourly.winddirection_10m[idxNow] : null
+      } : null;
+      html += renderPilot(pilot, omData, scoreData, biasMatrixRes, stationsData);
     });
     document.getElementById('pilots-container').innerHTML = html;
   } catch(e) {
-    document.getElementById('pilots-container').innerHTML =
-      '<div style="color:var(--danger);font-family:DM Mono,monospace;font-size:0.6rem">Errore: ' + e.message + '</div>';
+    document.getElementById('pilots-container').innerHTML = '<div style="color:var(--danger);font-size:0.6rem">Errore: ' + e.message + '</div>';
   }
 }
 

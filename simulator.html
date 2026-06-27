@@ -1,4 +1,4 @@
-<!-- NAUTILUS SIMULATOR v1.7 - mdisailor - 2026-06-27 -->
+<!-- NAUTILUS SIMULATOR v1.8 - mdisailor - 2026-06-27 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Simulator v1.7</title>
+<title>NAUTILUS Simulator v1.8</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -75,7 +75,7 @@ html,body{min-height:100%;background:var(--bg);font-family:'DM Mono',monospace;c
 <div id="nav">
   <div style="display:flex;align-items:center">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <div id="nav-ver">simulator v1.7</div>
+    <div id="nav-ver">simulator v1.8</div>
   </div>
   <a id="nav-back" href="#" onclick="event.preventDefault();var p=prompt('Password:');if(p==='mdi'){window.location.href='/?k=mdi'}">APP</a>
 </div>
@@ -89,7 +89,7 @@ html,body{min-height:100%;background:var(--bg);font-family:'DM Mono',monospace;c
 <script>
 var ENGINE_URL = '/api/engine';
 var SECRET = 'mdi';
-var OI_MAX_KM = 60;
+var OI_MAX_KM = 40;
 var OI_MIN_STATIONS = 2;
 var OI_EXCLUDED = { bonifacio_pertusato: true, vada: true };
 

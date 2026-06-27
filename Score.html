@@ -1,4 +1,4 @@
-<!-- NAUTILUS SCORE v1.5 - mdisailor - 2026-06-26 -->
+<!-- NAUTILUS SCORE v1.5 - mdisailor - 2026-06-26 --><!-- NAUTILUS SCORE v1.0 - mdisailor - 2026-06-26 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Score v1.5</title>
+<title>NAUTILUS Score v1.6</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -92,7 +92,7 @@ table.matrix td{padding:4px 6px;text-align:center;border-radius:3px}
 <div id="nav">
   <div style="display:flex;align-items:center">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <div id="nav-ver">score v1.5</div>
+    <div id="nav-ver">score v1.6</div>
   </div>
   <a id="nav-back" href="#" onclick="event.preventDefault();var p=prompt('Password:');if(p==='mdi'){window.location.href='/?k=mdi'}">APP</a>
 </div>
@@ -105,7 +105,6 @@ table.matrix td{padding:4px 6px;text-align:center;border-radius:3px}
     <button class="filter-btn active" data-filter="all" onclick="setFilter('all',this)">Tutte</button>
     <button class="filter-btn" data-filter="arome" onclick="setFilter('arome',this)">AROME</button>
     <button class="filter-btn" data-filter="om" onclick="setFilter('om',this)">OM</button>
-    <button class="filter-btn" data-filter="mixed" onclick="setFilter('mixed',this)">Miste</button>
   </div>
 
   <div id="condition-bar" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;align-items:center">
@@ -313,8 +312,10 @@ function renderGrid() {
     }
 
     // MAE da mostrare: filtrato se condizione attiva, globale altrimenti
-    var maeOm  = isCondFiltered && cb.mae_om    !== undefined ? cb.mae_om    : s.global_mae_om;
-    var maeAr  = isCondFiltered && cb.mae_arome !== undefined ? cb.mae_arome : s.global_mae_arome;
+    // Se filtro condizione attivo e n=0, non usare i valori globali come fallback
+    var noData = isCondFiltered && cb.n === 0;
+    var maeOm  = noData ? null : (isCondFiltered && cb.mae_om    !== undefined ? cb.mae_om    : s.global_mae_om);
+    var maeAr  = noData ? null : (isCondFiltered && cb.mae_arome !== undefined ? cb.mae_arome : s.global_mae_arome);
     var omPct  = maxMae > 0 && maeOm  ? Math.round(maeOm  / maxMae * 100) : 0;
     var arPct  = maxMae > 0 && maeAr  ? Math.round(maeAr  / maxMae * 100) : 0;
     var omCol  = displayBest === 'om'    ? 'var(--gold)'   : 'var(--white)';

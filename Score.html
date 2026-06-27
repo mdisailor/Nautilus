@@ -1,4 +1,4 @@
-<!-- NAUTILUS SCORE v1.0 - mdisailor - 2026-06-26 -->
+<!-- NAUTILUS SCORE v1.1 - mdisailor - 2026-06-26 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Score v1.0</title>
+<title>NAUTILUS Score v1.1</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -92,7 +92,7 @@ table.matrix td{padding:4px 6px;text-align:center;border-radius:3px}
 <div id="nav">
   <div style="display:flex;align-items:center">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <div id="nav-ver">score v1.0</div>
+    <div id="nav-ver">score v1.1</div>
   </div>
   <a id="nav-back" href="#" onclick="event.preventDefault();var p=prompt('Password:');if(p==='mdi'){window.location.href='/?k=mdi'}">APP</a>
 </div>
@@ -101,11 +101,25 @@ table.matrix td{padding:4px 6px;text-align:center;border-radius:3px}
   <div class="section-title">Model Score — OM vs AROME per condizione</div>
 
   <div id="filter-bar">
-    <span class="filter-label">Filtro:</span>
+    <span class="filter-label">Vincitore:</span>
     <button class="filter-btn active" data-filter="all" onclick="setFilter('all',this)">Tutte</button>
-    <button class="filter-btn" data-filter="arome" onclick="setFilter('arome',this)">AROME vince</button>
-    <button class="filter-btn" data-filter="om" onclick="setFilter('om',this)">OM vince</button>
+    <button class="filter-btn" data-filter="arome" onclick="setFilter('arome',this)">AROME</button>
+    <button class="filter-btn" data-filter="om" onclick="setFilter('om',this)">OM</button>
     <button class="filter-btn" data-filter="mixed" onclick="setFilter('mixed',this)">Miste</button>
+  </div>
+
+  <div id="condition-bar" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;align-items:center">
+    <span class="filter-label">Settore:</span>
+    <button class="filter-btn active" data-sec="all" onclick="setSector('all',this)">Tutti</button>
+    <button class="filter-btn" data-sec="N" onclick="setSector('N',this)">N <span style="font-size:0.45rem;color:var(--muted)">(315-45°)</span></button>
+    <button class="filter-btn" data-sec="E" onclick="setSector('E',this)">E <span style="font-size:0.45rem;color:var(--muted)">(45-135°)</span></button>
+    <button class="filter-btn" data-sec="S" onclick="setSector('S',this)">S <span style="font-size:0.45rem;color:var(--muted)">(135-225°)</span></button>
+    <button class="filter-btn" data-sec="W" onclick="setSector('W',this)">W <span style="font-size:0.45rem;color:var(--muted)">(225-315°)</span></button>
+    <span style="margin-left:8px" class="filter-label">Fascia:</span>
+    <button class="filter-btn active" data-spd="all" onclick="setSpeed('all',this)">Tutte</button>
+    <button class="filter-btn" data-spd="low" onclick="setSpeed('low',this)">&lt;8 kt</button>
+    <button class="filter-btn" data-spd="mid" onclick="setSpeed('mid',this)">8-15 kt</button>
+    <button class="filter-btn" data-spd="high" onclick="setSpeed('high',this)">&gt;15 kt</button>
     <span style="margin-left:auto;font-size:0.5rem;color:var(--muted)" id="last-update"></span>
   </div>
 
@@ -120,7 +134,23 @@ var SECRET = 'mdi';
 var N_THRESHOLD = 3;  // Sotto questa soglia i numeri appaiono in giallo
 var allScores = {};
 var currentFilter = 'all';
+var currentSector = 'all';
+var currentSpeed  = 'all';
 var currentStation = null;
+
+function setSector(s, btn) {
+  currentSector = s;
+  document.querySelectorAll('[data-sec]').forEach(function(b){ b.className = 'filter-btn'; });
+  btn.className = 'filter-btn active';
+  renderGrid();
+}
+
+function setSpeed(s, btn) {
+  currentSpeed = s;
+  document.querySelectorAll('[data-spd]').forEach(function(b){ b.className = 'filter-btn'; });
+  btn.className = 'filter-btn active';
+  renderGrid();
+}
 
 var STATION_NAMES = {
   livorno:'Livorno',canale_piombino:'Canale Piombino',viareggio:'Viareggio',
@@ -166,17 +196,56 @@ function isMixed(s) {
 
 function setFilter(f, btn) {
   currentFilter = f;
-  document.querySelectorAll('.filter-btn').forEach(function(b){ b.className = 'filter-btn'; });
+  document.querySelectorAll('[data-filter]').forEach(function(b){ b.className = 'filter-btn'; });
   btn.className = 'filter-btn active' + (f === 'arome' ? ' active-arome' : f === 'om' ? ' active-om' : '');
   renderGrid();
 }
 
+function getConditionBest(s, sector, speed) {
+  // Se non ci sono filtri condizione attivi, usa global
+  if (sector === 'all' && speed === 'all') return { best: s.global_best, n: s.n_total, isFiltered: false };
+  if (!s.matrix) return { best: null, n: 0, isFiltered: true };
+
+  // Aggrega MAE su tutte le combinazioni che matchano i filtri
+  var speeds  = speed  === 'all' ? ['low','mid','high'] : [speed];
+  var sectors = sector === 'all' ? ['N','E','S','W']    : [sector];
+  var slots   = ['morning','afternoon'];
+
+  var sumOm = 0, sumAr = 0, countOm = 0, countAr = 0, nTotal = 0;
+  speeds.forEach(function(spd) {
+    sectors.forEach(function(sec) {
+      slots.forEach(function(slot) {
+        var cell = s.matrix[spd + '_' + sec + '_' + slot];
+        if (!cell) return;
+        nTotal += cell.n;
+        if (cell.mae_om    !== null) { sumOm += cell.mae_om    * cell.n; countOm += cell.n; }
+        if (cell.mae_arome !== null) { sumAr += cell.mae_arome * cell.n; countAr += cell.n; }
+      });
+    });
+  });
+
+  if (countOm === 0 && countAr === 0) return { best: null, n: 0, isFiltered: true };
+  var avgOm = countOm > 0 ? sumOm / countOm : null;
+  var avgAr = countAr > 0 ? sumAr / countAr : null;
+  var best = (avgOm !== null && avgAr !== null) ? (avgAr < avgOm ? 'arome' : 'om') :
+             avgOm !== null ? 'om' : 'arome';
+  return { best: best, n: nTotal, mae_om: avgOm ? Math.round(avgOm*100)/100 : null, mae_arome: avgAr ? Math.round(avgAr*100)/100 : null, isFiltered: true };
+}
+
 function renderGrid() {
   var ids = Object.keys(allScores);
-  // Ordina: miste prima (più interessanti), poi per vantaggio globale decrescente
+  var isCondFiltered = currentSector !== 'all' || currentSpeed !== 'all';
+
+  // Per ogni stazione, calcola il best nelle condizioni filtrate
+  var stationBest = {};
+  ids.forEach(function(id){
+    stationBest[id] = getConditionBest(allScores[id], currentSector, currentSpeed);
+  });
+
   ids.sort(function(a,b){
     var sa = allScores[a], sb = allScores[b];
-    var ma = isMixed(sa), mb = isMixed(sb);
+    var ba = stationBest[a], bb = stationBest[b];
+    var ma = !isCondFiltered && isMixed(sa), mb = !isCondFiltered && isMixed(sb);
     if (ma && !mb) return -1;
     if (!ma && mb) return 1;
     var advA = sa.global_mae_om && sa.global_mae_arome ? Math.abs(sa.global_mae_om - sa.global_mae_arome) : 0;
@@ -184,13 +253,13 @@ function renderGrid() {
     return advB - advA;
   });
 
-  // Filtra
   if (currentFilter !== 'all') {
     ids = ids.filter(function(id){
+      var best = stationBest[id].best;
       var s = allScores[id];
-      if (currentFilter === 'mixed') return isMixed(s);
-      if (currentFilter === 'arome') return s.global_best === 'arome' && !isMixed(s);
-      if (currentFilter === 'om') return s.global_best === 'om' && !isMixed(s);
+      if (currentFilter === 'mixed') return !isCondFiltered && isMixed(s);
+      if (currentFilter === 'arome') return best === 'arome';
+      if (currentFilter === 'om')    return best === 'om';
       return true;
     });
   }
@@ -205,42 +274,55 @@ function renderGrid() {
   var html = '';
   ids.forEach(function(id){
     var s = allScores[id];
+    var cb = stationBest[id];
     var name = STATION_NAMES[id] || id;
-    var mixed = isMixed(s);
-    var cardClass = 'st-card ' + (mixed ? 'winner-mixed' : s.global_best === 'arome' ? 'winner-arome' : 'winner-om');
+    var mixed = !isCondFiltered && isMixed(s);
+    var displayBest = cb.best || s.global_best;
+    var cardClass = 'st-card ' + (mixed ? 'winner-mixed' : displayBest === 'arome' ? 'winner-arome' : 'winner-om');
     if (currentStation === id) cardClass += ' active';
 
-    var globalBadge = s.global_best === 'arome'
-      ? '<span class="badge badge-arome">AROME globale</span>'
-      : '<span class="badge badge-om">OM globale</span>';
+    var globalBadge = displayBest === 'arome'
+      ? '<span class="badge badge-arome">' + (isCondFiltered ? 'AROME' : 'AROME globale') + '</span>'
+      : '<span class="badge badge-om">' + (isCondFiltered ? 'OM' : 'OM globale') + '</span>';
 
     var nowBadge = '';
-    if (s.current_best && s.current_best !== s.global_best) {
-      nowBadge = s.current_best === 'arome'
-        ? '<span class="badge-now-label">ora</span><span class="badge badge-now badge-arome">AROME</span>'
-        : '<span class="badge-now-label">ora</span><span class="badge badge-now badge-om">OM</span>';
-    } else if (s.current_best) {
-      nowBadge = '<span class="badge-now-label" style="color:var(--safe)">✓ coerente</span>';
+    if (!isCondFiltered) {
+      if (s.current_best && s.current_best !== s.global_best) {
+        nowBadge = s.current_best === 'arome'
+          ? '<span class="badge-now-label">ora</span><span class="badge badge-now badge-arome">AROME</span>'
+          : '<span class="badge-now-label">ora</span><span class="badge badge-now badge-om">OM</span>';
+      } else if (s.current_best) {
+        nowBadge = '<span class="badge-now-label" style="color:var(--safe)">✓ coerente</span>';
+      }
+    } else {
+      nowBadge = '<span style="font-size:0.45rem;color:var(--muted)">n=' + cb.n + '</span>';
     }
 
-    var omPct  = maxMae > 0 ? Math.round(s.global_mae_om  / maxMae * 100) : 0;
-    var arPct  = maxMae > 0 ? Math.round(s.global_mae_arome / maxMae * 100) : 0;
-    var omCol  = s.global_best === 'om'  ? 'var(--gold)' : 'var(--text)';
-    var arCol  = s.global_best === 'arome' ? 'var(--accent)' : 'var(--text)';
+    // MAE da mostrare: filtrato se condizione attiva, globale altrimenti
+    var maeOm  = isCondFiltered && cb.mae_om    !== undefined ? cb.mae_om    : s.global_mae_om;
+    var maeAr  = isCondFiltered && cb.mae_arome !== undefined ? cb.mae_arome : s.global_mae_arome;
+    var omPct  = maxMae > 0 && maeOm  ? Math.round(maeOm  / maxMae * 100) : 0;
+    var arPct  = maxMae > 0 && maeAr  ? Math.round(maeAr  / maxMae * 100) : 0;
+    var omCol  = displayBest === 'om'    ? 'var(--gold)'   : 'var(--text)';
+    var arCol  = displayBest === 'arome' ? 'var(--accent)' : 'var(--text)';
+
+    var condLabel = isCondFiltered
+      ? (currentSector !== 'all' ? SECTOR_LABELS[currentSector] : 'Tutti') + ' · ' + (currentSpeed !== 'all' ? SPEED_LABELS[currentSpeed] : 'Tutte le fasce')
+      : conditionLabel(s.current_conditions);
 
     html += '<div class="' + cardClass + '" onclick="showDetail(\'' + id + '\')">';
     html += '<div class="st-name">' + name + '</div>';
     html += '<div class="st-badges">' + globalBadge + '<span style="flex:1"></span>' + nowBadge + '</div>';
-    html += '<div class="st-conditions">' + conditionLabel(s.current_conditions) + ' · n=' + s.current_n + '</div>';
+    html += '<div class="st-conditions">' + condLabel + '</div>';
     html += '<div class="st-bars">';
-    html += '<div class="bar-row"><span class="bar-lbl" style="color:var(--gold)">OM</span><div class="bar-track"><div class="bar-fill-om" style="width:' + omPct + '%"></div></div><span class="bar-val" style="color:' + omCol + '">' + s.global_mae_om + '</span></div>';
-    html += '<div class="bar-row"><span class="bar-lbl" style="color:var(--accent)">AROME</span><div class="bar-track"><div class="bar-fill-arome" style="width:' + arPct + '%"></div></div><span class="bar-val" style="color:' + arCol + '">' + s.global_mae_arome + '</span></div>';
+    html += '<div class="bar-row"><span class="bar-lbl" style="color:var(--gold)">OM</span><div class="bar-track"><div class="bar-fill-om" style="width:' + omPct + '%"></div></div><span class="bar-val" style="color:' + omCol + '">' + (maeOm||'—') + '</span></div>';
+    html += '<div class="bar-row"><span class="bar-lbl" style="color:var(--accent)">AROME</span><div class="bar-track"><div class="bar-fill-arome" style="width:' + arPct + '%"></div></div><span class="bar-val" style="color:' + arCol + '">' + (maeAr||'—') + '</span></div>';
     html += '</div>';
     html += '<div class="st-n">n totale: ' + s.n_total + '</div>';
     html += '</div>';
   });
 
-  document.getElementById('station-grid').innerHTML = html;
+  document.getElementById('station-grid').innerHTML = html || '<div style="font-family:DM Mono,monospace;font-size:0.6rem;color:var(--muted)">Nessuna stazione corrisponde ai filtri.</div>';
 }
 
 function showDetail(id) {

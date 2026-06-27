@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Simulator v1.3</title>
+<title>NAUTILUS Simulator v1.4</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -91,7 +91,7 @@ html,body{min-height:100%;background:var(--bg);font-family:'DM Mono',monospace;c
 <div id="nav">
   <div style="display:flex;align-items:center">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <div id="nav-ver">simulator v1.3</div>
+    <div id="nav-ver">simulator v1.4</div>
   </div>
   <a id="nav-back" href="#" onclick="event.preventDefault();var p=prompt('Password:');if(p==='mdi'){window.location.href='/?k=mdi'}">APP</a>
 </div>
@@ -99,8 +99,8 @@ html,body{min-height:100%;background:var(--bg);font-family:'DM Mono',monospace;c
 <div id="content">
   <div class="section-title">Simulatore decisioni — 3 punti pilota</div>
   <div style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--muted);margin-bottom:16px">
-    Mostra come il sistema sceglierebbe il modello e correggerebbe i dati in questo momento.
-    I valori sono già preparati — nessun calcolo al click.
+    Per ogni punto pilota: quale modello il sistema sceglierebbe ora e con quale affidabilità storica.
+    I valori corretti (AROME + correzione OI) saranno aggiunti nella prossima versione.
   </div>
 
   <div id="pilots-container">
@@ -233,26 +233,6 @@ function renderPilot(pilot, score, omData) {
   }
 
   // Decisione principale
-  html += '<div class="decision-panel">';
-
-  // Modello scelto
-  html += '<div class="dec-card ' + (chosen === 'arome' ? 'winner' : chosen === 'om' ? 'winner-om' : '') + '">';
-  html += '<div class="dec-label">Modello scelto</div>';
-  html += '<div class="dec-val" style="color:' + chosenColor + '">' + chosenLabel + '</div>';
-  html += '<div class="dec-sub">' + (fallback ? 'fallback globale' : 'cella: n=' + currentN) + '</div>';
-  html += '<div class="dec-mae">MAE atteso: ' + (correctionHint !== null ? correctionHint + ' kt' : '—') + '</div>';
-  html += '</div>';
-
-  // Semaforo verbale
-  html += '<div class="dec-card">';
-  html += '<div class="dec-label">Affidabilità scelta</div>';
-  html += '<div class="dec-val" style="color:' + (sem.color === 'green' ? 'var(--safe)' : sem.color === 'yellow' ? 'var(--gold)' : 'var(--danger)') + ';font-size:1rem">' + sem.label + '</div>';
-  html += '<div class="dec-sub">n=' + currentN + ' campioni</div>';
-  html += '<div class="dec-mae">' + (currentKey ? currentKey.replace(/_/g,' · ') : 'condizioni non disponibili') + '</div>';
-  html += '</div>';
-
-  html += '</div>';
-
   // Tabella comparativa OM vs AROME
   if (maeOm !== null || maeAr !== null) {
     html += '<table class="comp-table">';

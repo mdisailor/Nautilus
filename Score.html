@@ -1,4 +1,4 @@
-<!-- NAUTILUS SCORE v1.3 - mdisailor - 2026-06-26 -->
+<!-- NAUTILUS SCORE v1.5 - mdisailor - 2026-06-26 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Score v1.3</title>
+<title>NAUTILUS Score v1.5</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -49,7 +49,7 @@ html,body{min-height:100%;background:var(--bg);font-family:'DM Mono',monospace;c
 .badge-om{background:rgba(255,170,0,0.15);color:var(--gold);border:1px solid var(--gold)}
 .badge-now{font-size:0.45rem;padding:1px 5px;border-radius:3px}
 .badge-now-label{font-size:0.45rem;color:var(--muted);margin-right:2px}
-.st-conditions{font-size:0.5rem;color:var(--muted);margin-bottom:6px}
+.st-conditions{font-size:0.5rem;color:var(--white);margin-bottom:6px}
 .st-bars{display:flex;flex-direction:column;gap:3px}
 .bar-row{display:flex;align-items:center;gap:6px}
 .bar-lbl{font-size:0.5rem;color:var(--muted);width:44px;text-align:right;flex-shrink:0}
@@ -57,7 +57,7 @@ html,body{min-height:100%;background:var(--bg);font-family:'DM Mono',monospace;c
 .bar-fill-om{background:var(--gold);height:100%;border-radius:2px}
 .bar-fill-arome{background:var(--accent);height:100%;border-radius:2px}
 .bar-val{font-size:0.5rem;width:32px;flex-shrink:0}
-.st-n{font-size:0.45rem;color:var(--muted);margin-top:4px}
+.st-n{font-size:0.45rem;color:var(--white);margin-top:4px}
 
 /* Detail panel */
 #detail{display:none;margin-top:16px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px}
@@ -77,7 +77,7 @@ table.matrix td{padding:4px 6px;text-align:center;border-radius:3px}
 .cell-om{background:rgba(255,170,0,0.12);border:1px solid rgba(255,170,0,0.3)}
 .cell-empty{color:var(--border)}
 .cell-lowdata{opacity:0.6}  /* n < 3 */
-.cell-n{font-size:0.42rem;color:var(--muted)}
+.cell-n{font-size:0.42rem;color:var(--white)}
 .cell-n.low{color:var(--gold)}  /* n < 3 */
 
 #loading{text-align:center;padding:60px 20px;color:var(--muted);font-size:0.7rem}
@@ -92,7 +92,7 @@ table.matrix td{padding:4px 6px;text-align:center;border-radius:3px}
 <div id="nav">
   <div style="display:flex;align-items:center">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <div id="nav-ver">score v1.3</div>
+    <div id="nav-ver">score v1.5</div>
   </div>
   <a id="nav-back" href="#" onclick="event.preventDefault();var p=prompt('Password:');if(p==='mdi'){window.location.href='/?k=mdi'}">APP</a>
 </div>
@@ -309,7 +309,7 @@ function renderGrid() {
         nowBadge = '<span class="badge-now-label" style="color:var(--safe)">✓ coerente</span>';
       }
     } else {
-      nowBadge = '<span style="font-size:0.45rem;color:var(--muted)">n=' + cb.n + '</span>';
+      nowBadge = '<span style="font-size:0.45rem;color:var(--white)">n=' + cb.n + '</span>';
     }
 
     // MAE da mostrare: filtrato se condizione attiva, globale altrimenti
@@ -317,8 +317,8 @@ function renderGrid() {
     var maeAr  = isCondFiltered && cb.mae_arome !== undefined ? cb.mae_arome : s.global_mae_arome;
     var omPct  = maxMae > 0 && maeOm  ? Math.round(maeOm  / maxMae * 100) : 0;
     var arPct  = maxMae > 0 && maeAr  ? Math.round(maeAr  / maxMae * 100) : 0;
-    var omCol  = displayBest === 'om'    ? 'var(--gold)'   : 'var(--text)';
-    var arCol  = displayBest === 'arome' ? 'var(--accent)' : 'var(--text)';
+    var omCol  = displayBest === 'om'    ? 'var(--gold)'   : 'var(--white)';
+    var arCol  = displayBest === 'arome' ? 'var(--accent)' : 'var(--white)';
 
     var condLabel = isCondFiltered
       ? (currentSector !== 'all' ? SECTOR_LABELS[currentSector] : 'Tutti') + ' · ' + (currentSpeed !== 'all' ? SPEED_LABELS[currentSpeed] : 'Tutte le fasce')
@@ -379,7 +379,7 @@ function renderDetail(id, score) {
       sectors.forEach(function(sec) {
         var key = spd + '_' + sec + '_' + slot;
         var cell = score.matrix && score.matrix[key];
-        if (!cell) {
+        if (!cell || cell.n === 0) {
           html += '<td class="cell-empty">—</td>';
           return;
         }
@@ -388,11 +388,11 @@ function renderDetail(id, score) {
         var omStr  = cell.mae_om    !== null ? cell.mae_om    : '—';
         var arStr  = cell.mae_arome !== null ? cell.mae_arome : '—';
         var nClass = isLow ? 'cell-n low' : 'cell-n';
-        var omColor  = cell.best === 'om'    ? 'var(--gold)'   : 'var(--text)';
-        var arColor  = cell.best === 'arome' ? 'var(--accent)' : 'var(--text)';
+        var omColor  = cell.best === 'om'    ? 'var(--gold)'   : 'var(--white)';
+        var arColor  = cell.best === 'arome' ? 'var(--accent)' : 'var(--white)';
         html += '<td class="' + cellClass + '">';
         html += '<span style="color:' + omColor + '">' + omStr + '</span>';
-        html += '<span style="color:var(--muted)"> / </span>';
+        html += '<span style="color:var(--white)"> / </span>';
         html += '<span style="color:' + arColor + '">' + arStr + '</span>';
         html += '<div class="' + nClass + '">n=' + cell.n + '</div>';
         html += '</td>';

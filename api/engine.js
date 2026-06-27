@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.31 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.32 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
@@ -1944,7 +1944,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.31', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.32', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -1977,6 +1977,61 @@ if (action === 'lamma_test') {
 // /api/engine?action=scrape_web&station=viareggio|bocca_arno&k=mdi
 // Scraping pagine pubbliche MeteoNetwork per stazioni senza licenza API
 // /api/engine?action=station_refresh&station=X -- pubblico, rate limit 60s per stazione
+// action=stations_snapshot -- legge ultimo campione bias_samples per ogni stazione (dati live più recenti)
+if (action === 'stations_snapshot') {
+  try {
+    var ssStations = [
+      { id:'livorno',          lat:43.465, lon:10.347 },
+      { id:'canale_piombino',  lat:42.920, lon:10.530 },
+      { id:'viareggio',        lat:43.870, lon:10.230 },
+      { id:'capraia_w',        lat:43.053, lon:9.838  },
+      { id:'portoferraio',     lat:42.813, lon:10.368 },
+      { id:'alberese',         lat:42.671, lon:11.107 },
+      { id:'luri',             lat:42.982, lon:9.389  },
+      { id:'barcaggio',        lat:43.006, lon:9.405  },
+      { id:'gorgona_cfr',      lat:43.433, lon:9.883  },
+      { id:'capraia_cfr',      lat:43.050, lon:9.838  },
+      { id:'giglio_porto',     lat:42.363, lon:10.910 },
+      { id:'giglio_castello',  lat:42.364, lon:10.920 },
+      { id:'montecristo',      lat:42.335, lon:10.311 },
+      { id:'portoferraio_cfr', lat:42.816, lon:10.328 },
+      { id:'orbetello',        lat:42.441, lon:11.216 },
+      { id:'svincenzo_porto',  lat:43.098, lon:10.537 },
+      { id:'casotto_pescatori',lat:42.647, lon:11.081 },
+      { id:'venturina',        lat:43.013, lon:10.580 },
+      { id:'forte_dei_marmi',  lat:43.963, lon:10.168 },
+      { id:'lido_camaiore',    lat:43.913, lon:10.214 },
+      { id:'bocca_arno_cfr',   lat:43.680, lon:10.270 },
+      { id:'follonica',        lat:42.921, lon:10.762 },
+      { id:'capalbio',         lat:42.459, lon:11.269 }
+    ];
+    var ssResults = {};
+    for (var ssi = 0; ssi < ssStations.length; ssi++) {
+      var ssSt = ssStations[ssi];
+      try {
+        var ssSamples = await kvGet('bias_samples:' + ssSt.id, kvUrl, kvToken);
+        if (!Array.isArray(ssSamples) || ssSamples.length === 0) continue;
+        var ssLast = ssSamples[0]; // più recente
+        if (!ssLast.station || ssLast.station.wind_kt === null || ssLast.station.wind_kt === undefined) continue;
+        var ssAgeMin = Math.round((Date.now() - new Date(ssLast.ts).getTime()) / 60000);
+        ssResults[ssSt.id] = {
+          lat: ssSt.lat, lon: ssSt.lon,
+          wind_kt: ssLast.station.wind_kt,
+          direction: ssLast.station.direction,
+          gust_kt: ssLast.station.gust_kt || null,
+          ts: ssLast.ts,
+          age_min: ssAgeMin,
+          om_wind_kt: ssLast.om ? ssLast.om.wind_kt : null,
+          om_direction: ssLast.om ? ssLast.om.direction : null
+        };
+      } catch(ssE) { continue; }
+    }
+    return res.status(200).json({ stations: ssResults, generated_at: new Date().toISOString() });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
 if (action === 'station_refresh') {
   try {
     var srStation = req.query.station || null;
@@ -4840,12 +4895,12 @@ if (action === 'bias_stats') {
 // action=score_get -- legge model_score per una stazione o tutte
 if (action === 'score_get') {
   try {
+    var sgFull    = req.query.full === '1';
     var sgStation = req.query.station || null;
     if (sgStation) {
       var sgScore = await kvGet('model_score:' + sgStation, kvUrl, kvToken);
       return res.status(200).json({ station: sgStation, score: sgScore || null });
     }
-    // Tutte le stazioni
     var sgStations = [
       'livorno','canale_piombino','viareggio','capraia_w','portoferraio','alberese','luri',
       'barcaggio','gorgona_cfr','capraia_cfr','giglio_porto','giglio_castello','montecristo',
@@ -4856,16 +4911,20 @@ if (action === 'score_get') {
     for (var sgi = 0; sgi < sgStations.length; sgi++) {
       var sgId = sgStations[sgi];
       var sgVal = await kvGet('model_score:' + sgId, kvUrl, kvToken);
-      if (sgVal) sgResults[sgId] = {
-        computed_at: sgVal.computed_at,
-        n_total: sgVal.n_total,
-        global_best: sgVal.global ? sgVal.global.best : null,
-        global_mae_om: sgVal.global ? sgVal.global.mae_om : null,
-        global_mae_arome: sgVal.global ? sgVal.global.mae_arome : null,
-        current_best: sgVal.current_best,
-        current_conditions: sgVal.current_conditions,
-        current_n: sgVal.current_n
-      };
+      if (sgVal) {
+        sgResults[sgId] = {
+          computed_at: sgVal.computed_at,
+          n_total: sgVal.n_total,
+          global_best: sgVal.global ? sgVal.global.best : null,
+          global_mae_om: sgVal.global ? sgVal.global.mae_om : null,
+          global_mae_arome: sgVal.global ? sgVal.global.mae_arome : null,
+          current_best: sgVal.current_best,
+          current_conditions: sgVal.current_conditions,
+          current_n: sgVal.current_n
+        };
+        // Includi matrice completa se richiesto con full=1
+        if (sgFull) sgResults[sgId].matrix = sgVal.matrix || null;
+      }
     }
     return res.status(200).json({ scores: sgResults, generated_at: new Date().toISOString() });
   } catch(e) {
@@ -5269,7 +5328,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.31 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.32 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -5396,4 +5455,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.31
+// Fine codice - NAUTILUS ENGINE v2.13.32

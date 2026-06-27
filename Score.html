@@ -1,0 +1,324 @@
+<!-- NAUTILUS SCORE v1.0 - mdisailor - 2026-06-26 -->
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#020e1c">
+<title>NAUTILUS Score v1.0</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#020e1c;--card:#06182e;--border:#1a3a5c;
+  --accent:#0af0ff;--gold:#ffaa00;--warn:#ff7a00;
+  --danger:#ff2d2d;--safe:#00e676;--muted:#4a7a9b;
+  --text:#c8dff0;--white:#e8f4ff;
+}
+html,body{min-height:100%;background:var(--bg);font-family:'DM Mono',monospace;color:var(--text)}
+#nav{display:flex;align-items:center;justify-content:space-between;padding:0 16px;height:48px;background:rgba(2,14,28,0.97);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+#nav-logo{font-family:'Bebas Neue',cursive;font-size:1.4rem;color:var(--white);letter-spacing:0.12em}
+#nav-logo span{color:var(--accent)}
+#nav-ver{font-size:0.5rem;color:#fff;margin-left:8px}
+#nav-back{font-size:0.6rem;color:var(--muted);text-decoration:none;letter-spacing:0.1em;border:1px solid var(--border);border-radius:6px;padding:4px 10px;cursor:pointer}
+#nav-back:hover{color:var(--accent);border-color:var(--accent)}
+#content{padding:16px;max-width:900px;margin:0 auto}
+.section-title{font-size:0.6rem;color:var(--accent);letter-spacing:0.15em;text-transform:uppercase;margin:20px 0 10px;border-bottom:1px solid var(--border);padding-bottom:6px}
+
+/* Filter bar */
+#filter-bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;align-items:center}
+.filter-label{font-size:0.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em}
+.filter-btn{font-family:'DM Mono',monospace;font-size:0.55rem;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--muted);cursor:pointer;transition:all 0.15s}
+.filter-btn.active{color:var(--white);border-color:var(--white);background:rgba(255,255,255,0.08)}
+.filter-btn.active-arome{color:var(--accent);border-color:var(--accent);background:rgba(10,240,255,0.1)}
+.filter-btn.active-om{color:var(--gold);border-color:var(--gold);background:rgba(255,170,0,0.1)}
+
+/* Station grid */
+#station-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.st-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;cursor:pointer;transition:border-color 0.15s}
+.st-card:hover{border-color:var(--accent)}
+.st-card.active{border-color:var(--accent);background:rgba(10,240,255,0.04)}
+.st-card.winner-arome{border-left:3px solid var(--accent)}
+.st-card.winner-om{border-left:3px solid var(--gold)}
+.st-card.winner-mixed{border-left:3px solid var(--warn)}
+.st-name{font-size:0.75rem;color:var(--white);font-weight:bold;margin-bottom:6px}
+.st-badges{display:flex;gap:6px;margin-bottom:8px;align-items:center}
+.badge{font-size:0.5rem;padding:2px 7px;border-radius:4px;font-weight:bold;letter-spacing:0.06em;text-transform:uppercase}
+.badge-arome{background:rgba(10,240,255,0.15);color:var(--accent);border:1px solid var(--accent)}
+.badge-om{background:rgba(255,170,0,0.15);color:var(--gold);border:1px solid var(--gold)}
+.badge-now{font-size:0.45rem;padding:1px 5px;border-radius:3px}
+.badge-now-label{font-size:0.45rem;color:var(--muted);margin-right:2px}
+.st-conditions{font-size:0.5rem;color:var(--muted);margin-bottom:6px}
+.st-bars{display:flex;flex-direction:column;gap:3px}
+.bar-row{display:flex;align-items:center;gap:6px}
+.bar-lbl{font-size:0.5rem;color:var(--muted);width:44px;text-align:right;flex-shrink:0}
+.bar-track{flex:1;background:rgba(26,58,92,0.5);border-radius:2px;height:6px;overflow:hidden}
+.bar-fill-om{background:var(--gold);height:100%;border-radius:2px}
+.bar-fill-arome{background:var(--accent);height:100%;border-radius:2px}
+.bar-val{font-size:0.5rem;width:32px;flex-shrink:0}
+.st-n{font-size:0.45rem;color:var(--muted);margin-top:4px}
+
+/* Detail panel */
+#detail{display:none;margin-top:16px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px}
+#detail.open{display:block}
+#detail-title{font-size:0.9rem;color:var(--white);font-weight:bold;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+#detail-close{font-size:0.6rem;color:var(--muted);cursor:pointer;padding:4px 8px;border:1px solid var(--border);border-radius:6px}
+#detail-close:hover{color:var(--accent)}
+
+/* Matrix */
+.matrix-wrap{overflow-x:auto;margin-top:12px}
+.matrix-title{font-size:0.55rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px}
+table.matrix{border-collapse:collapse;font-size:0.52rem;width:100%}
+table.matrix th{padding:4px 6px;color:var(--muted);font-weight:normal;text-align:center;border-bottom:1px solid var(--border)}
+table.matrix th.row-hdr{text-align:left}
+table.matrix td{padding:4px 6px;text-align:center;border-radius:3px}
+.cell-arome{background:rgba(10,240,255,0.12);border:1px solid rgba(10,240,255,0.3)}
+.cell-om{background:rgba(255,170,0,0.12);border:1px solid rgba(255,170,0,0.3)}
+.cell-empty{color:var(--border)}
+.cell-lowdata{opacity:0.6}  /* n < 3 */
+.cell-n{font-size:0.42rem;color:var(--muted)}
+.cell-n.low{color:var(--gold)}  /* n < 3 */
+
+#loading{text-align:center;padding:60px 20px;color:var(--muted);font-size:0.7rem}
+.spinner{display:inline-block;width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:10px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&display=swap');
+</style>
+</head>
+<body>
+
+<div id="nav">
+  <div style="display:flex;align-items:center">
+    <div id="nav-logo">NAUTI<span>LUS</span></div>
+    <div id="nav-ver">score v1.0</div>
+  </div>
+  <a id="nav-back" href="#" onclick="event.preventDefault();var p=prompt('Password:');if(p==='mdi'){window.location.href='/?k=mdi'}">APP</a>
+</div>
+
+<div id="content">
+  <div class="section-title">Model Score — OM vs AROME per condizione</div>
+
+  <div id="filter-bar">
+    <span class="filter-label">Filtro:</span>
+    <button class="filter-btn active" data-filter="all" onclick="setFilter('all',this)">Tutte</button>
+    <button class="filter-btn" data-filter="arome" onclick="setFilter('arome',this)">AROME vince</button>
+    <button class="filter-btn" data-filter="om" onclick="setFilter('om',this)">OM vince</button>
+    <button class="filter-btn" data-filter="mixed" onclick="setFilter('mixed',this)">Miste</button>
+    <span style="margin-left:auto;font-size:0.5rem;color:var(--muted)" id="last-update"></span>
+  </div>
+
+  <div id="loading"><div class="spinner"></div><br>Caricamento score...</div>
+  <div id="station-grid"></div>
+  <div id="detail"></div>
+</div>
+
+<script>
+var ENGINE_URL = '/api/engine';
+var SECRET = 'mdi';
+var N_THRESHOLD = 3;  // Sotto questa soglia i numeri appaiono in giallo
+var allScores = {};
+var currentFilter = 'all';
+var currentStation = null;
+
+var STATION_NAMES = {
+  livorno:'Livorno',canale_piombino:'Canale Piombino',viareggio:'Viareggio',
+  capraia_w:'Capraia (MNW)',portoferraio:'Portoferraio',alberese:'Alberese',luri:'Luri (Corsica)',
+  barcaggio:'Barcaggio',gorgona_cfr:'Gorgona CFR',capraia_cfr:'Capraia CFR',
+  giglio_porto:'Giglio Porto',giglio_castello:'Giglio Castello',montecristo:'Montecristo',
+  portoferraio_cfr:'Portoferraio CFR',orbetello:'Orbetello',svincenzo_porto:'S.Vincenzo Porto',
+  casotto_pescatori:'Casotto P.',venturina:'Venturina',forte_dei_marmi:'Forte dei Marmi',
+  lido_camaiore:'Lido Camaiore',bocca_arno_cfr:'Bocca Arno CFR',follonica:'Follonica',capalbio:'Capalbio'
+};
+
+var SPEED_LABELS = { low:'< 8 kt', mid:'8-15 kt', high:'> 15 kt' };
+var SECTOR_LABELS = { N:'Nord', E:'Est', S:'Sud', W:'Ovest' };
+var SLOT_LABELS = { morning:'Mattina', afternoon:'Pomeriggio' };
+
+function conditionLabel(key) {
+  if (!key) return '—';
+  var parts = key.split('_');
+  if (parts.length < 3) return key;
+  var slot = parts[parts.length-1];
+  var sec  = parts[parts.length-2];
+  var spd  = parts.slice(0, parts.length-2).join('_');
+  return (SPEED_LABELS[spd]||spd) + ' · ' + (SECTOR_LABELS[sec]||sec) + ' · ' + (SLOT_LABELS[slot]||slot);
+}
+
+async function load() {
+  try {
+    var r = await fetch(ENGINE_URL + '?action=score_get&k=' + SECRET);
+    var d = await r.json();
+    allScores = d.scores || {};
+    document.getElementById('loading').style.display = 'none';
+    var ts = new Date(d.generated_at);
+    document.getElementById('last-update').textContent = 'Aggiornato ' + ts.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+    renderGrid();
+  } catch(e) {
+    document.getElementById('loading').innerHTML = '<span style="color:var(--danger)">Errore caricamento: ' + e.message + '</span>';
+  }
+}
+
+function isMixed(s) {
+  return s.global_best !== s.current_best && s.current_best !== null;
+}
+
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(function(b){ b.className = 'filter-btn'; });
+  btn.className = 'filter-btn active' + (f === 'arome' ? ' active-arome' : f === 'om' ? ' active-om' : '');
+  renderGrid();
+}
+
+function renderGrid() {
+  var ids = Object.keys(allScores);
+  // Ordina: miste prima (più interessanti), poi per vantaggio globale decrescente
+  ids.sort(function(a,b){
+    var sa = allScores[a], sb = allScores[b];
+    var ma = isMixed(sa), mb = isMixed(sb);
+    if (ma && !mb) return -1;
+    if (!ma && mb) return 1;
+    var advA = sa.global_mae_om && sa.global_mae_arome ? Math.abs(sa.global_mae_om - sa.global_mae_arome) : 0;
+    var advB = sb.global_mae_om && sb.global_mae_arome ? Math.abs(sb.global_mae_om - sb.global_mae_arome) : 0;
+    return advB - advA;
+  });
+
+  // Filtra
+  if (currentFilter !== 'all') {
+    ids = ids.filter(function(id){
+      var s = allScores[id];
+      if (currentFilter === 'mixed') return isMixed(s);
+      if (currentFilter === 'arome') return s.global_best === 'arome' && !isMixed(s);
+      if (currentFilter === 'om') return s.global_best === 'om' && !isMixed(s);
+      return true;
+    });
+  }
+
+  var maxMae = 0;
+  ids.forEach(function(id){
+    var s = allScores[id];
+    if (s.global_mae_om > maxMae) maxMae = s.global_mae_om;
+    if (s.global_mae_arome > maxMae) maxMae = s.global_mae_arome;
+  });
+
+  var html = '';
+  ids.forEach(function(id){
+    var s = allScores[id];
+    var name = STATION_NAMES[id] || id;
+    var mixed = isMixed(s);
+    var cardClass = 'st-card ' + (mixed ? 'winner-mixed' : s.global_best === 'arome' ? 'winner-arome' : 'winner-om');
+    if (currentStation === id) cardClass += ' active';
+
+    var globalBadge = s.global_best === 'arome'
+      ? '<span class="badge badge-arome">AROME globale</span>'
+      : '<span class="badge badge-om">OM globale</span>';
+
+    var nowBadge = '';
+    if (s.current_best && s.current_best !== s.global_best) {
+      nowBadge = s.current_best === 'arome'
+        ? '<span class="badge-now-label">ora</span><span class="badge badge-now badge-arome">AROME</span>'
+        : '<span class="badge-now-label">ora</span><span class="badge badge-now badge-om">OM</span>';
+    } else if (s.current_best) {
+      nowBadge = '<span class="badge-now-label" style="color:var(--safe)">✓ coerente</span>';
+    }
+
+    var omPct  = maxMae > 0 ? Math.round(s.global_mae_om  / maxMae * 100) : 0;
+    var arPct  = maxMae > 0 ? Math.round(s.global_mae_arome / maxMae * 100) : 0;
+    var omCol  = s.global_best === 'om'  ? 'var(--gold)' : 'var(--text)';
+    var arCol  = s.global_best === 'arome' ? 'var(--accent)' : 'var(--text)';
+
+    html += '<div class="' + cardClass + '" onclick="showDetail(\'' + id + '\')">';
+    html += '<div class="st-name">' + name + '</div>';
+    html += '<div class="st-badges">' + globalBadge + '<span style="flex:1"></span>' + nowBadge + '</div>';
+    html += '<div class="st-conditions">' + conditionLabel(s.current_conditions) + ' · n=' + s.current_n + '</div>';
+    html += '<div class="st-bars">';
+    html += '<div class="bar-row"><span class="bar-lbl" style="color:var(--gold)">OM</span><div class="bar-track"><div class="bar-fill-om" style="width:' + omPct + '%"></div></div><span class="bar-val" style="color:' + omCol + '">' + s.global_mae_om + '</span></div>';
+    html += '<div class="bar-row"><span class="bar-lbl" style="color:var(--accent)">AROME</span><div class="bar-track"><div class="bar-fill-arome" style="width:' + arPct + '%"></div></div><span class="bar-val" style="color:' + arCol + '">' + s.global_mae_arome + '</span></div>';
+    html += '</div>';
+    html += '<div class="st-n">n totale: ' + s.n_total + '</div>';
+    html += '</div>';
+  });
+
+  document.getElementById('station-grid').innerHTML = html;
+}
+
+function showDetail(id) {
+  currentStation = id;
+  renderGrid(); // aggiorna active state
+
+  // Fetch score completo con matrice
+  var det = document.getElementById('detail');
+  det.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:0.6rem">Caricamento matrice...</div>';
+  det.classList.add('open');
+  det.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  fetch(ENGINE_URL + '?action=score_get&station=' + id + '&k=' + SECRET)
+    .then(function(r){ return r.json(); })
+    .then(function(d){ renderDetail(id, d.score); })
+    .catch(function(e){ det.innerHTML = '<span style="color:var(--danger)">Errore: ' + e.message + '</span>'; });
+}
+
+function renderDetail(id, score) {
+  var det = document.getElementById('detail');
+  if (!score) { det.innerHTML = '<span style="color:var(--muted)">Nessun dato disponibile</span>'; return; }
+
+  var name = STATION_NAMES[id] || id;
+  var speeds  = ['low','mid','high'];
+  var sectors = ['N','E','S','W'];
+  var slots   = ['morning','afternoon'];
+
+  var html = '<div id="detail-title"><span>' + name + ' — Matrice score per condizione</span><span id="detail-close" onclick="closeDetail()">✕ chiudi</span></div>';
+
+  slots.forEach(function(slot) {
+    html += '<div class="matrix-wrap">';
+    html += '<div class="matrix-title">' + SLOT_LABELS[slot] + '</div>';
+    html += '<table class="matrix">';
+    html += '<thead><tr><th class="row-hdr">Velocità</th>';
+    sectors.forEach(function(sec){ html += '<th>' + SECTOR_LABELS[sec] + '</th>'; });
+    html += '</tr></thead><tbody>';
+
+    speeds.forEach(function(spd) {
+      html += '<tr><td style="color:var(--text);text-align:left;padding:4px 6px">' + SPEED_LABELS[spd] + '</td>';
+      sectors.forEach(function(sec) {
+        var key = spd + '_' + sec + '_' + slot;
+        var cell = score.matrix && score.matrix[key];
+        if (!cell) {
+          html += '<td class="cell-empty">—</td>';
+          return;
+        }
+        var isLow = cell.n < N_THRESHOLD;
+        var cellClass = 'cell-' + (cell.best || 'empty') + (isLow ? ' cell-lowdata' : '');
+        var omStr  = cell.mae_om    !== null ? cell.mae_om    : '—';
+        var arStr  = cell.mae_arome !== null ? cell.mae_arome : '—';
+        var nClass = isLow ? 'cell-n low' : 'cell-n';
+        var omColor  = cell.best === 'om'    ? 'var(--gold)'   : 'var(--text)';
+        var arColor  = cell.best === 'arome' ? 'var(--accent)' : 'var(--text)';
+        html += '<td class="' + cellClass + '">';
+        html += '<span style="color:' + omColor + '">' + omStr + '</span>';
+        html += '<span style="color:var(--muted)"> / </span>';
+        html += '<span style="color:' + arColor + '">' + arStr + '</span>';
+        html += '<div class="' + nClass + '">n=' + cell.n + '</div>';
+        html += '</td>';
+      });
+      html += '</tr>';
+    });
+
+    html += '</tbody></table>';
+    html += '<div style="font-size:0.48rem;color:var(--muted);margin-top:4px">Ambra=MAE OM · Ciano=MAE AROME · sfondo colorato=vincitore · n giallo=dati scarsi (n&lt;' + N_THRESHOLD + ')</div>';
+    html += '</div>';
+  });
+
+  det.innerHTML = html;
+}
+
+function closeDetail() {
+  currentStation = null;
+  document.getElementById('detail').classList.remove('open');
+  renderGrid();
+}
+
+load();
+</script>
+</body>
+</html>

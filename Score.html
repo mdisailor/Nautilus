@@ -1,4 +1,4 @@
-<!-- NAUTILUS SCORE v1.1 - mdisailor - 2026-06-26 -->
+<!-- NAUTILUS SCORE v1.3 - mdisailor - 2026-06-26 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Score v1.1</title>
+<title>NAUTILUS Score v1.3</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -92,7 +92,7 @@ table.matrix td{padding:4px 6px;text-align:center;border-radius:3px}
 <div id="nav">
   <div style="display:flex;align-items:center">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <div id="nav-ver">score v1.1</div>
+    <div id="nav-ver">score v1.3</div>
   </div>
   <a id="nav-back" href="#" onclick="event.preventDefault();var p=prompt('Password:');if(p==='mdi'){window.location.href='/?k=mdi'}">APP</a>
 </div>
@@ -178,12 +178,26 @@ function conditionLabel(key) {
 
 async function load() {
   try {
+    // Prima carica il summary di tutte le stazioni
     var r = await fetch(ENGINE_URL + '?action=score_get&k=' + SECRET);
     var d = await r.json();
     allScores = d.scores || {};
-    document.getElementById('loading').style.display = 'none';
     var ts = new Date(d.generated_at);
     document.getElementById('last-update').textContent = 'Aggiornato ' + ts.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+
+    // Poi carica le matrici complete in parallelo per tutte le stazioni
+    var ids = Object.keys(allScores);
+    var matrixResults = await Promise.all(ids.map(function(id){
+      return fetch(ENGINE_URL + '?action=score_get&station=' + id + '&k=' + SECRET)
+        .then(function(r){ return r.json(); })
+        .then(function(d){ return { id: id, matrix: d.score ? d.score.matrix : null }; })
+        .catch(function(){ return { id: id, matrix: null }; });
+    }));
+    matrixResults.forEach(function(res){
+      if (allScores[res.id]) allScores[res.id].matrix = res.matrix;
+    });
+
+    document.getElementById('loading').style.display = 'none';
     renderGrid();
   } catch(e) {
     document.getElementById('loading').innerHTML = '<span style="color:var(--danger)">Errore caricamento: ' + e.message + '</span>';

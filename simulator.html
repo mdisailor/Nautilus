@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Simulator v1.1</title>
+<title>NAUTILUS Simulator v1.2</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -91,7 +91,7 @@ html,body{min-height:100%;background:var(--bg);font-family:'DM Mono',monospace;c
 <div id="nav">
   <div style="display:flex;align-items:center">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <div id="nav-ver">simulator v1.1</div>
+    <div id="nav-ver">simulator v1.2</div>
   </div>
   <a id="nav-back" href="#" onclick="event.preventDefault();var p=prompt('Password:');if(p==='mdi'){window.location.href='/?k=mdi'}">APP</a>
 </div>
@@ -282,7 +282,8 @@ function renderPilot(pilot, score, omData) {
         var isCurrent = key === currentKey;
         var cls = 'cell-mini' + (best === 'arome' ? ' win-arome' : best === 'om' ? ' win-om' : '') + (isCurrent ? ' current' : '');
         html += '<div class="' + cls + '">';
-        html += '<div class="cell-mini-key">' + spd[0].toUpperCase() + sec + '</div>';
+        var spdShort = spd === 'low' ? '<8' : spd === 'mid' ? '8-15' : '>15';
+        html += '<div class="cell-mini-key">' + spdShort + ' ' + sec + '</div>';
         html += '<div class="cell-mini-n" style="color:' + (n === 0 ? 'var(--muted)' : n < 3 ? 'var(--gold)' : 'var(--white)') + '">' + n + '</div>';
         html += '<div style="font-size:0.4rem;color:' + (best === 'arome' ? 'var(--accent)' : best === 'om' ? 'var(--gold)' : 'var(--muted)') + '">' + (best ? best.toUpperCase() : '—') + '</div>';
         html += '</div>';

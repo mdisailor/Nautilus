@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Simulator v1.2</title>
+<title>NAUTILUS Simulator v1.3</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -91,7 +91,7 @@ html,body{min-height:100%;background:var(--bg);font-family:'DM Mono',monospace;c
 <div id="nav">
   <div style="display:flex;align-items:center">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <div id="nav-ver">simulator v1.2</div>
+    <div id="nav-ver">simulator v1.3</div>
   </div>
   <a id="nav-back" href="#" onclick="event.preventDefault();var p=prompt('Password:');if(p==='mdi'){window.location.href='/?k=mdi'}">APP</a>
 </div>
@@ -144,7 +144,7 @@ function renderSemaforo(n) {
 }
 
 function currentSlot() {
-  var h = new Date().getHours();
+  var h = (new Date().getUTCHours() + 2) % 24; // ora italiana UTC+2
   return h >= 6 && h < 14 ? 'morning' : 'afternoon';
 }
 
@@ -193,10 +193,33 @@ function renderPilot(pilot, score, omData) {
   html += renderSemaforo(currentN);
   html += '</div>';
 
-  // Condizioni attuali
+  // RISPOSTA PRINCIPALE — grande e immediata
+  var answerBg = chosen === 'arome' ? 'rgba(10,240,255,0.07)' : chosen === 'om' ? 'rgba(255,170,0,0.07)' : 'rgba(26,58,92,0.3)';
+  var answerBorder = chosen === 'arome' ? 'var(--accent)' : chosen === 'om' ? 'var(--gold)' : 'var(--border)';
+  html += '<div style="background:' + answerBg + ';border:2px solid ' + answerBorder + ';border-radius:10px;padding:14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">';
+  html += '<div>';
+  html += '<div style="font-size:0.5rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px">Usa questo modello</div>';
+  html += '<div style="font-size:1.8rem;font-weight:bold;color:' + chosenColor + ';letter-spacing:0.05em">' + chosenLabel + '</div>';
+  html += '<div style="font-size:0.6rem;color:var(--white);margin-top:4px">Sbaglia in media <b>' + (correctionHint !== null ? correctionHint + ' kt' : '—') + '</b> in queste condizioni</div>';
+  html += '<div style="font-size:0.5rem;color:var(--muted);margin-top:2px">' + (fallback ? 'Nessun dato per questa condizione — uso media globale' : 'Su ' + currentN + ' casi simili passati') + '</div>';
+  html += '</div>';
+  html += '<div style="text-align:right">';
+  if (maeOm && maeAr) {
+    var loser = chosen === 'arome' ? 'OM' : 'AROME';
+    var loserMae = chosen === 'arome' ? maeOm : maeAr;
+    var winnerMaeVal = chosen === 'arome' ? maeAr : maeOm;
+    var saving = Math.round((loserMae - winnerMaeVal) * 10) / 10;
+    html += '<div style="font-size:0.5rem;color:var(--muted)">vs ' + loser + '</div>';
+    html += '<div style="font-size:1rem;color:var(--safe);font-weight:bold">-' + saving + ' kt</div>';
+    html += '<div style="font-size:0.48rem;color:var(--muted)">errore risparmiato</div>';
+  }
+  html += '</div>';
+  html += '</div>';
+
+  // Regime meteorologico (collassato, dettaglio)
   if (omData) {
     html += '<div class="conditions-bar">';
-    html += '<div class="cond-label">Condizioni OM attuali</div>';
+    html += '<div class="cond-label">Regime meteorologico (da OM — usato per selezione cella)</div>';
     html += '<span style="color:var(--white)">' +
       (omSpeed !== null ? omSpeed + ' kt' : '—') + ' · ' +
       (omDir   !== null ? omDir + '° ' + (secKey ? '(' + secKey + ')' : '') : '—') + ' · ' +
@@ -313,7 +336,7 @@ async function load() {
           var h = d.atm.hourly;
           // Trova indice ora corrente
           var now = new Date();
-          var idx = now.getHours();
+          var idx = (now.getUTCHours() + 2) % 24; // ora italiana
           return {
             wind_kt: h.windspeed_10m[idx] || null,
             gust_kt: h.windgusts_10m ? h.windgusts_10m[idx] : null,

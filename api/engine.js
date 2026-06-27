@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.32 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.33 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
@@ -1944,7 +1944,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.32', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.33', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -5006,34 +5006,50 @@ if (action === 'compute_scores') {
                        csSlot(s.ts) === slot;
               });
               if (filtered.length === 0) { csMatrix[key] = null; return; }
-
               var omVals = filtered.filter(function(s){ return s.delta && s.delta.wind_kt !== null; });
               var arVals = filtered.filter(function(s){ return s.delta_arome && s.delta_arome.wind_kt !== null; });
-
-              var maeOm = omVals.length > 0
-                ? omVals.reduce(function(a,s){ return a + Math.abs(s.delta.wind_kt); }, 0) / omVals.length : null;
-              var maeAr = arVals.length > 0
-                ? arVals.reduce(function(a,s){ return a + Math.abs(s.delta_arome.wind_kt); }, 0) / arVals.length : null;
-
+              var maeOm = omVals.length > 0 ? omVals.reduce(function(a,s){ return a + Math.abs(s.delta.wind_kt); }, 0) / omVals.length : null;
+              var maeAr = arVals.length > 0 ? arVals.reduce(function(a,s){ return a + Math.abs(s.delta_arome.wind_kt); }, 0) / arVals.length : null;
               var best = null;
               if (maeOm !== null && maeAr !== null) best = maeAr < maeOm ? 'arome' : 'om';
               else if (maeOm !== null) best = 'om';
               else if (maeAr !== null) best = 'arome';
-
-              // Score 0-1: quanto è migliore il modello vincente rispetto all'altro
-              // 1.0 = differenza enorme, 0.5 = parità, valori intermedi proporzionali
               var advantage = null;
               if (maeOm !== null && maeAr !== null && (maeOm + maeAr) > 0) {
                 advantage = Math.round(Math.abs(maeOm - maeAr) / (maeOm + maeAr) * 100) / 100;
               }
+              csMatrix[key] = { n: filtered.length, mae_om: maeOm !== null ? Math.round(maeOm*100)/100 : null, mae_arome: maeAr !== null ? Math.round(maeAr*100)/100 : null, best: best, advantage: advantage };
+            });
+          });
+        });
 
-              csMatrix[key] = {
-                n: filtered.length,
-                mae_om: maeOm !== null ? Math.round(maeOm * 100) / 100 : null,
-                mae_arome: maeAr !== null ? Math.round(maeAr * 100) / 100 : null,
-                best: best,
-                advantage: advantage  // 0=parità, 1=un modello nettamente migliore
-              };
+        // Matrice parallela classificata per condizioni STAZIONE REALE (invece di OM)
+        var csMatrixSt = {};
+        csSpeeds.forEach(function(spd) {
+          csSectors.forEach(function(sec) {
+            ['morning','afternoon'].forEach(function(slot) {
+              var key = spd.key + '_' + sec.key + '_' + slot;
+              // Filtra per condizioni STAZIONE (wind_kt e direction della stazione reale)
+              var filtered = csValid.filter(function(s) {
+                if (!s.station || s.station.wind_kt === null || s.station.direction === null) return false;
+                return s.station.wind_kt >= spd.min && s.station.wind_kt < spd.max &&
+                       csInSector(s.station.direction, sec) &&
+                       csSlot(s.ts) === slot;
+              });
+              if (filtered.length === 0) { csMatrixSt[key] = null; return; }
+              var omVals = filtered.filter(function(s){ return s.delta && s.delta.wind_kt !== null; });
+              var arVals = filtered.filter(function(s){ return s.delta_arome && s.delta_arome.wind_kt !== null; });
+              var maeOm = omVals.length > 0 ? omVals.reduce(function(a,s){ return a + Math.abs(s.delta.wind_kt); }, 0) / omVals.length : null;
+              var maeAr = arVals.length > 0 ? arVals.reduce(function(a,s){ return a + Math.abs(s.delta_arome.wind_kt); }, 0) / arVals.length : null;
+              var best = null;
+              if (maeOm !== null && maeAr !== null) best = maeAr < maeOm ? 'arome' : 'om';
+              else if (maeOm !== null) best = 'om';
+              else if (maeAr !== null) best = 'arome';
+              var advantage = null;
+              if (maeOm !== null && maeAr !== null && (maeOm + maeAr) > 0) {
+                advantage = Math.round(Math.abs(maeOm - maeAr) / (maeOm + maeAr) * 100) / 100;
+              }
+              csMatrixSt[key] = { n: filtered.length, mae_om: maeOm !== null ? Math.round(maeOm*100)/100 : null, mae_arome: maeAr !== null ? Math.round(maeAr*100)/100 : null, best: best, advantage: advantage };
             });
           });
         });
@@ -5066,7 +5082,8 @@ if (action === 'compute_scores') {
           current_best: csCurrCell ? csCurrCell.best : null,
           current_advantage: csCurrCell ? csCurrCell.advantage : null,
           current_n: csCurrCell ? csCurrCell.n : 0,
-          matrix: csMatrix
+          matrix: csMatrix,
+          matrix_by_station: csMatrixSt
         };
 
         await kvSet('model_score:' + csId, csScore, 31536000, kvUrl, kvToken);
@@ -5328,7 +5345,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.32 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.33 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -5455,4 +5472,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.32
+// Fine codice - NAUTILUS ENGINE v2.13.33

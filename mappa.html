@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.6.33 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS MAPPA v1.6.34 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.6.33</title>
+<title>NAUTILUS Mappa Vento v1.6.34</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -225,7 +225,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.6.33</span>
+    <span id="nav-ver">mappa v1.6.34</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -290,11 +290,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.6.33 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.6.34 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.6.33
+// NAUTILUS MAPPA v1.6.34
 
 var ENGINE_URL = '/api/engine';
 
@@ -1206,8 +1206,27 @@ function applyOI(gridData, stationData){
 
   if (stationBiases.length === 0) return gridData;
 
+  var OI_STATION_DIRECT_KM = 5; // Sotto questa distanza la stazione comanda direttamente
+
   // Applica IDW a ogni punto griglia — velocità E direzione
   return gridData.map(function(pt){
+
+    // OPZIONE A: se il punto griglia è entro 5km da una stazione reale, usa direttamente quel valore
+    var nearestSt = null, nearestDist = Infinity;
+    validStations.forEach(function(st){
+      var d = haversineKm(pt.lat, pt.lon, st.lat, st.lon);
+      if (d < nearestDist){ nearestDist = d; nearestSt = st; }
+    });
+    if (nearestSt && nearestDist <= OI_STATION_DIRECT_KM) {
+      return Object.assign({}, pt, {
+        speed: Math.round(nearestSt.speed * 10) / 10,
+        dir: Math.round(nearestSt.dir),
+        oi_direct: true,
+        oi_station: nearestSt.key,
+        oi_dist: Math.round(nearestDist * 10) / 10
+      });
+    }
+
     var sumW = 0, sumBiasW = 0;
     var sumBiasUW = 0, sumBiasVW = 0, nValidDir = 0;
     var nValid = 0;
@@ -1655,7 +1674,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.6.33
+// Fine codice - NAUTILUS MAPPA v1.6.34
 </script>
 <!-- Pannello inserimento osservazione manuale -->
 <div id="obs-panel">

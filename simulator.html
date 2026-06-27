@@ -1,4 +1,4 @@
-<!-- NAUTILUS SIMULATOR v1.6 - mdisailor - 2026-06-27 -->
+<!-- NAUTILUS SIMULATOR v1.7 - mdisailor - 2026-06-27 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Simulator v1.6</title>
+<title>NAUTILUS Simulator v1.7</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -75,7 +75,7 @@ html,body{min-height:100%;background:var(--bg);font-family:'DM Mono',monospace;c
 <div id="nav">
   <div style="display:flex;align-items:center">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <div id="nav-ver">simulator v1.6</div>
+    <div id="nav-ver">simulator v1.7</div>
   </div>
   <a id="nav-back" href="#" onclick="event.preventDefault();var p=prompt('Password:');if(p==='mdi'){window.location.href='/?k=mdi'}">APP</a>
 </div>
@@ -193,7 +193,13 @@ function renderPilot(pilot, omData, scoreData, biasMatrixData, stationsData) {
   var oiResult = stationsData ? computeOI(pilot.lat, pilot.lon, omSpeed, stationsData, biasMatrix) : null;
   var oiCorrection = oiResult ? oiResult.correction : null;
 
-  // Valore finale
+  // Dato stazione reale per questo punto pilota
+  var stReal = stationsData ? stationsData[pilot.id] : null;
+  var stSpeed = stReal ? stReal.wind_kt : null;
+  var stDir   = stReal ? stReal.direction : null;
+  var stAgeMin = stReal ? stReal.age_min : null;
+
+  // Valore finale — parte da OM, corretto da OI
   var finalSpeed = omSpeed !== null ? omSpeed : null;
   if (finalSpeed !== null && oiCorrection !== null) finalSpeed = Math.round(Math.max(0, finalSpeed + oiCorrection) * 10) / 10;
   else if (finalSpeed !== null && biasBm !== null) finalSpeed = Math.round(Math.max(0, finalSpeed + biasBm) * 10) / 10;
@@ -210,23 +216,40 @@ function renderPilot(pilot, omData, scoreData, biasMatrixData, stationsData) {
   html += '<table class="sim-table">';
   html += '<thead><tr><th>Passaggio</th><th>Valore / Spiegazione</th></tr></thead><tbody>';
 
-  // 1. OM grezzo
-  html += '<tr><td>1. OM grezzo</td><td>';
+  // 1. Dato stazione reale
+  html += '<tr><td>1. Stazione reale</td><td>';
+  if (stSpeed !== null) {
+    html += '<b style="color:var(--white)">' + stSpeed + ' kt</b>';
+    if (stDir !== null) html += ' · ' + stDir + '° (' + ((stDir>=315||stDir<45)?'N':stDir<135?'E':stDir<225?'S':'W') + ')';
+    if (stAgeMin !== null) html += '<br><span style="font-size:0.48rem;color:' + (stAgeMin>60?'var(--danger)':stAgeMin>30?'var(--gold)':'var(--safe)') + '">' + stAgeMin + ' min fa</span>';
+    html += '<span style="font-size:0.48rem;color:var(--muted)"> — fonte: ' + (stReal.source || 'bias_samples') + '</span>';
+  } else {
+    html += '<span style="color:var(--muted)">Nessun dato recente disponibile</span>';
+    html += '<br><span style="font-size:0.48rem;color:var(--muted)">Il sistema userà solo il modello senza ancora di verità</span>';
+  }
+  html += '</td></tr>';
+
+  // 2. OM per confronto e classificazione
+  html += '<tr><td>2. OM (confronto)</td><td>';
   if (omSpeed !== null) {
     html += omSpeed + ' kt · ' + (omDir !== null ? omDir + '° (' + (secKey||'?') + ')' : '?');
     if (omGust) html += ' · raffica ' + omGust + ' kt';
-  } else { html += '— (dati non disponibili)'; }
-  html += '<br><span style="font-size:0.48rem;color:var(--muted)">Fonte: Open-Meteo best_match per questo punto</span>';
+    if (stSpeed !== null) {
+      var stOmDiff = Math.round((stSpeed - omSpeed)*10)/10;
+      html += '<br><span style="font-size:0.5rem;color:' + (Math.abs(stOmDiff)<1?'var(--safe)':Math.abs(stOmDiff)<3?'var(--gold)':'var(--danger)') + '">Stazione vs OM: ' + (stOmDiff>=0?'+':'') + stOmDiff + ' kt</span>';
+    }
+  } else { html += '—'; }
+  html += '<br><span style="font-size:0.48rem;color:var(--muted)">Usato per classificare le condizioni → selezione cella matrice</span>';
   html += '</td></tr>';
 
-  // 2. Condizioni → selezione cella
-  html += '<tr><td>2. Condizioni attuali</td><td>';
+  // 3. Condizioni → selezione cella
+  html += '<tr><td>3. Condizioni attuali</td><td>';
   html += (spdKey ? SPEED_LABELS[spdKey] : '—') + ' · ' + (secKey ? SECTOR_LABELS[secKey] : '—') + ' · ' + SLOT_LABELS[slot];
-  html += '<br><span style="font-size:0.48rem;color:var(--muted)">Usate per selezionare la cella nella matrice score</span>';
+  html += '<br><span style="font-size:0.48rem;color:var(--muted)">Cella selezionata: ' + (currentKey || '—') + '</span>';
   html += '</td></tr>';
 
-  // 3. Modello scelto
-  html += '<tr class="' + (chosen==='arome'?'highlight':'highlight-om') + '"><td>3. Modello scelto</td><td>';
+  // 4. Modello scelto
+  html += '<tr class="' + (chosen==='arome'?'highlight':'highlight-om') + '"><td>4. Modello scelto</td><td>';
   html += '<span style="color:' + chosenColor + ';font-weight:bold">' + (chosen ? chosen.toUpperCase() : '—') + '</span>';
   if (chosen) html += '<span class="tag ' + (chosen==='arome'?'tag-arome':'tag-om') + '">' + (fallback ? 'fallback globale' : 'cella n='+currentN) + '</span>';
   if (maeOm && maeAr) {
@@ -235,17 +258,11 @@ function renderPilot(pilot, omData, scoreData, biasMatrixData, stationsData) {
   }
   html += '</td></tr>';
 
-  // 4. Dati sorgente (modello scelto)
-  html += '<tr><td>4. Dati sorgente</td><td>';
-  html += 'Valore ' + (chosen ? chosen.toUpperCase() : 'modello') + ' = <b>' + (omSpeed !== null ? omSpeed + ' kt' : '—') + '</b>';
-  html += '<br><span style="font-size:0.48rem;color:var(--muted)">Nota: per ora usiamo OM come base — integrazione AROME diretta in sviluppo</span>';
-  html += '</td></tr>';
-
-  // 5. Correzione OI
+  // 5. Correzione OI (usa stazione reale come ancora)
   html += '<tr><td>5. Correzione OI</td><td>';
   if (oiResult && oiCorrection !== null) {
     html += '<span class="tag tag-oi">OI attivo</span> ' + (oiCorrection >= 0 ? '+' : '') + oiCorrection + ' kt';
-    html += '<br><span style="font-size:0.48rem;color:var(--muted)">Da ' + oiResult.stations_used.length + ' stazioni nel raggio ' + OI_MAX_KM + 'km:</span>';
+    html += '<br><span style="font-size:0.48rem;color:var(--muted)">Bias ponderato da ' + oiResult.stations_used.length + ' stazioni nel raggio ' + OI_MAX_KM + 'km:</span>';
     oiResult.stations_used.slice(0,3).forEach(function(st){
       html += '<br><span style="font-size:0.46rem;color:var(--text)">· ' + st.id + ' (' + st.d + 'km) bias=' + (st.bias>=0?'+':'') + Math.round(st.bias*10)/10 + 'kt w=' + Math.round(st.reliability*100)/100 + '</span>';
     });
@@ -257,14 +274,18 @@ function renderPilot(pilot, omData, scoreData, biasMatrixData, stationsData) {
   }
   html += '</td></tr>';
 
-  // 6. Valore finale
+  // 6. Valore finale mappa
   html += '<tr class="result"><td>6. Valore finale mappa</td><td>';
-  html += finalSpeed !== null ? finalSpeed + ' kt' : '—';
+  html += finalSpeed !== null ? '<b>' + finalSpeed + ' kt</b>' : '—';
   if (omSpeed !== null && finalSpeed !== null && finalSpeed !== omSpeed) {
     var delta = Math.round((finalSpeed - omSpeed)*10)/10;
     html += ' <span style="font-size:0.55rem;color:' + (Math.abs(delta)<1?'var(--safe)':Math.abs(delta)<3?'var(--gold)':'var(--danger)') + '">(' + (delta>=0?'+':'') + delta + ' kt vs OM)</span>';
   }
-  html += '<br><span style="font-size:0.48rem;color:var(--muted)">Questo è il valore che apparirà sulla mappa con OI attivo</span>';
+  if (stSpeed !== null && finalSpeed !== null) {
+    var stFinalDiff = Math.round((finalSpeed - stSpeed)*10)/10;
+    html += '<br><span style="font-size:0.5rem;color:' + (Math.abs(stFinalDiff)<1?'var(--safe)':Math.abs(stFinalDiff)<3?'var(--gold)':'var(--danger)') + '">vs stazione reale: ' + (stFinalDiff>=0?'+':'') + stFinalDiff + ' kt</span>';
+  }
+  html += '<br><span style="font-size:0.48rem;color:var(--muted)">Questo è il valore sulla mappa con OI attivo</span>';
   html += '</td></tr>';
 
   html += '</tbody></table>';

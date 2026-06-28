@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.6.36 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS MAPPA v1.6.38 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.6.36</title>
+<title>NAUTILUS Mappa Vento v1.6.38</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -237,7 +237,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.6.36</span>
+    <span id="nav-ver">mappa v1.6.38</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -303,11 +303,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.6.36 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.6.38 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.6.36
+// NAUTILUS MAPPA v1.6.38
 
 var ENGINE_URL = '/api/engine';
 
@@ -1532,7 +1532,14 @@ function exportGrid() {
     function ptKey(lat, lon){ return lat.toFixed(2) + '_' + lon.toFixed(2); }
     var gridIndex = {}, gridOIIndex = {};
     state.gridData.forEach(function(p){ gridIndex[ptKey(p.lat, p.lon)] = p; });
-    var oiData = (oiEnabled && state.gridDataOI && state.gridDataOI.length > 0) ? state.gridDataOI : state.gridData;
+    var oiData = state.gridData;
+    if (oiEnabled && state.stationData && state.stationData.length > 0) {
+      // Forza ricalcolo OI al momento dell'export
+      var prevEnabled = oiEnabled;
+      oiEnabled = true;
+      oiData = applyOI(state.gridData, state.stationData);
+      oiEnabled = prevEnabled;
+    }
     oiData.forEach(function(p){ gridOIIndex[ptKey(p.lat, p.lon)] = p; });
 
     // Indice stazioni per trovare la più vicina a ogni punto
@@ -1541,16 +1548,17 @@ function exportGrid() {
       var a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
       return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
     }
-    var stations = state.stationData || [];
+    var stations = (state.stationData || []).filter(function(st){
+      return st && st.lat && st.lon && st.speed !== null && st.speed !== undefined;
+    });
 
     function nearestStation(lat, lon) {
       var best = null, bestD = Infinity;
       stations.forEach(function(st){
-        if (st.speed === null || st.speed === undefined) return;
         var d = haversineKmEx(lat, lon, st.lat, st.lon);
         if (d < bestD){ bestD = d; best = st; }
       });
-      return best ? { st: best, d: Math.round(bestD*10)/10 } : null;
+      return best && bestD <= 28 ? { st: best, d: Math.round(bestD*10)/10 } : null;
     }
 
     var wb = XLSX.utils.book_new();
@@ -1579,7 +1587,7 @@ function exportGrid() {
           rowSpd.push(pt ? pt.speed : '');
           rowDir.push(pt ? pt.dir   : '');
 
-          if (near && near.d <= 60) {
+          if (near && near.d <= 28) {
             rowSt.push(near.st.key + ' ' + near.d + 'km ' + near.st.speed + 'kt/' + near.st.dir + '°');
           } else {
             rowSt.push('');
@@ -1600,8 +1608,8 @@ function exportGrid() {
       XLSX.utils.book_append_sheet(wb, ws, label);
     }
 
-    makeSheet(gridIndex,   'OM grezzo ' + ts);
-    makeSheet(gridOIIndex, 'OI corretto ' + ts);
+    makeSheet(gridIndex,   '1-OM grezzo ' + ts);
+    makeSheet(gridOIIndex, '2-OI ' + (oiEnabled ? 'ON' : 'OFF') + ' ' + ts);
 
     // Foglio stazioni
     var stData = [['Stazione','Lat','Lon','Vel (kt)','Dir (°)','Raffica (kt)']];
@@ -1801,7 +1809,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.6.36
+// Fine codice - NAUTILUS MAPPA v1.6.38
 </script>
 <!-- Pannello inserimento osservazione manuale -->
 <div id="obs-panel">

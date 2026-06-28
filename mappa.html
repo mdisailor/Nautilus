@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.6.38 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS MAPPA v1.6.39 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.6.38</title>
+<title>NAUTILUS Mappa Vento v1.6.39</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -237,7 +237,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.6.38</span>
+    <span id="nav-ver">mappa v1.6.39</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -303,11 +303,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.6.38 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.6.39 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.6.38
+// NAUTILUS MAPPA v1.6.39
 
 var ENGINE_URL = '/api/engine';
 
@@ -1567,51 +1567,72 @@ function exportGrid() {
     // Genera un foglio per un dataset (OM o OI)
     function makeSheet(index, label) {
       var data = [];
-      // Header riga 1: lon
-      var headerRow = ['LAT \\ LON'].concat(lons.map(function(l){ return l.toFixed(2); }));
-      data.push(headerRow);
-
+      var headerLon = ['LAT \\ LON'];
+      var headerSub = [''];
+      lons.forEach(function(l){
+        headerLon.push(l.toFixed(2)); headerLon.push('');
+        headerSub.push('kt'); headerSub.push('dir°');
+      });
+      data.push(headerLon);
+      data.push(headerSub);
       lats.forEach(function(lat) {
-        // Riga velocità
-        var rowSpd = [lat.toFixed(2) + ' (kt)'];
-        // Riga direzione
-        var rowDir = [lat.toFixed(2) + ' (dir°)'];
-        // Riga stazione
-        var rowSt  = [lat.toFixed(2) + ' (st)'];
-
+        var rowModel = [lat.toFixed(2)];
+        var rowSt    = [lat.toFixed(2) + ' ST'];
         lons.forEach(function(lon) {
           var key = ptKey(lat, lon);
           var pt  = index[key];
           var near = nearestStation(lat, lon);
-
-          rowSpd.push(pt ? pt.speed : '');
-          rowDir.push(pt ? pt.dir   : '');
-
+          rowModel.push(pt ? pt.speed : '');
+          rowModel.push(pt ? pt.dir   : '');
           if (near && near.d <= 28) {
-            rowSt.push(near.st.key + ' ' + near.d + 'km ' + near.st.speed + 'kt/' + near.st.dir + '°');
-          } else {
-            rowSt.push('');
-          }
+            rowSt.push(near.st.speed + ' (' + near.st.key.replace('_cfr','').replace('_mnw','') + ' ' + near.d + 'km)');
+            rowSt.push(near.st.dir);
+          } else { rowSt.push(''); rowSt.push(''); }
         });
-
-        data.push(rowSpd);
-        data.push(rowDir);
+        data.push(rowModel);
         data.push(rowSt);
-        data.push([]); // riga vuota separatrice
       });
-
       var ws = XLSX.utils.aoa_to_sheet(data);
-
-      // Larghezze colonne
-      ws['!cols'] = [{ wch: 18 }].concat(lons.map(function(){ return { wch: 24 }; }));
-
+      var colW = [{ wch: 12 }];
+      lons.forEach(function(){ colW.push({ wch: 14 }); colW.push({ wch: 7 }); });
+      ws['!cols'] = colW;
       XLSX.utils.book_append_sheet(wb, ws, label);
     }
 
-    makeSheet(gridIndex,   '1-OM grezzo ' + ts);
-    makeSheet(gridOIIndex, '2-OI ' + (oiEnabled ? 'ON' : 'OFF') + ' ' + ts);
+    makeSheet(gridIndex,   '1-OM ' + ts);
+    makeSheet(gridOIIndex, '2-OI-' + (oiEnabled ? 'ON' : 'OFF') + ' ' + ts);
 
-    // Foglio stazioni
+    // Foglio 3: confronto delta con direzione circolare corretta
+    var deltaData = [['LAT','LON','OM kt','OI kt','Δ kt','OM dir°','OI dir°','Δ dir°','Stazione','Dist km','ST kt','ST dir°']];
+    lats.forEach(function(lat){
+      lons.forEach(function(lon){
+        var key = ptKey(lat, lon);
+        var ptOM = gridIndex[key];
+        var ptOI = gridOIIndex[key];
+        if (!ptOM) return;
+        var dv = ptOI ? Math.round((ptOI.speed - ptOM.speed)*10)/10 : 0;
+        var ddRaw = ptOI ? ptOI.dir - ptOM.dir : 0;
+        while (ddRaw > 180)  ddRaw -= 360;
+        while (ddRaw < -180) ddRaw += 360;
+        var near = nearestStation(lat, lon);
+        deltaData.push([
+          lat.toFixed(2), lon.toFixed(2),
+          ptOM.speed, ptOI ? Math.round(ptOI.speed*10)/10 : ptOM.speed,
+          dv,
+          ptOM.dir, ptOI ? ptOI.dir : ptOM.dir,
+          Math.round(ddRaw),
+          near && near.d <= 28 ? near.st.key : '',
+          near && near.d <= 28 ? near.d : '',
+          near && near.d <= 28 ? near.st.speed : '',
+          near && near.d <= 28 ? near.st.dir : ''
+        ]);
+      });
+    });
+    var wsDelta = XLSX.utils.aoa_to_sheet(deltaData);
+    wsDelta['!cols'] = [{wch:7},{wch:6},{wch:7},{wch:7},{wch:7},{wch:8},{wch:8},{wch:8},{wch:22},{wch:8},{wch:7},{wch:8}];
+    XLSX.utils.book_append_sheet(wb, wsDelta, '3-Delta ' + ts);
+
+    // Foglio 4: stazioni
     var stData = [['Stazione','Lat','Lon','Vel (kt)','Dir (°)','Raffica (kt)']];
     stations.forEach(function(st){
       if (st.speed === null || st.speed === undefined) return;
@@ -1619,7 +1640,7 @@ function exportGrid() {
     });
     var wsStations = XLSX.utils.aoa_to_sheet(stData);
     wsStations['!cols'] = [{wch:22},{wch:10},{wch:10},{wch:10},{wch:10},{wch:12}];
-    XLSX.utils.book_append_sheet(wb, wsStations, 'Stazioni ' + ts);
+    XLSX.utils.book_append_sheet(wb, wsStations, '4-Stazioni ' + ts);
 
     XLSX.writeFile(wb, 'nautilus-grid-' + ts.replace(/ /g,'_') + '.xlsx');
   } catch(e) {
@@ -1809,7 +1830,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.6.38
+// Fine codice - NAUTILUS MAPPA v1.6.39
 </script>
 <!-- Pannello inserimento osservazione manuale -->
 <div id="obs-panel">

@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.6.46 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS MAPPA v1.6.44 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.6.46</title>
+<title>NAUTILUS Mappa Vento v1.6.44</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -237,7 +237,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.6.46</span>
+    <span id="nav-ver">mappa v1.6.44</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -303,11 +303,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.6.46 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.6.44 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.6.46
+// NAUTILUS MAPPA v1.6.44
 
 var ENGINE_URL = '/api/engine';
 
@@ -1193,39 +1193,42 @@ function applyOI(gridData, stationData){
 
     if (contributions.length === 0) return pt; // Nessuna stazione — OM puro
 
-    // Peso totale stazioni: se > 1 normalizza, il complemento e il peso OM
-    var sumW = contributions.reduce(function(a, c){ return a + c.w; }, 0);
-    var omWeight = Math.max(0, 1 - sumW);
-    var totalW = sumW + omWeight;
+    // Somma pesi stazioni — cappata a 1.0 per garantire interpolazione corretta
+    var rawSumW = contributions.reduce(function(a, c){ return a + c.w; }, 0);
+    var stationInfluence = Math.min(1.0, rawSumW); // max influenza stazioni = 100%
+    var omInfluence = 1.0 - stationInfluence;      // complemento = influenza OM
 
-    // Interpolazione velocita: media pesata stazione + OM
-    var stSpeedSum = contributions.reduce(function(a, c){ return a + c.st.speed * c.w; }, 0);
-    var finalSpeed = Math.max(0, Math.round((stSpeedSum + pt.speed * omWeight) / totalW * 10) / 10);
+    // Normalizza i pesi delle stazioni in modo che sommino a stationInfluence
+    var scale = rawSumW > 0 ? stationInfluence / rawSumW : 0;
+
+    // Interpolazione velocita: media pesata stazione + OM (totalW sempre = 1.0)
+    var finalSpeed = pt.speed * omInfluence;
+    contributions.forEach(function(c){
+      finalSpeed += c.st.speed * c.w * scale;
+    });
+    finalSpeed = Math.max(0, Math.round(finalSpeed * 10) / 10);
 
     // Interpolazione direzione via U/V
     var omRad = degToRad(pt.dir);
-    var omU = -pt.speed * Math.sin(omRad);
-    var omV = -pt.speed * Math.cos(omRad);
-    var stUSum = 0, stVSum = 0;
+    var finalU = -pt.speed * Math.sin(omRad) * omInfluence;
+    var finalV = -pt.speed * Math.cos(omRad) * omInfluence;
     contributions.forEach(function(c){
       var stRad = degToRad(c.st.dir);
-      stUSum += -c.st.speed * Math.sin(stRad) * c.w;
-      stVSum += -c.st.speed * Math.cos(stRad) * c.w;
+      finalU += -c.st.speed * Math.sin(stRad) * c.w * scale;
+      finalV += -c.st.speed * Math.cos(stRad) * c.w * scale;
     });
-    var finalU = (stUSum + omU * omWeight) / totalW;
-    var finalV = (stVSum + omV * omWeight) / totalW;
     var finalDir = Math.atan2(-finalU, -finalV) * 180 / Math.PI;
     if (finalDir < 0) finalDir += 360;
+    if (isNaN(finalDir)) finalDir = pt.dir; // safety fallback
 
     return Object.assign({}, pt, {
       speed: finalSpeed,
       dir: Math.round(finalDir),
       oi_correction: Math.round((finalSpeed - pt.speed) * 10) / 10,
-      oi_station_weight: Math.round(sumW * 100) / 100
+      oi_station_weight: Math.round(stationInfluence * 100) / 100
     });
   });
 }
-
 
 // Toggle OI
 document.addEventListener('DOMContentLoaded', function(){
@@ -1791,7 +1794,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.6.46
+// Fine codice - NAUTILUS MAPPA v1.6.44
 </script>
 <!-- Pannello inserimento osservazione manuale -->
 <div id="obs-panel">

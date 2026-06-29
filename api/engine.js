@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.35 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.36 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
@@ -1944,7 +1944,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.35', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.36', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -5110,6 +5110,63 @@ if (action === 'compute_scores') {
   }
 }
 
+// action=grid_rules_get -- legge le regole OI per tutte le celle o una specifica
+if (action === 'grid_rules_get') {
+  try {
+    var grKey = req.query.cell || null; // es. "43.25_10.65"
+    if (grKey) {
+      var grVal = await kvGet('grid_rules:' + grKey, kvUrl, kvToken);
+      return res.status(200).json({ cell: grKey, rules: grVal || null });
+    }
+    // Tutte le regole
+    var grAll = await kvGet('grid_rules', kvUrl, kvToken);
+    return res.status(200).json({ rules: grAll || {} });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+// action=grid_rules_init -- inizializza le regole di default basate sui pattern osservati
+// Chiamata manualmente una volta per popolare Redis
+if (action === 'grid_rules_init') {
+  try {
+    var grSecret = req.query.secret || req.query.k || '';
+    if (grSecret !== 'mdi') return res.status(401).json({ error: 'Unauthorized' });
+
+    var defaultRules = {
+      // San Vincenzo — N/NE vs W/NW di Piombino e Populonia
+      '43.25_10.65': {
+        allowed_stations: ['svincenzo_porto'],
+        reason: 'San Vincenzo N/NE, Piombino e Populonia tirano W/SW'
+      },
+      // Populonia — stazione interna, direzione sempre diversa da OM
+      '43.0_10.65': {
+        allowed_stations: ['populonia_cfr'],
+        reason: 'Populonia interna, risente del territorio — stazione comanda'
+      },
+      // Viareggio — stazione CFR comanda davanti alla sua costa
+      '43.75_10.15': {
+        allowed_stations: ['viareggio_cfr'],
+        reason: 'Viareggio CFR comanda sulla costa, esclude Forte dei Marmi'
+      },
+      '44.0_10.15': {
+        allowed_stations: ['viareggio_cfr'],
+        reason: 'Viareggio CFR comanda, zona nord costa'
+      },
+      // Follonica — bias anomalo su celle a nord
+      '42.75_10.65': {
+        excluded_stations: ['follonica'],
+        reason: 'Follonica bias anomalo su questa cella, direzione opposta'
+      }
+    };
+
+    await kvSet('grid_rules', defaultRules, 31536000, kvUrl, kvToken);
+    return res.status(200).json({ ok: true, rules_count: Object.keys(defaultRules).length, rules: defaultRules });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
 if (action === 'bias_matrix') {
   try {
     var bmStations = [
@@ -5356,7 +5413,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.35 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.36 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -5483,4 +5540,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.35
+// Fine codice - NAUTILUS ENGINE v2.13.36

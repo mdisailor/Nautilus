@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.37 -  by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.38 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
@@ -1944,7 +1944,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.37', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.38', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -5136,18 +5136,22 @@ if (action === 'grid_rules_init') {
     var defaultRules = {
       '43.25_10.65': {
         allowed_stations: ['svincenzo_porto'],
+        min_weight: 0.75,
         reason: 'San Vincenzo N/NE, Piombino e Populonia tirano W/SW'
       },
       '43.00_10.65': {
         allowed_stations: ['populonia_cfr'],
+        min_weight: 0.9,
         reason: 'Populonia interna, risente del territorio — stazione comanda'
       },
       '43.75_10.15': {
         allowed_stations: ['viareggio_cfr'],
+        min_weight: 0.8,
         reason: 'Viareggio CFR comanda sulla costa, esclude Forte dei Marmi'
       },
       '44.00_10.15': {
         allowed_stations: ['viareggio_cfr'],
+        min_weight: 0.8,
         reason: 'Viareggio CFR comanda, zona nord costa'
       },
       '42.75_10.65': {
@@ -5409,7 +5413,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.37 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.38 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -5536,4 +5540,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.37
+// Fine codice - NAUTILUS ENGINE v2.13.38

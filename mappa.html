@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.6.46 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS MAPPA v1.6.48 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.6.46</title>
+<title>NAUTILUS Mappa Vento v1.6.48</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -237,7 +237,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.6.46</span>
+    <span id="nav-ver">mappa v1.6.48</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -303,11 +303,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.6.46 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.6.48 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.6.46
+// NAUTILUS MAPPA v1.6.48
 
 var ENGINE_URL = '/api/engine';
 
@@ -1208,20 +1208,33 @@ function applyOI(gridData, stationData){
     var cellKey = pt.lat.toFixed(2) + '_' + pt.lon.toFixed(2);
     var cellRules = state_gridRules[cellKey];
     if (cellRules) {
+      var beforeCount = contributions.length;
       if (cellRules.allowed_stations && cellRules.allowed_stations.length > 0) {
-        // Solo le stazioni nella whitelist
         contributions = contributions.filter(function(c){
           return cellRules.allowed_stations.indexOf(c.st.key) >= 0;
         });
       } else if (cellRules.excluded_stations && cellRules.excluded_stations.length > 0) {
-        // Escludi le stazioni nella blacklist
         contributions = contributions.filter(function(c){
           return cellRules.excluded_stations.indexOf(c.st.key) < 0;
         });
       }
+      console.log('grid_rule ' + cellKey + ': ' + beforeCount + ' stazioni → ' + contributions.length + ' dopo filtro, regola:', JSON.stringify(cellRules));
     }
 
     if (contributions.length === 0) return pt; // Nessuna stazione dopo filtro regole — OM puro
+
+    // Applica min_weight se specificato nelle regole — garantisce peso minimo alla stazione
+    if (cellRules && cellRules.min_weight && contributions.length > 0) {
+      var minW = cellRules.min_weight;
+      // Riscala i pesi delle stazioni per garantire che la loro influenza totale sia almeno min_weight
+      var currentRawSum = contributions.reduce(function(a, c){ return a + c.w; }, 0);
+      if (currentRawSum < minW) {
+        var scale = minW / currentRawSum;
+        contributions = contributions.map(function(c){
+          return { st: c.st, d: c.d, w: c.w * scale };
+        });
+      }
+    }
 
     // Somma pesi stazioni — cappata a 1.0 per garantire interpolazione corretta
     var rawSumW = contributions.reduce(function(a, c){ return a + c.w; }, 0);
@@ -1824,7 +1837,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.6.46
+// Fine codice - NAUTILUS MAPPA v1.6.48
 </script>
 <!-- Pannello inserimento osservazione manuale -->
 <div id="obs-panel">

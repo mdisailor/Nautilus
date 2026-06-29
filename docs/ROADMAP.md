@@ -1,7 +1,7 @@
 # NAUTILUS — Roadmap Attività (ROADMAP.md)
 
 Scaletta ordinata con dipendenze, stato e decisioni aperte.
-Aggiornato: 2026-06-26
+Aggiornato: 2026-06-28
 
 ---
 
@@ -53,6 +53,8 @@ Aggiornato: 2026-06-26
 | 3.3 | Scelta campo di background per zona | ⏳ | Dipende da 2.3: AROME su isole piccole, OM su costa |
 | 3.4 | Implementazione OI (Optimal Interpolation) | ✅ | mappa v1.6.32 — IDW bias storico stratificato, raggio 60km |
 | 3.5 | Kriging con peso MAE stazione | ✅ | reliability_weight = 1/(1+MAE) nel peso IDW |
+| 3.6b | Score system (compute_scores) | ✅ | engine v2.13.33 — matrix by_om + matrix_by_station, cron ogni ora :45 |
+| 3.6c | Simulatore decisioni | ✅ | simulator.html v1.8 — 3 punti pilota, tabella 6 passaggi, griglie mattina+pomeriggio |
 | 3.6 | Correzione direzione in OI | ✅ | Componenti U/V, cap ±30°, mappa v1.6.32 |
 | 3.7 | Validazione griglia vs stazioni reali | 🔄 | In osservazione — attendere vento variabile |
 
@@ -94,13 +96,14 @@ Aggiornato: 2026-06-26
 
 ## Prossimi passi immediati
 
-1. **Caricare docs aggiornati su GitHub**
-2. **Osservare OI con vento variabile** — validare correzioni velocità e direzione
-3. **Sezione osservazioni in mae.html** — affiancamento osservato/OM/AROME/OI
-4. **Validazione pin osservatori** — lista autorizzati in Redis `obs_pins_authorized`
-5. **save_oi_validation** — salva confronto OM vs OI nei punti stazione per statistiche
-6. **Audit sicurezza** — nuovo giro completo
-7. **Verificare bias injection AI per Barcaggio**
+1. **Raccogliere fotografie Excel in condizioni diverse** — bonaccia attuale non permette analisi significativa. Quando torna vento (medio/forte, direzioni diverse) esportare foglio XLS e analizzare pattern correzioni OI per zona
+2. **Definire grid_rules per zona** — dopo analisi fotografie, identificare regole specifiche per zone critiche (Gorgona, Populonia, Giglio, Canale Piombino)
+3. **grid_snapshot automatico da cron** — dopo verifica budget Redis comandi (~25-30K/giorno, limite 500K/mese), aggiungere cron ogni 3 ore per accumulare dati storici celle con stazione
+4. **Integrare matrix_by_station nel simulatore** — usa ancora matrix (by_om), aggiornare per usare matrix_by_station sui punti pilota
+5. **Integrare score in OI** — applyOI usa bias globale, aggiornare per scelta modello dinamica da score
+6. **Validazione pin osservatori** — lista autorizzati in Redis obs_pins_authorized
+7. **Audit sicurezza** — nuovo giro completo
+8. **Verificare bias injection AI per Barcaggio**
 
 ---
 

@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.33 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.35 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
@@ -1944,7 +1944,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.33', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.35', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -1984,6 +1984,7 @@ if (action === 'stations_snapshot') {
       { id:'livorno',          lat:43.465, lon:10.347 },
       { id:'canale_piombino',  lat:42.920, lon:10.530 },
       { id:'viareggio',        lat:43.870, lon:10.230 },
+      { id:'viareggio_cfr',    lat:43.875, lon:10.236 },
       { id:'capraia_w',        lat:43.053, lon:9.838  },
       { id:'portoferraio',     lat:42.813, lon:10.368 },
       { id:'alberese',         lat:42.671, lon:11.107 },
@@ -2000,10 +2001,13 @@ if (action === 'stations_snapshot') {
       { id:'casotto_pescatori',lat:42.647, lon:11.081 },
       { id:'venturina',        lat:43.013, lon:10.580 },
       { id:'forte_dei_marmi',  lat:43.963, lon:10.168 },
+      { id:'forte_marmi_cfr',  lat:43.962, lon:10.168 },
       { id:'lido_camaiore',    lat:43.913, lon:10.214 },
       { id:'bocca_arno_cfr',   lat:43.680, lon:10.270 },
       { id:'follonica',        lat:42.921, lon:10.762 },
-      { id:'capalbio',         lat:42.459, lon:11.269 }
+      { id:'capalbio',         lat:42.459, lon:11.269 },
+      { id:'bonifacio_mnw',    lat:41.366, lon:9.178  },
+      { id:'vada_mnw',         lat:43.355, lon:10.428 }
     ];
     var ssResults = {};
     for (var ssi = 0; ssi < ssStations.length; ssi++) {
@@ -2011,8 +2015,15 @@ if (action === 'stations_snapshot') {
       try {
         var ssSamples = await kvGet('bias_samples:' + ssSt.id, kvUrl, kvToken);
         if (!Array.isArray(ssSamples) || ssSamples.length === 0) continue;
-        var ssLast = ssSamples[0]; // più recente
-        if (!ssLast.station || ssLast.station.wind_kt === null || ssLast.station.wind_kt === undefined) continue;
+        // Trova il campione più recente con dato stazione valido
+        var ssLast = null;
+        for (var ssj = 0; ssj < ssSamples.length; ssj++) {
+          if (ssSamples[ssj].station && ssSamples[ssj].station.wind_kt !== null && ssSamples[ssj].station.wind_kt !== undefined) {
+            ssLast = ssSamples[ssj];
+            break;
+          }
+        }
+        if (!ssLast) continue;
         var ssAgeMin = Math.round((Date.now() - new Date(ssLast.ts).getTime()) / 60000);
         ssResults[ssSt.id] = {
           lat: ssSt.lat, lon: ssSt.lon,
@@ -5345,7 +5356,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.33 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.35 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -5472,4 +5483,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.33
+// Fine codice - NAUTILUS ENGINE v2.13.35

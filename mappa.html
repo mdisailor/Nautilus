@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.6.43 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS MAPPA v1.6.44 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.6.43</title>
+<title>NAUTILUS Mappa Vento v1.6.44</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -237,7 +237,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.6.43</span>
+    <span id="nav-ver">mappa v1.6.44</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -303,11 +303,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.6.43 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.6.44 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.6.43
+// NAUTILUS MAPPA v1.6.44
 
 var ENGINE_URL = '/api/engine';
 
@@ -1810,6 +1810,19 @@ function refreshMnwStation(sid, popupId, name) {
           var rld = el.querySelector('.rl-msg');
           if (!rld) { rld = document.createElement('div'); rld.className = 'rl-msg'; rld.style.cssText = 'font-size:0.55rem;color:#ffaa00;margin-top:4px'; el.appendChild(rld); }
           rld.textContent = 'Attendi 60s tra un aggiornamento e l\'altro';
+        } else {
+          // Fallback: mostra ultimo dato da Redis bias_samples
+          fetch(ENGINE_URL + '?action=stations_snapshot&k=mdi', {cache: 'no-store'})
+            .then(function(r2){ return r2.json(); })
+            .then(function(snap){
+              if (snap && snap.stations && snap.stations[sid]) {
+                var s = snap.stations[sid];
+                var ageStr = s.age_min !== undefined ? s.age_min + 'min fa' : '';
+                var rld = el.querySelector('.rl-msg');
+                if (!rld) { rld = document.createElement('div'); rld.className = 'rl-msg'; rld.style.cssText = 'font-size:0.55rem;color:#ffaa00;margin-top:4px'; el.appendChild(rld); }
+                rld.innerHTML = 'Scraping non disponibile — ultimo dato Redis: <b>' + (s.wind_kt||'—') + 'kt ' + (s.direction||'—') + '°</b> ' + ageStr;
+              }
+            }).catch(function(){});
         }
         return;
       }
@@ -1842,7 +1855,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.6.43
+// Fine codice - NAUTILUS MAPPA v1.6.44
 </script>
 <!-- Pannello inserimento osservazione manuale -->
 <div id="obs-panel">

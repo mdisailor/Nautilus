@@ -1,7 +1,7 @@
 # NAUTILUS — Contesto Sessione (CLAUDE.md)
 
 Documento di contesto persistente per sessioni di lavoro con Claude.
-Aggiornato: 2026-06-28 | Versione riferimento: engine v2.13.33
+Aggiornato: 2026-06-29 | Versione riferimento: engine v2.13.33
 
 ---
 
@@ -41,7 +41,7 @@ https://raw.githubusercontent.com/mdisailor/Nautilus/refs/heads/main/mappa.html
 |---|---|---|
 | `api/engine.js` | v2.13.33 | Engine principale, tutte le action |
 | `public/index.html` | v5.7.27 | App principale (meteo, engine, bias) |
-| `public/mappa.html` | v1.6.42 | Mappa vento con stazioni e griglia |
+| `public/mappa.html` | v1.6.43 | Mappa vento con stazioni e griglia |
 | `public/stats.html` | v1.18 | Accuratezza previsioni AI |
 | `public/mae.html` | v1.10 | Comparazione MAE OM vs AROME + osservazioni manuali |
 | `public/score.html` | v1.6 | Cruscotto model score per condizione (strumento validazione temporaneo) |
@@ -118,7 +118,7 @@ Corsica: **Barcaggio** (Capo Corso) — predict attivo dal 2026-06-19
 - **scrape_web e scrape_web2 separati** — MeteoNetwork (stesso dominio, sensibile al carico concorrente) separato da Windfinder/Meteosystem
 - **Timeout fetch HTML**: 6s in scrape_web (MeteoNetwork), 8s in scrape_web2 (Windfinder/Meteosystem)
 - **Anti-duplicato Windfinder** — campo `obs_time` da campo `dtl` nel JSON embedded; se coincide con l'ultimo campione, scarta senza salvare
-- **OI (Optimal Interpolation) implementato** — mappa v1.6.34. Toggle ON/OFF. Raggio 60km, IDW 1/d² × reliability_weight. Bias storico stratificato da bias_matrix. Correzione velocità ±5kt, direzione via U/V cap ±30°. Logica diretta: punto griglia entro 5km da stazione usa valore stazione direttamente (Opzione A). Stazioni escluse: bonifacio_mnw, vada_mnw (fix bug chiavi errate in v1.6.42). Logica diretta: punto griglia entro 5km usa valore stazione direttamente. Export griglia Excel: bottone 📊 XLS genera 4 fogli (OM, OI, Delta, Stazioni) per analisi pattern correzioni. Toggle ON/OFF bottone OI. Raggio 60km, IDW peso 1/d² × reliability_weight. Bias storico stratificato da `action=bias_matrix` (fascia velocità × settore × slot orario). Correzione velocità ±5kt cap. Correzione direzione via componenti U/V, cap ±30°. Stazioni escluse: `bonifacio_pertusato`, `vada`.
+- **OI (Optimal Interpolation) implementato** — mappa v1.6.34. Toggle ON/OFF. Raggio 60km, IDW 1/d² × reliability_weight. Bias storico stratificato da bias_matrix. Correzione velocità ±5kt, direzione via U/V cap ±30°. Logica diretta: punto griglia entro 5km da stazione usa valore stazione direttamente (Opzione A). Stazioni escluse: bonifacio_mnw, vada_mnw (fix bug chiavi errate in v1.6.42). Cap direzione progressivo: <5km=diretto, 5-15km=±180°, 15-40km=±60°, >40km=±30°. Logica diretta: punto griglia entro 5km usa valore stazione direttamente. Export griglia Excel: bottone 📊 XLS genera 4 fogli (OM, OI, Delta, Stazioni) per analisi pattern correzioni. Toggle ON/OFF bottone OI. Raggio 60km, IDW peso 1/d² × reliability_weight. Bias storico stratificato da `action=bias_matrix` (fascia velocità × settore × slot orario). Correzione velocità ±5kt cap. Correzione direzione via componenti U/V, cap ±30°. Stazioni escluse: `bonifacio_pertusato`, `vada`.
 - **Osservazioni manuali** — mappa v1.6.32 + engine v2.13.28. Bottone arancione in ogni popup punto giallo. Form: velocità, direzione, pin (1-8 char), data/ora modificabile, nota. Salva in `obs_manual` Redis (max 200). Marker arancioni sulla mappa con colore per età. Pin non ancora validati — lista autorizzati da aggiungere in futuro con chiave `obs_pins_authorized` in Redis.
 
 ---

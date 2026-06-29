@@ -96,7 +96,7 @@ Aggiornato: 2026-06-28
 
 ## Prossimi passi immediati
 
-1. **Raccogliere fotografie Excel in condizioni diverse** — bonaccia attuale non permette analisi significativa. Quando torna vento (medio/forte, direzioni diverse) esportare foglio XLS e analizzare pattern correzioni OI per zona
+1. **Raccogliere fotografie Excel in condizioni diverse** — 3 snapshot raccolti (28/06 18:03, 23:53, 29/06 08:11). Pattern emerso: Capraia-Gorgona sottostimata da OM, costa toscana sovrastimata. Raccogliere altri snapshot con vento medio/forte — bonaccia attuale non permette analisi significativa. Quando torna vento (medio/forte, direzioni diverse) esportare foglio XLS e analizzare pattern correzioni OI per zona
 2. **Definire grid_rules per zona** — dopo analisi fotografie, identificare regole specifiche per zone critiche (Gorgona, Populonia, Giglio, Canale Piombino)
 3. **grid_snapshot automatico da cron** — dopo verifica budget Redis comandi (~25-30K/giorno, limite 500K/mese), aggiungere cron ogni 3 ore per accumulare dati storici celle con stazione
 4. **Integrare matrix_by_station nel simulatore** — usa ancora matrix (by_om), aggiornare per usare matrix_by_station sui punti pilota

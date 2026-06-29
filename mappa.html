@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.6.45 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS MAPPA v1.6.46 - mdisailor - 2026-06-02 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.6.45</title>
+<title>NAUTILUS Mappa Vento v1.6.46</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -237,7 +237,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.6.45</span>
+    <span id="nav-ver">mappa v1.6.46</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -303,11 +303,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.6.45 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.6.46 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.6.45
+// NAUTILUS MAPPA v1.6.46
 
 var ENGINE_URL = '/api/engine';
 
@@ -1099,9 +1099,10 @@ var state_gridRules = {};  // Regole per cella: { "43.25_10.65": { allowed_stati
 
 async function fetchGridRules(){
   try {
-    var r = await fetch(ENGINE_URL + '?action=grid_rules_get', {cache:'no-store'});
+    var r = await fetch(ENGINE_URL + '?action=grid_rules_get&k=mdi', {cache:'no-store'});
     var d = await r.json();
     state_gridRules = d.rules || {};
+    console.log('grid_rules caricati:', Object.keys(state_gridRules).length, 'celle');
   } catch(e){ console.warn('grid_rules fetch error:', e.message); }
 }
 
@@ -1823,7 +1824,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.6.45
+// Fine codice - NAUTILUS MAPPA v1.6.46
 </script>
 <!-- Pannello inserimento osservazione manuale -->
 <div id="obs-panel">

@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.41 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.42 - by mdisailor engine
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
@@ -1944,7 +1944,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.41', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.42', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -5164,6 +5164,21 @@ if (action === 'grid_rules_init') {
         min_weight: 0.8,
         reason: 'Viareggio CFR comanda, zona nord costa'
       },
+      '43.50_9.90': {
+        allowed_stations: ['gorgona_cfr'],
+        min_weight: 0.85,
+        reason: 'Gorgona a 7.6km — peso insufficiente senza regola, stazione affidabile'
+      },
+      '43.00_9.90': {
+        allowed_stations: ['capraia_cfr'],
+        min_weight: 0.85,
+        reason: 'Capraia CFR a 7.5km — comportamento instabile senza regola'
+      },
+      '43.00_9.65': {
+        allowed_stations: ['capraia_mnw'],
+        min_weight: 0.7,
+        reason: 'Capraia MNW a 15.4km — stabilizza direzione zona'
+      },
       '42.75_10.65': {
         excluded_stations: ['follonica'],
         reason: 'Follonica bias anomalo su questa cella, direzione opposta'
@@ -5423,7 +5438,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.41 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.42 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -5550,4 +5565,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.41
+// Fine codice - NAUTILUS ENGINE v2.13.42

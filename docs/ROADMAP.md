@@ -1,7 +1,7 @@
 # NAUTILUS — Roadmap Attività (ROADMAP.md)
 
 Scaletta ordinata con dipendenze, stato e decisioni aperte.
-Aggiornato: 2026-06-28
+Aggiornato: 2026-06-29
 
 ---
 

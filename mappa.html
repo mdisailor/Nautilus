@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.6.53 - mdisailor - 2026-06-02 -->
+<!-- NAUTILUS MAPPA v1.6.54 - mdisailor - 2026-07-01 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.6.53</title>
+<title>NAUTILUS Mappa Vento v1.6.54</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -237,7 +237,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.6.53</span>
+    <span id="nav-ver">mappa v1.6.54</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -303,11 +303,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.6.53 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.6.54 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.6.53
+// NAUTILUS MAPPA v1.6.54
 
 var ENGINE_URL = '/api/engine';
 
@@ -1111,12 +1111,23 @@ function activeGrid(){
 }
 
 // ============================================================
-// OPTIMAL INTERPOLATION (OI) — v1.0 — 2026-06-24
+// OPTIMAL INTERPOLATION (OI) — v1.1 — 2026-07-01
 // Corregge il campo OM usando le stazioni reali come punti di verità.
 // Metodo: IDW (Inverse Distance Weighting) sul campo di bias.
 // Per ogni punto griglia: correzione = somma(bias_i / dist_i^2) / somma(1/dist_i^2)
 // dove bias_i = stazione_i.speed - OM_nel_punto_più_vicino_alla_stazione_i
 // Rif: Gandin 1963 OI; Hieta et al. 2025 FMI (-24-29% RMSE)
+//
+// FIX 2026-07-01: la direzione ora usa vettori U/V normalizzati a modulo 1
+// (solo peso puro), non più pesati per la velocità della stazione/OM.
+// Bug precedente: con min_weight alto ma stazione a vento debole (es. 1kn),
+// il contributo vettoriale della stazione era comunque piccolo (peso x speed),
+// mentre OM con vento più forte manteneva un vettore grande anche a peso basso
+// -> la direzione finale tornava dominata da OM nonostante min_weight alto.
+// Scoperto su cella 43.75_10.15 (Bocca d'Arno/Viareggio): viareggio_cfr 1kn/157°
+// con min_weight 0.8 non riusciva a spostare la direzione da 221° (quasi OM) —
+// col fix converge a 166°, coerente con l'80% di peso nominale sulla stazione.
+// La velocità NON è affetta da questo bug — resta pesata per speed reale, corretto.
 // ============================================================
 var oiEnabled = false;
 var OI_MAX_DIST_KM = 60;
@@ -1280,14 +1291,17 @@ function applyOI(gridData, stationData){
     });
     finalSpeed = Math.max(0, Math.round(finalSpeed * 10) / 10);
 
-    // Interpolazione direzione via U/V
+    // Interpolazione direzione via U/V — vettori normalizzati a modulo 1 (fix 2026-07-01)
+    // La direzione deve seguire il peso nominale (min_weight/omInfluence), non il modulo
+    // vettoriale che varia con la velocità — altrimenti stazioni con vento debole perdono
+    // il controllo della direzione anche con min_weight alto (bug Bocca d'Arno/Viareggio)
     var omRad = degToRad(pt.dir);
-    var finalU = -pt.speed * Math.sin(omRad) * omInfluence;
-    var finalV = -pt.speed * Math.cos(omRad) * omInfluence;
+    var finalU = -Math.sin(omRad) * omInfluence;
+    var finalV = -Math.cos(omRad) * omInfluence;
     contributions.forEach(function(c){
       var stRad = degToRad(c.st.dir);
-      finalU += -c.st.speed * Math.sin(stRad) * c.w * scale;
-      finalV += -c.st.speed * Math.cos(stRad) * c.w * scale;
+      finalU += -Math.sin(stRad) * c.w * scale;
+      finalV += -Math.cos(stRad) * c.w * scale;
     });
     var finalDir = Math.atan2(-finalU, -finalV) * 180 / Math.PI;
     if (finalDir < 0) finalDir += 360;
@@ -1904,7 +1918,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.6.53
+// Fine codice - NAUTILUS MAPPA v1.6.54
 </script>
 <!-- Pannello inserimento osservazione manuale -->
 <div id="obs-panel">

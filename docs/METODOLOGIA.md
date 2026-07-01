@@ -24,6 +24,7 @@ Aggiornato: 2026-07-01
 - Fonti: MeteoNetwork API, CFR Toscana, Windfinder /report/, Meteosystem
 - Limite: stazioni amatoriali o semi-professionali, possibili errori di calibrazione, sensori mal orientati, dati stantii
 - Stazioni problematiche note: Vada (direzione sistematicamente opposta alle vicine), Bonifacio/Cap Pertusato (aggiornamento irregolare, valori spesso fissi per ore)
+- **Limite aggiuntivo identificato (2026-07-01)**: a vento molto debole (<2kn) la direzione letta da un anemometro/banderuola è intrinsecamente rumorosa — la banderuola non è ben deflessa. Osservato su Viareggio CFR e Populonia CFR. Rilevante per OI: vedi sezione OI v2.1 più sotto.
 
 ---
 
@@ -185,8 +186,8 @@ La versione precedente calcolava un bias (stazione - OM) e lo sommava a OM via I
 
 **Interpolazione velocità**: `finalSpeed = Σ(st.speed × w × scale) + om.speed × omInfluence`
 
-**Interpolazione direzione**: via componenti U/V per evitare problemi con la media circolare.
-- `U = -speed × sin(dir)`, `V = -speed × cos(dir)` (convenzione meteo)
+**Interpolazione direzione**: via componenti U/V per evitare problemi con la media circolare. Vedi sezione OI v2.1 più sotto per il fix del 2026-07-01.
+- `U = -speed × sin(dir)`, `V = -speed × cos(dir)` (convenzione meteo) — **aggiornamento 2026-07-01: da v1.6.54 i vettori sono normalizzati a modulo 1 (solo peso, non più peso×speed), vedi sezione dedicata**
 - `finalDir = atan2(-finalU, -finalV)` convertito in gradi 0-360
 - Nessun cap direzione — la stazione comanda
 
@@ -224,7 +225,7 @@ Struttura Redis (chiave: `grid_rules`): oggetto JSON con una entry per ogni cell
 | 43.25_10.65 | svincenzo_porto | 0.95 | San Vincenzo N/NE vs OM W/SW |
 | 43.00_10.40 | svincenzo_porto | 0.95 | Cella più vicina a S.Vincenzo |
 | 43.25_10.40 | svincenzo_porto | 0.90 | Zona S.Vincenzo |
-| 43.00_10.65 | populonia_cfr | 0.90 | Populonia interna, direzione opposta a OM |
+| 43.00_10.65 | populonia_cfr | 0.90 | Populonia interna, direzione opposta a OM — vento spesso debole, direzione rumorosa (vedi OI v2.1) |
 | 43.75_10.15 | viareggio_cfr | 0.80 | Viareggio CFR comanda costa |
 | 44.00_10.15 | viareggio_cfr | 0.80 | Viareggio CFR zona nord |
 | 43.50_9.90 | gorgona_cfr | 0.85 | Gorgona ✅ funziona |
@@ -239,6 +240,10 @@ Struttura Redis (chiave: `grid_rules`): oggetto JSON con una entry per ogni cell
 **Problema risolto (v1.6.52)**: quando OI è attivo, le stazioni NON vengono aggiunte come sorgenti separate `nauSources`. Prima le stazioni con peso 10 sovrascrivevano il campo ignorando le correzioni OI già calcolate. Ora con OI ON il campo usa solo `activeGrid()` (che include già le correzioni OI) + le zone di previsione.
 
 **Problema risolto (v1.6.53)**: a zoom alto (z11+) con passo griglia 0.25°, tutte le sorgenti OM cadevano fuori dal viewport con margine 50px. Fix: margine aumentato a 300px + fallback che garantisce sempre le 6 sorgenti più vicine al centro mappa indipendentemente dal viewport.
+
+**Problema risolto (v1.6.55, 2026-07-01)**: punti con dir/speed NaN contaminavano per contagio la somma pesata IDW di tutto il campo vicino. Vedi sezione OI v2.2 più sotto.
+
+**Limitazione strutturale identificata, non risolta (2026-07-01)**: il flusso animato interpola su un raggio ampio tutte le sorgenti OM/griglia vicine con IDW, senza distinguere le celle con grid_rules attive da quelle senza. Una cella corretta puntualmente (es. 43.75_10.15) può risultare "diluita" nel flusso visuale circostante se le celle OM adiacenti (senza correzione) dominano numericamente l'interpolazione in quel punto dello schermo. Il dato puntuale (freccia sulla cella esatta, popup) resta corretto; solo il campo continuo del flusso in quel punto non rispecchia la grid_rule. Da trattare insieme alla feature Roadmap 5.1 (mappa vento animata Windy-style + evoluzione temporale H+1/H+3/H+6).
 
 ```javascript
 // Quando OI è OFF: stazioni aggiunte come nauSources con peso 10
@@ -267,3 +272,62 @@ Causa del problema originale: `bias_history&limit=1` restituiva l'ultimo campion
 - **ATTENZIONE**: la colonna "Stazione" mostra la stazione geograficamente più vicina, NON quella usata da OI tramite grid_rules. Per celle con grid_rules la stazione usata può essere diversa da quella mostrata.
 - Timestamp nel nome foglio usa `.` invece di `:` (es. `17.05` non `17:05`) per compatibilità Excel.
 
+---
+
+## OI v2.1 — Fix interpolazione direzione (2026-07-01)
+
+### Bug identificato
+
+La versione precedente (v1.6.53) calcolava la direzione finale pesando i vettori U/V per `velocità_stazione × peso`, non per il solo peso nominale:
+
+```javascript
+// BUG (v1.6.53 e precedenti)
+finalU += -c.st.speed * Math.sin(stRad) * c.w * scale;
+finalV += -c.st.speed * Math.cos(stRad) * c.w * scale;
+```
+
+Poiché in JS il modulo del vettore risultante è proporzionale a `speed`, una stazione con vento debole (es. 1kn) produceva un contributo vettoriale piccolo anche con `min_weight` nominale alto (es. 0.8) — mentre OM, pur pesato solo al 20% (`omInfluence`), manteneva un vettore più grande se la sua velocità di partenza era maggiore. Risultato: la somma vettoriale finale era dominata da chi aveva il **modulo più grande**, non da chi aveva il **peso nominale più alto** — il comportamento opposto di quanto le grid_rules intendevano garantire.
+
+Scoperto empiricamente sulla cella `43.75_10.15` (Viareggio): con `viareggio_cfr` a 0.8kn/152° e `min_weight: 0.8`, la direzione finale rimaneva vicina a OM (221°) invece di convergere verso 152°.
+
+### Fix applicato (v1.6.54)
+
+Vettori U/V normalizzati a modulo 1 prima di applicare il peso — sia per OM che per la stazione:
+
+```javascript
+// FIX v1.6.54
+var finalU = -Math.sin(omRad) * omInfluence;
+var finalV = -Math.cos(omRad) * omInfluence;
+contributions.forEach(function(c){
+  var stRad = degToRad(c.st.dir);
+  finalU += -Math.sin(stRad) * c.w * scale;
+  finalV += -Math.cos(stRad) * c.w * scale;
+});
+```
+
+Ora la direzione segue esattamente il peso nominale (`min_weight`/`omInfluence`), indipendentemente dalla velocità sottostante. La **velocità** non era affetta dal bug — resta correttamente pesata per `speed × peso`, quel calcolo era già corretto.
+
+### Verifica pre-deploy
+
+Prima del deploy, è stato eseguito uno script di confronto old/new logic in console browser, usando i dati reali già caricati (griglia, stazioni, bias_matrix, grid_rules), su tutte le 10 celle con grid_rules attive. Risultato: Δdir grande (fino a -88°) solo sulle celle con stazione a vento debole (Viareggio, Populonia); Δdir minimo o nullo (0-4°) sulle celle con stazione a vento sostenuto (San Vincenzo, Gorgona, Capraia) — pattern coerente con l'ampiezza del bug, nessuna regressione inattesa. Metodo raccomandato per future modifiche a `applyOI`.
+
+### Effetto collaterale identificato: rumore su vento debole
+
+Il fix è matematicamente corretto rispetto al peso nominale, ma ha esposto un problema di affidabilità preesistente e distinto: quando la stazione ha vento molto leggero (<2kn), la sua lettura di direzione è intrinsecamente rumorosa (banderuola non ben deflessa da vento debole). Con `min_weight` alto, questo rumore ora comanda la cella quasi completamente, producendo Δdir molto ampi (osservato: Viareggio -88°, Populonia -103°) che possono non rappresentare la direzione reale del vento.
+
+Non è un difetto del fix — è un limite di affidabilità del dato sorgente che il fix ha reso visibile. Soluzione proposta (non ancora implementata, in attesa di più casi osservati): soglia minima di vento sotto la quale il peso nominale sulla direzione viene attenuato proporzionalmente, coerente con la soglia `rotationMinWind=5` già usata in `diagnoseSynopticCase` (engine.js) per lo stesso motivo — la rotazione del vento viene ignorata sotto i 5kn perché la direzione è considerata inaffidabile a quelle velocità.
+
+---
+
+## OI v2.2 — Guard NaN (2026-07-01)
+
+### Bug identificato
+
+Un punto griglia con `dir` o `speed` pari a `NaN` (dato OM temporaneamente mancante o caso limite nel calcolo) causava due effetti visivi distinti:
+
+1. **Frecce fantasma**: `drawArrow` controllava `isNaN(spd)` ma non `isNaN(dir)`. Con `dir = NaN`, `ctx.rotate(NaN)` è un no-op silenzioso per specifica HTML Canvas — la freccia veniva disegnata comunque, nell'orientamento di default (verticale = nord sullo schermo), invece di non essere disegnata.
+2. **Contaminazione del flusso animato per contagio**: `buildVectorField` non validava le sorgenti prima di aggiungerle a `omSources`/`nauSources`. In JS, `numero + NaN = NaN` sempre — una singola sorgente con `u`/`v` NaN contaminava `sumU`/`sumV` per ogni cella del campo che la includeva nella somma pesata IDW (che non ha cutoff di raggio, solo un filtro di viewport iniziale). Effetto: intere porzioni del flusso animato risultavano `NaN`, con particelle che restavano "congelate" invisibili (i controlli di rigenerazione bordo `nx < 0 || nx > W` sono tutti falsi quando `nx` è NaN).
+
+### Fix applicato (v1.6.55)
+
+Guard `isNaN` aggiunti in 5 punti: `drawArrow` (controllo su `dir`), `buildVectorField` sorgenti OM, fallback zoom-alto, sorgenti zone, sorgenti stazioni. Verificato via export XLS: 0 celle con NaN residuo su 399 celle con dato OM valido.

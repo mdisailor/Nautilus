@@ -1,9 +1,24 @@
 # NAUTILUS — Contesto Sessione (CLAUDE.md)
 
 
-## PUNTO DI RIPRESA — 2026-07-01
+## PUNTO DI RIPRESA — 2026-07-01 (sera)
 
-**Versioni in produzione**: engine v2.13.42, mappa v1.6.53
+**Versioni in produzione**: engine v2.13.42, mappa v1.6.55
+
+**Sessione di oggi — riepilogo:**
+1. **Bug direzione OI risolto (mappa v1.6.54)** — `applyOI` calcolava la direzione pesando i vettori U/V per `speed × peso` invece di solo `peso`. Effetto: stazioni con vento debole perdevano il controllo della direzione anche con `min_weight` alto (la cella tornava vicina alla direzione OM nonostante la grid_rule). Fix: vettori normalizzati a modulo 1 prima di applicare il peso. Verificato su cella 43.75_10.15 (Viareggio) con script di confronto old/new in console — comportamento confermato coerente su tutte le 10 grid_rules attive, nessuna regressione.
+2. **Bug NaN frecce/flusso risolto (mappa v1.6.55)** — un punto griglia con `dir`/`speed` NaN (dato OM temporaneamente mancante) causava: (a) freccia visualizzata come orientata a nord invece di non essere disegnata (`ctx.rotate(NaN)` è no-op silenzioso); (b) contaminazione per contagio di **tutto** il campo del flusso animato vicino, perché NaN si propaga nella somma pesata IDW senza cutoff di raggio. Fix: guard `isNaN` aggiunti in `drawArrow` e in tutte le sorgenti di `buildVectorField` (grid, fallback zoom-alto, zone, stazioni). Confermato via export XLS: 399/399 celle con OM valido hanno anche OI valido, nessun NaN residuo.
+3. **Verificato NON essere un bug**: il sospetto originale "Bocca d'Arno — grid_rule assegna viareggio_cfr ma OI usa ancora bocca_arno_cfr" — il filtro `allowed_stations` funziona correttamente (confermato via console log `grid_rule cellKey: X stazioni → Y dopo filtro` su tutte le 10 celle). Il sospetto nasceva da confusione tra il marker zona "Bocca d'Arno" (43.680/10.270, gestito da `bias_station` in engine.js, sistema indipendente) e la cella griglia OI 43.75_10.15 (~12km di distanza, gestita da grid_rules) — due punti diversi sulla mappa.
+
+**Nuovo problema identificato, NON ancora risolto (in osservazione)**:
+Direzione instabile su celle con stazione a vento molto debole (<2kn) — **classe di problema**, non un bug puntuale. Il fix del punto 1 è matematicamente corretto (la direzione segue il peso nominale), ma quando la stazione ha vento quasi calmo la sua lettura di direzione è intrinsecamente rumorosa (banderuola non deflessa). Con `min_weight` alto, questo rumore comanda quasi tutta la cella. Casi osservati:
+- Viareggio CFR a 0.8-1.2kn → cella 43.75_10.15 con Δdir fino a -88° (poi risolto da solo quando il vento è salito e la direzione stazione si è allineata a OM)
+- Populonia CFR a 1.4kn → cella 43.00_10.65 con Δdir -103° (osservato 01/07 13:57, non ancora risolto)
+
+Soluzione proposta (rinviata, in attesa di più casi): soglia minima di vento sotto la quale il peso nominale sulla direzione viene attenuato (es. sotto 3-4kn, coerente con soglia `rotationMinWind=5` già usata in `diagnoseSynopticCase` in engine.js per lo stesso motivo). Da implementare quando si decide di trattare questa classe di zone con l'"Opzione 2" (pipeline di pesi separata velocità/direzione) piuttosto che continuare con patch puntuali.
+
+**Nuova limitazione strutturale identificata (non un bug, backlog)**:
+Il flusso animato (`buildVectorField`) non rispecchia le grid_rules puntuali — interpola su un raggio ampio tutte le sorgenti OM vicine, diluendo la correzione dei singoli punti griglia corretti in mezzo a molte celle OM non corrette circostanti. Il dato puntuale (freccia/popup sulla cella esatta) resta corretto; solo il flusso visuale in quel punto risulta "sbagliato" perché è una media d'area. Da trattare insieme al punto Roadmap 5.1 (mappa vento animata Windy-style) — vedi ROADMAP.md.
 
 **grid_rules attive** (10 regole, inizializzare con `action=grid_rules_init&k=mdi`):
 - San Vincenzo: 43.25_10.65, 43.00_10.40, 43.25_10.40 → solo svincenzo_porto
@@ -13,18 +28,18 @@
 - Capraia: 43.00_9.90, 43.00_9.65 → capraia_cfr/mnw ✅ funziona
 - Follonica: 42.75_10.65 → excluded_stations follonica
 
-**Problema aperto urgente**: Bocca d'Arno (43.75_10.15) — la grid_rule assegna viareggio_cfr ma OI usa ancora bocca_arno_cfr come riferimento. Causa probabile: viareggio_cfr non ha dato valido in quel momento → contributions vuoto dopo filtro → OM puro. Verificare popup Viareggio CFR e aumentare min_weight se necessario.
-
 **Prossimi passi immediati**:
-1. Verificare Viareggio CFR dato valido e correggere Bocca d'Arno
-2. Aggiungere esclusione canale_piombino per celle San Vincenzo
-3. Risolvere punta_ala (zona senza stazione reale)
-4. Raccogliere fogli Excel con vento più sostenuto (8-15kt)
-5. Integrare AROME come campo base (base_model in grid_rules)
+1. Continuare monitoraggio celle con stazione a vento debole (Populonia, Viareggio) — raccogliere più casi prima di tarare la soglia di affidabilità direzione
+2. Valutare soglia minima vento per peso direzione (quando si hanno abbastanza casi)
+3. Aggiungere esclusione canale_piombino per celle San Vincenzo
+4. Risolvere punta_ala (zona senza stazione reale)
+5. Raccogliere fogli Excel con vento più sostenuto (8-15kt)
+6. Integrare AROME come campo base (base_model in grid_rules)
+7. Coerenza flusso animato / grid_rules — da valutare insieme a Roadmap 5.1
 
 
 Documento di contesto persistente per sessioni di lavoro con Claude.
-Aggiornato: 2026-06-29 | Versione riferimento: engine v2.13.33
+Aggiornato: 2026-07-01 | Versione riferimento: engine v2.13.42
 
 ---
 
@@ -64,7 +79,7 @@ https://raw.githubusercontent.com/mdisailor/Nautilus/refs/heads/main/mappa.html
 |---|---|---|
 | `api/engine.js` | v2.13.42 | Engine principale, tutte le action |
 | `public/index.html` | v5.7.27 | App principale (meteo, engine, bias) |
-| `public/mappa.html` | v1.6.53 | Mappa vento con stazioni e griglia |
+| `public/mappa.html` | v1.6.55 | Mappa vento con stazioni e griglia. Fix direzione OI (v1.6.54) + fix NaN frecce/flusso (v1.6.55), 2026-07-01 |
 | `public/stats.html` | v1.18 | Accuratezza previsioni AI |
 | `public/mae.html` | v1.10 | Comparazione MAE OM vs AROME + osservazioni manuali |
 | `public/score.html` | v1.6 | Cruscotto model score per condizione (strumento validazione temporaneo) |
@@ -111,6 +126,7 @@ Corsica: **Barcaggio** (Capo Corso) — predict attivo dal 2026-06-19
 | `predict:<zona>:<slot>` | Ultima previsione per slot orario |
 | `bias_stats:<id>` | Statistiche aggregate bias stazione (calcolate da biasComputeStations) |
 | `snap:<zona>:<slot>` | Snapshot OM orari per wind history nelle previsioni |
+| `grid_rules` | Regole per cella griglia OI: allowed_stations/excluded_stations/min_weight/base_model |
 
 ---
 
@@ -141,7 +157,7 @@ Corsica: **Barcaggio** (Capo Corso) — predict attivo dal 2026-06-19
 - **scrape_web e scrape_web2 separati** — MeteoNetwork (stesso dominio, sensibile al carico concorrente) separato da Windfinder/Meteosystem
 - **Timeout fetch HTML**: 6s in scrape_web (MeteoNetwork), 8s in scrape_web2 (Windfinder/Meteosystem)
 - **Anti-duplicato Windfinder** — campo `obs_time` da campo `dtl` nel JSON embedded; se coincide con l'ultimo campione, scarta senza salvare
-- **OI (Optimal Interpolation) implementato** — mappa v1.6.34. Toggle ON/OFF. Raggio 60km, IDW 1/d² × reliability_weight. Bias storico stratificato da bias_matrix. Correzione velocità ±5kt, direzione via U/V cap ±30°. Logica diretta: punto griglia entro 5km da stazione usa valore stazione direttamente (Opzione A). Stazioni escluse: bonifacio_mnw, vada_mnw (fix bug chiavi errate in v1.6.42). Nuova logica sostituzione progressiva: stazione sostituisce OM con peso (1-d/40)² × reliability. grid_rules per celle specifiche: allowed_stations, excluded_stations, min_weight. Regole attive: San Vincenzo (43.00/43.25 area), Populonia, Viareggio, Follonica. Chiave Redis: grid_rules. Init: action=grid_rules_init&k=mdi. Logica diretta: punto griglia entro 5km usa valore stazione direttamente. Export griglia Excel: bottone 📊 XLS genera 4 fogli (OM, OI, Delta, Stazioni) per analisi pattern correzioni. Toggle ON/OFF bottone OI. Raggio 60km, IDW peso 1/d² × reliability_weight. Bias storico stratificato da `action=bias_matrix` (fascia velocità × settore × slot orario). Correzione velocità ±5kt cap. Correzione direzione via componenti U/V, cap ±30°. Stazioni escluse: `bonifacio_pertusato`, `vada`.
+- **OI (Optimal Interpolation) implementato** — mappa v1.6.55. Toggle ON/OFF. Raggio 60km, decadimento quadratico (1-d/60)² × reliability_weight. Sostituzione progressiva: stazione sostituisce OM con peso crescente al diminuire della distanza. grid_rules per celle specifiche: allowed_stations, excluded_stations, min_weight, base_model (non ancora implementato). Chiave Redis: grid_rules. Init: action=grid_rules_init&k=mdi. **Interpolazione direzione via vettori U/V normalizzati a modulo 1 (fix v1.6.54, 2026-07-01)** — il peso nominale (min_weight) si applica al peso puro, non più al vettore pesato per velocità; risolve bug per cui stazioni a vento debole perdevano il controllo della direzione nonostante min_weight alto. **Guard isNaN su frecce e campo vettoriale (fix v1.6.55, 2026-07-01)** — punti con dir/speed NaN vengono scartati invece di propagarsi per contagio a tutto il campo del flusso animato o apparire come frecce fantasma orientate a nord. Export griglia Excel: bottone 📊 XLS genera 4 fogli (OM, OI, Delta, Stazioni) per analisi pattern correzioni. Stazioni escluse globalmente: `bonifacio_mnw`, `vada_mnw`.
 - **Osservazioni manuali** — mappa v1.6.32 + engine v2.13.28. Bottone arancione in ogni popup punto giallo. Form: velocità, direzione, pin (1-8 char), data/ora modificabile, nota. Salva in `obs_manual` Redis (max 200). Marker arancioni sulla mappa con colore per età. Pin non ancora validati — lista autorizzati da aggiungere in futuro con chiave `obs_pins_authorized` in Redis.
 
 ---
@@ -152,6 +168,8 @@ Corsica: **Barcaggio** (Capo Corso) — predict attivo dal 2026-06-19
 - Populonia CFR: altitudine codificata come 164m invece di 0m (stazione marina) — bias non affidabile per navigazione, badge rosso quota in UI
 - Giglio, Montecristo, Gorgona: timeout `situazione` occasionale per fetch OWM/ICON lenti su isole remote
 - Bias injection AI: non confermato che il modello applichi effettivamente la correzione nel prompt — da verificare con `predict_log` strutturato
+- **Direzione OI instabile su celle con stazione a vento debole (<2kn)** — classe di problema, vedi PUNTO DI RIPRESA. Casi osservati: Viareggio, Populonia. Soluzione proposta ma rinviata (soglia minima vento).
+- **Flusso animato non rispecchia le grid_rules puntuali** — limitazione strutturale, da trattare con Roadmap 5.1
 
 ---
 
@@ -170,6 +188,10 @@ Corsica: **Barcaggio** (Capo Corso) — predict attivo dal 2026-06-19
 | Mappa layer colore WebGL inguardabile oltre Z10 | mappa.html | Aperto | 5 fix pendenti: (1) viewport +400px per punti fuori schermo, (2) isNaN check punti (Marina di Pisa causa buchi), (3) kernel gaussiano invece IDW puro, (4) limite 60 punti vicini al centro, (5) texture size adattiva per zoom |
 | Cron backfill 14:35 e 22:35 mancanti | cron-job.org | Aperto | H+1 pomeridiano (14:35) e H+9 pomeridiano (22:35) non ancora configurati |
 | OI_EXCLUDED usava sid invece di key (bonifacio_pertusato/vada invece di bonifacio_mnw/vada_mnw) | mappa.html | ✅ Risolto v1.6.42 |
+| Direzione OI pesata per velocità invece che per peso puro — stazioni a vento debole perdevano controllo direzione nonostante min_weight alto | mappa.html | ✅ Risolto v1.6.54 (2026-07-01) | Scoperto su cella 43.75_10.15 (Viareggio 0.8kn/157° non riusciva a spostare direzione da 221°→ora converge a 166°) |
+| NaN in dir/speed causava frecce fantasma orientate a nord e contaminazione per contagio del flusso animato | mappa.html | ✅ Risolto v1.6.55 (2026-07-01) | Guard isNaN aggiunti in drawArrow e in tutte le sorgenti di buildVectorField |
+| Direzione OI instabile su celle con stazione vento <2kn (rumore di lettura banderuola) | mappa.html | Aperto — in osservazione | Non è un bug del fix v1.6.54, è un limite di affidabilità del dato stazione. Soglia minima vento proposta, rinviata in attesa di più casi |
+| Flusso animato non rispecchia le grid_rules puntuali (media d'area dilusice correzione singola cella) | mappa.html | Aperto — backlog | Da trattare insieme a Roadmap 5.1 (mappa animata Windy-style + evoluzione temporale) |
 | Pin osservatori non validati | engine.txt | Aperto | obs_save accetta qualsiasi pin — aggiungere lista autorizzati in `obs_pins_authorized` Redis |
 | Redis comandi: ~25-30K/giorno, limite 500K/mese. Monitorare su console.upstash.com. Non aggiungere cron pesanti senza verifica | — | In osservazione |
 | punta_ala: zona previsione senza stazione reale vicina (<20km) — MAE non affidabile | engine | Aperto |
@@ -202,12 +224,14 @@ Il bias injection è attivo per le zone con n>=5 campioni verificati (actual pop
 - **Backup esplicito** prima di modifiche complesse alla mappa
 - **Una modifica alla volta**, testata prima di procedere
 - **engine.txt**: zero caratteri non-ASCII, `node --check` obbligatorio prima del deploy
-- **Zip**: directory pulita, un file per zip, `unzip -l` per verifica contenuto
+- **Zip**: directory pulita, un file per zip, `unzip -l` per verifica contenuto, nome file convenzione `nomefile-vXXXX.zip`
+- **Versioning**: aggiornare la versione in tutti i punti dove appare nel file (di norma 3: commento inizio codice, commento fine codice, punto esposto in UI/HP; per mappa.html sono 6: anche `<title>`, footer visibile, badge `#nav-ver`)
 - **predict_history**: limite 30 voci, campo `slot` morning/afternoon
 - **migrate_history**: solo se chiave non esiste (check EXISTS Redis) — non sovrascrive mai
 - **forecast_stats**: non scrive mai in Redis, solo lettura
 - **Nuove stazioni**: aggiornare in parallelo `swStations`/`scrape_web2`, `srAllStations` in station_refresh, `allStations` in biasLoadHistory, bottoni statici HTML in index.html (×2: Meteo + Engine)
 - **Visualizzazioni**: vanno in moduli separati (stats.html, mae.html), non in index.html
+- **Verifica post-fix**: dopo modifiche a logiche di calcolo (es. applyOI), confrontare vecchia/nuova logica con script di simulazione in console usando dati reali già caricati, prima del deploy — pattern usato con successo per il fix v1.6.54
 
 ---
 
@@ -217,3 +241,4 @@ Il bias injection è attivo per le zone con n>=5 campioni verificati (actual pop
 - Funzione `biasComputeStations`: lista fissa di 25 stazioni, aggiornare se si aggiungono stazioni
 - Array `srAllStations` in `action=station_refresh`: lista fissa, aggiornare in parallelo a nuove stazioni
 - Bottoni statici HTML in index.html righe ~1080-1120 e ~2110-2120: lista "Stazioni Reali vs OM" hardcoded
+- Funzione `applyOI` in mappa.html: logica sensibile, testare sempre con script di confronto old/new su dati reali prima del deploy (vedi fix v1.6.54)

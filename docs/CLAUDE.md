@@ -39,9 +39,9 @@ https://raw.githubusercontent.com/mdisailor/Nautilus/refs/heads/main/mappa.html
 
 | File | Versione | Note |
 |---|---|---|
-| `api/engine.js` | v2.13.41 | Engine principale, tutte le action |
+| `api/engine.js` | v2.13.42 | Engine principale, tutte le action |
 | `public/index.html` | v5.7.27 | App principale (meteo, engine, bias) |
-| `public/mappa.html` | v1.6.52 | Mappa vento con stazioni e griglia |
+| `public/mappa.html` | v1.6.53 | Mappa vento con stazioni e griglia |
 | `public/stats.html` | v1.18 | Accuratezza previsioni AI |
 | `public/mae.html` | v1.10 | Comparazione MAE OM vs AROME + osservazioni manuali |
 | `public/score.html` | v1.6 | Cruscotto model score per condizione (strumento validazione temporaneo) |

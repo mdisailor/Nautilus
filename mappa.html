@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.6.54 - mdisailor - 2026-07-01 -->
+<!-- NAUTILUS MAPPA v1.6.55 - mdisailor - 2026-07-01 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.6.54</title>
+<title>NAUTILUS Mappa Vento v1.6.55</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -237,7 +237,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.6.54</span>
+    <span id="nav-ver">mappa v1.6.55</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -303,11 +303,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.6.54 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.6.55 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.6.54
+// NAUTILUS MAPPA v1.6.55
 
 var ENGINE_URL = '/api/engine';
 
@@ -504,6 +504,7 @@ function drawSingleArrow(ox, oy, rad, len, lw, colShaft, colHead, alpha){
 
 function drawArrow(cx, cy, dir, spd, gust, alpha, isZone){
   if (spd === null || spd === undefined || isNaN(spd)) return;
+  if (dir === null || dir === undefined || isNaN(dir)) return; // fix v1.6.55: dir NaN -> rotate(NaN) e' no-op silenzioso, freccia appare orientata a nord invece di non essere disegnata
   var z = map.getZoom();
   var zScale = Math.max(0.4, Math.min(1.4, (z - 6) * 0.3));
   var base = isZone ? 28 * zScale : 16 * zScale;
@@ -803,6 +804,8 @@ function buildVectorField(){
   grid.forEach(function(pt){
     var px = map.latLngToContainerPoint([pt.lat, pt.lon]);
     if (px.x < -300 || px.x > W+300 || px.y < -300 || px.y > H+300) return;
+    if (pt.dir === null || pt.dir === undefined || isNaN(pt.dir) ||
+        pt.speed === null || pt.speed === undefined || isNaN(pt.speed)) return; // fix v1.6.55: NaN si propaga per contagio a tutta la somma pesata del campo
     var rad = pt.dir * Math.PI / 180;
     omSources.push({ x:px.x, y:px.y, u: -Math.sin(rad)*pt.speed, v: Math.cos(rad)*pt.speed });
   });
@@ -810,7 +813,11 @@ function buildVectorField(){
   // Garantisce sempre le 6 sorgenti più vicine al centro mappa per evitare campo vuoto.
   if (omSources.length < 4 && grid.length > 0) {
     var center = map.getCenter();
-    var withDist = grid.map(function(pt){
+    var validGrid = grid.filter(function(pt){
+      return !(pt.dir === null || pt.dir === undefined || isNaN(pt.dir) ||
+               pt.speed === null || pt.speed === undefined || isNaN(pt.speed));
+    }); // fix v1.6.55: esclude punti NaN anche dal fallback
+    var withDist = validGrid.map(function(pt){
       var dLat = pt.lat - center.lat, dLon = pt.lon - center.lng;
       return { pt: pt, d2: dLat*dLat + dLon*dLon };
     });
@@ -832,6 +839,7 @@ function buildVectorField(){
       if (!d) return;
       var spd = d.wind_speed != null ? d.wind_speed : (d.wind_speed_obs || 0);
       var dir = d.wind_dir   != null ? d.wind_dir   : (d.wind_dir_obs  || 0);
+      if (isNaN(spd) || isNaN(dir)) return; // fix v1.6.55
       var px = map.latLngToContainerPoint([z.lat, z.lon]);
       var rad = dir * Math.PI / 180;
       nauSources.push({ x:px.x, y:px.y, u: -Math.sin(rad)*spd, v: Math.cos(rad)*spd, w:1.0 });
@@ -839,6 +847,7 @@ function buildVectorField(){
     state.stationData.forEach(function(st){
       var px = map.latLngToContainerPoint([st.lat, st.lon]);
       if (px.x < -100 || px.x > W+100 || px.y < -100 || px.y > H+100) return;
+      if (isNaN(st.dir) || isNaN(st.speed)) return; // fix v1.6.55
       var rad = st.dir * Math.PI / 180;
       nauSources.push({ x:px.x, y:px.y, u: -Math.sin(rad)*st.speed, v: Math.cos(rad)*st.speed, w:10.0 });
     });
@@ -1918,7 +1927,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.6.54
+// Fine codice - NAUTILUS MAPPA v1.6.55
 </script>
 <!-- Pannello inserimento osservazione manuale -->
 <div id="obs-panel">

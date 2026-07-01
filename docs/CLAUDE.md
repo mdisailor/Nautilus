@@ -1,5 +1,28 @@
 # NAUTILUS — Contesto Sessione (CLAUDE.md)
 
+
+## PUNTO DI RIPRESA — 2026-07-01
+
+**Versioni in produzione**: engine v2.13.42, mappa v1.6.53
+
+**grid_rules attive** (10 regole, inizializzare con `action=grid_rules_init&k=mdi`):
+- San Vincenzo: 43.25_10.65, 43.00_10.40, 43.25_10.40 → solo svincenzo_porto
+- Populonia: 43.00_10.65 → solo populonia_cfr
+- Viareggio: 43.75_10.15, 44.00_10.15 → solo viareggio_cfr
+- Gorgona: 43.50_9.90 → solo gorgona_cfr ✅ funziona
+- Capraia: 43.00_9.90, 43.00_9.65 → capraia_cfr/mnw ✅ funziona
+- Follonica: 42.75_10.65 → excluded_stations follonica
+
+**Problema aperto urgente**: Bocca d'Arno (43.75_10.15) — la grid_rule assegna viareggio_cfr ma OI usa ancora bocca_arno_cfr come riferimento. Causa probabile: viareggio_cfr non ha dato valido in quel momento → contributions vuoto dopo filtro → OM puro. Verificare popup Viareggio CFR e aumentare min_weight se necessario.
+
+**Prossimi passi immediati**:
+1. Verificare Viareggio CFR dato valido e correggere Bocca d'Arno
+2. Aggiungere esclusione canale_piombino per celle San Vincenzo
+3. Risolvere punta_ala (zona senza stazione reale)
+4. Raccogliere fogli Excel con vento più sostenuto (8-15kt)
+5. Integrare AROME come campo base (base_model in grid_rules)
+
+
 Documento di contesto persistente per sessioni di lavoro con Claude.
 Aggiornato: 2026-06-29 | Versione riferimento: engine v2.13.33
 

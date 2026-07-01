@@ -1,7 +1,7 @@
 # NAUTILUS — Metodologia di Calcolo (METODOLOGIA.md)
 
 Documento tecnico-scientifico sulle logiche di calcolo, fonti e assunzioni.
-Aggiornato: 2026-06-23
+Aggiornato: 2026-07-01
 
 ---
 
@@ -165,4 +165,105 @@ Invece di una funzione di peso semplice basata sulla distanza, Kriging stima la 
 | Huang et al. | 2026 | LightGBM wind correction NWP | Stratificazione per fascia velocità, -20-40% RMSE |
 | Qiu et al. | 2025 | NWP 2km vs ERA5 offshore | NWP lower mean bias but higher absolute error |
 | arxiv 2512.03606 | 2025 | Transformer observation-driven correction marine winds | -45% errore GFS a 1h, migliore lungo coste |
- 
+
+
+---
+
+## OI v2 — Architettura attuale (aggiornato 2026-06-30)
+
+### Logica applyOI — sostituzione progressiva
+
+La versione precedente calcolava un bias (stazione - OM) e lo sommava a OM via IDW. La versione attuale sostituisce OM direttamente con il valore stazione in modo progressivo basato sulla distanza.
+
+**Peso stazione**: `w = (1 - d/OI_MAX_DIST_KM)² × reliability`
+- A 0km: w=1.0 (stazione comanda completamente)
+- A 20km: w=0.25 × reliability
+- A 40km: w=0.0 (fuori raggio)
+- `OI_MAX_DIST_KM = 60`
+
+**Normalizzazione**: `rawSumW` cappato a 1.0 → `stationInfluence = min(1.0, rawSumW)`, `omInfluence = 1 - stationInfluence`. Garantisce che `totalW` sia sempre 1.0 evitando valori fuori range con più stazioni vicine.
+
+**Interpolazione velocità**: `finalSpeed = Σ(st.speed × w × scale) + om.speed × omInfluence`
+
+**Interpolazione direzione**: via componenti U/V per evitare problemi con la media circolare.
+- `U = -speed × sin(dir)`, `V = -speed × cos(dir)` (convenzione meteo)
+- `finalDir = atan2(-finalU, -finalV)` convertito in gradi 0-360
+- Nessun cap direzione — la stazione comanda
+
+**Stazioni escluse globalmente**: `OI_EXCLUDED = { bonifacio_mnw, vada_mnw }` — stazioni con dati non rappresentativi del mare aperto.
+
+**Logica diretta** (rimossa nella v2): non più usata — sostituita dal sistema di pesi con `min_weight` nelle grid_rules.
+
+---
+
+### grid_rules — Regole per cella
+
+Struttura Redis (chiave: `grid_rules`): oggetto JSON con una entry per ogni cella che necessita regole specifiche.
+
+**Formato chiave**: `lat.toFixed(2) + "_" + lon.toFixed(2)` — ATTENZIONE: usare sempre due decimali (es. `"43.00_10.65"` non `"43.0_10.65"`).
+
+**Campi disponibili per cella**:
+```json
+{
+  "allowed_stations": ["svincenzo_porto"],  // whitelist: solo queste stazioni
+  "excluded_stations": ["follonica"],        // blacklist: escludi queste
+  "min_weight": 0.95,                        // peso minimo garantito indipendentemente dalla distanza
+  "base_model": "arome",                     // campo base (non ancora implementato, prossimo step)
+  "reason": "descrizione"
+}
+```
+
+**Logica min_weight**: se `rawSumW < min_weight`, i pesi vengono scalati proporzionalmente per garantire che l'influenza totale delle stazioni sia almeno `min_weight`. Permette a stazioni lontane (15-20km) di comandare quasi completamente se necessario.
+
+**Inizializzazione**: `action=grid_rules_init&k=mdi` — scrive le regole di default in Redis.
+**Lettura**: `action=grid_rules_get` — restituisce tutte le regole o una specifica con `?cell=43.00_10.65`.
+
+**Regole attive** (10 totali, aggiornate 2026-06-30):
+| Cella | Stazione | min_weight | Note |
+|---|---|---|---|
+| 43.25_10.65 | svincenzo_porto | 0.95 | San Vincenzo N/NE vs OM W/SW |
+| 43.00_10.40 | svincenzo_porto | 0.95 | Cella più vicina a S.Vincenzo |
+| 43.25_10.40 | svincenzo_porto | 0.90 | Zona S.Vincenzo |
+| 43.00_10.65 | populonia_cfr | 0.90 | Populonia interna, direzione opposta a OM |
+| 43.75_10.15 | viareggio_cfr | 0.80 | Viareggio CFR comanda costa |
+| 44.00_10.15 | viareggio_cfr | 0.80 | Viareggio CFR zona nord |
+| 43.50_9.90 | gorgona_cfr | 0.85 | Gorgona ✅ funziona |
+| 43.00_9.90 | capraia_cfr | 0.85 | Capraia ✅ funziona |
+| 43.00_9.65 | capraia_mnw | 0.70 | Capraia zona est |
+| 42.75_10.65 | escludi follonica | — | Follonica bias anomalo |
+
+---
+
+### buildVectorField — Campo vettoriale flusso animato
+
+**Problema risolto (v1.6.52)**: quando OI è attivo, le stazioni NON vengono aggiunte come sorgenti separate `nauSources`. Prima le stazioni con peso 10 sovrascrivevano il campo ignorando le correzioni OI già calcolate. Ora con OI ON il campo usa solo `activeGrid()` (che include già le correzioni OI) + le zone di previsione.
+
+**Problema risolto (v1.6.53)**: a zoom alto (z11+) con passo griglia 0.25°, tutte le sorgenti OM cadevano fuori dal viewport con margine 50px. Fix: margine aumentato a 300px + fallback che garantisce sempre le 6 sorgenti più vicine al centro mappa indipendentemente dal viewport.
+
+```javascript
+// Quando OI è OFF: stazioni aggiunte come nauSources con peso 10
+// Quando OI è ON: stazioni già incorporate in activeGrid() — non duplicare
+if (!oiEnabled) {
+  state.stationData.forEach(function(st){ ... nauSources.push(...) });
+}
+```
+
+---
+
+### Popup stazioni — Doppio fallback
+
+Il popup delle stazioni MNW usa una strategia a due livelli:
+1. **stations_snapshot** (Redis, veloce) — cerca per `st.key`, poi con varianti senza `_cfr`/`_mnw`
+2. **bias_history** (fallback) — se stations_snapshot non trova dato valido, scorre fino a 10 campioni per trovare il primo con `station.wind_kt` non null
+
+Causa del problema originale: `bias_history&limit=1` restituiva l'ultimo campione che poteva avere `station.wind_kt=null` (scraping fallito). Fix: limit=5 e loop di ricerca primo valido.
+
+---
+
+### Export griglia Excel (📊 XLS)
+
+4 fogli: 1-OM, 2-OI (ON/OFF nel nome), 3-Delta, 4-Stazioni.
+- **Foglio 3-Delta**: lat, lon, OM kt, OI kt, Δkt, OM dir°, OI dir°, Δdir° (circolare corretto), stazione più vicina entro 28km, distanza, ST kt, ST dir°
+- **ATTENZIONE**: la colonna "Stazione" mostra la stazione geograficamente più vicina, NON quella usata da OI tramite grid_rules. Per celle con grid_rules la stazione usata può essere diversa da quella mostrata.
+- Timestamp nel nome foglio usa `.` invece di `:` (es. `17.05` non `17:05`) per compatibilità Excel.
+

@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.6.62 - mdisailor - 2026-07-03 - pavimento di peso minimo entro 15km dalla stazione di zona (OI_LOCAL_DOMINANCE_KM) -->
+<!-- NAUTILUS MAPPA v1.6.63 - mdisailor - 2026-07-03 - tetto di fiducia manuale per livorno_cfr/capraia_cfr (verificate meno rappresentative) -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.6.62</title>
+<title>NAUTILUS Mappa Vento v1.6.63</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -237,7 +237,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.6.62</span>
+    <span id="nav-ver">mappa v1.6.63</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -303,11 +303,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.6.62 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.6.63 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.6.62
+// NAUTILUS MAPPA v1.6.63
 
 var ENGINE_URL = '/api/engine';
 
@@ -808,7 +808,7 @@ function buildVectorField(){
         pt.speed === null || pt.speed === undefined || isNaN(pt.speed)) return; // fix v1.6.55: NaN si propaga per contagio a tutta la somma pesata del campo
     var rad = pt.dir * Math.PI / 180;
     var cellKeyFlow = pt.lat.toFixed(2) + '_' + pt.lon.toFixed(2);
-    // fix v1.6.62 - 2026-07-03: il boost ora segue l'influenza reale della stazione
+    // fix v1.6.63 - 2026-07-03: il boost ora segue l'influenza reale della stazione
     // (pt.oi_station_weight, calcolata in applyOI dalla matrice a zone + grid_rules),
     // non solo la presenza di una grid_rule esplicita. Prima, una cella corretta dalla
     // matrice a zone ma senza grid_rule veniva annacquata nel campo IDW del flusso
@@ -834,7 +834,7 @@ function buildVectorField(){
     omSources = nearest.map(function(item){
       var px = map.latLngToContainerPoint([item.pt.lat, item.pt.lon]);
       var rad = item.pt.dir * Math.PI / 180;
-      var boostFallback = (oiEnabled && item.pt.oi_station_weight) ? (1 + item.pt.oi_station_weight * (FLOW_GRIDRULE_BOOST - 1)) : 1.0; // fix v1.6.62
+      var boostFallback = (oiEnabled && item.pt.oi_station_weight) ? (1 + item.pt.oi_station_weight * (FLOW_GRIDRULE_BOOST - 1)) : 1.0; // fix v1.6.63
       return { x:px.x, y:px.y, u: -Math.sin(rad)*item.pt.speed, v: Math.cos(rad)*item.pt.speed, boost: boostFallback };
     });
   }
@@ -877,7 +877,7 @@ function buildVectorField(){
           var o = omSources[oi];
           var dx = cx-o.x, dy = cy-o.y, d2 = dx*dx+dy*dy;
           if (d2 < 900) d2 = 900;
-          var w = (1.0/d2) * (o.boost || 1.0); sumU+=o.u*w; sumV+=o.v*w; sumW+=w; // fix v1.6.62: boost grid_rules
+          var w = (1.0/d2) * (o.boost || 1.0); sumU+=o.u*w; sumV+=o.v*w; sumW+=w; // fix v1.6.63: boost grid_rules
         }
       } else if (mode === 'nau'){
         var hasPrimary = false;
@@ -893,7 +893,7 @@ function buildVectorField(){
             var o2 = omSources[oi2];
             var dx3 = cx-o2.x, dy3 = cy-o2.y, d3 = dx3*dx3+dy3*dy3;
             if (d3 < 900) d3 = 900;
-            var ow = (1.0/d3) * (o2.boost || 1.0); sumU+=o2.u*ow; sumV+=o2.v*ow; sumW+=ow; // fix v1.6.62: boost grid_rules
+            var ow = (1.0/d3) * (o2.boost || 1.0); sumU+=o2.u*ow; sumV+=o2.v*ow; sumW+=ow; // fix v1.6.63: boost grid_rules
           }
         }
       } else {
@@ -907,7 +907,7 @@ function buildVectorField(){
           var oa = omSources[oia];
           var dxa = cx-oa.x, dya = cy-oa.y, d2a = dxa*dxa+dya*dya;
           if (d2a < 900) d2a = 900;
-          var wa = (1.0/d2a) * (oa.boost || 1.0); sumU+=oa.u*wa; sumV+=oa.v*wa; sumW+=wa; // fix v1.6.62: boost grid_rules
+          var wa = (1.0/d2a) * (oa.boost || 1.0); sumU+=oa.u*wa; sumV+=oa.v*wa; sumW+=wa; // fix v1.6.63: boost grid_rules
         }
       }
 
@@ -1150,7 +1150,7 @@ function activeGrid(){
 var oiEnabled = false;
 var OI_MAX_DIST_KM = 60;
 var OI_MIN_STATIONS = 2;
-// fix v1.6.62: boost peso nel flusso animato per celle con grid_rule attiva.
+// fix v1.6.63: boost peso nel flusso animato per celle con grid_rule attiva.
 // Senza questo, buildVectorField interpola su area ampia mescolando la cella
 // corretta con le molte celle OM vicine non corrette, diluendo la correzione
 // puntuale nel flusso visuale (dato puntuale/popup restano corretti, solo il
@@ -1272,8 +1272,22 @@ function applyOI(gridData, stationData){
   });
   if (validStations.length === 0) return gridData;
 
+  // Tetto di fiducia manuale (v1.6.63 - 2026-07-03): NON è la reliability MAE
+  // rimossa in precedenza (quella puniva chi divergeva da OM, sbagliato). Questo
+  // è un giudizio esplicito e documentato di M, verificato di persona confrontando
+  // con Livornometeo/Capraiameteo (fonti migliori ma non più accessibili, a
+  // pagamento su shipinfo.it dal maggio 2026): livorno_cfr e capraia_cfr sono
+  // meno rappresentative delle rispettive zone. Il tetto limita l'influenza
+  // massima raggiungibile, indipendentemente dalla distanza — anche a 0km il
+  // peso non supera il valore indicato. Rimuovere la voce se in futuro si
+  // recupera l'accesso a fonti migliori o si verifica che il sensore è cambiato.
+  var STATION_TRUST_CAP = {
+    'livorno_cfr': 0.5,
+    'capraia_cfr': 0.5
+  };
+
   // Peso stazione: 1.0 a 0km, 0.0 a OI_MAX_DIST_KM — decadimento quadratico
-  // fix v1.6.62 - 2026-07-03: entro OI_LOCAL_DOMINANCE_KM il peso non scende mai
+  // fix v1.6.63 - 2026-07-03: entro OI_LOCAL_DOMINANCE_KM il peso non scende mai
   // sotto un pavimento alto (1.0 -> 0.8 lineare), indipendentemente dal decadimento
   // quadratico. Prima, anche una stazione a 10-15km dalla propria cella di zona
   // (la situazione più comune, dato che la griglia è fissa a 0.25°=~25km e le
@@ -1282,15 +1296,22 @@ function applyOI(gridData, stationData){
   // col suo dato reale, a meno di una grid_rule scritta a mano. Ora ogni stazione
   // di zona comanda quasi totalmente la propria area ravvicinata di default.
   var OI_LOCAL_DOMINANCE_KM = 15;
-  function stationWeight(distKm) {
-    if (distKm <= 0) return 1.0;
+  function stationWeight(distKm, stationKey) {
     if (distKm >= OI_MAX_DIST_KM) return 0.0;
-    var base = Math.pow(1 - distKm / OI_MAX_DIST_KM, 2);
-    if (distKm <= OI_LOCAL_DOMINANCE_KM) {
-      var localFloor = 1.0 - (distKm / OI_LOCAL_DOMINANCE_KM) * 0.2; // 1.0 a 0km -> 0.8 a 15km
-      return Math.max(base, localFloor);
+    var w;
+    if (distKm <= 0) {
+      w = 1.0;
+    } else {
+      var base = Math.pow(1 - distKm / OI_MAX_DIST_KM, 2);
+      if (distKm <= OI_LOCAL_DOMINANCE_KM) {
+        var localFloor = 1.0 - (distKm / OI_LOCAL_DOMINANCE_KM) * 0.2; // 1.0 a 0km -> 0.8 a 15km
+        w = Math.max(base, localFloor);
+      } else {
+        w = base;
+      }
     }
-    return base;
+    var cap = STATION_TRUST_CAP[stationKey];
+    return (cap !== undefined) ? Math.min(w, cap) : w;
   }
 
   return gridData.map(function(pt){
@@ -1324,7 +1345,7 @@ function applyOI(gridData, stationData){
       // penalizzava proprio le stazioni che divergono di piu' da OM, cioe' quelle
       // con l'effetto orografico locale piu' forte e piu' vero). Nella vista diretta
       // il dato di stazione e' sempre vero: il peso e' solo funzione della distanza.
-      var w = stationWeight(d);
+      var w = stationWeight(d, st.key);
       if (w > 0) contributions.push({ st: st, d: d, w: w });
     });
 
@@ -2002,7 +2023,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.6.62
+// Fine codice - NAUTILUS MAPPA v1.6.63
 </script>
 <!-- Pannello inserimento osservazione manuale -->
 <div id="obs-panel">

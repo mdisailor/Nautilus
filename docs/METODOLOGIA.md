@@ -319,6 +319,12 @@ Non è un difetto del fix — è un limite di affidabilità del dato sorgente ch
 
 ---
 
+## OI v2.3 — Boost flusso per grid_rules (2026-07-01)
+
+Il flusso animato non rispecchiava le grid_rules — interpolava mescolando celle corrette con celle OM circostanti non corrette, diluendo visivamente. Fix: celle con `grid_rule` ricevono boost FLOW_GRIDRULE_BOOST = 15 nell'IDW, decadimento naturale 1/d². Effetto locale, la cella domina il flusso vicino.
+
+---
+
 ## OI v2.2 — Guard NaN (2026-07-01)
 
 ### Bug identificato

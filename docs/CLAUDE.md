@@ -1,14 +1,23 @@
 # NAUTILUS — Contesto Sessione (CLAUDE.md)
 
 
-## PUNTO DI RIPRESA — 2026-07-01 (sera)
+## PUNTO DI RIPRESA — 2026-07-01 (fine sessione, v1.6.56)
 
-**Versioni in produzione**: engine v2.13.42, mappa v1.6.55
+**Versioni in produzione**: engine v2.13.42, mappa v1.6.56
 
-**Sessione di oggi — riepilogo:**
+**Sessione di oggi (2026-07-01) — riepilogo completo:**
+
 1. **Bug direzione OI risolto (mappa v1.6.54)** — `applyOI` calcolava la direzione pesando i vettori U/V per `speed × peso` invece di solo `peso`. Effetto: stazioni con vento debole perdevano il controllo della direzione anche con `min_weight` alto (la cella tornava vicina alla direzione OM nonostante la grid_rule). Fix: vettori normalizzati a modulo 1 prima di applicare il peso. Verificato su cella 43.75_10.15 (Viareggio) con script di confronto old/new in console — comportamento confermato coerente su tutte le 10 grid_rules attive, nessuna regressione.
+
 2. **Bug NaN frecce/flusso risolto (mappa v1.6.55)** — un punto griglia con `dir`/`speed` NaN (dato OM temporaneamente mancante) causava: (a) freccia visualizzata come orientata a nord invece di non essere disegnata (`ctx.rotate(NaN)` è no-op silenzioso); (b) contaminazione per contagio di **tutto** il campo del flusso animato vicino, perché NaN si propaga nella somma pesata IDW senza cutoff di raggio. Fix: guard `isNaN` aggiunti in `drawArrow` e in tutte le sorgenti di `buildVectorField` (grid, fallback zoom-alto, zone, stazioni). Confermato via export XLS: 399/399 celle con OM valido hanno anche OI valido, nessun NaN residuo.
-3. **Verificato NON essere un bug**: il sospetto originale "Bocca d'Arno — grid_rule assegna viareggio_cfr ma OI usa ancora bocca_arno_cfr" — il filtro `allowed_stations` funziona correttamente (confermato via console log `grid_rule cellKey: X stazioni → Y dopo filtro` su tutte le 10 celle). Il sospetto nasceva da confusione tra il marker zona "Bocca d'Arno" (43.680/10.270, gestito da `bias_station` in engine.js, sistema indipendente) e la cella griglia OI 43.75_10.15 (~12km di distanza, gestita da grid_rules) — due punti diversi sulla mappa.
+
+3. **Coerenza flusso/grid_rules risolto (mappa v1.6.56)** — il flusso animato (`buildVectorField`) non rispecchiava le grid_rules puntuali: interpolava su un raggio ampio mescolando celle corrette con molte celle OM circostanti non corrette, diluendo visualmente la correzione puntuale. Esempio: San Vincenzo griglia mostra N (corretto), ma il flusso intorno andava Ovest→Est (OM grezzo). Fix: celle con `grid_rule` attiva ricevono un **boost di peso = 15** nell'interpolazione IDW del flusso, facendo domina localmente la cella corretta mentre il boost decade naturalmente con 1/d² allontanandosi. Testato su San Vincenzo — il flusso ora segue fedelmente la direzione della griglia corretta. **Punto 3.10 della ROADMAP: RISOLTO**.
+
+4. **Verificato NON essere un bug**: il sospetto originale "Bocca d'Arno — grid_rule assegna viareggio_cfr ma OI usa ancora bocca_arno_cfr" — il filtro `allowed_stations` funziona correttamente (confermato via console log `grid_rule cellKey: X stazioni → Y dopo filtro` su tutte le 10 celle). Il sospetto nasceva da confusione tra il marker zona "Bocca d'Arno" (43.680/10.270, gestito da `bias_station` in engine.js, sistema indipendente) e la cella griglia OI 43.75_10.15 (~12km di distanza, gestita da grid_rules) — due punti diversi sulla mappa.
+
+5. **Esclusione canale_piombino da San Vincenzo: non necessaria** — con il fix v1.6.56 della coerenza flusso/grid_rules, il problema percepito (canale_piombino "inquinava" il flusso intorno a San Vincenzo) è risolto. Scartato per non aggiungere regole non essenziali.
+
+6. **Punta Ala e NetSens: scartati** — la stazione NetSens individuata (`https://mobile.netsens.it/sensors.php?gw=44`) ha i dati dietro JavaScript + Base64, scrapabile ma con complessità aggiunta. Dato che il vento è cambiato e non è più riproducibile la situazione originale che segnalava il problema, rinviato a quando avremo bisogno specifico di coprire Punta Ala con previsioni AI.
 
 **Nuovo problema identificato, NON ancora risolto (in osservazione)**:
 Direzione instabile su celle con stazione a vento molto debole (<2kn) — **classe di problema**, non un bug puntuale. Il fix del punto 1 è matematicamente corretto (la direzione segue il peso nominale), ma quando la stazione ha vento quasi calmo la sua lettura di direzione è intrinsecamente rumorosa (banderuola non deflessa). Con `min_weight` alto, questo rumore comanda quasi tutta la cella. Casi osservati:
@@ -79,7 +88,7 @@ https://raw.githubusercontent.com/mdisailor/Nautilus/refs/heads/main/mappa.html
 |---|---|---|
 | `api/engine.js` | v2.13.42 | Engine principale, tutte le action |
 | `public/index.html` | v5.7.27 | App principale (meteo, engine, bias) |
-| `public/mappa.html` | v1.6.55 | Mappa vento con stazioni e griglia. Fix direzione OI (v1.6.54) + fix NaN frecce/flusso (v1.6.55), 2026-07-01 |
+| `public/mappa.html` | v1.6.56 | Mappa vento. Fix direzione OI (v1.6.54) + fix NaN (v1.6.55) + boost flusso/grid_rules (v1.6.56), 2026-07-01 |
 | `public/stats.html` | v1.18 | Accuratezza previsioni AI |
 | `public/mae.html` | v1.10 | Comparazione MAE OM vs AROME + osservazioni manuali |
 | `public/score.html` | v1.6 | Cruscotto model score per condizione (strumento validazione temporaneo) |

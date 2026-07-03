@@ -59,7 +59,7 @@ Aggiornato: 2026-07-01 (sera)
 | 3.7 | Validazione griglia vs stazioni reali | 🔄 | In corso — 10 grid_rules attive e verificate coerenti (2026-07-01). Emerso pattern: direzione instabile su stazioni a vento <2kn (Viareggio, Populonia), soglia minima da tarare con più casi |
 | 3.8 | Guard NaN su frecce/campo vettoriale | ✅ | mappa v1.6.55 (2026-07-01) — punto griglia con dir/speed NaN causava frecce fantasma orientate a nord e contaminazione per contagio del flusso animato vicino |
 | 3.9 | Soglia minima vento per peso direzione OI | ❓ | Proposta ma rinviata — attendere più casi (Viareggio, Populonia già osservati) prima di tarare la soglia. Riferimento: soglia rotationMinWind=5 già usata in engine.js per lo stesso motivo |
-| 3.10 | Coerenza flusso animato con grid_rules | 🔒 | Il flusso interpola su area ampia, diluendo le correzioni puntuali delle celle con grid_rules. Da trattare insieme a 5.1 (mappa animata + evoluzione temporale), non come fix isolato |
+| 3.10 | Coerenza flusso animato con grid_rules | ✅ | mappa v1.6.56 — boost peso 15 per celle con grid_rule nella IDW, decadimento naturale 1/d². Caso test San Vincenzo (N vs Ovest-Est): risolto |
 
 ---
 

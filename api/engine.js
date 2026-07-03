@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.42 - by mdisailor engine
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.43 - by mdisailor engine - fix coordinate stazioni + grid_rules Bocca Arno
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
@@ -214,7 +214,7 @@ bocche_bonifacio: { desc: 'Effetto Venturi Bocche di Bonifacio', active_wind_dir
 }
 },
 gorgona: {
-enabled: true, name: 'Gorgona', lat: 43.433, lon: 9.883, bias_station: 'gorgona_cfr',
+enabled: true, name: 'Gorgona', lat: 43.429512, lon: 9.900141, bias_station: 'gorgona_cfr',
 ports: { gorgona: { name: 'Gorgona', exposure: 'W', shelter: 'low', swell_threshold: 0.6 } },
 local_effects: { esposizione: { desc: 'Isola esposta', active_wind_dirs: [0,360], note: 'Isola isolata - vento e onda amplificati rispetto alla costa' } }
 },
@@ -267,7 +267,7 @@ ports: { casotto: { name: 'Marina di Grosseto', exposure: 'W', shelter: 'low', s
 local_effects: { diaccia: { desc: 'Zona Diaccia Botrona', active_wind_dirs: [0,360], note: 'Costa del parco - area esposta con correnti lagunari' } }
 },
 venturina: {
-enabled: true, name: 'Venturina - Val di Cornia', lat: 42.985, lon: 10.620, bias_station: 'venturina',
+enabled: true, name: 'Venturina - Val di Cornia', lat: 43.025308, lon: 10.603566, bias_station: 'venturina',
 ports: { venturina: { name: 'Punta Ala area', exposure: 'W', shelter: 'medium', swell_threshold: 1.0 } },
 local_effects: { canale_piombino_s: { desc: 'Influenza canale Piombino', active_wind_dirs: [270,360], note: 'Zona di transizione tra canale Piombino e golfo Follonica' } }
 },
@@ -1944,7 +1944,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.42', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.43', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -1990,16 +1990,16 @@ if (action === 'stations_snapshot') {
       { id:'alberese',         lat:42.671, lon:11.107 },
       { id:'luri',             lat:42.982, lon:9.389  },
       { id:'barcaggio',        lat:43.006, lon:9.405  },
-      { id:'gorgona_cfr',      lat:43.433, lon:9.883  },
+      { id:'gorgona_cfr',      lat:43.429512, lon:9.900141  },
       { id:'capraia_cfr',      lat:43.050, lon:9.838  },
-      { id:'giglio_porto',     lat:42.363, lon:10.910 },
-      { id:'giglio_castello',  lat:42.364, lon:10.920 },
+      { id:'giglio_porto',     lat:42.361401, lon:10.921193 },
+      { id:'giglio_castello',  lat:42.366456, lon:10.900401 },
       { id:'montecristo',      lat:42.335, lon:10.311 },
       { id:'portoferraio_cfr', lat:42.816, lon:10.328 },
       { id:'orbetello',        lat:42.441, lon:11.216 },
       { id:'svincenzo_porto',  lat:43.098, lon:10.537 },
       { id:'casotto_pescatori',lat:42.647, lon:11.081 },
-      { id:'venturina',        lat:43.013, lon:10.580 },
+      { id:'venturina',        lat:43.025308, lon:10.603566 },
       { id:'forte_dei_marmi',  lat:43.963, lon:10.168 },
       { id:'forte_marmi_cfr',  lat:43.962, lon:10.168 },
       { id:'lido_camaiore',    lat:43.913, lon:10.214 },
@@ -2064,15 +2064,15 @@ if (action === 'station_refresh') {
       viareggio:       { lat: 43.870, lon: 10.230, api: false, url: 'https://www.meteonetwork.eu/it/weather-station/tsc508-stazione-meteorologica-di-viareggio-lungomare' },
       livorno_cfr:     { lat: 43.546, lon: 10.300, api: false, cfr: 'TOS01005981' },
       viareggio_cfr:   { lat: 43.875, lon: 10.236, api: false, cfr: 'TOS03000481' },
-      populonia_cfr:   { lat: 42.992, lon: 10.640, api: false, cfr: 'TOS03002300' },
+      populonia_cfr:   { lat: 42.987731, lon: 10.537734, api: false, cfr: 'TOS03002300' },
       bocca_arno:      { lat: 43.680, lon: 10.270, api: false, url: 'https://www.meteonetwork.eu/it/weather-station/tsc431-stazione-meteorologica-di-bocca-darno' },
       capraia_w:       { lat: 43.053, lon: 9.838,  api: false, url: 'https://www.meteonetwork.eu/it/weather-station/tsc578-stazione-meteorologica-di-capraia-isola' },
-      populonia:       { lat: 42.992, lon: 10.640, api: false, url: 'https://www.meteonetwork.eu/it/weather-station/tsc539-stazione-meteorologica-di-populonia' },
+      populonia:       { lat: 42.987731, lon: 10.537734, api: false, url: 'https://www.meteonetwork.eu/it/weather-station/tsc539-stazione-meteorologica-di-populonia' },
       portoferraio:    { lat: 42.813, lon: 10.368, api: false, url: 'https://www.meteonetwork.eu/it/weather-station/tsc621-stazione-meteorologica-di-portoferraio' },
       alberese:        { lat: 42.671, lon: 11.107, api: false, url: 'https://www.meteonetwork.eu/it/weather-station/tsc712-stazione-meteorologica-di-alberese' },
       luri:            { lat: 42.982, lon: 9.389,  api: false, url: 'https://www.meteonetwork.eu/it/weather-station/fr0370-stazione-meteorologica-di-luri' },
       // CFR Toscana - fetch pagina monitoraggio
-      gorgona_cfr:       { lat: 43.433, lon: 9.883,  api: false, cfr: 'TOS11000107' },
+      gorgona_cfr:       { lat: 43.429512, lon: 9.900141,  api: false, cfr: 'TOS11000107' },
       capraia_cfr:       { lat: 43.050, lon: 9.838,  api: false, cfr: 'TOS03003145' },
       giglio_porto:      { lat: 42.363, lon: 10.910, api: false, cfr: 'TOS03006000' },
       giglio_castello:   { lat: 42.364, lon: 10.920, api: false, cfr: 'TOS03003269' },
@@ -2081,7 +2081,7 @@ if (action === 'station_refresh') {
       orbetello:         { lat: 42.441, lon: 11.216, api: false, cfr: 'TOS11000508' },
       svincenzo_porto:   { lat: 43.098, lon: 10.537, api: false, cfr: 'TOS03002283' },
       casotto_pescatori: { lat: 42.637, lon: 11.090, api: false, cfr: 'TOS11000013' },
-      venturina:         { lat: 42.985, lon: 10.620, api: false, cfr: 'TOS11000004' },
+      venturina:         { lat: 43.025308, lon: 10.603566, api: false, cfr: 'TOS11000004' },
       forte_dei_marmi:   { lat: 43.963, lon: 10.174, api: false, cfr: 'TOS02004055' },
       lido_camaiore:     { lat: 43.871, lon: 10.262, api: false, cfr: 'TOS11000011' },
       bocca_arno_cfr:    { lat: 43.680, lon: 10.270, api: false, cfr: 'TOS01005251' },
@@ -2212,22 +2212,22 @@ if (action === 'scrape_cfr') {
   try {
     // CFR stazioni di interesse con coordinate WGS84
     var CFR_STATIONS = [
-      { id:'gorgona_cfr',       cfr:'TOS11000107', name:'Gorgona',           lat:43.433, lon:9.883,  quota:230 },
+      { id:'gorgona_cfr',       cfr:'TOS11000107', name:'Gorgona',           lat:43.429512, lon:9.900141,  quota:230 },
       { id:'capraia_cfr',       cfr:'TOS03003145', name:'Capraia Isola',     lat:43.050, lon:9.838,  quota:274 },
-      { id:'giglio_porto',      cfr:'TOS03006000', name:'Giglio Porto',      lat:42.363, lon:10.910, quota:0   },
-      { id:'giglio_castello',   cfr:'TOS03003269', name:'Giglio Castello',   lat:42.364, lon:10.902, quota:470 },
+      { id:'giglio_porto',      cfr:'TOS03006000', name:'Giglio Porto',      lat:42.361401, lon:10.921193, quota:0   },
+      { id:'giglio_castello',   cfr:'TOS03003269', name:'Giglio Castello',   lat:42.366456, lon:10.900401, quota:470 },
       { id:'montecristo',       cfr:'TOS03003267', name:'Montecristo',       lat:42.335, lon:10.311, quota:85  },
       { id:'portoferraio_cfr',  cfr:'TOS11000012', name:'Portoferraio CFR',  lat:42.816, lon:10.328, quota:10  },
       { id:'orbetello',         cfr:'TOS11000508', name:'Orbetello',         lat:42.441, lon:11.216, quota:0   },
       { id:'svincenzo_porto',   cfr:'TOS03002283', name:'S.Vincenzo Porto',  lat:43.098, lon:10.537, quota:1   },
       { id:'casotto_pescatori', cfr:'TOS11000013', name:'Foce Ombrone',       lat:42.637, lon:11.090, quota:2   },
-      { id:'venturina',         cfr:'TOS11000004', name:'Venturina',         lat:42.985, lon:10.620, quota:8   },
+      { id:'venturina',         cfr:'TOS11000004', name:'Venturina',         lat:43.025308, lon:10.603566, quota:8   },
       { id:'forte_dei_marmi',   cfr:'TOS02004055', name:'Forte dei Marmi',   lat:43.963, lon:10.174, quota:0   },
       { id:'lido_camaiore',     cfr:'TOS11000011', name:'Lido di Camaiore',  lat:43.871, lon:10.262, quota:1   },
       { id:'livorno_cfr',       cfr:'TOS01005981', name:'Livorno Mareografo', lat:43.546, lon:10.300, quota:2   },
       { id:'bocca_arno_cfr',    cfr:'TOS01005251', name:'Bocca d Arno CFR',  lat:43.680, lon:10.270, quota:1   },
       { id:'viareggio_cfr',     cfr:'TOS03000481', name:'Viareggio CFR',     lat:43.870, lon:10.230, quota:2   },
-      { id:'populonia_cfr',     cfr:'TOS03002300', name:'Populonia CFR',     lat:42.992, lon:10.640, quota:164 },
+      { id:'populonia_cfr',     cfr:'TOS03002300', name:'Populonia CFR',     lat:42.987731, lon:10.537734, quota:164 },
       { id:'follonica',         cfr:'TOS03002459', name:'Follonica',          lat:42.919, lon:10.765, quota:15  },
       { id:'capalbio',          cfr:'TOS11000006', name:'Capalbio',           lat:42.459, lon:11.269, quota:12  },
     ];
@@ -2386,7 +2386,7 @@ if (action === 'scrape_web') {
       { id: 'viareggio',    name: 'Viareggio',      url: 'https://www.meteonetwork.eu/it/weather-station/tsc508-stazione-meteorologica-di-viareggio-lungomare', lat: 43.870, lon: 10.230 },
       { id: 'bocca_arno',   name: 'Bocca d Arno',   url: 'https://www.meteonetwork.eu/it/weather-station/tsc431-stazione-meteorologica-di-bocca-darno',          lat: 43.680, lon: 10.270 },
       { id: 'capraia_w',    name: 'Capraia Monte',  url: 'https://www.meteonetwork.eu/it/weather-station/tsc578-stazione-meteorologica-di-capraia-isola',         lat: 43.053, lon: 9.838  },
-      { id: 'populonia',    name: 'Populonia',       url: 'https://www.meteonetwork.eu/it/weather-station/tsc539-stazione-meteorologica-di-populonia',             lat: 42.992, lon: 10.640 },
+      { id: 'populonia',    name: 'Populonia',       url: 'https://www.meteonetwork.eu/it/weather-station/tsc539-stazione-meteorologica-di-populonia',             lat: 42.987731, lon: 10.537734 },
       { id: 'portoferraio', name: 'Portoferraio',    url: 'https://www.meteonetwork.eu/it/weather-station/tsc621-stazione-meteorologica-di-portoferraio',          lat: 42.813, lon: 10.368 },
       { id: 'alberese',     name: 'Alberese',        url: 'https://www.meteonetwork.eu/it/weather-station/tsc712-stazione-meteorologica-di-alberese',              lat: 42.671, lon: 11.107 },
       { id: 'luri',         name: 'Luri (Corsica)',  url: 'https://www.meteonetwork.eu/it/weather-station/fr0370-stazione-meteorologica-di-luri',                  lat: 42.982, lon: 9.389  }
@@ -5155,14 +5155,14 @@ if (action === 'grid_rules_init') {
         reason: 'Populonia interna, risente del territorio — stazione comanda'
       },
       '43.75_10.15': {
-        allowed_stations: ['viareggio_cfr'],
+        allowed_stations: ['viareggio_cfr', 'bocca_arno_cfr'],
         min_weight: 0.8,
-        reason: 'Viareggio CFR comanda sulla costa, esclude Forte dei Marmi'
+        reason: 'Viareggio+Bocca Arno comandano sulla costa, esclude Forte dei Marmi (agg. 03/07)'
       },
       '44.00_10.15': {
-        allowed_stations: ['viareggio_cfr'],
+        allowed_stations: ['viareggio_cfr', 'bocca_arno_cfr'],
         min_weight: 0.8,
-        reason: 'Viareggio CFR comanda, zona nord costa'
+        reason: 'Viareggio+Bocca Arno comandano, zona nord costa (agg. 03/07)'
       },
       '43.50_9.90': {
         allowed_stations: ['gorgona_cfr'],
@@ -5438,7 +5438,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.42 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.43 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -5565,4 +5565,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.42
+// Fine codice - NAUTILUS ENGINE v2.13.43

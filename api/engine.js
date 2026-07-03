@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.44  - by mdisailor engine - fix regola Populonia/Venturina dopo coordinate
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.45 - by mdisailor engine - aggiunte zone Lido Camaiore/Giglio Castello/Quercianella + bias_station in action=zones
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
@@ -260,6 +260,21 @@ forte_marmi: {
 enabled: true, name: 'Forte dei Marmi - Versilia N', lat: 43.963, lon: 10.174, bias_station: 'forte_dei_marmi',
 ports: { forte_marmi: { name: 'Forte dei Marmi', exposure: 'W', shelter: 'low', swell_threshold: 1.0 } },
 local_effects: { apuane: { desc: 'Effetto Alpi Apuane', active_wind_dirs: [30,90], note: 'Tramontana accelerata a valle delle Apuane' } }
+},
+lido_camaiore: {
+enabled: true, name: 'Lido di Camaiore', lat: 43.898, lon: 10.228, bias_station: 'lido_camaiore',
+ports: { lido_camaiore: { name: 'Lido di Camaiore', exposure: 'W', shelter: 'low', swell_threshold: 1.0 } },
+local_effects: { }
+},
+giglio_castello: {
+enabled: true, name: 'Giglio Castello (quota)', lat: 42.366456, lon: 10.900401, bias_station: 'giglio_castello',
+ports: { giglio_castello: { name: 'Giglio Castello', exposure: 'ALL', shelter: 'medium', swell_threshold: 1.0 } },
+local_effects: { }
+},
+quercianella: {
+enabled: true, name: 'Quercianella', lat: 43.465, lon: 10.347, bias_station: 'livorno',
+ports: { quercianella: { name: 'Quercianella', exposure: 'SW', shelter: 'medium', swell_threshold: 1.0 } },
+local_effects: { }
 },
 casotto_gr: {
 enabled: true, name: 'Casotto P. - Marina di Grosseto', lat: 42.740, lon: 11.040, bias_station: 'casotto_pescatori',
@@ -1944,7 +1959,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.44', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.45', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -5415,7 +5430,7 @@ if (action === 'zones') {
 var list = Object.keys(ZONES).filter(function(k) {
 return ZONES[k].enabled !== false;
 }).map(function(k) {
-return { key: k, name: ZONES[k].name, lat: ZONES[k].lat, lon: ZONES[k].lon, ports: Object.keys(ZONES[k].ports).length };
+return { key: k, name: ZONES[k].name, lat: ZONES[k].lat, lon: ZONES[k].lon, bias_station: ZONES[k].bias_station || null, ports: Object.keys(ZONES[k].ports).length };
 });
 return res.status(200).json({ zones: list });
 }
@@ -5438,7 +5453,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.44 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.45 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -5565,4 +5580,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.44
+// Fine codice - NAUTILUS ENGINE v2.13.45

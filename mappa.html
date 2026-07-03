@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.6.59 - mdisailor - 2026-07-03 - rimossa reliability MAE da vista diretta, solo peso-distanza -->
+<!-- NAUTILUS MAPPA v1.6.60 - mdisailor - 2026-07-03 - matrice a zone: ogni cella assegnata a una sola zona/stazione, grid_rules come override -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.6.59</title>
+<title>NAUTILUS Mappa Vento v1.6.60</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -237,7 +237,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.6.59</span>
+    <span id="nav-ver">mappa v1.6.60</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -303,11 +303,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.6.59 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.6.60 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.6.59
+// NAUTILUS MAPPA v1.6.60
 
 var ENGINE_URL = '/api/engine';
 
@@ -808,7 +808,7 @@ function buildVectorField(){
         pt.speed === null || pt.speed === undefined || isNaN(pt.speed)) return; // fix v1.6.55: NaN si propaga per contagio a tutta la somma pesata del campo
     var rad = pt.dir * Math.PI / 180;
     var cellKeyFlow = pt.lat.toFixed(2) + '_' + pt.lon.toFixed(2);
-    var boostFlow = (oiEnabled && state_gridRules[cellKeyFlow]) ? FLOW_GRIDRULE_BOOST : 1.0; // fix v1.6.59
+    var boostFlow = (oiEnabled && state_gridRules[cellKeyFlow]) ? FLOW_GRIDRULE_BOOST : 1.0; // fix v1.6.60
     omSources.push({ x:px.x, y:px.y, u: -Math.sin(rad)*pt.speed, v: Math.cos(rad)*pt.speed, boost: boostFlow });
   });
   // Fallback: a zoom alto il passo griglia (0.25°) può cadere fuori da qualsiasi viewport piccolo.
@@ -829,7 +829,7 @@ function buildVectorField(){
       var px = map.latLngToContainerPoint([item.pt.lat, item.pt.lon]);
       var rad = item.pt.dir * Math.PI / 180;
       var cellKeyFallback = item.pt.lat.toFixed(2) + '_' + item.pt.lon.toFixed(2);
-      var boostFallback = (oiEnabled && state_gridRules[cellKeyFallback]) ? FLOW_GRIDRULE_BOOST : 1.0; // fix v1.6.59
+      var boostFallback = (oiEnabled && state_gridRules[cellKeyFallback]) ? FLOW_GRIDRULE_BOOST : 1.0; // fix v1.6.60
       return { x:px.x, y:px.y, u: -Math.sin(rad)*item.pt.speed, v: Math.cos(rad)*item.pt.speed, boost: boostFallback };
     });
   }
@@ -872,7 +872,7 @@ function buildVectorField(){
           var o = omSources[oi];
           var dx = cx-o.x, dy = cy-o.y, d2 = dx*dx+dy*dy;
           if (d2 < 900) d2 = 900;
-          var w = (1.0/d2) * (o.boost || 1.0); sumU+=o.u*w; sumV+=o.v*w; sumW+=w; // fix v1.6.59: boost grid_rules
+          var w = (1.0/d2) * (o.boost || 1.0); sumU+=o.u*w; sumV+=o.v*w; sumW+=w; // fix v1.6.60: boost grid_rules
         }
       } else if (mode === 'nau'){
         var hasPrimary = false;
@@ -888,7 +888,7 @@ function buildVectorField(){
             var o2 = omSources[oi2];
             var dx3 = cx-o2.x, dy3 = cy-o2.y, d3 = dx3*dx3+dy3*dy3;
             if (d3 < 900) d3 = 900;
-            var ow = (1.0/d3) * (o2.boost || 1.0); sumU+=o2.u*ow; sumV+=o2.v*ow; sumW+=ow; // fix v1.6.59: boost grid_rules
+            var ow = (1.0/d3) * (o2.boost || 1.0); sumU+=o2.u*ow; sumV+=o2.v*ow; sumW+=ow; // fix v1.6.60: boost grid_rules
           }
         }
       } else {
@@ -902,7 +902,7 @@ function buildVectorField(){
           var oa = omSources[oia];
           var dxa = cx-oa.x, dya = cy-oa.y, d2a = dxa*dxa+dya*dya;
           if (d2a < 900) d2a = 900;
-          var wa = (1.0/d2a) * (oa.boost || 1.0); sumU+=oa.u*wa; sumV+=oa.v*wa; sumW+=wa; // fix v1.6.59: boost grid_rules
+          var wa = (1.0/d2a) * (oa.boost || 1.0); sumU+=oa.u*wa; sumV+=oa.v*wa; sumW+=wa; // fix v1.6.60: boost grid_rules
         }
       }
 
@@ -1145,7 +1145,7 @@ function activeGrid(){
 var oiEnabled = false;
 var OI_MAX_DIST_KM = 60;
 var OI_MIN_STATIONS = 2;
-// fix v1.6.59: boost peso nel flusso animato per celle con grid_rule attiva.
+// fix v1.6.60: boost peso nel flusso animato per celle con grid_rule attiva.
 // Senza questo, buildVectorField interpola su area ampia mescolando la cella
 // corretta con le molte celle OM vicine non corrette, diluendo la correzione
 // puntuale nel flusso visuale (dato puntuale/popup restano corretti, solo il
@@ -1165,6 +1165,31 @@ async function fetchGridRules(){
     state_gridRules = d.rules || {};
     console.log('grid_rules caricati:', Object.keys(state_gridRules).length, 'celle');
   } catch(e){ console.warn('grid_rules fetch error:', e.message); }
+}
+
+// Matrice a zone (v2.0 - 2026-07-03): fonte unica di verita' per l'assegnazione
+// cella->stazione, letta da ZONES lato server (action=zones) invece di duplicare
+// centri/coordinate qui in mappa.html.
+var ZONE_MATRIX = []; // [{key, name, lat, lon, bias_station}]
+
+async function fetchZoneMatrix(){
+  try {
+    var r = await fetch(ENGINE_URL + '?action=zones', {cache:'no-store'});
+    var d = await r.json();
+    ZONE_MATRIX = (d.zones || []).filter(function(z){ return z.bias_station; });
+    console.log('zone matrix caricata:', ZONE_MATRIX.length, 'zone con bias_station');
+  } catch(e){ console.warn('zone matrix fetch error:', e.message); }
+}
+
+// Trova la bias_station della zona con centro piu' vicino al punto di griglia
+function nearestZoneStation(lat, lon){
+  if (ZONE_MATRIX.length === 0) return null;
+  var best = null, bestD = Infinity;
+  ZONE_MATRIX.forEach(function(z){
+    var d = haversineKm(lat, lon, z.lat, z.lon);
+    if (d < bestD) { bestD = d; best = z; }
+  });
+  return best ? best.bias_station : null;
 }
 
 
@@ -1250,46 +1275,47 @@ function applyOI(gridData, stationData){
   }
 
   return gridData.map(function(pt){
-    // Trova stazioni entro il raggio con i loro pesi
+    // Matrice a zone (v2.0 - 2026-07-03): ogni cella appartiene a UNA sola zona,
+    // quella con centro piu' vicino tra le ZONES con bias_station configurata
+    // (nearestZoneStation, vedi fetchZoneMatrix). Di norma SOLO la stazione di
+    // quella zona puo' contribuire alla cella — questo evita la cancellazione
+    // vettoriale tra stazioni di zone diverse con direzioni opposte (es. Alberese/
+    // Casotto Pescatori) e le contaminazioni a lungo raggio (60km) viste con
+    // Barcaggio, Orbetello, Follonica ecc. Le grid_rules restano attive come
+    // override esplicito per i pochi casi noti dove servono piu' stazioni insieme
+    // (es. Populonia+Venturina, Viareggio+Bocca Arno) o per escluderne una
+    // (es. Follonica su 42.75_10.65).
+    var cellKey = pt.lat.toFixed(2) + '_' + pt.lon.toFixed(2);
+    var cellRules = state_gridRules[cellKey];
+    var defaultKey = nearestZoneStation(pt.lat, pt.lon);
+    var candidateKeys = defaultKey ? [defaultKey] : [];
+
+    if (cellRules && cellRules.allowed_stations && cellRules.allowed_stations.length > 0) {
+      candidateKeys = cellRules.allowed_stations.slice();
+    } else if (cellRules && cellRules.excluded_stations && cellRules.excluded_stations.length > 0) {
+      candidateKeys = candidateKeys.filter(function(k){ return cellRules.excluded_stations.indexOf(k) < 0; });
+    }
+
     var contributions = [];
     validStations.forEach(function(st){
+      if (candidateKeys.indexOf(st.key) < 0) return;
       var d = haversineKm(pt.lat, pt.lon, st.lat, st.lon);
       if (d > OI_MAX_DIST_KM) return;
       // fix 2026-07-03: rimossa reliability da bias_matrix (era 1/(1+MAE_vs_OM) —
       // penalizzava proprio le stazioni che divergono di piu' da OM, cioe' quelle
-      // con l'effetto orografico locale piu' forte e piu' vero, tipo San Vincenzo/
-      // Populonia/Venturina). Nella vista diretta il dato di stazione e' sempre vero:
-      // il peso e' solo funzione della distanza, nessuna correzione MAE/bias qui.
+      // con l'effetto orografico locale piu' forte e piu' vero). Nella vista diretta
+      // il dato di stazione e' sempre vero: il peso e' solo funzione della distanza.
       var w = stationWeight(d);
       if (w > 0) contributions.push({ st: st, d: d, w: w });
     });
 
+    if (contributions.length === 0) return pt; // Nessuna stazione di zona in raggio — OM puro
 
-    if (contributions.length === 0) return pt; // Nessuna stazione — OM puro
+    if (cellRules) console.log('grid_rule ' + cellKey + ': candidate =', candidateKeys, 'regola:', JSON.stringify(cellRules));
 
-    // Applica grid_rules per questa cella specifica
-    var cellKey = pt.lat.toFixed(2) + '_' + pt.lon.toFixed(2);
-    var cellRules = state_gridRules[cellKey];
-    if (cellRules) {
-      var beforeCount = contributions.length;
-      if (cellRules.allowed_stations && cellRules.allowed_stations.length > 0) {
-        contributions = contributions.filter(function(c){
-          return cellRules.allowed_stations.indexOf(c.st.key) >= 0;
-        });
-      } else if (cellRules.excluded_stations && cellRules.excluded_stations.length > 0) {
-        contributions = contributions.filter(function(c){
-          return cellRules.excluded_stations.indexOf(c.st.key) < 0;
-        });
-      }
-      console.log('grid_rule ' + cellKey + ': ' + beforeCount + ' stazioni → ' + contributions.length + ' dopo filtro, regola:', JSON.stringify(cellRules));
-    }
-
-    if (contributions.length === 0) return pt; // Nessuna stazione dopo filtro regole — OM puro
-
-    // Dominanza automatica per prossimità (v1.2 - 2026-07-03): la stazione
-    // nettamente più vicina non può essere annacquata da una più lontana con
-    // reliability più alta. Floor di peso calcolato dalla distanza reale,
-    // non da valori scritti a mano per singola cella (caso Bocca d'Arno/Viareggio).
+    // Dominanza automatica per prossimità (v1.2 - 2026-07-03): utile nei rari casi
+    // con 2+ stazioni candidate per regola esplicita — la piu' vicina delle due
+    // non puo' essere annacquata da quella piu' lontana.
     if (contributions.length > 1) {
       var closest = contributions.reduce(function(a,c){ return (!a || c.d < a.d) ? c : a; }, null);
       var others = contributions.filter(function(c){ return c !== closest; });
@@ -1377,7 +1403,7 @@ async function loadAll(){
   document.getElementById('btn-refresh').style.opacity = '0.4';
   setHud('load', 'Caricamento...');
   try {
-    await Promise.all([fetchZoneData(), fetchGridData(), fetchStationData(), fetchBiasMatrix(), fetchGridRules()]);
+    await Promise.all([fetchZoneData(), fetchGridData(), fetchStationData(), fetchBiasMatrix(), fetchGridRules(), fetchZoneMatrix()]);
     // Applica Optimal Interpolation se attiva
     state.gridDataOI = applyOI(state.gridData, state.stationData);
     updateZoneMarkers();
@@ -1957,7 +1983,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.6.59
+// Fine codice - NAUTILUS MAPPA v1.6.60
 </script>
 <!-- Pannello inserimento osservazione manuale -->
 <div id="obs-panel">

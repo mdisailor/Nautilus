@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.6.57 - mdisailor - 2026-07-03 - fix Bocca d'Arno/Viareggio dominanza per prossimita -->
+<!-- NAUTILUS MAPPA v1.6.58 - mdisailor - 2026-07-03 - fix coordinate stazioni (Populonia/Venturina/Gorgona/Giglio) anche in mappa.html -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.6.57</title>
+<title>NAUTILUS Mappa Vento v1.6.58</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -237,7 +237,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.6.57</span>
+    <span id="nav-ver">mappa v1.6.58</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -303,11 +303,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.6.57 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.6.58 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.6.57
+// NAUTILUS MAPPA v1.6.58
 
 var ENGINE_URL = '/api/engine';
 
@@ -338,7 +338,7 @@ var MNW_LIVE = [
   { key:'canale_piombino',  name:'Piombino',       lat:42.920,  lon:10.530, sid:'canale_piombino' },
   { key:'viareggio_cfr',    name:'Viareggio CFR',  lat:43.875,  lon:10.236, sid:'viareggio_cfr' },
   { key:'capraia_mnw',      name:'Capraia Monte',  lat:43.058,  lon:9.822,  sid:'capraia_w' },
-  { key:'populonia_cfr',    name:'Populonia CFR',   lat:42.990,  lon:10.618, sid:'populonia_cfr' },
+  { key:'populonia_cfr',    name:'Populonia CFR',   lat:42.987731, lon:10.537734, sid:'populonia_cfr' },
   { key:'portoferraio_mnw', name:'Portoferraio',    lat:42.813,  lon:10.368, sid:'portoferraio' },
   { key:'alberese_mnw',     name:'Alberese',        lat:42.638,  lon:11.078, sid:'alberese' },
   { key:'luri_mnw',         name:'Luri (Corsica)',  lat:42.818,  lon:9.441,  sid:'luri' },
@@ -346,16 +346,16 @@ var MNW_LIVE = [
   { key:'bonifacio_mnw',    name:'Cap Pertusato',   lat:41.3658036, lon:9.179423, sid:'bonifacio_pertusato' },
   { key:'vada_mnw',         name:'Vada',            lat:43.3550, lon:10.4280, sid:'vada' },
   // CFR Toscana
-  { key:'gorgona_cfr',      name:'Gorgona',         lat:43.433,  lon:9.883,  sid:'gorgona_cfr' },
+  { key:'gorgona_cfr',      name:'Gorgona',         lat:43.429512, lon:9.900141, sid:'gorgona_cfr' },
   { key:'capraia_cfr',      name:'Capraia Isola',   lat:43.050,  lon:9.838,  sid:'capraia_cfr' },
-  { key:'giglio_porto',     name:'Giglio Porto',    lat:42.363,  lon:10.910, sid:'giglio_porto' },
-  { key:'giglio_castello',  name:'Giglio Castello', lat:42.364,  lon:10.920, sid:'giglio_castello' },
+  { key:'giglio_porto',     name:'Giglio Porto',    lat:42.361401, lon:10.921193, sid:'giglio_porto' },
+  { key:'giglio_castello',  name:'Giglio Castello', lat:42.366456, lon:10.900401, sid:'giglio_castello' },
   { key:'montecristo',      name:'Montecristo',     lat:42.335,  lon:10.311, sid:'montecristo' },
   { key:'portoferraio_cfr', name:'Portof. CFR',     lat:42.816,  lon:10.328, sid:'portoferraio_cfr' },
   { key:'orbetello',        name:'Orbetello',       lat:42.441,  lon:11.216, sid:'orbetello' },
   { key:'svincenzo_porto',  name:'S.Vincenzo P.',   lat:43.098,  lon:10.537, sid:'svincenzo_porto' },
   { key:'casotto_pesc',     name:'Casotto P. (Marina GR)',lat:42.740,  lon:11.040, sid:'casotto_pescatori' },
-  { key:'venturina',        name:'Venturina',       lat:42.985,  lon:10.620, sid:'venturina' },
+  { key:'venturina',        name:'Venturina',       lat:43.025308, lon:10.603566, sid:'venturina' },
   { key:'forte_marmi',      name:'Forte dei Marmi', lat:43.963,  lon:10.174, sid:'forte_dei_marmi' },
   { key:'lido_camaiore',    name:'Lido Camaiore',   lat:43.898,  lon:10.228, sid:'lido_camaiore' },
   { key:'bocca_arno_cfr',   name:'Bocca Arno CFR',  lat:43.680,  lon:10.270, sid:'bocca_arno_cfr' },
@@ -808,7 +808,7 @@ function buildVectorField(){
         pt.speed === null || pt.speed === undefined || isNaN(pt.speed)) return; // fix v1.6.55: NaN si propaga per contagio a tutta la somma pesata del campo
     var rad = pt.dir * Math.PI / 180;
     var cellKeyFlow = pt.lat.toFixed(2) + '_' + pt.lon.toFixed(2);
-    var boostFlow = (oiEnabled && state_gridRules[cellKeyFlow]) ? FLOW_GRIDRULE_BOOST : 1.0; // fix v1.6.57
+    var boostFlow = (oiEnabled && state_gridRules[cellKeyFlow]) ? FLOW_GRIDRULE_BOOST : 1.0; // fix v1.6.58
     omSources.push({ x:px.x, y:px.y, u: -Math.sin(rad)*pt.speed, v: Math.cos(rad)*pt.speed, boost: boostFlow });
   });
   // Fallback: a zoom alto il passo griglia (0.25°) può cadere fuori da qualsiasi viewport piccolo.
@@ -829,7 +829,7 @@ function buildVectorField(){
       var px = map.latLngToContainerPoint([item.pt.lat, item.pt.lon]);
       var rad = item.pt.dir * Math.PI / 180;
       var cellKeyFallback = item.pt.lat.toFixed(2) + '_' + item.pt.lon.toFixed(2);
-      var boostFallback = (oiEnabled && state_gridRules[cellKeyFallback]) ? FLOW_GRIDRULE_BOOST : 1.0; // fix v1.6.57
+      var boostFallback = (oiEnabled && state_gridRules[cellKeyFallback]) ? FLOW_GRIDRULE_BOOST : 1.0; // fix v1.6.58
       return { x:px.x, y:px.y, u: -Math.sin(rad)*item.pt.speed, v: Math.cos(rad)*item.pt.speed, boost: boostFallback };
     });
   }
@@ -872,7 +872,7 @@ function buildVectorField(){
           var o = omSources[oi];
           var dx = cx-o.x, dy = cy-o.y, d2 = dx*dx+dy*dy;
           if (d2 < 900) d2 = 900;
-          var w = (1.0/d2) * (o.boost || 1.0); sumU+=o.u*w; sumV+=o.v*w; sumW+=w; // fix v1.6.57: boost grid_rules
+          var w = (1.0/d2) * (o.boost || 1.0); sumU+=o.u*w; sumV+=o.v*w; sumW+=w; // fix v1.6.58: boost grid_rules
         }
       } else if (mode === 'nau'){
         var hasPrimary = false;
@@ -888,7 +888,7 @@ function buildVectorField(){
             var o2 = omSources[oi2];
             var dx3 = cx-o2.x, dy3 = cy-o2.y, d3 = dx3*dx3+dy3*dy3;
             if (d3 < 900) d3 = 900;
-            var ow = (1.0/d3) * (o2.boost || 1.0); sumU+=o2.u*ow; sumV+=o2.v*ow; sumW+=ow; // fix v1.6.57: boost grid_rules
+            var ow = (1.0/d3) * (o2.boost || 1.0); sumU+=o2.u*ow; sumV+=o2.v*ow; sumW+=ow; // fix v1.6.58: boost grid_rules
           }
         }
       } else {
@@ -902,7 +902,7 @@ function buildVectorField(){
           var oa = omSources[oia];
           var dxa = cx-oa.x, dya = cy-oa.y, d2a = dxa*dxa+dya*dya;
           if (d2a < 900) d2a = 900;
-          var wa = (1.0/d2a) * (oa.boost || 1.0); sumU+=oa.u*wa; sumV+=oa.v*wa; sumW+=wa; // fix v1.6.57: boost grid_rules
+          var wa = (1.0/d2a) * (oa.boost || 1.0); sumU+=oa.u*wa; sumV+=oa.v*wa; sumW+=wa; // fix v1.6.58: boost grid_rules
         }
       }
 
@@ -1145,7 +1145,7 @@ function activeGrid(){
 var oiEnabled = false;
 var OI_MAX_DIST_KM = 60;
 var OI_MIN_STATIONS = 2;
-// fix v1.6.57: boost peso nel flusso animato per celle con grid_rule attiva.
+// fix v1.6.58: boost peso nel flusso animato per celle con grid_rule attiva.
 // Senza questo, buildVectorField interpola su area ampia mescolando la cella
 // corretta con le molte celle OM vicine non corrette, diluendo la correzione
 // puntuale nel flusso visuale (dato puntuale/popup restano corretti, solo il
@@ -1955,7 +1955,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.6.57
+// Fine codice - NAUTILUS MAPPA v1.6.58
 </script>
 <!-- Pannello inserimento osservazione manuale -->
 <div id="obs-panel">

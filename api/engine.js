@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.44 - by mdisailor engine - fix regola Populonia/Venturina dopo coordinate
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.44  - by mdisailor engine - fix regola Populonia/Venturina dopo coordinate
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>

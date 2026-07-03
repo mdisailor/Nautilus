@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.45 - by mdisailor engine - aggiunte zone Lido Camaiore/Giglio Castello/Quercianella + bias_station in action=zones
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.46 - by mdisailor engine - fix chiavi bias_station (alberese_mnw/barcaggio_mnw/casotto_pesc/forte_marmi)
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
@@ -192,7 +192,7 @@ canale_corsica: { desc: 'Canale di Corsica', active_wind_dirs: [330, 60], amplif
 }
 },
 barcaggio: {
-enabled: true, name: 'Capo Corso - Barcaggio', lat: 43.0058, lon: 9.4045, bias_station: 'barcaggio',
+enabled: true, name: 'Capo Corso - Barcaggio', lat: 43.0058, lon: 9.4045, bias_station: 'barcaggio_mnw',
 ports: {
 barcaggio:  { name: 'Barcaggio',        exposure: 'N',  shelter: 'low',    swell_threshold: 0.8 },
 macinaggio: { name: 'Macinaggio',       exposure: 'NE', shelter: 'medium', swell_threshold: 1.0 },
@@ -252,12 +252,12 @@ ports: { capalbio: { name: 'Capalbio Scalo', exposure: 'W', shelter: 'low', swel
 local_effects: { tramontana_s: { desc: 'Tramontana Lazio nord', active_wind_dirs: [330,30], note: 'Tramontana accelerata tra Argentario e costa laziale' } }
 },
 alberese: {
-enabled: true, name: 'Alberese - Foce Ombrone', lat: 42.638, lon: 11.078, bias_station: 'alberese',
+enabled: true, name: 'Alberese - Foce Ombrone', lat: 42.638, lon: 11.078, bias_station: 'alberese_mnw',
 ports: { alberese: { name: 'Marina di Alberese', exposure: 'W', shelter: 'low', swell_threshold: 0.7 } },
 local_effects: { foce_ombrone: { desc: 'Zona foce Ombrone', active_wind_dirs: [0,360], note: 'Costa bassa del Parco Maremma - vento libero da W' } }
 },
 forte_marmi: {
-enabled: true, name: 'Forte dei Marmi - Versilia N', lat: 43.963, lon: 10.174, bias_station: 'forte_dei_marmi',
+enabled: true, name: 'Forte dei Marmi - Versilia N', lat: 43.963, lon: 10.174, bias_station: 'forte_marmi',
 ports: { forte_marmi: { name: 'Forte dei Marmi', exposure: 'W', shelter: 'low', swell_threshold: 1.0 } },
 local_effects: { apuane: { desc: 'Effetto Alpi Apuane', active_wind_dirs: [30,90], note: 'Tramontana accelerata a valle delle Apuane' } }
 },
@@ -277,7 +277,7 @@ ports: { quercianella: { name: 'Quercianella', exposure: 'SW', shelter: 'medium'
 local_effects: { }
 },
 casotto_gr: {
-enabled: true, name: 'Casotto P. - Marina di Grosseto', lat: 42.740, lon: 11.040, bias_station: 'casotto_pescatori',
+enabled: true, name: 'Casotto P. - Marina di Grosseto', lat: 42.740, lon: 11.040, bias_station: 'casotto_pesc',
 ports: { casotto: { name: 'Marina di Grosseto', exposure: 'W', shelter: 'low', swell_threshold: 0.8 } },
 local_effects: { diaccia: { desc: 'Zona Diaccia Botrona', active_wind_dirs: [0,360], note: 'Costa del parco - area esposta con correnti lagunari' } }
 },
@@ -1959,7 +1959,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.45', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.46', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -5453,7 +5453,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.45 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.46 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -5580,4 +5580,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.45
+// Fine codice - NAUTILUS ENGINE v2.13.46

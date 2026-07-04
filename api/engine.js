@@ -1,4 +1,5 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.46 - by mdisailor engine - fix chiavi bias_station (alberese_mnw/barcaggio_mnw/casotto_pesc/forte_marmi)
+ 
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.47 - by mdisailor engine - predict_history restituisce tutto lo storico (limit param) invece delle sole ultime 10
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
@@ -1959,7 +1960,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.46', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.47', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -4507,22 +4508,32 @@ if (action === 'predict_history') {
 
     predictions4.sort(function(a,b) { return new Date(b.generated_at) - new Date(a.generated_at); });
 
-    // For each prediction, find actual snapshot at h6 and h12
-    var top10 = predictions4.slice(0, 10);
-    var actualPromises = [];
-    top10.forEach(function(p) {
-      var genTime = new Date(p.generated_at);
-      // Se actuals gia presenti nel record (da backfill_actuals) non fare lookup Redis
-      if (p.actual_3h !== undefined || p.actual_6h !== undefined || p.actual_12h !== undefined) {
-        actualPromises.push(Promise.resolve([
+    // fix 2026-07-04: prima restituiva solo le ultime 10 (con lookup live su Redis
+    // per gli actual mancanti). Con backfill_actuals che ormai scrive gli actual
+    // direttamente su ogni item della lista, non serve piu' limitare — restituiamo
+    // tutto lo storico (o il limite richiesto via ?limit=), usando gli actual gia'
+    // salvati. Il lookup live via Redis resta solo come fallback per le poche
+    // previsioni piu' recenti che il prossimo backfill non ha ancora processato.
+    var phLimit = Math.min(parseInt(req.query.limit) || 500, 500);
+    var allItems = predictions4.slice(0, phLimit);
+    var LIVE_LOOKUP_MAX = 10; // solo le piu' recenti, se prive di actual, fanno lookup live
+
+    var actualPromises = allItems.map(function(p, i) {
+      var hasEmbedded = p.actual_3h !== undefined || p.actual_6h !== undefined || p.actual_12h !== undefined;
+      if (hasEmbedded) {
+        return Promise.resolve([
           p.actual_3h !== null && p.actual_3h !== undefined ? {wind_speed: p.actual_3h, wind_dir: p.actual_3h_dir} : null,
           p.actual_6h !== null && p.actual_6h !== undefined ? {wind_speed: p.actual_6h, wind_dir: p.actual_6h_dir} : null,
           p.actual_12h !== null && p.actual_12h !== undefined ? {wind_speed: p.actual_12h, wind_dir: p.actual_12h_dir} : null
-        ]));
-        return;
+        ]);
       }
-      // Lookup Redis solo per items senza actuals
-      actualPromises.push((async function(zone, gen) {
+      if (i >= LIVE_LOOKUP_MAX) {
+        // Fuori dalla finestra di lookup live: nessun actual embedded, il prossimo
+        // backfill lo riempira'. Evita di bombardare Redis su tutto lo storico.
+        return Promise.resolve([null, null, null]);
+      }
+      var genTime = new Date(p.generated_at);
+      return (async function(zone, gen) {
         var results = [null, null, null];
         var zObjV = ZONES[zone];
         if (zObjV && zObjV.bias_station) {
@@ -4539,7 +4550,6 @@ if (action === 'predict_history') {
           });
           return results;
         }
-        // Fallback snap
         var snapResults = await Promise.all([3,6,12].map(function(hh) {
           var t = new Date(gen.getTime() + hh * 3600000);
           var m = t.getMinutes() < 30 ? '00' : '30';
@@ -4547,11 +4557,11 @@ if (action === 'predict_history') {
           return kvGet('snap:' + zone + ':' + tr + '-' + m, kvUrl, kvToken);
         }));
         return snapResults.map(function(s){ return s ? {wind_speed: s.wind_speed, wind_dir: s.wind_dir} : null; });
-      })(zoneKey, genTime));
+      })(zoneKey, genTime);
     });
     var actuals = await Promise.all(actualPromises);
 
-    var withActual = top10.map(function(p, i) {
+    var withActual = allItems.map(function(p, i) {
       var res = actuals[i] || [null, null, null];
       var snap3 = res[0], snap6 = res[1], snap12 = res[2];
       return {
@@ -5453,7 +5463,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.46 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.47 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -5580,4 +5590,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.46
+// Fine codice - NAUTILUS ENGINE v2.13.47

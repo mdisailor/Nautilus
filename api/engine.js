@@ -1,5 +1,4 @@
- 
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.47 - by mdisailor engine - predict_history restituisce tutto lo storico (limit param) invece delle sole ultime 10
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.50 - by mdisailor engine - fix bug segno in applyBias() + testo sottostima/sovrastima invertito + reset_history_all include bias:zona
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
@@ -1481,14 +1480,18 @@ async function biasComputeStations(kvUrl, kvToken) {
 function applyBias(forecast, bias) {
 if (!bias || bias.samples < 10) return forecast;
 var corrected = JSON.parse(JSON.stringify(forecast));
+// fix 2026-07-04: era "- windCorr"/"- waveCorr" -- con bias negativo (sovrastima
+// sistematica) sottrarre un numero negativo AUMENTA la previsione invece di
+// abbassarla. wind_bias = media(reale - previsto), quindi la correzione va
+// sommata cosi' com'e', segno compreso: previsione_corretta = previsione + bias.
 var windCorr = bias.wind_bias || 0;
 var waveCorr = bias.wave_bias || 0;
 var keys = ['h6', 'h12', 'h24'];
 for (var ki = 0; ki < keys.length; ki = ki + 1) {
 var hk = keys[ki];
 if (corrected[hk]) {
-corrected[hk].wind_max = Math.max(0, Math.round(corrected[hk].wind_max - windCorr));
-corrected[hk].wave_max = Math.max(0, parseFloat((corrected[hk].wave_max - waveCorr).toFixed(1)));
+corrected[hk].wind_max = Math.max(0, Math.round(corrected[hk].wind_max + windCorr));
+corrected[hk].wave_max = Math.max(0, parseFloat((corrected[hk].wave_max + waveCorr).toFixed(1)));
 corrected[hk].bias_corrected = true;
 }
 }
@@ -1960,7 +1963,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.47', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.50', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -3530,7 +3533,7 @@ if (action === 'situazione') {
     sLines.push('PATTERN SINOTTICO: ' + (diagSit.description || diagSit.case));
     sLines.push('ROTAZIONE: ' + rotSit.trend + ', percorso ' + (rotSit.total_path||0) + ' gradi in ' + rotSit.hours + 'h');
     if (biasSit && biasSit.wind_bias) {
-      sLines.push('BIAS STORICO: ' + biasSit.wind_bias + 'kn (i modelli tendono a ' + (biasSit.wind_bias < 0 ? 'sottostimare' : 'sovrastimare') + ')');
+      sLines.push('BIAS STORICO: ' + biasSit.wind_bias + 'kn (i modelli tendono a ' + (biasSit.wind_bias < 0 ? 'sovrastimare' : 'sottostimare') + ')');
     }
     if (alertsSit.length > 0) {
       sLines.push('');
@@ -3593,6 +3596,13 @@ if (action === 'situazione') {
     }
 
     // === BIAS PREVISIONALE (errori sistematici AI) ===
+    // fix 2026-07-04: la versione precedente diceva "sottrai il bias da OM" con un
+    // esempio aritmeticamente sbagliato (8-(-3) scritto come 5, ma fa 11). La
+    // formula corretta e': previsione_corretta = OM + bias, dove bias =
+    // media(reale - previsto). Con bias negativo (sovrastima sistematica, come
+    // successo per mesi su alcune zone) la vecchia istruzione spingeva l'AI ad
+    // AUMENTARE la previsione invece di abbassarla, peggiorando l'errore invece
+    // di correggerlo.
     if (kvUrl && kvToken) {
       var biasPred = await kvGet('predict_bias:' + zoneKey, kvUrl, kvToken);
       if (biasPred && biasPred.bias) {
@@ -3603,14 +3613,14 @@ if (action === 'situazione') {
           if (!b || b.n < 5 || b.mean === null) return;
           var label = 'H+' + h.slice(1);
           var dir2 = b.mean > 0 ? 'sottostima' : 'sovrastima';
-          var correction = b.mean > 0 ? b.mean : b.mean; // segno conservato
-          bpLines.push(label + ': errore medio ' + (b.mean > 0 ? '+' : '') + b.mean + 'kn (' + dir2 + ', n=' + b.n + ') - DEVI sottrarre ' + b.mean + 'kn dal valore OM per ' + label);
+          var signTxt = b.mean >= 0 ? ('+' + b.mean) : b.mean;
+          bpLines.push(label + ': errore medio ' + signTxt + 'kn (' + dir2 + ', n=' + b.n + ') - la tua previsione OM per ' + label + ' deve diventare OM ' + (b.mean >= 0 ? '+ ' + b.mean : '- ' + Math.abs(b.mean)) + ' = OM ' + signTxt + 'kn');
         });
         if (bpLines.length > 0) {
           sLines.push('');
           sLines.push('CORREZIONE BIAS OBBLIGATORIA (basata su ' + Object.keys(bp).filter(function(h){ var b=bp[h]; return b&&b.n>=5&&b.mean!==null; }).length + ' orizzonti verificati):');
           bpLines.forEach(function(l){ sLines.push('- ' + l); });
-          sLines.push('IMPORTANTE: questi errori sono sistematici e confermati. Applica NUMERICAMENTE queste correzioni ai valori OM prima di generare la previsione. Se OM dice 8kn e il bias e\' -3kn, la tua previsione deve essere 8-(-3)=5kn, non 8kn.');
+          sLines.push('IMPORTANTE: questi errori sono sistematici e confermati. FORMULA: previsione_corretta = valore_OM + bias (bias gia\' col suo segno, sommalo cosi\' com\'e\'). Esempio: OM=8kn, bias=-3kn -> previsione_corretta = 8 + (-3) = 5kn. Esempio: OM=6kn, bias=+2kn -> previsione_corretta = 6 + 2 = 8kn.');
         }
       }
     }
@@ -4234,6 +4244,35 @@ if (action === 'reset_history') {
     body: JSON.stringify(['DEL', 'predict_history:' + rhZone])
   });
   return res.status(200).json({ ok: true, deleted: 'predict_history:' + rhZone });
+}
+
+// action=reset_history_all -- pulisce predict_history + predict_bias + bias (il
+// sistema legacy usato da applyBias) per TUTTE le zone in un colpo solo.
+// Introdotta il 2026-07-04 dopo aver trovato DUE bug di segno indipendenti: uno
+// nel prompt AI (predict_bias, gia' corretto), uno nella correzione deterministica
+// applyBias() che usa bias:zona (accumulo permanente, mai scaduto, probabilmente
+// attivo da mesi su ogni zona con >=10 campioni storici). Entrambi sottraevano
+// il bias invece di sommarlo, peggiorando le previsioni con bias negativo
+// (sovrastima) invece di correggerle. Tutto lo storico accumulato sotto i due bug
+// va scartato, non mescolato con i dati nuovi post-fix.
+if (action === 'reset_history_all') {
+  if (!requireSecret(req)) return res.status(401).json({ error: 'Unauthorized' });
+  var rhaZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled !== false; });
+  var rhaResults = [];
+  for (var rhai = 0; rhai < rhaZones.length; rhai++) {
+    var rhaZk = rhaZones[rhai];
+    try {
+      await fetch(kvUrl, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + kvToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify(['DEL', 'predict_history:' + rhaZk, 'predict_bias:' + rhaZk, 'bias:' + rhaZk])
+      });
+      rhaResults.push({ zone: rhaZk, ok: true });
+    } catch(e) {
+      rhaResults.push({ zone: rhaZk, ok: false, error: e.message });
+    }
+  }
+  return res.status(200).json({ ok: true, zones_cleared: rhaResults.length, results: rhaResults });
 }
 
 if (action === 'forecast_stats') {
@@ -5463,7 +5502,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.47 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.50 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -5590,4 +5629,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.47
+// Fine codice - NAUTILUS ENGINE v2.13.50

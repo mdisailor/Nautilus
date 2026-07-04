@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.51 - by mdisailor engine - rimossa migrazione automatica legacy che resuscitava predict_history dopo un reset
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.52 - by mdisailor engine - azione diagnostica scrape_cfr_termo_check per verificare overlap anemo/termo CFR
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
@@ -1963,7 +1963,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.51', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.52', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -2392,6 +2392,60 @@ if (action === 'scrape_cfr') {
     scfResults = scfResults.concat(scfNoData);
 
     return res.status(200).json({ ts: scfTs, parsed: Object.keys(scfParsed).length, results: scfResults });
+  } catch(e) { return res.status(500).json({ error: e.message }); }
+}
+
+// action=scrape_cfr_termo_check -- DIAGNOSTICA TEMPORANEA (2026-07-04): verifica
+// se le nostre 18 stazioni CFR anemometriche hanno anche un termometro nella rete
+// CFR termometrica (pagina separata, type=termo). Se il codice TOS coincide,
+// abbiamo un dato di temperatura reale da poter usare al posto del modello.
+// Da rimuovere una volta ottenuta la risposta -- non e' pensata per girare a cron.
+if (action === 'scrape_cfr_termo_check') {
+  try {
+    var ourCfrCodes = ['TOS11000107','TOS03003145','TOS03006000','TOS03003269','TOS03003267',
+      'TOS11000012','TOS11000508','TOS03002283','TOS11000013','TOS11000004','TOS02004055',
+      'TOS11000011','TOS01005981','TOS01005251','TOS03000481','TOS03002300','TOS03002459','TOS11000006'];
+
+    var termoHtml = await fetch('https://www.cfr.toscana.it/monitoraggio/stazioni.php?type=termo', {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'text/html', 'Cache-Control': 'no-cache' },
+      signal: AbortSignal.timeout ? AbortSignal.timeout(12000) : undefined
+    }).then(function(r){ return r.text(); });
+
+    // Prova prima lo stesso pattern usato per l'anemometrica, poi un fallback piu generico
+    var tRe1 = /new Array\("(TOS\d+)","([^"]+)","([A-Z]{2})","([^"]*)","([^"]*)","(\d+)","([\d.\-]+)","([\d.\-]+)"([^)]*)\)/g;
+    var tRe2 = /new Array\("(TOS\d+)"([^)]*)\)/g;
+
+    var termoStations = {};
+    var tM;
+    while ((tM = tRe1.exec(termoHtml)) !== null) {
+      if (!termoStations[tM[1]]) termoStations[tM[1]] = { name: tM[2], raw: tM.slice(0, 9) };
+    }
+    // Se il pattern specifico non matcha nulla, usa il fallback grezzo per vedere la struttura reale
+    var rawSampleMatches = [];
+    if (Object.keys(termoStations).length === 0) {
+      var count = 0;
+      while ((tM = tRe2.exec(termoHtml)) !== null && count < 5) {
+        rawSampleMatches.push(tM[0]);
+        if (!termoStations[tM[1]]) termoStations[tM[1]] = { raw: tM[0] };
+        count++;
+      }
+      // continua a raccogliere tutti i codici anche oltre i primi 5, solo senza salvarli come esempio
+      while ((tM = tRe2.exec(termoHtml)) !== null) {
+        if (!termoStations[tM[1]]) termoStations[tM[1]] = { raw: tM[0] };
+      }
+    }
+
+    var overlap = ourCfrCodes.filter(function(c){ return termoStations[c] !== undefined; });
+    var noOverlap = ourCfrCodes.filter(function(c){ return termoStations[c] === undefined; });
+
+    return res.status(200).json({
+      ok: true,
+      termo_stations_found_total: Object.keys(termoStations).length,
+      our_stations_with_thermometer: overlap.map(function(c){ return { code: c, data: termoStations[c] }; }),
+      our_stations_without_thermometer: noOverlap,
+      raw_sample_if_pattern_unknown: rawSampleMatches,
+      html_length: termoHtml.length
+    });
   } catch(e) { return res.status(500).json({ error: e.message }); }
 }
 
@@ -5482,7 +5536,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.51 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.52 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -5609,4 +5663,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.51
+// Fine codice - NAUTILUS ENGINE v2.13.52

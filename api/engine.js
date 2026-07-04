@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.52 - by mdisailor engine - azione diagnostica scrape_cfr_termo_check per verificare overlap anemo/termo CFR
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.53 - by mdisailor engine - cattura temperatura reale CFR (17/18 stazioni) in snapshot e bias_samples
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
@@ -1963,7 +1963,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.52', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.53', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -2257,6 +2257,23 @@ if (action === 'scrape_cfr') {
       signal: AbortSignal.timeout ? AbortSignal.timeout(12000) : undefined
     }).then(function(r){ return r.text(); });
 
+    // fix 2026-07-04: aggiunta pagina termometrica CFR (stesso sito, stesse
+    // stazioni fisiche in 17 casi su 18 -- solo Livorno Mareografo TOS01005981 non
+    // ha termometro). Fetch in parallelo, fallisce silenziosamente se non disponibile
+    // (la temperatura reale resta un "di piu'", il resto del flusso non dipende da essa).
+    var scfTermoHtml = await fetch('https://www.cfr.toscana.it/monitoraggio/stazioni.php?type=termo', {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'text/html', 'Cache-Control': 'no-cache' },
+      signal: AbortSignal.timeout ? AbortSignal.timeout(12000) : undefined
+    }).then(function(r){ return r.text(); }).catch(function(){ return ''; });
+    var scfTermoRe = /new Array\("(TOS\d+)","([^"]+)","([A-Z]{2})","([^"]*)","([^"]*)","(\d+)","([\d.\-]+)","([\d.\-]+)"([^)]*)\)/g;
+    var scfTermoParsed = {};
+    var scfTM;
+    while ((scfTM = scfTermoRe.exec(scfTermoHtml)) !== null) {
+      if (!scfTermoParsed[scfTM[1]]) {
+        scfTermoParsed[scfTM[1]] = { temp_air_real: parseFloat(scfTM[7]), temp_time: scfTM[8] };
+      }
+    }
+
     // Parsa array dati completi (>10 campi per entry)
     var scfRe = /new Array\("(TOS\d+)","([^"]+)","([A-Z]{2})","([^"]*)","([^"]*)","(\d+)","([\d.]+)","([\d.]+)","(\d+)","([\d.]+)"([^)]*)\)/g;
     var scfParsed = {};
@@ -2269,7 +2286,8 @@ if (action === 'scrape_cfr') {
           gust_ms: parseFloat(scfM[8]),
           gust_kt: Math.round(parseFloat(scfM[8]) * 1.94384 * 10) / 10,
           dir_deg: parseInt(scfM[9]),
-          time_cfr: scfM[10]
+          time_cfr: scfM[10],
+          temp_air_real: scfTermoParsed[scfM[1]] ? scfTermoParsed[scfM[1]].temp_air_real : null
         };
       }
     }
@@ -2346,6 +2364,7 @@ if (action === 'scrape_cfr') {
         pressure: scfOm.pressure_mb, wave_height: null, wave_period: null, wave_direction: null,
         wind_speed_850: null, wind_dir_850: null, ifs_wind_speed: null, ifs_wind_dir: null,
         wind_speed_om: scfOm.wind_kt, wind_dir_om: scfOm.direction,
+        temp_air_real: scfData.temp_air_real != null && !isNaN(scfData.temp_air_real) ? scfData.temp_air_real : null,
         obs_source: 'cfr', obs_station: st.id, obs_quota: st.quota || null
       };
       return kvSet(scfSlotKey2, scfSnap2, 86400 * 3, kvUrl, kvToken).catch(function(){});
@@ -2365,7 +2384,7 @@ if (action === 'scrape_cfr') {
       var scfArome = scfAromeNearestNow(scfAromeResults[idx]);
       var scfSample = {
         ts: scfTs,
-        station: { wind_kt: scfData.wind_kt, gust_kt: scfData.gust_kt, direction: scfData.dir_deg, direction_txt: null, pressure_mb: null, source: 'cfr', quota: st.quota || null },
+        station: { wind_kt: scfData.wind_kt, gust_kt: scfData.gust_kt, direction: scfData.dir_deg, direction_txt: null, pressure_mb: null, temp_air_real: scfData.temp_air_real != null && !isNaN(scfData.temp_air_real) ? scfData.temp_air_real : null, source: 'cfr', quota: st.quota || null },
         om: scfOm,
         arome: scfArome,
         delta: scfOm.wind_kt !== null ? { wind_kt: Math.round((scfData.wind_kt - scfOm.wind_kt) * 10) / 10, dir_station: scfData.dir_deg, dir_om: scfOm.direction } : null,
@@ -5536,7 +5555,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.52 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.53 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -5663,4 +5682,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.52
+// Fine codice - NAUTILUS ENGINE v2.13.53

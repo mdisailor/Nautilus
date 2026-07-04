@@ -1,4 +1,4 @@
-<!-- NAUTILUS STATS v1.18 - mdisailor - 2026-06-11 -->
+<!-- NAUTILUS STATS v1.19 - mdisailor - 2026-07-03 - mostra tutte le previsioni da subito (non solo quelle gia verificate), reale/delta si popolano col backfill -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -55,7 +55,7 @@
 <body>
 <header>
   <div class="logo">NAUTI<span>LUS</span></div>
-  <div class="subtitle">Accuratezza previsioni AI &nbsp;·&nbsp; v2.13.22 / stats v1.18</div>
+  <div class="subtitle">Accuratezza previsioni AI &nbsp;·&nbsp; v2.13.22 / stats v1.19</div>
   <a href="/" class="back-link">← app</a>
 </header>
 <div class="zone-bar" id="zone-bar">
@@ -325,10 +325,10 @@ function render(key, name, hist, stats) {
   }
 
   // Recent predictions con orari target assoluti - tabella con colonne fisse
-  if (verified.length) {
-    html += '<div class="section-title">Ultime verifiche</div><div class="chart-wrap"><table class="weekly-table">' +
+  if (predictions.length) {
+    html += '<div class="section-title">Ultime previsioni</div><div class="chart-wrap"><table class="weekly-table">' +
       '<tr><th>Data</th><th>Fonte</th><th>+1h</th><th>+3h</th><th>+6h</th><th>+9h</th><th>+12h</th></tr>';
-    verified.slice().sort(function(a,b){ var pa=a.prediction||a, pb=b.prediction||b; return new Date(pb.generated_at)-new Date(pa.generated_at); }).slice(0,10).forEach(function(item) {
+    predictions.slice().sort(function(a,b){ var pa=a.prediction||a, pb=b.prediction||b; return new Date(pb.generated_at)-new Date(pa.generated_at); }).slice(0,10).forEach(function(item) {
       try {
         var p = item.prediction || item;
         if (!p || !p.generated_at) return;
@@ -361,7 +361,7 @@ function render(key, name, hist, stats) {
     html += '</table></div>';
   }
 
-  if (!verified.length && !predictions.length) {
+  if (!predictions.length) {
     html += '<div class="empty-state">Nessun dato ancora &mdash; i cron backfill popoleranno i dati dalle 10:30</div>';
   }
 
@@ -369,5 +369,5 @@ function render(key, name, hist, stats) {
 }
 </script>
 </body>
-<!-- NAUTILUS STATS v1.18 - mdisailor - 2026-06-11 -->
+<!-- NAUTILUS STATS v1.19 - mdisailor - 2026-06-11 -->
 </html>

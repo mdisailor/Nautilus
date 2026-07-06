@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.6.64 - mdisailor - 2026-07-03 - bussola iPhone per stima gradi vento nel pannello osservazione manuale -->
+<!-- NAUTILUS MAPPA v1.6.66 - mdisailor - 2026-07-05 - alias ZONE_STATION_ALIAS per alberese/barcaggio, compatibile col fix backend -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa Vento v1.6.64</title>
+<title>NAUTILUS Mappa Vento v1.6.66</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -237,7 +237,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa v1.6.64</span>
+    <span id="nav-ver">mappa v1.6.66</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -303,11 +303,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA v1.6.64 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA v1.6.66 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA v1.6.64
+// NAUTILUS MAPPA v1.6.66
 
 var ENGINE_URL = '/api/engine';
 
@@ -808,7 +808,7 @@ function buildVectorField(){
         pt.speed === null || pt.speed === undefined || isNaN(pt.speed)) return; // fix v1.6.55: NaN si propaga per contagio a tutta la somma pesata del campo
     var rad = pt.dir * Math.PI / 180;
     var cellKeyFlow = pt.lat.toFixed(2) + '_' + pt.lon.toFixed(2);
-    // fix v1.6.64 - 2026-07-03: il boost ora segue l'influenza reale della stazione
+    // fix v1.6.66 - 2026-07-03: il boost ora segue l'influenza reale della stazione
     // (pt.oi_station_weight, calcolata in applyOI dalla matrice a zone + grid_rules),
     // non solo la presenza di una grid_rule esplicita. Prima, una cella corretta dalla
     // matrice a zone ma senza grid_rule veniva annacquata nel campo IDW del flusso
@@ -834,7 +834,7 @@ function buildVectorField(){
     omSources = nearest.map(function(item){
       var px = map.latLngToContainerPoint([item.pt.lat, item.pt.lon]);
       var rad = item.pt.dir * Math.PI / 180;
-      var boostFallback = (oiEnabled && item.pt.oi_station_weight) ? (1 + item.pt.oi_station_weight * (FLOW_GRIDRULE_BOOST - 1)) : 1.0; // fix v1.6.64
+      var boostFallback = (oiEnabled && item.pt.oi_station_weight) ? (1 + item.pt.oi_station_weight * (FLOW_GRIDRULE_BOOST - 1)) : 1.0; // fix v1.6.66
       return { x:px.x, y:px.y, u: -Math.sin(rad)*item.pt.speed, v: Math.cos(rad)*item.pt.speed, boost: boostFallback };
     });
   }
@@ -877,7 +877,7 @@ function buildVectorField(){
           var o = omSources[oi];
           var dx = cx-o.x, dy = cy-o.y, d2 = dx*dx+dy*dy;
           if (d2 < 900) d2 = 900;
-          var w = (1.0/d2) * (o.boost || 1.0); sumU+=o.u*w; sumV+=o.v*w; sumW+=w; // fix v1.6.64: boost grid_rules
+          var w = (1.0/d2) * (o.boost || 1.0); sumU+=o.u*w; sumV+=o.v*w; sumW+=w; // fix v1.6.66: boost grid_rules
         }
       } else if (mode === 'nau'){
         var hasPrimary = false;
@@ -893,7 +893,7 @@ function buildVectorField(){
             var o2 = omSources[oi2];
             var dx3 = cx-o2.x, dy3 = cy-o2.y, d3 = dx3*dx3+dy3*dy3;
             if (d3 < 900) d3 = 900;
-            var ow = (1.0/d3) * (o2.boost || 1.0); sumU+=o2.u*ow; sumV+=o2.v*ow; sumW+=ow; // fix v1.6.64: boost grid_rules
+            var ow = (1.0/d3) * (o2.boost || 1.0); sumU+=o2.u*ow; sumV+=o2.v*ow; sumW+=ow; // fix v1.6.66: boost grid_rules
           }
         }
       } else {
@@ -907,7 +907,7 @@ function buildVectorField(){
           var oa = omSources[oia];
           var dxa = cx-oa.x, dya = cy-oa.y, d2a = dxa*dxa+dya*dya;
           if (d2a < 900) d2a = 900;
-          var wa = (1.0/d2a) * (oa.boost || 1.0); sumU+=oa.u*wa; sumV+=oa.v*wa; sumW+=wa; // fix v1.6.64: boost grid_rules
+          var wa = (1.0/d2a) * (oa.boost || 1.0); sumU+=oa.u*wa; sumV+=oa.v*wa; sumW+=wa; // fix v1.6.66: boost grid_rules
         }
       }
 
@@ -1150,7 +1150,7 @@ function activeGrid(){
 var oiEnabled = false;
 var OI_MAX_DIST_KM = 60;
 var OI_MIN_STATIONS = 2;
-// fix v1.6.64: boost peso nel flusso animato per celle con grid_rule attiva.
+// fix v1.6.66: boost peso nel flusso animato per celle con grid_rule attiva.
 // Senza questo, buildVectorField interpola su area ampia mescolando la cella
 // corretta con le molte celle OM vicine non corrette, diluendo la correzione
 // puntuale nel flusso visuale (dato puntuale/popup restano corretti, solo il
@@ -1186,6 +1186,16 @@ async function fetchZoneMatrix(){
   } catch(e){ console.warn('zone matrix fetch error:', e.message); }
 }
 
+// Alias per i pochi bias_station il cui nome nel backend (ZONES, usato anche da
+// action=predict/backfill_actuals) non coincide con la chiave usata qui in
+// mappa.html per le stazioni OI. Il nome "vero" (senza _mnw) e' quello corretto
+// per il sistema di previsione/backfill; qui serve solo per trovare la stazione
+// giusta nella lista OI locale.
+var ZONE_STATION_ALIAS = {
+  'alberese': 'alberese_mnw',
+  'barcaggio': 'barcaggio_mnw'
+};
+
 // Trova la bias_station della zona con centro piu' vicino al punto di griglia
 function nearestZoneStation(lat, lon){
   if (ZONE_MATRIX.length === 0) return null;
@@ -1194,7 +1204,9 @@ function nearestZoneStation(lat, lon){
     var d = haversineKm(lat, lon, z.lat, z.lon);
     if (d < bestD) { bestD = d; best = z; }
   });
-  return best ? best.bias_station : null;
+  if (!best) return null;
+  var bs = best.bias_station;
+  return ZONE_STATION_ALIAS[bs] || bs;
 }
 
 
@@ -1272,7 +1284,7 @@ function applyOI(gridData, stationData){
   });
   if (validStations.length === 0) return gridData;
 
-  // Tetto di fiducia manuale (v1.6.64 - 2026-07-03): NON è la reliability MAE
+  // Tetto di fiducia manuale (v1.6.66 - 2026-07-03): NON è la reliability MAE
   // rimossa in precedenza (quella puniva chi divergeva da OM, sbagliato). Questo
   // è un giudizio esplicito e documentato di M, verificato di persona confrontando
   // con Livornometeo/Capraiameteo (fonti migliori ma non più accessibili, a
@@ -1287,7 +1299,7 @@ function applyOI(gridData, stationData){
   };
 
   // Peso stazione: 1.0 a 0km, 0.0 a OI_MAX_DIST_KM — decadimento quadratico
-  // fix v1.6.64 - 2026-07-03: entro OI_LOCAL_DOMINANCE_KM il peso non scende mai
+  // fix v1.6.66 - 2026-07-03: entro OI_LOCAL_DOMINANCE_KM il peso non scende mai
   // sotto un pavimento alto (1.0 -> 0.8 lineare), indipendentemente dal decadimento
   // quadratico. Prima, anche una stazione a 10-15km dalla propria cella di zona
   // (la situazione più comune, dato che la griglia è fissa a 0.25°=~25km e le
@@ -1561,7 +1573,7 @@ function closeObsPanel() {
   document.getElementById('obs-panel').classList.remove('open');
 }
 
-// Bussola per stima gradi vento (v1.6.64 - 2026-07-03): su iOS Safari serve il
+// Bussola per stima gradi vento (v1.6.66 - 2026-07-03): su iOS Safari serve il
 // permesso esplicito DeviceOrientationEvent.requestPermission(), richiedibile solo
 // da un gesto utente diretto (questo click lo è). webkitCompassHeading e' gia' la
 // bussola vera (0=Nord) su iOS; su Android/altri si usa 360-alpha come fallback.
@@ -1583,15 +1595,23 @@ function startCompass(){
 
   function attach(){
     compassHandler = function(e){
-      var heading = null;
+      var heading = null, accuracy = null;
       if (typeof e.webkitCompassHeading === 'number' && !isNaN(e.webkitCompassHeading)) {
         heading = e.webkitCompassHeading;
+        if (typeof e.webkitCompassAccuracy === 'number') accuracy = e.webkitCompassAccuracy;
       } else if (e.absolute && e.alpha != null) {
         heading = (360 - e.alpha) % 360;
       }
       if (heading != null) {
         var rounded = Math.round(heading) % 360;
-        liveEl.innerHTML = '🧭 <b>' + rounded + '°</b><br>punta il telefono verso da dove viene il vento';
+        var accTxt = '';
+        if (accuracy != null) {
+          if (accuracy < 0) accTxt = ' — <span style="color:#ff4444">non calibrata, valore inaffidabile</span>';
+          else if (accuracy > 30) accTxt = ' — <span style="color:#ff9800">affidabilita\' bassa (±' + Math.round(accuracy) + '°)</span>';
+          else if (accuracy > 10) accTxt = ' — affidabilita\' media (±' + Math.round(accuracy) + '°)';
+          else accTxt = ' — <span style="color:#00e676">affidabilita\' buona (±' + Math.round(accuracy) + '°)</span>';
+        }
+        liveEl.innerHTML = '🧭 <b>' + rounded + '°</b>' + accTxt + '<br>tieni il telefono in piano, lato superiore verso da dove viene il vento';
         liveEl.style.display = 'block';
         document.getElementById('obs-dir').value = rounded;
       }
@@ -2085,7 +2105,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.6.64
+// Fine codice - NAUTILUS MAPPA v1.6.66
 </script>
 <!-- Pannello inserimento osservazione manuale -->
 <div id="obs-panel">

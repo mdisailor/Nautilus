@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.54 - by mdisailor engine - ripristinati nomi bias_station alberese/barcaggio (senza _mnw), rotti dal fix di ieri sulla matrice a zone
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.55 - by mdisailor engine - fix merge invece di sovrascrittura su snap:zona (scrape_cfr non cancella piu onde/temp mare di altri processi)
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
@@ -1963,7 +1963,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.54', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.55', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -2359,15 +2359,33 @@ if (action === 'scrape_cfr') {
       var scfNow2 = new Date(scfTs);
       var scfMins2 = scfNow2.getMinutes() < 30 ? '00' : '30';
       var scfSlotKey2 = 'snap:' + mappedZone + ':' + scfNow2.toISOString().slice(0,13) + '-' + scfMins2;
-      var scfSnap2 = {
-        ts: scfTs, wind_speed: scfData.wind_kt, wind_dir: scfData.dir_deg, wind_gust: scfData.gust_kt,
-        pressure: scfOm.pressure_mb, wave_height: null, wave_period: null, wave_direction: null,
-        wind_speed_850: null, wind_dir_850: null, ifs_wind_speed: null, ifs_wind_dir: null,
-        wind_speed_om: scfOm.wind_kt, wind_dir_om: scfOm.direction,
-        temp_air_real: scfData.temp_air_real != null && !isNaN(scfData.temp_air_real) ? scfData.temp_air_real : null,
-        obs_source: 'cfr', obs_station: st.id, obs_quota: st.quota || null
-      };
-      return kvSet(scfSlotKey2, scfSnap2, 86400 * 3, kvUrl, kvToken).catch(function(){});
+      // fix 2026-07-05: legge prima lo snapshot esistente e aggiorna solo i campi
+      // che scrape_cfr conosce (vento + temp_air_real), preservando onde/temp
+      // mare/pressione se gia' scritti da un altro processo nello stesso slot.
+      // Prima un kvSet diretto sovrascriveva l'intera chiave, cancellando
+      // silenziosamente dati scritti da altri processi nello stesso slot da 30min.
+      return kvGet(scfSlotKey2, kvUrl, kvToken).catch(function(){ return null; }).then(function(existingSnap){
+        var merged = existingSnap && typeof existingSnap === 'object' ? Object.assign({}, existingSnap) : {};
+        merged.ts = scfTs;
+        merged.wind_speed = scfData.wind_kt;
+        merged.wind_dir = scfData.dir_deg;
+        merged.wind_gust = scfData.gust_kt;
+        merged.wind_speed_om = scfOm.wind_kt;
+        merged.wind_dir_om = scfOm.direction;
+        if (merged.pressure == null) merged.pressure = scfOm.pressure_mb;
+        if (scfData.temp_air_real != null && !isNaN(scfData.temp_air_real)) merged.temp_air_real = scfData.temp_air_real;
+        merged.obs_source = 'cfr';
+        merged.obs_station = st.id;
+        merged.obs_quota = st.quota || null;
+        if (merged.wave_height === undefined) merged.wave_height = null;
+        if (merged.wave_period === undefined) merged.wave_period = null;
+        if (merged.wave_direction === undefined) merged.wave_direction = null;
+        if (merged.wind_speed_850 === undefined) merged.wind_speed_850 = null;
+        if (merged.wind_dir_850 === undefined) merged.wind_dir_850 = null;
+        if (merged.ifs_wind_speed === undefined) merged.ifs_wind_speed = null;
+        if (merged.ifs_wind_dir === undefined) merged.ifs_wind_dir = null;
+        return kvSet(scfSlotKey2, merged, 86400 * 3, kvUrl, kvToken).catch(function(){});
+      });
     });
     await Promise.all(snapSavePromises);
 
@@ -5555,7 +5573,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.54 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.55 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -5682,4 +5700,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.54
+// Fine codice - NAUTILUS ENGINE v2.13.55

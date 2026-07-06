@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.53 - by mdisailor engine - cattura temperatura reale CFR (17/18 stazioni) in snapshot e bias_samples
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.54 - by mdisailor engine - ripristinati nomi bias_station alberese/barcaggio (senza _mnw), rotti dal fix di ieri sulla matrice a zone
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
@@ -192,7 +192,7 @@ canale_corsica: { desc: 'Canale di Corsica', active_wind_dirs: [330, 60], amplif
 }
 },
 barcaggio: {
-enabled: true, name: 'Capo Corso - Barcaggio', lat: 43.0058, lon: 9.4045, bias_station: 'barcaggio_mnw',
+enabled: true, name: 'Capo Corso - Barcaggio', lat: 43.0058, lon: 9.4045, bias_station: 'barcaggio',
 ports: {
 barcaggio:  { name: 'Barcaggio',        exposure: 'N',  shelter: 'low',    swell_threshold: 0.8 },
 macinaggio: { name: 'Macinaggio',       exposure: 'NE', shelter: 'medium', swell_threshold: 1.0 },
@@ -252,7 +252,7 @@ ports: { capalbio: { name: 'Capalbio Scalo', exposure: 'W', shelter: 'low', swel
 local_effects: { tramontana_s: { desc: 'Tramontana Lazio nord', active_wind_dirs: [330,30], note: 'Tramontana accelerata tra Argentario e costa laziale' } }
 },
 alberese: {
-enabled: true, name: 'Alberese - Foce Ombrone', lat: 42.638, lon: 11.078, bias_station: 'alberese_mnw',
+enabled: true, name: 'Alberese - Foce Ombrone', lat: 42.638, lon: 11.078, bias_station: 'alberese',
 ports: { alberese: { name: 'Marina di Alberese', exposure: 'W', shelter: 'low', swell_threshold: 0.7 } },
 local_effects: { foce_ombrone: { desc: 'Zona foce Ombrone', active_wind_dirs: [0,360], note: 'Costa bassa del Parco Maremma - vento libero da W' } }
 },
@@ -1963,7 +1963,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.53', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.54', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -5555,7 +5555,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.53 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.54 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -5682,4 +5682,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.53
+// Fine codice - NAUTILUS ENGINE v2.13.54

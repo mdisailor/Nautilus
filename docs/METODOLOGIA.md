@@ -1,7 +1,7 @@
 # NAUTILUS — Metodologia di Calcolo (METODOLOGIA.md)
 
 Documento tecnico-scientifico sulle logiche di calcolo, fonti e assunzioni.
-Aggiornato: 2026-07-01
+Aggiornato: 2026-07-06
 
 ---
 
@@ -21,10 +21,12 @@ Aggiornato: 2026-07-01
 - Risultato empirico NAUTILUS: AROME migliore sulle isole piccole (Gorgona, Montecristo, Capraia), OM migliore su costa, Elba, Canale Piombino (dato 16-9 su 25 stazioni, giugno 2026)
 
 ### Stazioni reali
-- Fonti: MeteoNetwork API, CFR Toscana, Windfinder /report/, Meteosystem
+- Fonti: CFR Toscana (solo vento — pagina `type=anemo`), MeteoNetwork API, Windfinder /report/, Meteosystem
+- **Solo vento è misurato da CFR**: la rete CFR non ha una pagina pubblica di pressione (`type=baro`/`type=mareo` non esistono come le pagine anemo/termo). Da luglio 2026 abbiamo scoperto e agganciato anche `type=termo` (temperatura reale, 17 stazioni su 18 CFR condividono il codice con un termometro nello stesso cabinet)
+- Pressione reale disponibile solo su `pressure_mnw` (poche stazioni MeteoNetwork); altrove resta il valore del modello OM
+- Ricerca pressione conclusa luglio 2026: nessuna rete barometrica pubblica aggiuntiva trovata (CFR, LaMMA, SIR Mareografia — solo 3 boe note e non scrapabili — tutte verificate senza esito)
 - Limite: stazioni amatoriali o semi-professionali, possibili errori di calibrazione, sensori mal orientati, dati stantii
-- Stazioni problematiche note: Vada (direzione sistematicamente opposta alle vicine), Bonifacio/Cap Pertusato (aggiornamento irregolare, valori spesso fissi per ore)
-- **Limite aggiuntivo identificato (2026-07-01)**: a vento molto debole (<2kn) la direzione letta da un anemometro/banderuola è intrinsecamente rumorosa — la banderuola non è ben deflessa. Osservato su Viareggio CFR e Populonia CFR. Rilevante per OI: vedi sezione OI v2.1 più sotto.
+- Stazioni problematiche note: Vada e Bonifacio (dati non rappresentativi, esclusi dall'OI), Livorno CFR (in realtà un mareografo, non un vero anemometro — da rinominare)
 
 ---
 
@@ -39,6 +41,7 @@ Aggiornato: 2026-07-01
     "gust_kt": 2.7,
     "direction": 32,
     "direction_txt": "NNE",
+    "temp_air_real": 24.5,
     "source": "mnw_web",
     "obs_time": "2026-06-19T09:00:20+02:00"
   },
@@ -59,10 +62,11 @@ Aggiornato: 2026-07-01
 ```
 
 ### Convenzioni
-- `delta = stazione - modello` (negativo = modello sovrastima)
+- `delta = stazione - modello` (negativo = modello sovrastima). **Questa convenzione di segno è la fonte dei due bug corretti a luglio 2026 (vedi sezione 9) — va sempre verificata con un esempio numerico concreto prima di scrivere qualunque formula di correzione che la usi.**
 - `obs_time` presente solo per stazioni Windfinder (campo `dtl` nel JSON embedded); usato per anti-duplicato
 - Max 100 campioni per stazione in Redis (rotazione FIFO)
 - Frequenza raccolta: ogni 30 minuti (cron-job.org)
+- `temp_air_real`: aggiunta luglio 2026, dalla pagina termometrica CFR, non ancora usata nel calcolo (solo raccolta)
 
 ---
 
@@ -88,25 +92,45 @@ Penalizza maggiormente gli errori grandi rispetto al MAE. Da aggiungere in una v
 
 ---
 
-## 4. Sistema di previsioni AI
+## 4. Tre sistemi distinti — da non confondere
 
-### Flusso
-1. `action=predict` chiama Open-Meteo per le prossime 12 ore (H+1, H+3, H+6, H+9, H+12)
-2. Legge lo storico bias della stazione collegata (`bias_station` in ZONES)
-3. Calcola il bias medio (`mean_delta_wind`) come correzione
-4. Costruisce un prompt per Claude Sonnet con: dati OM, bias storico, storico vento recente (`predict_history`), casi simili passati
-5. Claude genera la previsione testuale con valori corretti
-6. Il risultato viene salvato in `predict_history:<zona>` con `slot: morning/afternoon`
+NAUTILUS ha tre accumulatori di dati indipendenti, con scopi e chiavi Redis diverse. È importante non confonderli (causa di equivoci passati):
 
-### Backfill actuals
-- Il cron `backfill_actuals` (7 volte/giorno) confronta le previsioni passate con i dati OM reali delle ore successive
-- Popola `actual_3h`, `actual_6h`, `actual_12h` nei record di `predict_history`
-- Queste colonne alimentano le metriche di accuratezza in stats.html
-- Opera su tutte le zone con `enabled:true` e `bias_station` definita in ZONES
+| Sistema | Chiave Redis | Cosa confronta | Usato da |
+|---|---|---|---|
+| Previsione AI + correzione | `predict_history:zona`, `predict_bias:zona`, `bias:zona` | Previsione testuale AI vs reale misurato dopo N ore | stats.html, il prompt di previsione stesso |
+| Confronto grezzo modelli | `bias_samples:stazione` | Stazione vs OM vs AROME, ogni 30 min, nessuna correzione applicata | mae.html |
+| Punteggio modelli | `model_score:stazione` | Riepilogo calcolato da bias_samples: quale modello vince per condizione | score.html |
+
+Il secondo e terzo sistema sono **osservazione pura, mai corretta** — non possono avere bug di segno perché non applicano nessuna formula di correzione, solo registrano cosa è successo. Il primo sistema invece **applica attivamente una correzione**, ed è quindi l'unico dove un errore di segno può esistere e propagarsi (vedi sezione 9).
 
 ---
 
-## 5. Stratificazione dell'errore (pianificata)
+## 5. Motore di previsione AI — i livelli di calcolo in dettaglio
+
+Quando si genera una previsione (`action=predict`), l'AI (Claude Sonnet) non parte mai da zero: riceve un prompt strutturato su livelli, dal più concreto al più raffinato. Ogni livello è indipendente dagli altri — se un livello manca (es. storico correzioni appena azzerato), gli altri restano comunque disponibili.
+
+### Livello 1 — Stazione reale in tempo reale (ground truth)
+Se disponibile e recente (non stantia), il dato misurato in questo momento dalla stazione collegata alla zona (`bias_station` in `ZONES`). È il dato più autorevole quando esiste, indipendentemente da tutto il resto.
+
+### Livello 2 — Previsione Open-Meteo (H+1/3/6/9/12)
+Il modello meteo di base, sempre disponibile, fetchato ad ogni chiamata.
+
+### Livello 3 — Storico di 14 giorni (`snap:zona:timestamp`)
+Accumulato in continuo ogni 30 minuti, indipendentemente dal sistema di previsione/correzione. Da qui si calcolano:
+- **Trend di pressione attuale**: confronto tra gli ultimi 3 campioni (calo rapido / calo / stabile / rialzo / rialzo rapido)
+- **Media e massimo vento nelle ultime 24h**
+- **Casi simili storici** (`similar_cases`): si cercano nei 14 giorni i momenti passati con lo stesso trend di pressione di adesso, e si mostra all'AI cosa ha fatto realmente il vento 6 ore dopo in quei casi — è un meccanismo di ragionamento per analogia (case-based), distinto dalla correzione bias e da essa indipendente
+
+### Livello 4 — Correzione bias (`predict_bias:zona`)
+Solo se ci sono almeno 5 previsioni verificate per un dato orizzonte, si inietta un'istruzione esplicita di correzione: *"il vento reale è stato in media X kn diverso dal previsto per questo orizzonte, applica: previsione_corretta = OM + bias"*. È un raffinamento aggiuntivo sopra i livelli 1-3, non un prerequisito — la sua assenza (es. dopo un reset) non impedisce una previsione sensata, solo toglie l'ultimo aggiustamento fine.
+
+### Backfill actuals
+Il cron `backfill_actuals` confronta periodicamente le previsioni passate con i dati reali delle ore successive, popolando `actual_1h/3h/6h/9h/12h` in `predict_history`. Questi valori alimentano sia la correzione del Livello 4 sia le metriche di accuratezza in stats.html. Opera su tutte le zone con `enabled:true` e `bias_station` definita in `ZONES` — **il nome in `bias_station` deve coincidere esattamente con la chiave sotto cui i dati reali vengono salvati in `bias_samples`, altrimenti il confronto fallisce silenziosamente** (causa di un bug reale trovato e corretto a luglio 2026, vedi sezione 9).
+
+---
+
+## 6. Stratificazione dell'errore (pianificata)
 
 ### Variabili di stratificazione identificate
 Le seguenti variabili sono già presenti nei `bias_samples` e permettono di segmentare l'analisi MAE:
@@ -125,37 +149,21 @@ Costruire una matrice MAE per ogni stazione: righe = fasce di velocità, colonne
 
 ---
 
-## 6. Griglia ibrida (pianificata)
+## 7. Griglia ibrida OI — vedi sezione dedicata "OI v2" più sotto per l'architettura corrente (matrice a zone, luglio 2026)
 
 ### Obiettivo
 Produrre un campo di vento attuale corretto che combini il campo di sfondo OM/AROME con le osservazioni reali delle stazioni, risultando in una mappa più accurata rispetto al solo modello grezzo.
 
-### Metodo: Optimal Interpolation (OI)
+### Metodo teorico di riferimento: Optimal Interpolation (OI)
 Fonte: Gandin 1963; implementazione operativa: Hieta et al. 2025 (FMI, riduzione RMSE 24-29%)
-
-Il metodo OI combina un campo di background NWP con osservazioni puntuali:
 ```
 campo_corretto(x) = campo_NWP(x) + K(x) * (osservazione - campo_NWP(stazione))
 ```
-Dove K(x) è il peso di ogni osservazione nel punto x, funzione della distanza e dell'incertezza relativa tra modello e osservazione.
-
-### Ponderazione con Kriging
-Invece di una funzione di peso semplice basata sulla distanza, Kriging stima la covarianza spaziale dell'errore del modello e usa questa struttura per calcolare pesi ottimali. Le stazioni con alta varianza storica (MAE alto, errori irregolari come Vada) contribuiscono meno; quelle con basso MAE e comportamento stabile (Bocca d'Arno CFR, Giglio Porto) pesano di più.
-
-### Scelta del campo di background
-- Zone costiere e Elba: OM (vince in 16/25 stazioni, dati giugno 2026)
-- Isole piccole (Gorgona, Montecristo, Capraia): AROME (vince empiricamente)
-- Zone senza stazione reale vicina: campo di background puro, nessuna correzione
-
-### Dati necessari per implementazione
-1. Griglia di punti regolare sul bbox 42-44N / 9-12E (da definire passo, es. 0.1°)
-2. Fetch OM/AROME per tutti i punti della griglia (già parzialmente implementato con proxy Vercel)
-3. Valore `bias_medio_recente` per ogni stazione (già in `bias_samples`)
-4. Libreria di interpolazione spaziale (candidata: `@sakitam-gis/kriging`, MIT license)
+L'implementazione attuale (v2, luglio 2026) ha sostituito questo schema con la sostituzione progressiva per distanza + matrice a zone esclusiva — vedi sezione "OI v2" più sotto per i dettagli aggiornati.
 
 ---
 
-## 7. Fonti scientifiche di riferimento
+## 8. Fonti scientifiche di riferimento
 
 | Autori | Anno | Titolo sintetico | Rilevanza |
 |---|---|---|---|
@@ -166,34 +174,34 @@ Invece di una funzione di peso semplice basata sulla distanza, Kriging stima la 
 | Huang et al. | 2026 | LightGBM wind correction NWP | Stratificazione per fascia velocità, -20-40% RMSE |
 | Qiu et al. | 2025 | NWP 2km vs ERA5 offshore | NWP lower mean bias but higher absolute error |
 | arxiv 2512.03606 | 2025 | Transformer observation-driven correction marine winds | -45% errore GFS a 1h, migliore lungo coste |
-
+| Pathak et al. (PMC10272189) | 2023 | Adaptive Bias Correction subseasonal forecasting | Il bias calcolato su storico è per natura in ritardo rispetto a un meteo non-stazionario — va aggiornato/pesato sul recente, non su tutta la storia indiscriminatamente |
+| Sweeney et al. | 2013 | Reducing wind speed forecast errors — post-processing combo | MOS/bias-correction semplice perde efficacia quando il bias del modello cambia bruscamente (es. aggiornamento versione modello) |
+| PMC8153314 (FOCUSED) | — | Short-term wind forecast correction, traffic control | Una correzione bias può *peggiorare* l'accuratezza nel 18.21% dei casi, soprattutto dopo cambi bruschi o raffiche forti dopo calma prolungata — verificato empiricamente anche in NAUTILUS (bug di segno, luglio 2026) |
+| MDPI 13(7):150 | 2025 | Bias correction NCEP CFSv2, Shanxi | Pattern noto: sovrastima sistematica ai venti bassi, sottostima ai venti forti — da verificare se presente anche nei nostri dati stratificati |
+| Zhang & Graf (arxiv 2508.09932) | 2025 | Mathematical errors in LLM reasoning | Gli LLM commettono errori aritmetici misurabili anche su calcoli semplici — motivo per cui una correzione numerica critica non dovrebbe mai dipendere solo da un'istruzione testuale a un LLM, ma essere anche verificata/applicata in codice deterministico dove possibile |
 
 ---
 
-## OI v2 — Architettura attuale (aggiornato 2026-06-30)
+## OI v2 — Architettura attuale (aggiornata 2026-07-04)
 
-### Logica applyOI — sostituzione progressiva
+### Matrice a zone (sostituisce il blend a raggio libero)
+Dal 3 luglio 2026, ogni cella di griglia appartiene a **una sola zona** (quella con centro più vicino tra le `ZONES` con `bias_station` configurata), letta dinamicamente da `action=zones` (fonte unica, non più duplicata in `mappa.html`). Solo la stazione di quella zona può contribuire di default — questo elimina la cancellazione vettoriale tra stazioni di zone diverse con direzioni opposte (es. Alberese/Casotto Pescatori) e le contaminazioni a lungo raggio viste con Barcaggio, Orbetello, Follonica.
 
-La versione precedente calcolava un bias (stazione - OM) e lo sommava a OM via IDW. La versione attuale sostituisce OM direttamente con il valore stazione in modo progressivo basato sulla distanza.
+Le `grid_rules` restano attive come **override esplicito** per i casi noti dove serve più di una stazione insieme (es. Populonia+Venturina, Viareggio+Bocca d'Arno) o per escluderne una (es. Follonica su una cella specifica).
 
-**Peso stazione**: `w = (1 - d/OI_MAX_DIST_KM)² × reliability`
-- A 0km: w=1.0 (stazione comanda completamente)
-- A 20km: w=0.25 × reliability
-- A 40km: w=0.0 (fuori raggio)
-- `OI_MAX_DIST_KM = 60`
+**Attenzione — alias di naming**: alcune zone hanno un `bias_station` (usato dal backend previsioni/backfill) che non coincide con la chiave della stazione nella lista OI di `mappa.html` (es. zona `alberese` → `bias_station: 'alberese'`, ma la stazione OI si chiama `alberese_mnw`). Un alias dedicato (`ZONE_STATION_ALIAS` in `mappa.html`) traduce i nomi solo per la matrice a zone — **non cambiare mai il valore di `bias_station` in `ZONES` per farlo coincidere con `mappa.html`: romperebbe il collegamento con `bias_samples`/`backfill_actuals`** (bug reale successo e corretto il 5 luglio 2026).
 
-**Normalizzazione**: `rawSumW` cappato a 1.0 → `stationInfluence = min(1.0, rawSumW)`, `omInfluence = 1 - stationInfluence`. Garantisce che `totalW` sia sempre 1.0 evitando valori fuori range con più stazioni vicine.
+### Peso stazione e pavimento di dominanza locale
+`w = max((1 - d/60)², pavimento_locale) × tetto_di_fiducia`
+- Pavimento locale: entro 15km il peso non scende mai sotto 0.8 (lineare fino a 1.0 a 0km) — necessario perché la griglia è fissa a 0.25° (~25-28km) e le stazioni reali non cadono mai esattamente su un punto griglia
+- Tetto di fiducia manuale (`STATION_TRUST_CAP`): limite massimo di influenza per stazioni verificate come meno rappresentative (es. Livorno CFR e Capraia CFR, limitate al 50%, perché fonti esterne più affidabili — Livornometeo/Capraiameteo — sono da maggio 2026 a pagamento e non più accessibili)
+- **Rimossa la reliability basata su MAE storico vs OM**: puniva proprio le stazioni con l'effetto orografico più forte e più vero (San Vincenzo, Populonia). Nella vista diretta il dato di stazione è sempre considerato vero, il peso è solo funzione della distanza (+ i due meccanismi sopra)
 
-**Interpolazione velocità**: `finalSpeed = Σ(st.speed × w × scale) + om.speed × omInfluence`
+### Boost del flusso animato proporzionale
+Il campo vettoriale animato (`buildVectorField`) applica un boost proporzionale a `oi_station_weight` (calcolato da `applyOI`), non più solo alle celle con una `grid_rule` esplicita — prima una cella corretta dalla matrice a zone ma senza regola manuale veniva "annacquata" nel campo IDW del flusso visivo dai punti OM vicini non corretti.
 
-**Interpolazione direzione**: via componenti U/V per evitare problemi con la media circolare. Vedi sezione OI v2.1 più sotto per il fix del 2026-07-01.
-- `U = -speed × sin(dir)`, `V = -speed × cos(dir)` (convenzione meteo) — **aggiornamento 2026-07-01: da v1.6.54 i vettori sono normalizzati a modulo 1 (solo peso, non più peso×speed), vedi sezione dedicata**
-- `finalDir = atan2(-finalU, -finalV)` convertito in gradi 0-360
-- Nessun cap direzione — la stazione comanda
-
-**Stazioni escluse globalmente**: `OI_EXCLUDED = { bonifacio_mnw, vada_mnw }` — stazioni con dati non rappresentativi del mare aperto.
-
-**Logica diretta** (rimossa nella v2): non più usata — sostituita dal sistema di pesi con `min_weight` nelle grid_rules.
+### Stazioni escluse globalmente
+`OI_EXCLUDED = { bonifacio_mnw, vada_mnw }` — dati non rappresentativi del mare aperto.
 
 ---
 
@@ -206,34 +214,57 @@ Struttura Redis (chiave: `grid_rules`): oggetto JSON con una entry per ogni cell
 **Campi disponibili per cella**:
 ```json
 {
-  "allowed_stations": ["svincenzo_porto"],  // whitelist: solo queste stazioni
-  "excluded_stations": ["follonica"],        // blacklist: escludi queste
-  "min_weight": 0.95,                        // peso minimo garantito indipendentemente dalla distanza
-  "base_model": "arome",                     // campo base (non ancora implementato, prossimo step)
+  "allowed_stations": ["svincenzo_porto"],
+  "excluded_stations": ["follonica"],
+  "min_weight": 0.95,
   "reason": "descrizione"
 }
 ```
 
-**Logica min_weight**: se `rawSumW < min_weight`, i pesi vengono scalati proporzionalmente per garantire che l'influenza totale delle stazioni sia almeno `min_weight`. Permette a stazioni lontane (15-20km) di comandare quasi completamente se necessario.
+**Inizializzazione**: `action=grid_rules_init&k=mdi`.
+**Lettura**: `action=grid_rules_get`.
 
-**Inizializzazione**: `action=grid_rules_init&k=mdi` — scrive le regole di default in Redis.
-**Lettura**: `action=grid_rules_get` — restituisce tutte le regole o una specifica con `?cell=43.00_10.65`.
-
-**Regole attive** (10 totali, aggiornate 2026-06-30):
+**Regole attive** (10 totali, aggiornate 2026-07-03/04):
 | Cella | Stazione | min_weight | Note |
 |---|---|---|---|
 | 43.25_10.65 | svincenzo_porto | 0.95 | San Vincenzo N/NE vs OM W/SW |
 | 43.00_10.40 | svincenzo_porto | 0.95 | Cella più vicina a S.Vincenzo |
 | 43.25_10.40 | svincenzo_porto | 0.90 | Zona S.Vincenzo |
-| 43.00_10.65 | populonia_cfr | 0.90 | Populonia interna, direzione opposta a OM — vento spesso debole, direzione rumorosa (vedi OI v2.1) |
-| 43.75_10.15 | viareggio_cfr | 0.80 | Viareggio CFR comanda costa |
-| 44.00_10.15 | viareggio_cfr | 0.80 | Viareggio CFR zona nord |
-| 43.50_9.90 | gorgona_cfr | 0.85 | Gorgona ✅ funziona |
-| 43.00_9.90 | capraia_cfr | 0.85 | Capraia ✅ funziona |
+| 43.00_10.65 | populonia_cfr + venturina | 0.90 | Aggiornata dopo fix coordinate (Venturina ora più vicina) |
+| 43.75_10.15 | viareggio_cfr + bocca_arno_cfr | 0.80 | Include Bocca d'Arno, più vicina di Viareggio |
+| 44.00_10.15 | viareggio_cfr + bocca_arno_cfr | 0.80 | Zona nord costa |
+| 43.50_9.90 | gorgona_cfr | 0.85 | Gorgona |
+| 43.00_9.90 | capraia_cfr | 0.85 | Capraia |
 | 43.00_9.65 | capraia_mnw | 0.70 | Capraia zona est |
-| 42.75_10.65 | escludi follonica | — | Follonica bias anomalo |
+| 42.75_10.65 | escludi follonica | — | Follonica bias anomalo su questa cella |
 
 ---
+
+## 9. Limiti noti, bug storici e come continuiamo a cercarli
+
+### Case study: due bug di segno indipendenti (luglio 2026)
+A luglio 2026, monitorando il trend MAE settimanale su Bocca d'Arno, si è notato un **peggioramento** invece di un miglioramento nel tempo — anomalo per un sistema di correzione che dovrebbe auto-affinarsi. L'indagine ha trovato:
+1. Il prompt di correzione AI diceva esplicitamente "sottrai il bias da OM" con un esempio aritmetico sbagliato (`8-(-3)` scritto come `5`, quando in realtà fa `11`) — con bias negativo (sovrastima), l'istruzione spingeva l'AI ad aumentare la previsione invece di abbassarla.
+2. La stessa inversione di segno era presente, indipendentemente, nella funzione deterministica `applyBias()` (`forecast - bias` invece di `forecast + bias`), attiva automaticamente per ogni zona con ≥10 campioni storici — probabilmente attiva da mesi.
+3. Una migrazione automatica legacy resuscitava silenziosamente lo storico vecchio ogni volta che `predict_history` veniva svuotato intenzionalmente, vanificando il reset.
+
+Questo è esattamente il tipo di fallimento descritto in letteratura (Zhang & Graf 2025; PMC8153314): un LLM può fallire un'istruzione aritmetica esplicita nel testo, e una correzione bias mal implementata può peggiorare l'accuratezza invece di migliorarla, specialmente con bias negativo persistente. **Lezione operativa**: ogni formula di correzione con un segno (bias, delta, offset) va sempre verificata con un esempio numerico concreto scritto a mano prima di fidarsi del codice o del testo del prompt.
+
+### Rischi noti dalla letteratura, da monitorare nei nostri dati
+- **Non-stazionarietà**: un bias calcolato su tutto lo storico insegue un bersaglio che nel frattempo si è spostato (stagione, pattern meteo diversi). Oggi `predict_bias` usa tutto lo storico cumulato — da valutare una finestra mobile (es. ultime 2-3 settimane) se il trend continua a essere instabile dopo il reset di luglio 2026.
+- **Overestimation ai venti bassi / underestimation ai venti forti**: pattern documentato in letteratura per sistemi di bias-correction simili — da verificare stratificando i nostri dati per fascia di velocità (sezione 6, non ancora implementata).
+- **Degrado dopo cambi bruschi**: una correzione bias può peggiorare l'accuratezza subito dopo un cambio repentino di condizioni (fronte, raffica improvvisa dopo calma) — da tenere d'occhio nei casi di errore più grandi.
+- **Affidabilità dell'LLM sull'aritmetica**: qualunque istruzione di correzione che richieda un calcolo esplicito nel testo del prompt va considerata a rischio di errore silenzioso — dove possibile, la correzione va applicata in codice deterministico e verificata, non lasciata al solo giudizio testuale del modello.
+
+### Metodo per la revisione esterna
+Oltre alla ricerca di letteratura fatta per questa sezione, il modo più efficace per trovare punti deboli non ancora visti è:
+1. Portare questo documento (o la sezione rilevante) a un'altra istanza AI/altro modello, chiedendo esplicitamente una critica tecnica mirata ("cosa in questa metodologia potrebbe fallire silenziosamente, in base a letteratura nota su bias-correction e NWP post-processing")
+2. Ripetere periodicamente le ricerche di letteratura (sezione 8) — il campo del post-processing meteo con ML/LLM si muove rapidamente
+3. Verificare ogni nuova formula con segno (bias, delta, correzione) con un esempio numerico scritto a mano, prima di fidarsi del codice
+
+---
+
+## OI v2 (dettagli tecnici invariati rispetto a luglio 2026, vedi sopra)
 
 ### buildVectorField — Campo vettoriale flusso animato
 
@@ -241,9 +272,7 @@ Struttura Redis (chiave: `grid_rules`): oggetto JSON con una entry per ogni cell
 
 **Problema risolto (v1.6.53)**: a zoom alto (z11+) con passo griglia 0.25°, tutte le sorgenti OM cadevano fuori dal viewport con margine 50px. Fix: margine aumentato a 300px + fallback che garantisce sempre le 6 sorgenti più vicine al centro mappa indipendentemente dal viewport.
 
-**Problema risolto (v1.6.55, 2026-07-01)**: punti con dir/speed NaN contaminavano per contagio la somma pesata IDW di tutto il campo vicino. Vedi sezione OI v2.2 più sotto.
-
-**Limitazione strutturale identificata, non risolta (2026-07-01)**: il flusso animato interpola su un raggio ampio tutte le sorgenti OM/griglia vicine con IDW, senza distinguere le celle con grid_rules attive da quelle senza. Una cella corretta puntualmente (es. 43.75_10.15) può risultare "diluita" nel flusso visuale circostante se le celle OM adiacenti (senza correzione) dominano numericamente l'interpolazione in quel punto dello schermo. Il dato puntuale (freccia sulla cella esatta, popup) resta corretto; solo il campo continuo del flusso in quel punto non rispecchia la grid_rule. Da trattare insieme alla feature Roadmap 5.1 (mappa vento animata Windy-style + evoluzione temporale H+1/H+3/H+6).
+**Problema risolto (v1.6.61, luglio 2026)**: il boost del flusso animato dipendeva solo dalla presenza di una `grid_rule` esplicita — con la matrice a zone (che corregge senza bisogno di una regola scritta a mano), il flusso visivo ignorava correzioni reali già presenti nella griglia numerica. Ora il boost è proporzionale a `oi_station_weight`.
 
 ```javascript
 // Quando OI è OFF: stazioni aggiunte come nauSources con peso 10
@@ -269,71 +298,5 @@ Causa del problema originale: `bias_history&limit=1` restituiva l'ultimo campion
 
 4 fogli: 1-OM, 2-OI (ON/OFF nel nome), 3-Delta, 4-Stazioni.
 - **Foglio 3-Delta**: lat, lon, OM kt, OI kt, Δkt, OM dir°, OI dir°, Δdir° (circolare corretto), stazione più vicina entro 28km, distanza, ST kt, ST dir°
-- **ATTENZIONE**: la colonna "Stazione" mostra la stazione geograficamente più vicina, NON quella usata da OI tramite grid_rules. Per celle con grid_rules la stazione usata può essere diversa da quella mostrata.
+- **ATTENZIONE**: la colonna "Stazione" mostra la stazione geograficamente più vicina, NON necessariamente quella usata da OI tramite grid_rules o matrice a zone. Per celle con override la stazione usata può essere diversa da quella mostrata.
 - Timestamp nel nome foglio usa `.` invece di `:` (es. `17.05` non `17:05`) per compatibilità Excel.
-
----
-
-## OI v2.1 — Fix interpolazione direzione (2026-07-01)
-
-### Bug identificato
-
-La versione precedente (v1.6.53) calcolava la direzione finale pesando i vettori U/V per `velocità_stazione × peso`, non per il solo peso nominale:
-
-```javascript
-// BUG (v1.6.53 e precedenti)
-finalU += -c.st.speed * Math.sin(stRad) * c.w * scale;
-finalV += -c.st.speed * Math.cos(stRad) * c.w * scale;
-```
-
-Poiché in JS il modulo del vettore risultante è proporzionale a `speed`, una stazione con vento debole (es. 1kn) produceva un contributo vettoriale piccolo anche con `min_weight` nominale alto (es. 0.8) — mentre OM, pur pesato solo al 20% (`omInfluence`), manteneva un vettore più grande se la sua velocità di partenza era maggiore. Risultato: la somma vettoriale finale era dominata da chi aveva il **modulo più grande**, non da chi aveva il **peso nominale più alto** — il comportamento opposto di quanto le grid_rules intendevano garantire.
-
-Scoperto empiricamente sulla cella `43.75_10.15` (Viareggio): con `viareggio_cfr` a 0.8kn/152° e `min_weight: 0.8`, la direzione finale rimaneva vicina a OM (221°) invece di convergere verso 152°.
-
-### Fix applicato (v1.6.54)
-
-Vettori U/V normalizzati a modulo 1 prima di applicare il peso — sia per OM che per la stazione:
-
-```javascript
-// FIX v1.6.54
-var finalU = -Math.sin(omRad) * omInfluence;
-var finalV = -Math.cos(omRad) * omInfluence;
-contributions.forEach(function(c){
-  var stRad = degToRad(c.st.dir);
-  finalU += -Math.sin(stRad) * c.w * scale;
-  finalV += -Math.cos(stRad) * c.w * scale;
-});
-```
-
-Ora la direzione segue esattamente il peso nominale (`min_weight`/`omInfluence`), indipendentemente dalla velocità sottostante. La **velocità** non era affetta dal bug — resta correttamente pesata per `speed × peso`, quel calcolo era già corretto.
-
-### Verifica pre-deploy
-
-Prima del deploy, è stato eseguito uno script di confronto old/new logic in console browser, usando i dati reali già caricati (griglia, stazioni, bias_matrix, grid_rules), su tutte le 10 celle con grid_rules attive. Risultato: Δdir grande (fino a -88°) solo sulle celle con stazione a vento debole (Viareggio, Populonia); Δdir minimo o nullo (0-4°) sulle celle con stazione a vento sostenuto (San Vincenzo, Gorgona, Capraia) — pattern coerente con l'ampiezza del bug, nessuna regressione inattesa. Metodo raccomandato per future modifiche a `applyOI`.
-
-### Effetto collaterale identificato: rumore su vento debole
-
-Il fix è matematicamente corretto rispetto al peso nominale, ma ha esposto un problema di affidabilità preesistente e distinto: quando la stazione ha vento molto leggero (<2kn), la sua lettura di direzione è intrinsecamente rumorosa (banderuola non ben deflessa da vento debole). Con `min_weight` alto, questo rumore ora comanda la cella quasi completamente, producendo Δdir molto ampi (osservato: Viareggio -88°, Populonia -103°) che possono non rappresentare la direzione reale del vento.
-
-Non è un difetto del fix — è un limite di affidabilità del dato sorgente che il fix ha reso visibile. Soluzione proposta (non ancora implementata, in attesa di più casi osservati): soglia minima di vento sotto la quale il peso nominale sulla direzione viene attenuato proporzionalmente, coerente con la soglia `rotationMinWind=5` già usata in `diagnoseSynopticCase` (engine.js) per lo stesso motivo — la rotazione del vento viene ignorata sotto i 5kn perché la direzione è considerata inaffidabile a quelle velocità.
-
----
-
-## OI v2.3 — Boost flusso per grid_rules (2026-07-01)
-
-Il flusso animato non rispecchiava le grid_rules — interpolava mescolando celle corrette con celle OM circostanti non corrette, diluendo visivamente. Fix: celle con `grid_rule` ricevono boost FLOW_GRIDRULE_BOOST = 15 nell'IDW, decadimento naturale 1/d². Effetto locale, la cella domina il flusso vicino.
-
----
-
-## OI v2.2 — Guard NaN (2026-07-01)
-
-### Bug identificato
-
-Un punto griglia con `dir` o `speed` pari a `NaN` (dato OM temporaneamente mancante o caso limite nel calcolo) causava due effetti visivi distinti:
-
-1. **Frecce fantasma**: `drawArrow` controllava `isNaN(spd)` ma non `isNaN(dir)`. Con `dir = NaN`, `ctx.rotate(NaN)` è un no-op silenzioso per specifica HTML Canvas — la freccia veniva disegnata comunque, nell'orientamento di default (verticale = nord sullo schermo), invece di non essere disegnata.
-2. **Contaminazione del flusso animato per contagio**: `buildVectorField` non validava le sorgenti prima di aggiungerle a `omSources`/`nauSources`. In JS, `numero + NaN = NaN` sempre — una singola sorgente con `u`/`v` NaN contaminava `sumU`/`sumV` per ogni cella del campo che la includeva nella somma pesata IDW (che non ha cutoff di raggio, solo un filtro di viewport iniziale). Effetto: intere porzioni del flusso animato risultavano `NaN`, con particelle che restavano "congelate" invisibili (i controlli di rigenerazione bordo `nx < 0 || nx > W` sono tutti falsi quando `nx` è NaN).
-
-### Fix applicato (v1.6.55)
-
-Guard `isNaN` aggiunti in 5 punti: `drawArrow` (controllo su `dir`), `buildVectorField` sorgenti OM, fallback zoom-alto, sorgenti zone, sorgenti stazioni. Verificato via export XLS: 0 celle con NaN residuo su 399 celle con dato OM valido.

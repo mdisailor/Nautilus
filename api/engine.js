@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.55 - by mdisailor engine - fix merge invece di sovrascrittura su snap:zona (scrape_cfr non cancella piu onde/temp mare di altri processi)
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.56 - by mdisailor engine - grid_rules 43.75_10.15/44.00_10.15 riallineate alla matrice a zone (rimossa forzatura Viareggio+BoccaArno)
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
@@ -1963,7 +1963,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.55', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.56', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -5289,15 +5289,9 @@ if (action === 'grid_rules_init') {
         min_weight: 0.9,
         reason: 'Populonia+Venturina, zona risente del territorio — stazioni comandano (agg. 03/07 dopo fix coordinate)'
       },
-      '43.75_10.15': {
-        allowed_stations: ['viareggio_cfr', 'bocca_arno_cfr'],
-        min_weight: 0.8,
-        reason: 'Viareggio+Bocca Arno comandano sulla costa, esclude Forte dei Marmi (agg. 03/07)'
-      },
       '44.00_10.15': {
-        allowed_stations: ['viareggio_cfr', 'bocca_arno_cfr'],
-        min_weight: 0.8,
-        reason: 'Viareggio+Bocca Arno comandano, zona nord costa (agg. 03/07)'
+        excluded_stations: ['forte_marmi'],
+        reason: 'Forte dei Marmi esclusa (dati da rivalutare), matrice a zone assegna la seconda piu vicina (agg. 07/07)'
       },
       '43.50_9.90': {
         allowed_stations: ['gorgona_cfr'],
@@ -5573,7 +5567,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.55 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.56 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -5700,4 +5694,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.55
+// Fine codice - NAUTILUS ENGINE v2.13.56

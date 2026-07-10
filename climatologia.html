@@ -1,4 +1,4 @@
-<!-- NAUTILUS CLIMATOLOGIA v1.2 - mdisailor - 2026-07-10 - filtri live, ordinamento colonne, cella max evidenziata, grafici Chart.js -->
+<!-- NAUTILUS CLIMATOLOGIA v1.3 - mdisailor - 2026-07-10 - grafici a barre verticali impilate, stazioni in ordine alfabetico -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -179,19 +179,19 @@ function renderTable() {
 }
 
 function renderCharts() {
-  var labels = allRows.map(function(r){ return r.id; });
+  var alphaRows = allRows.slice().sort(function(a,b){ return a.id.localeCompare(b.id); });
+  var labels = alphaRows.map(function(r){ return r.id; });
   var ctxSpeed = document.getElementById('speedChart').getContext('2d');
   var ctxSector = document.getElementById('sectorChart').getContext('2d');
   if (speedChart) speedChart.destroy();
   if (sectorChart) sectorChart.destroy();
 
   var chartOpts = {
-    indexAxis: 'y',
     responsive: true,
     plugins: { legend: { labels: { color: '#c8dff0', font:{family:"'DM Mono',monospace",size:10} } } },
     scales: {
-      x: { stacked:true, ticks:{color:'#4a7a9b'}, grid:{color:'rgba(255,255,255,0.05)'}, max:100 },
-      y: { stacked:true, ticks:{color:'#c8dff0',font:{size:9}}, grid:{display:false} }
+      x: { stacked:true, ticks:{color:'#c8dff0',font:{size:8},maxRotation:90,minRotation:60}, grid:{display:false} },
+      y: { stacked:true, ticks:{color:'#4a7a9b'}, grid:{color:'rgba(255,255,255,0.05)'}, max:100 }
     }
   };
 
@@ -199,7 +199,7 @@ function renderCharts() {
     type: 'bar',
     data: { labels: labels, datasets: SPEED_KEYS.map(function(k){
       return { label: SPEED_LABELS[k], backgroundColor: SPEED_COLORS[k],
-        data: allRows.map(function(r){ return pct(r.speedN[k], r.total); }) };
+        data: alphaRows.map(function(r){ return pct(r.speedN[k], r.total); }) };
     })},
     options: chartOpts
   });
@@ -208,7 +208,7 @@ function renderCharts() {
     type: 'bar',
     data: { labels: labels, datasets: SECTOR_KEYS.map(function(k){
       return { label: k, backgroundColor: SECTOR_COLORS[k],
-        data: allRows.map(function(r){ return pct(r.sectorN[k], r.total); }) };
+        data: alphaRows.map(function(r){ return pct(r.sectorN[k], r.total); }) };
     })},
     options: chartOpts
   });

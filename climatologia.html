@@ -1,0 +1,227 @@
+<!-- NAUTILUS CLIMATOLOGIA v1.1 - mdisailor - 2026-07-10 - classifica sul dato REALE della stazione, non su OM -->
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NAUTILUS — Climatologia per zona</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Bebas+Neue&display=swap');
+  :root {
+    --bg:#020d1a; --card:#071828; --border:rgba(0,180,220,0.15);
+    --accent:#00f0ff; --warn:#ffaa00; --danger:#ff4444; --safe:#22dd88;
+    --muted:rgba(255,255,255,0.75); --text:rgba(255,255,255,0.9);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;padding:0 0 40px;}
+  header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;}
+  .logo{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;letter-spacing:0.08em;color:#fff;}
+  .logo span{color:var(--accent);}
+  .subtitle{font-size:0.75rem;color:var(--muted);}
+  .btn{margin-left:auto;font-family:'DM Mono',monospace;font-size:0.6rem;padding:6px 12px;background:transparent;border:1px solid var(--accent);color:var(--accent);border-radius:6px;cursor:pointer;letter-spacing:0.06em;text-decoration:none;}
+  main{padding:16px 20px;max-width:1100px;margin:0 auto;}
+  .empty-state{text-align:center;padding:60px 20px;color:var(--muted);}
+  .summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px;}
+  .summary-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;}
+  .summary-label{font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;}
+  .summary-value{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:var(--accent);}
+  table{width:100%;border-collapse:collapse;font-size:0.72rem;background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+  th{color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;padding:8px 8px;text-align:left;border-bottom:1px solid var(--border);font-weight:400;font-size:0.6rem;cursor:pointer;white-space:nowrap;}
+  th:hover{color:var(--accent);}
+  td{padding:7px 8px;border-bottom:1px solid rgba(255,255,255,0.04);white-space:nowrap;}
+  tr:last-child td{border-bottom:none;}
+  .bar-wrap{display:inline-flex;width:60px;height:8px;border-radius:4px;overflow:hidden;background:rgba(255,255,255,0.06);vertical-align:middle;margin-right:5px;}
+  .bar-seg{height:100%;}
+  .n-low{color:var(--muted);} .n-ok{color:var(--warn);} .n-good{color:var(--safe);}
+  .dom{font-weight:bold;color:#fff;}
+  .section-title{font-size:0.75rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.1em;margin:20px 0 8px;}
+  .table-scroll{overflow-x:auto;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">NAUTI<span>LUS</span></div>
+  <div class="subtitle">Climatologia vento per zona — distribuzione fasce e settori</div>
+  <button class="btn" onclick="exportClimaXLS()">↓ XLS</button>
+</header>
+<main id="main">
+  <div class="empty-state">Caricamento...</div>
+</main>
+<script>
+var ENGINE_URL = 'https://nautilus-red.vercel.app/api/engine';
+var SECRET = 'mdi';
+var STATIONS = [
+  'livorno','canale_piombino','viareggio','capraia_w','portoferraio','alberese','luri',
+  'barcaggio','bonifacio_pertusato','vada',
+  'gorgona_cfr','capraia_cfr','giglio_porto','giglio_castello','montecristo','portoferraio_cfr',
+  'orbetello','svincenzo_porto','casotto_pescatori','venturina','forte_dei_marmi','lido_camaiore',
+  'bocca_arno_cfr','follonica','capalbio'
+];
+var SPEED_KEYS = ['low','mid','high'];
+var SECTOR_KEYS = ['N','E','S','W'];
+var SPEED_LABELS = { low:'<8kt', mid:'8-15kt', high:'>15kt' };
+var SPEED_COLORS = { low:'#4488ff', mid:'#ffaa00', high:'#ff4444' };
+var SECTOR_COLORS = { N:'#00e0ff', E:'#22dd88', S:'#ffaa00', W:'#ff6688' };
+
+var currentData = null; // salvato per l'export: { stationId: [samples] }
+
+function speedBracket(kt) {
+  if (kt == null) return null;
+  if (kt < 8) return 'low';
+  if (kt < 15) return 'mid';
+  return 'high';
+}
+function sectorOf(dir) {
+  if (dir == null) return null;
+  if (dir >= 315 || dir < 45) return 'N';
+  if (dir < 135) return 'E';
+  if (dir < 225) return 'S';
+  return 'W';
+}
+
+// Aggrega i campioni GREZZI di una stazione, classificando in base al dato
+// REALE misurato (s.station.wind_kt / s.station.direction), non a OM.
+// fix 2026-07-10: la versione precedente usava model_score/compute_scores, che
+// classifica ogni campione in base a cosa diceva OM in quel momento, non in
+// base a cosa misurava davvero la stazione — climatologia sbagliata, "letta da
+// OM" invece che dai nostri dati reali.
+function aggregateStation(samples) {
+  var speedN = { low:0, mid:0, high:0 };
+  var sectorN = { N:0, E:0, S:0, W:0 };
+  var total = 0;
+  var valid = [];
+  (samples || []).forEach(function(s){
+    if (!s.station || s.station.wind_kt == null || s.station.direction == null) return;
+    var spd = speedBracket(s.station.wind_kt);
+    var sec = sectorOf(s.station.direction);
+    if (!spd || !sec) return;
+    speedN[spd]++; sectorN[sec]++; total++;
+    valid.push({ ts:s.ts, wind_kt:s.station.wind_kt, direction:s.station.direction, spd:spd, sec:sec });
+  });
+  var domSpeed = total>0 ? Object.keys(speedN).reduce(function(a,b){ return speedN[a] >= speedN[b] ? a : b; }) : 'low';
+  var domSector = total>0 ? Object.keys(sectorN).reduce(function(a,b){ return sectorN[a] >= sectorN[b] ? a : b; }) : 'N';
+  return { speedN:speedN, sectorN:sectorN, total:total, domSpeed:domSpeed, domSector:domSector, samples:valid };
+}
+
+function pct(n, total) { return total > 0 ? Math.round(n/total*100) : 0; }
+
+function bar(dist, colors, total) {
+  var html = '<span class="bar-wrap">';
+  Object.keys(dist).forEach(function(k){
+    var w = total > 0 ? (dist[k]/total*100) : 0;
+    if (w > 0) html += '<span class="bar-seg" style="width:' + w + '%;background:' + colors[k] + '"></span>';
+  });
+  html += '</span>';
+  return html;
+}
+
+async function load() {
+  var main = document.getElementById('main');
+  try {
+    var results = await Promise.all(STATIONS.map(function(id){
+      return fetch(ENGINE_URL + '?action=bias_history&station=' + id + '&limit=100', {cache:'no-store'})
+        .then(function(r){ return r.json(); })
+        .then(function(d){ return { id:id, samples: d.samples || [] }; })
+        .catch(function(){ return { id:id, samples: [] }; });
+    }));
+    currentData = {};
+    results.forEach(function(r){ currentData[r.id] = r.samples; });
+
+    var rows = results.map(function(r){
+      var agg = aggregateStation(r.samples);
+      return Object.assign({ id:r.id }, agg);
+    });
+    rows.sort(function(a,b){ return b.total - a.total; });
+
+    // Aggregato globale
+    var globSpeed = { low:0, mid:0, high:0 };
+    var globSector = { N:0, E:0, S:0, W:0 };
+    var globTotal = 0;
+    rows.forEach(function(r){
+      SPEED_KEYS.forEach(function(k){ globSpeed[k] += r.speedN[k]; });
+      SECTOR_KEYS.forEach(function(k){ globSector[k] += r.sectorN[k]; });
+      globTotal += r.total;
+    });
+
+    var html = '<div class="summary-grid">' +
+      '<div class="summary-card"><div class="summary-label">Zone monitorate</div><div class="summary-value">' + rows.length + '</div></div>' +
+      '<div class="summary-card"><div class="summary-label">Campioni reali totali</div><div class="summary-value">' + globTotal + '</div></div>' +
+      '<div class="summary-card"><div class="summary-label">Fonte</div><div class="summary-value" style="font-size:0.8rem;color:var(--safe)">dato stazione (non OM)</div></div>' +
+      '</div>';
+
+    html += '<div class="section-title">Distribuzione globale (tutte le zone, dato reale)</div>';
+    html += '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:18px;font-size:0.75rem">';
+    html += 'Fasce vento: ';
+    SPEED_KEYS.forEach(function(k){ html += SPEED_LABELS[k] + ' <b style="color:' + SPEED_COLORS[k] + '">' + pct(globSpeed[k],globTotal) + '%</b>&nbsp;&nbsp;'; });
+    html += bar(globSpeed, SPEED_COLORS, globTotal);
+    html += '<br><br>Settori: ';
+    SECTOR_KEYS.forEach(function(k){ html += k + ' <b style="color:' + SECTOR_COLORS[k] + '">' + pct(globSector[k],globTotal) + '%</b>&nbsp;&nbsp;'; });
+    html += bar(globSector, SECTOR_COLORS, globTotal);
+    html += '</div>';
+
+    html += '<div class="section-title">Per zona (classificato sul dato reale della stazione)</div><div class="table-scroll"><table>';
+    html += '<tr><th>Zona</th><th>N campioni</th>' +
+      '<th>Debole</th><th>Medio</th><th>Forte</th><th>Fascia prevalente</th>' +
+      '<th>N</th><th>E</th><th>S</th><th>W</th><th>Settore prevalente</th></tr>';
+    rows.forEach(function(r){
+      var nClass = r.total >= 30 ? 'n-good' : r.total >= 10 ? 'n-ok' : 'n-low';
+      html += '<tr>' +
+        '<td style="color:var(--accent)">' + r.id + '</td>' +
+        '<td class="' + nClass + '">' + r.total + '</td>' +
+        '<td>' + pct(r.speedN.low,r.total) + '%</td>' +
+        '<td>' + pct(r.speedN.mid,r.total) + '%</td>' +
+        '<td>' + pct(r.speedN.high,r.total) + '%</td>' +
+        '<td class="dom" style="color:' + SPEED_COLORS[r.domSpeed] + '">' + SPEED_LABELS[r.domSpeed] + '</td>' +
+        '<td>' + pct(r.sectorN.N,r.total) + '%</td>' +
+        '<td>' + pct(r.sectorN.E,r.total) + '%</td>' +
+        '<td>' + pct(r.sectorN.S,r.total) + '%</td>' +
+        '<td>' + pct(r.sectorN.W,r.total) + '%</td>' +
+        '<td class="dom" style="color:' + SECTOR_COLORS[r.domSector] + '">' + r.domSector + '</td>' +
+        '</tr>';
+    });
+    html += '</table></div>';
+
+    main.innerHTML = html;
+  } catch(e) {
+    main.innerHTML = '<div class="empty-state" style="color:var(--danger)">Errore: ' + e.message + '</div>';
+  }
+}
+
+function exportClimaXLS() {
+  if (!currentData) { alert('Dati non ancora caricati.'); return; }
+  var wb = XLSX.utils.book_new();
+  var now = new Date();
+
+  // Foglio 1: riepilogo per zona
+  var rows1 = [['Zona','N campioni reali','% debole (<8kt)','% medio (8-15kt)','% forte (>15kt)','Fascia prevalente',
+    '% N','% E','% S','% W','Settore prevalente']];
+  Object.keys(currentData).forEach(function(id){
+    var agg = aggregateStation(currentData[id]);
+    rows1.push([id, agg.total,
+      pct(agg.speedN.low,agg.total), pct(agg.speedN.mid,agg.total), pct(agg.speedN.high,agg.total), agg.domSpeed,
+      pct(agg.sectorN.N,agg.total), pct(agg.sectorN.E,agg.total), pct(agg.sectorN.S,agg.total), pct(agg.sectorN.W,agg.total), agg.domSector]);
+  });
+  var ws1 = XLSX.utils.aoa_to_sheet(rows1);
+  ws1['!cols'] = Array(11).fill({wch:14});
+  XLSX.utils.book_append_sheet(wb, ws1, 'Riepilogo zone');
+
+  // Foglio 2: campioni grezzi usati (dato reale, per verifica)
+  var rows2 = [['Zona','Timestamp','Vento reale (kt)','Direzione reale (gradi)','Fascia','Settore']];
+  Object.keys(currentData).forEach(function(id){
+    var agg = aggregateStation(currentData[id]);
+    agg.samples.forEach(function(s){
+      rows2.push([id, s.ts, s.wind_kt, s.direction, s.spd, s.sec]);
+    });
+  });
+  var ws2 = XLSX.utils.aoa_to_sheet(rows2);
+  ws2['!cols'] = [{wch:18},{wch:22},{wch:14},{wch:16},{wch:10},{wch:10}];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Campioni grezzi');
+
+  XLSX.writeFile(wb, 'nautilus_climatologia_' + now.toISOString().slice(0,10) + '.xlsx');
+}
+
+load();
+</script>
+</body>
+</html>

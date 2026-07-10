@@ -1,4 +1,4 @@
-<!-- NAUTILUS SIMULATOR v1.8 - mdisailor - 2026-06-27 -->
+<!-- NAUTILUS SIMULATOR v1.9 - mdisailor - 2026-07-10 - aggiunto export XLS (riepilogo, dettaglio OI, matrice celle) -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -6,7 +6,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Simulator v1.8</title>
+<title>NAUTILUS Simulator v1.9</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -75,9 +76,12 @@ html,body{min-height:100%;background:var(--bg);font-family:'DM Mono',monospace;c
 <div id="nav">
   <div style="display:flex;align-items:center">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <div id="nav-ver">simulator v1.8</div>
+    <div id="nav-ver">simulator v1.9</div>
   </div>
-  <a id="nav-back" href="#" onclick="event.preventDefault();var p=prompt('Password:');if(p==='mdi'){window.location.href='/?k=mdi'}">APP</a>
+  <div style="display:flex;align-items:center;gap:8px">
+    <button id="btn-export" onclick="exportSimulatorXLS()" style="font-family:'DM Mono',monospace;font-size:0.55rem;padding:5px 10px;background:transparent;border:1px solid var(--accent);color:var(--accent);border-radius:6px;cursor:pointer;letter-spacing:0.06em">↓ XLS</button>
+    <a id="nav-back" href="#" onclick="event.preventDefault();var p=prompt('Password:');if(p==='mdi'){window.location.href='/?k=mdi'}">APP</a>
+  </div>
 </div>
 <div id="content">
   <div class="section-title">Simulatore — spiegazione valori mappa</div>
@@ -204,6 +208,19 @@ function renderPilot(pilot, omData, scoreData, biasMatrixData, stationsData) {
   if (finalSpeed !== null && oiCorrection !== null) finalSpeed = Math.round(Math.max(0, finalSpeed + oiCorrection) * 10) / 10;
   else if (finalSpeed !== null && biasBm !== null) finalSpeed = Math.round(Math.max(0, finalSpeed + biasBm) * 10) / 10;
 
+  // Salva i dati calcolati per l'export XLS (2026-07-10)
+  window._simExportData = window._simExportData || {};
+  window._simExportData[pilot.id] = {
+    pilot: pilot, omSpeed: omSpeed, omDir: omDir, omGust: omGust,
+    slot: slot, spdKey: spdKey, secKey: secKey, currentKey: currentKey,
+    currentN: currentN, chosen: chosen, fallback: fallback,
+    maeOm: maeOm, maeAr: maeAr, biasBm: biasBm,
+    oiResult: oiResult, oiCorrection: oiCorrection,
+    stSpeed: stSpeed, stDir: stDir, stAgeMin: stAgeMin,
+    stSource: stReal ? stReal.source : null,
+    finalSpeed: finalSpeed, matrix: matrix
+  };
+
   var html = '<div class="pilot-card">';
 
   // Header
@@ -320,6 +337,70 @@ function renderPilot(pilot, omData, scoreData, biasMatrixData, stationsData) {
 
   html += '</div>';
   return html;
+}
+
+function exportSimulatorXLS() {
+  var data = window._simExportData || {};
+  if (Object.keys(data).length === 0) { alert('Dati non ancora caricati, riprova tra qualche secondo.'); return; }
+  var wb = XLSX.utils.book_new();
+  var now = new Date();
+  var nowStr = now.toLocaleString('it-IT',{timeZone:'Europe/Rome'});
+
+  // --- FOGLIO 1: RIEPILOGO ---
+  var rows1 = [['Generato il', nowStr],[],
+    ['Stazione','Tipo','ST kt','ST dir','ST eta (min)','ST fonte','OM kt','OM dir','OM raffica',
+     'Cella condizioni','N campioni cella','Modello scelto','Fallback globale','MAE OM cella','MAE AROME cella',
+     'Bias matrix (kt)','Correzione OI (kt)','N stazioni OI','Valore finale (kt)','Delta vs OM','Delta vs stazione reale']];
+  PILOTS.forEach(function(p){
+    var d = data[p.id];
+    if (!d) return;
+    var deltaOm = (d.finalSpeed!=null && d.omSpeed!=null) ? Math.round((d.finalSpeed-d.omSpeed)*10)/10 : null;
+    var deltaSt = (d.finalSpeed!=null && d.stSpeed!=null) ? Math.round((d.finalSpeed-d.stSpeed)*10)/10 : null;
+    rows1.push([
+      p.name, p.type, d.stSpeed, d.stDir, d.stAgeMin, d.stSource,
+      d.omSpeed, d.omDir, d.omGust,
+      d.currentKey, d.currentN, d.chosen, d.fallback ? 'SI' : 'NO', d.maeOm, d.maeAr,
+      d.biasBm, d.oiCorrection, d.oiResult ? d.oiResult.stations_used.length : 0,
+      d.finalSpeed, deltaOm, deltaSt
+    ]);
+  });
+  var ws1 = XLSX.utils.aoa_to_sheet(rows1);
+  ws1['!cols'] = Array(21).fill({wch:14});
+  XLSX.utils.book_append_sheet(wb, ws1, 'Riepilogo');
+
+  // --- FOGLIO 2: DETTAGLIO OI (stazioni usate nella correzione, per pilota) ---
+  var rows2 = [['Stazione pilota','ID stazione usata','Distanza (km)','Bias (kt)','Peso (reliability)','Vento stazione (kt)']];
+  PILOTS.forEach(function(p){
+    var d = data[p.id];
+    if (!d || !d.oiResult || !d.oiResult.stations_used.length) return;
+    d.oiResult.stations_used.forEach(function(st){
+      rows2.push([p.name, st.id, st.d, st.bias, st.reliability, st.wind_kt]);
+    });
+  });
+  var ws2 = XLSX.utils.aoa_to_sheet(rows2);
+  ws2['!cols'] = [{wch:18},{wch:18},{wch:12},{wch:10},{wch:14},{wch:16}];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Dettaglio OI');
+
+  // --- FOGLIO 3: MATRICE CELLE (n campioni + modello vincente, per pilota/slot/cella) ---
+  var rows3 = [['Stazione pilota','Slot','Fascia velocita','Settore','N campioni','Modello vincente','MAE OM','MAE AROME']];
+  PILOTS.forEach(function(p){
+    var d = data[p.id];
+    if (!d || !d.matrix) return;
+    ['morning','afternoon'].forEach(function(sl){
+      ['low','mid','high'].forEach(function(spd){
+        ['N','E','S','W'].forEach(function(sec){
+          var key = spd+'_'+sec+'_'+sl;
+          var cell = d.matrix[key];
+          rows3.push([p.name, sl, spd, sec, cell?cell.n:0, cell?cell.best:'--', cell?cell.mae_om:null, cell?cell.mae_arome:null]);
+        });
+      });
+    });
+  });
+  var ws3 = XLSX.utils.aoa_to_sheet(rows3);
+  ws3['!cols'] = [{wch:18},{wch:12},{wch:12},{wch:8},{wch:10},{wch:14},{wch:10},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, ws3, 'Matrice celle');
+
+  XLSX.writeFile(wb, 'nautilus_simulator_' + now.toISOString().slice(0,16).replace(/[:T]/g,'-') + '.xlsx');
 }
 
 async function load() {

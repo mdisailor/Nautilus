@@ -1,4 +1,4 @@
-<!-- NAUTILUS CLIMATOLOGIA v1.3 - mdisailor - 2026-07-10 - grafici a barre verticali impilate, stazioni in ordine alfabetico -->
+<!-- NAUTILUS CLIMATOLOGIA v1.4 - mdisailor - 2026-07-10 - barre affiancate (non impilate) con scorrimento orizzontale -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -46,7 +46,8 @@
   #minN{width:90px;}
   .filters label{font-size:0.6rem;color:var(--muted);display:flex;align-items:center;gap:6px;}
   .chart-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:18px;}
-  .chart-card canvas{max-height:520px;}
+  .chart-scroll{overflow-x:auto;overflow-y:hidden;}
+  .chart-scroll canvas{height:380px !important;}
 </style>
 </head>
 <body>
@@ -181,6 +182,11 @@ function renderTable() {
 function renderCharts() {
   var alphaRows = allRows.slice().sort(function(a,b){ return a.id.localeCompare(b.id); });
   var labels = alphaRows.map(function(r){ return r.id; });
+  var pxPerStation = 70; // larghezza per stazione, abbastanza per 4 barre affiancate + etichetta
+  var chartWidth = Math.max(labels.length * pxPerStation, 600);
+  document.getElementById('speedChartWrap').style.width = chartWidth + 'px';
+  document.getElementById('sectorChartWrap').style.width = chartWidth + 'px';
+
   var ctxSpeed = document.getElementById('speedChart').getContext('2d');
   var ctxSector = document.getElementById('sectorChart').getContext('2d');
   if (speedChart) speedChart.destroy();
@@ -188,10 +194,11 @@ function renderCharts() {
 
   var chartOpts = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: { legend: { labels: { color: '#c8dff0', font:{family:"'DM Mono',monospace",size:10} } } },
     scales: {
-      x: { stacked:true, ticks:{color:'#c8dff0',font:{size:8},maxRotation:90,minRotation:60}, grid:{display:false} },
-      y: { stacked:true, ticks:{color:'#4a7a9b'}, grid:{color:'rgba(255,255,255,0.05)'}, max:100 }
+      x: { stacked:false, ticks:{color:'#c8dff0',font:{size:9},maxRotation:60,minRotation:45}, grid:{display:false} },
+      y: { stacked:false, ticks:{color:'#4a7a9b'}, grid:{color:'rgba(255,255,255,0.05)'}, beginAtZero:true, max:100 }
     }
   };
 
@@ -259,8 +266,8 @@ async function load() {
     html += '</div>';
 
     html += '<div class="section-title">Grafici — distribuzione per zona</div>';
-    html += '<div class="chart-card"><div style="font-size:0.6rem;color:var(--muted);margin-bottom:8px">FASCE DI VENTO PER ZONA (%)</div><canvas id="speedChart"></canvas></div>';
-    html += '<div class="chart-card"><div style="font-size:0.6rem;color:var(--muted);margin-bottom:8px">SETTORI PER ZONA (%)</div><canvas id="sectorChart"></canvas></div>';
+    html += '<div class="chart-card"><div style="font-size:0.6rem;color:var(--muted);margin-bottom:8px">FASCE DI VENTO PER ZONA (%) — barre affiancate</div><div class="chart-scroll"><div id="speedChartWrap"><canvas id="speedChart"></canvas></div></div></div>';
+    html += '<div class="chart-card"><div style="font-size:0.6rem;color:var(--muted);margin-bottom:8px">SETTORI PER ZONA (%) — barre affiancate</div><div class="chart-scroll"><div id="sectorChartWrap"><canvas id="sectorChart"></canvas></div></div></div>';
 
     html += '<div class="section-title">Per zona (classificato sul dato reale della stazione)</div>';
     html += '<div class="filters">' +

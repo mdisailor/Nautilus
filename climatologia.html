@@ -1,4 +1,4 @@
-<!--  NAUTILUS CLIMATOLOGIA v1.1 - mdisailor - 2026-07-10 - classifica sul dato REALE della stazione, non su OM -->
+<!-- NAUTILUS CLIMATOLOGIA v1.2 - mdisailor - 2026-07-10 - filtri live, ordinamento colonne, cella max evidenziata, grafici Chart.js -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NAUTILUS — Climatologia per zona</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Bebas+Neue&display=swap');
   :root {
@@ -27,16 +28,25 @@
   .summary-label{font-size:0.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;}
   .summary-value{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:var(--accent);}
   table{width:100%;border-collapse:collapse;font-size:0.72rem;background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
-  th{color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;padding:8px 8px;text-align:left;border-bottom:1px solid var(--border);font-weight:400;font-size:0.6rem;cursor:pointer;white-space:nowrap;}
+  th{color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;padding:8px 8px;text-align:left;border-bottom:1px solid var(--border);font-weight:400;font-size:0.6rem;cursor:pointer;white-space:nowrap;user-select:none;}
   th:hover{color:var(--accent);}
+  th.sorted{color:var(--accent);}
   td{padding:7px 8px;border-bottom:1px solid rgba(255,255,255,0.04);white-space:nowrap;}
   tr:last-child td{border-bottom:none;}
   .bar-wrap{display:inline-flex;width:60px;height:8px;border-radius:4px;overflow:hidden;background:rgba(255,255,255,0.06);vertical-align:middle;margin-right:5px;}
   .bar-seg{height:100%;}
   .n-low{color:var(--muted);} .n-ok{color:var(--warn);} .n-good{color:var(--safe);}
-  .dom{font-weight:bold;color:#fff;}
+  .max-cell{font-weight:bold;border-radius:4px;padding:3px 6px;}
   .section-title{font-size:0.75rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.1em;margin:20px 0 8px;}
   .table-scroll{overflow-x:auto;}
+  .filters{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;}
+  .filters input{background:var(--card);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:0.7rem;padding:7px 10px;border-radius:6px;}
+  .filters input:focus{outline:none;border-color:var(--accent);}
+  #zoneSearch{flex:1;min-width:140px;}
+  #minN{width:90px;}
+  .filters label{font-size:0.6rem;color:var(--muted);display:flex;align-items:center;gap:6px;}
+  .chart-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:18px;}
+  .chart-card canvas{max-height:520px;}
 </style>
 </head>
 <body>
@@ -65,6 +75,9 @@ var SPEED_COLORS = { low:'#4488ff', mid:'#ffaa00', high:'#ff4444' };
 var SECTOR_COLORS = { N:'#00e0ff', E:'#22dd88', S:'#ffaa00', W:'#ff6688' };
 
 var currentData = null; // salvato per l'export: { stationId: [samples] }
+var allRows = [];       // righe aggregate, usate da tabella/filtri/grafici
+var sortState = { col: 'total', dir: -1 };
+var speedChart = null, sectorChart = null;
 
 function speedBracket(kt) {
   if (kt == null) return null;
@@ -82,10 +95,6 @@ function sectorOf(dir) {
 
 // Aggrega i campioni GREZZI di una stazione, classificando in base al dato
 // REALE misurato (s.station.wind_kt / s.station.direction), non a OM.
-// fix 2026-07-10: la versione precedente usava model_score/compute_scores, che
-// classifica ogni campione in base a cosa diceva OM in quel momento, non in
-// base a cosa misurava davvero la stazione — climatologia sbagliata, "letta da
-// OM" invece che dai nostri dati reali.
 function aggregateStation(samples) {
   var speedN = { low:0, mid:0, high:0 };
   var sectorN = { N:0, E:0, S:0, W:0 };
@@ -101,7 +110,10 @@ function aggregateStation(samples) {
   });
   var domSpeed = total>0 ? Object.keys(speedN).reduce(function(a,b){ return speedN[a] >= speedN[b] ? a : b; }) : 'low';
   var domSector = total>0 ? Object.keys(sectorN).reduce(function(a,b){ return sectorN[a] >= sectorN[b] ? a : b; }) : 'N';
-  return { speedN:speedN, sectorN:sectorN, total:total, domSpeed:domSpeed, domSector:domSector, samples:valid };
+  var res = { speedN:speedN, sectorN:sectorN, total:total, domSpeed:domSpeed, domSector:domSector, samples:valid };
+  res.pLow  = pct(speedN.low, total);  res.pMid = pct(speedN.mid, total);  res.pHigh = pct(speedN.high, total);
+  res.pN = pct(sectorN.N, total); res.pE = pct(sectorN.E, total); res.pS = pct(sectorN.S, total); res.pW = pct(sectorN.W, total);
+  return res;
 }
 
 function pct(n, total) { return total > 0 ? Math.round(n/total*100) : 0; }
@@ -116,6 +128,92 @@ function bar(dist, colors, total) {
   return html;
 }
 
+// Cella con il valore massimo di un gruppo (speed o sector), evidenziata
+// direttamente in colore invece di una colonna "prevalente" separata.
+function maxCellTd(pctVal, isMax, color) {
+  return '<td>' + (isMax ? '<span class="max-cell" style="background:' + color + '22;color:' + color + '">' + pctVal + '%</span>' : pctVal + '%') + '</td>';
+}
+
+function renderTable() {
+  var search = document.getElementById('zoneSearch').value.trim().toLowerCase();
+  var minN = parseInt(document.getElementById('minN').value) || 0;
+  var filtered = allRows.filter(function(r){
+    return r.id.toLowerCase().indexOf(search) >= 0 && r.total >= minN;
+  });
+  filtered.sort(function(a,b){
+    var av = a[sortState.col], bv = b[sortState.col];
+    if (typeof av === 'string') return sortState.dir * av.localeCompare(bv) * -1;
+    return sortState.dir * (av - bv);
+  });
+
+  var html = '<div class="table-scroll"><table>';
+  html += '<tr>' +
+    '<th data-col="id">Zona</th><th data-col="total">N campioni</th>' +
+    '<th data-col="pLow">Debole</th><th data-col="pMid">Medio</th><th data-col="pHigh">Forte</th>' +
+    '<th data-col="pN">N</th><th data-col="pE">E</th><th data-col="pS">S</th><th data-col="pW">W</th></tr>';
+  filtered.forEach(function(r){
+    var nClass = r.total >= 30 ? 'n-good' : r.total >= 10 ? 'n-ok' : 'n-low';
+    html += '<tr>' +
+      '<td style="color:var(--accent)">' + r.id + '</td>' +
+      '<td class="' + nClass + '">' + r.total + '</td>' +
+      maxCellTd(r.pLow, r.domSpeed==='low', SPEED_COLORS.low) +
+      maxCellTd(r.pMid, r.domSpeed==='mid', SPEED_COLORS.mid) +
+      maxCellTd(r.pHigh, r.domSpeed==='high', SPEED_COLORS.high) +
+      maxCellTd(r.pN, r.domSector==='N', SECTOR_COLORS.N) +
+      maxCellTd(r.pE, r.domSector==='E', SECTOR_COLORS.E) +
+      maxCellTd(r.pS, r.domSector==='S', SECTOR_COLORS.S) +
+      maxCellTd(r.pW, r.domSector==='W', SECTOR_COLORS.W) +
+      '</tr>';
+  });
+  html += '</table></div>';
+  document.getElementById('tableContainer').innerHTML = html;
+
+  document.querySelectorAll('th[data-col]').forEach(function(th){
+    th.classList.toggle('sorted', th.dataset.col === sortState.col);
+    th.onclick = function(){
+      var col = th.dataset.col;
+      if (sortState.col === col) sortState.dir *= -1; else { sortState.col = col; sortState.dir = -1; }
+      renderTable();
+    };
+  });
+}
+
+function renderCharts() {
+  var labels = allRows.map(function(r){ return r.id; });
+  var ctxSpeed = document.getElementById('speedChart').getContext('2d');
+  var ctxSector = document.getElementById('sectorChart').getContext('2d');
+  if (speedChart) speedChart.destroy();
+  if (sectorChart) sectorChart.destroy();
+
+  var chartOpts = {
+    indexAxis: 'y',
+    responsive: true,
+    plugins: { legend: { labels: { color: '#c8dff0', font:{family:"'DM Mono',monospace",size:10} } } },
+    scales: {
+      x: { stacked:true, ticks:{color:'#4a7a9b'}, grid:{color:'rgba(255,255,255,0.05)'}, max:100 },
+      y: { stacked:true, ticks:{color:'#c8dff0',font:{size:9}}, grid:{display:false} }
+    }
+  };
+
+  speedChart = new Chart(ctxSpeed, {
+    type: 'bar',
+    data: { labels: labels, datasets: SPEED_KEYS.map(function(k){
+      return { label: SPEED_LABELS[k], backgroundColor: SPEED_COLORS[k],
+        data: allRows.map(function(r){ return pct(r.speedN[k], r.total); }) };
+    })},
+    options: chartOpts
+  });
+
+  sectorChart = new Chart(ctxSector, {
+    type: 'bar',
+    data: { labels: labels, datasets: SECTOR_KEYS.map(function(k){
+      return { label: k, backgroundColor: SECTOR_COLORS[k],
+        data: allRows.map(function(r){ return pct(r.sectorN[k], r.total); }) };
+    })},
+    options: chartOpts
+  });
+}
+
 async function load() {
   var main = document.getElementById('main');
   try {
@@ -128,24 +226,24 @@ async function load() {
     currentData = {};
     results.forEach(function(r){ currentData[r.id] = r.samples; });
 
-    var rows = results.map(function(r){
+    allRows = results.map(function(r){
       var agg = aggregateStation(r.samples);
       return Object.assign({ id:r.id }, agg);
     });
-    rows.sort(function(a,b){ return b.total - a.total; });
+    allRows.sort(function(a,b){ return b.total - a.total; });
 
     // Aggregato globale
     var globSpeed = { low:0, mid:0, high:0 };
     var globSector = { N:0, E:0, S:0, W:0 };
     var globTotal = 0;
-    rows.forEach(function(r){
+    allRows.forEach(function(r){
       SPEED_KEYS.forEach(function(k){ globSpeed[k] += r.speedN[k]; });
       SECTOR_KEYS.forEach(function(k){ globSector[k] += r.sectorN[k]; });
       globTotal += r.total;
     });
 
     var html = '<div class="summary-grid">' +
-      '<div class="summary-card"><div class="summary-label">Zone monitorate</div><div class="summary-value">' + rows.length + '</div></div>' +
+      '<div class="summary-card"><div class="summary-label">Zone monitorate</div><div class="summary-value">' + allRows.length + '</div></div>' +
       '<div class="summary-card"><div class="summary-label">Campioni reali totali</div><div class="summary-value">' + globTotal + '</div></div>' +
       '<div class="summary-card"><div class="summary-label">Fonte</div><div class="summary-value" style="font-size:0.8rem;color:var(--safe)">dato stazione (non OM)</div></div>' +
       '</div>';
@@ -160,29 +258,22 @@ async function load() {
     html += bar(globSector, SECTOR_COLORS, globTotal);
     html += '</div>';
 
-    html += '<div class="section-title">Per zona (classificato sul dato reale della stazione)</div><div class="table-scroll"><table>';
-    html += '<tr><th>Zona</th><th>N campioni</th>' +
-      '<th>Debole</th><th>Medio</th><th>Forte</th><th>Fascia prevalente</th>' +
-      '<th>N</th><th>E</th><th>S</th><th>W</th><th>Settore prevalente</th></tr>';
-    rows.forEach(function(r){
-      var nClass = r.total >= 30 ? 'n-good' : r.total >= 10 ? 'n-ok' : 'n-low';
-      html += '<tr>' +
-        '<td style="color:var(--accent)">' + r.id + '</td>' +
-        '<td class="' + nClass + '">' + r.total + '</td>' +
-        '<td>' + pct(r.speedN.low,r.total) + '%</td>' +
-        '<td>' + pct(r.speedN.mid,r.total) + '%</td>' +
-        '<td>' + pct(r.speedN.high,r.total) + '%</td>' +
-        '<td class="dom" style="color:' + SPEED_COLORS[r.domSpeed] + '">' + SPEED_LABELS[r.domSpeed] + '</td>' +
-        '<td>' + pct(r.sectorN.N,r.total) + '%</td>' +
-        '<td>' + pct(r.sectorN.E,r.total) + '%</td>' +
-        '<td>' + pct(r.sectorN.S,r.total) + '%</td>' +
-        '<td>' + pct(r.sectorN.W,r.total) + '%</td>' +
-        '<td class="dom" style="color:' + SECTOR_COLORS[r.domSector] + '">' + r.domSector + '</td>' +
-        '</tr>';
-    });
-    html += '</table></div>';
+    html += '<div class="section-title">Grafici — distribuzione per zona</div>';
+    html += '<div class="chart-card"><div style="font-size:0.6rem;color:var(--muted);margin-bottom:8px">FASCE DI VENTO PER ZONA (%)</div><canvas id="speedChart"></canvas></div>';
+    html += '<div class="chart-card"><div style="font-size:0.6rem;color:var(--muted);margin-bottom:8px">SETTORI PER ZONA (%)</div><canvas id="sectorChart"></canvas></div>';
+
+    html += '<div class="section-title">Per zona (classificato sul dato reale della stazione)</div>';
+    html += '<div class="filters">' +
+      '<input id="zoneSearch" type="text" placeholder="Cerca zona...">' +
+      '<label>N minimo <input id="minN" type="number" value="0" min="0"></label>' +
+      '</div>';
+    html += '<div id="tableContainer"></div>';
 
     main.innerHTML = html;
+    renderCharts();
+    renderTable();
+    document.getElementById('zoneSearch').addEventListener('input', renderTable);
+    document.getElementById('minN').addEventListener('input', renderTable);
   } catch(e) {
     main.innerHTML = '<div class="empty-state" style="color:var(--danger)">Errore: ' + e.message + '</div>';
   }

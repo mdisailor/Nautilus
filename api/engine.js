@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.0 - by mdisailor engine - fix audit 2026-07-11: A1 ritiro circuito bias:zona (verifica vs OM), A2 actual grezzo+fattore quota documentato, A3 rimossa chiamata a funzione inesistente in cron, A4 chiavi snap/verify uniformate, A5 provenienza per campo negli snapshot, A6 getNowRome a scope modulo (IFS sempre null), B1 predict_bias solo source predict, B2 correzione bias deterministica post-estrazione, B3 casi simili +6h per timestamp, C1 hardening agent, C2 temp_water senza default finto, C4 estrazione vento da EVOLUZIONE, C5 cap predict_history per source
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.1 - by mdisailor engine - fix audit 2026-07-11: A1 ritiro circuito bias:zona (verifica vs OM), A2 actual grezzo+fattore quota documentato, A3 rimossa chiamata a funzione inesistente in cron, A4 chiavi snap/verify uniformate, A5 provenienza per campo negli snapshot, A6 getNowRome a scope modulo (IFS sempre null), B1 predict_bias solo source predict, B2 correzione bias deterministica post-estrazione, B3 casi simili +6h per timestamp, C1 hardening agent, C2 temp_water senza default finto, C4 estrazione vento da EVOLUZIONE, C5 cap predict_history per source
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -3348,6 +3348,41 @@ if (action === 'predict_debug') {
     }
     return res.status(200).json({ zone: zoneKey, found: pdbFound.length, predictions: pdbFound });
   } catch(e) { return res.status(500).json({ error: e.message }); }
+}
+
+if (action === 'ifs_check') {
+  // Diagnostica temporanea (2026-07-11): mostra gli ultimi snapshot ricchi di
+  // una zona con solo i campi rilevanti per verificare il deploy dell'audit
+  // (ifs_* da A6, wind_source da A5). Leggera, niente base64.
+  if (!zoneKey || !ZONES[zoneKey]) return res.status(404).json({ error: 'Zona non valida', available: Object.keys(ZONES) });
+  var icNow = new Date();
+  var icOut = [];
+  for (var icI = 0; icI < 8; icI++) {
+    var icT = new Date(icNow.getTime() - icI * 30 * 60000);
+    var icMins = icT.getMinutes() < 30 ? '00' : '30';
+    var icKey = 'snap:' + zoneKey + ':' + icT.toISOString().slice(0,13) + '-' + icMins;
+    var icSnap = await kvGet(icKey, kvUrl, kvToken);
+    if (icSnap) {
+      icOut.push({
+        key: icKey,
+        ts: icSnap.ts || null,
+        wind_source: icSnap.wind_source !== undefined ? icSnap.wind_source : '(assente)',
+        obs_source: icSnap.obs_source !== undefined ? icSnap.obs_source : null,
+        wind_speed: icSnap.wind_speed,
+        wind_speed_om: icSnap.wind_speed_om,
+        ifs_wind_speed: icSnap.ifs_wind_speed !== undefined ? icSnap.ifs_wind_speed : '(campo assente)',
+        ifs_wind_dir: icSnap.ifs_wind_dir !== undefined ? icSnap.ifs_wind_dir : '(campo assente)',
+        icon_wind_speed: icSnap.icon_wind_speed !== undefined ? icSnap.icon_wind_speed : '(campo assente)',
+        wave_height: icSnap.wave_height !== undefined ? icSnap.wave_height : null
+      });
+    }
+  }
+  return res.status(200).json({
+    zone: zoneKey,
+    note: 'ifs_wind_speed con un numero = A6 OK (ECMWF popolato). Se e\' null/(campo assente) su TUTTI = da verificare. wind_source presente = A5 OK.',
+    snapshots_found: icOut.length,
+    snapshots: icOut
+  });
 }
 
 if (action === 'diag') {

@@ -1,4 +1,5 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.13.56 - by mdisailor engine - grid_rules 43.75_10.15/44.00_10.15 riallineate alla matrice a zone (rimossa forzatura Viareggio+BoccaArno)
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.0 - by mdisailor engine - fix audit 2026-07-11: A1 ritiro circuito bias:zona (verifica vs OM), A2 actual grezzo+fattore quota documentato, A3 rimossa chiamata a funzione inesistente in cron, A4 chiavi snap/verify uniformate, A5 provenienza per campo negli snapshot, A6 getNowRome a scope modulo (IFS sempre null), B1 predict_bias solo source predict, B2 correzione bias deterministica post-estrazione, B3 casi simili +6h per timestamp, C1 hardening agent, C2 temp_water senza default finto, C4 estrazione vento da EVOLUZIONE, C5 cap predict_history per source
+// v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
 // AUTH CENTRALIZZATA - richiede CRON_SECRET via header Authorization: Bearer <secret>
@@ -332,7 +333,9 @@ var swell_height = sn(data.swell_height);
 var swell_period = sn(data.swell_period);
 var swell_dir = sn(data.swell_dir);
 var temp_air = sn(data.temp_air, 15);
-var temp_water = sn(data.temp_water, 15);
+// fix 2026-07-11 (audit C2): temp_water puo' essere null (no Stormglass) — i
+// segnali che la usano si saltano invece di calcolarsi su un default finto
+var temp_water = (data.temp_water !== null && data.temp_water !== undefined) ? Number(data.temp_water) : null;
 var humidity = sn(data.humidity, 70);
 var wind_speed = sn(data.wind_speed);
 
@@ -429,10 +432,12 @@ msg: 'Mare incrociato: swell ' + sf(swell_dir,0) + ' vs vento ' + sf(wind_dir,0)
 }
 
 // 5 - NEBBIA DA AVVEZIONE
+if (temp_water !== null) { // fix 2026-07-11 (audit C2): solo con T acqua reale
 var deltaTempAW = temp_air - temp_water;
 if (deltaTempAW < 1.0 && humidity > 85) {
 signals.push({ type: 'fog_risk', strength: deltaTempAW < 0.5 ? 'strong' : 'medium',
 msg: 'Delta T aria/acqua ' + sf(deltaTempAW,1) + ' C, umidita ' + sf(humidity,0) + '% - rischio nebbia da avvezione' });
+}
 }
 
 // 6 - TEMPORALE CONVETTIVO
@@ -511,7 +516,7 @@ var zone = ZONES[zoneKey];
 var wind_dir = sn(data.wind_dir);
 var wind_speed = sn(data.wind_speed);
 var temp_air = sn(data.temp_air, 15);
-var temp_water = sn(data.temp_water, 15);
+var temp_water = (data.temp_water !== null && data.temp_water !== undefined) ? Number(data.temp_water) : null; // fix C2
 var humidity = sn(data.humidity, 70);
 var effects = {};
 
@@ -535,9 +540,10 @@ amplified_speed: (active && effect.amplification) ? Math.round(wind_speed * effe
 }
 
 effects.fog_advection = {
-active: (temp_air - temp_water) < 1.0 && humidity > 85,
+// fix 2026-07-11 (audit C2): senza T acqua reale l'effetto non si valuta
+active: temp_water !== null && (temp_air - temp_water) < 1.0 && humidity > 85,
 desc: 'Nebbia da avvezione',
-note: 'Delta T aria/acqua: ' + sf(temp_air - temp_water, 1) + ' C'
+note: temp_water !== null ? ('Delta T aria/acqua: ' + sf(temp_air - temp_water, 1) + ' C') : 'T acqua non disponibile'
 };
 
 return effects;
@@ -704,7 +710,7 @@ var wave_height = sn(data.wave_height);
 var swell_height = sn(data.swell_height);
 var swell_period = sn(data.swell_period);
 var temp_air = sn(data.temp_air, 15);
-var temp_water = sn(data.temp_water, 15);
+var temp_water = (data.temp_water !== null && data.temp_water !== undefined) ? Number(data.temp_water) : null; // fix C2
 var humidity = sn(data.humidity, 70);
 var alerts = [];
 
@@ -728,14 +734,16 @@ else if (wave_height >= 0.8) alerts.push({ type: 'wave_low', severity: 'low', ms
 
 if (swell_period >= 10 && swell_height >= 0.8) alerts.push({ type: 'early_swell', severity: 'medium', msg: '[ATTENZIONE] Swell lungo ' + sf(swell_period,0) + 's - sistema perturbato in avvicinamento' });
 
-var deltaT = temp_air - temp_water;
-var romeHourNow = (new Date().getUTCHours() + 2) % 24; // approssimazione UTC+2 (ora legale)
+// fix 2026-07-11 (audit C2/C3): delta solo con T acqua reale; ora Roma via
+// Intl invece dell'approssimazione UTC+2 fissa (sbagliava in ora solare)
+var deltaT = temp_water !== null ? (temp_air - temp_water) : null;
+var romeHourNow = parseInt(new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', hour: '2-digit', hour12: false }).format(new Date()), 10);
 var isFogHour = romeHourNow >= 20 || romeHourNow < 10;
-if (deltaT < 0.5 && humidity > 90 && isFogHour) {
+if (deltaT !== null && deltaT < 0.5 && humidity > 90 && isFogHour) {
   alerts.push({ type: 'fog_high', severity: 'high', msg: '[ROSSO] Delta T ' + sf(deltaT,1) + ' C, umidita ' + sf(humidity,0) + '% - nebbia probabile' });
-} else if (deltaT < 0.5 && humidity > 90) {
+} else if (deltaT !== null && deltaT < 0.5 && humidity > 90) {
   alerts.push({ type: 'fog_risk', severity: 'medium', msg: '[GIALLO] Delta T ' + sf(deltaT,1) + ' C, umidita ' + sf(humidity,0) + '% - condizioni favorevoli nebbia notturna' });
-} else if (deltaT < 1.0 && humidity > 85) {
+} else if (deltaT !== null && deltaT < 1.0 && humidity > 85) {
   alerts.push({ type: 'fog_risk', severity: 'low', msg: '[INFO] Delta T ' + sf(deltaT,1) + ' C - rischio nebbia nelle ore notturne' });
 }
 
@@ -912,6 +920,20 @@ atmData.hourly.swell_wave_direction = wh.swell_wave_direction;
 return atmData;
 }
 
+// fix 2026-07-11 (audit A6): getNowRome era definita DENTRO l'handler mentre
+// fetchECMWF (funzione a livello modulo) la chiamava da fuori scope: ogni
+// chiamata lanciava ReferenceError, silenziato dal try/catch — i dati IFS
+// ECMWF risultavano SEMPRE null senza alcun errore visibile. Spostata a
+// livello modulo; la copia dentro l'handler e' stata rimossa.
+function getNowRome() {
+  var romeStr = new Date().toLocaleString('en-CA', {
+    timeZone: 'Europe/Rome', year:'numeric', month:'2-digit', day:'2-digit',
+    hour:'2-digit', minute:'2-digit', hour12: false
+  });
+  var m = romeStr.match(/([0-9]{4})-([0-9]{2})-([0-9]{2}), ([0-9]{2}):([0-9]{2})/) || romeStr.match(/([0-9]{4})-([0-9]{2})-([0-9]{2}),([0-9]{2}):([0-9]{2})/);
+  return m ? m[1]+'-'+m[2]+'-'+m[3]+'T'+m[4]+':00' : null;
+}
+
 async function fetchECMWF(lat, lon, model) {
 // model: 'ifs04' for IFS 9km, 'aifs025' for AIFS
 try {
@@ -997,7 +1019,7 @@ wave_dir:          sn(h.wave_direction && h.wave_direction[idx]),
 swell_height:      sn(h.swell_wave_height && h.swell_wave_height[idx]),
 swell_period:      sn(h.swell_wave_period && h.swell_wave_period[idx]),
 swell_dir:         sn(h.swell_wave_direction && h.swell_wave_direction[idx]),
-temp_water:        15,
+temp_water:        null, // fix 2026-07-11 (audit C2): niente default inventato (era 15 C fisso senza Stormglass: delta aria/acqua e rischio nebbia calcolati su un dato finto)
 current_speed:     0,
 current_dir:       0,
 pressure_prev:     sn(h.surface_pressure[prev], 1013),
@@ -1138,6 +1160,19 @@ ifs_pressure: data.ifs_pressure !== undefined ? data.ifs_pressure : null
 // Se esiste gia uno snap CFR in questo slot, preserva vento/dir reali e aggiunge onde/pressione OM
 try {
   var existing = await kvGet(key, restUrl, restToken);
+  // fix 2026-07-11 (audit A5): preserva SEMPRE i campi di provenienza CFR
+  // (wind_*_cfr, temp_air_real, wind_source) scritti da scrape_cfr — prima
+  // questo overwrite li cancellava silenziosamente perche' l'oggetto snapshot
+  // veniva ricostruito da zero senza quei campi.
+  if (existing && typeof existing === 'object') {
+    if (existing.temp_air_real != null) snapshot.temp_air_real = existing.temp_air_real;
+    if (existing.wind_speed_cfr != null) {
+      snapshot.wind_speed_cfr = existing.wind_speed_cfr;
+      snapshot.wind_dir_cfr   = existing.wind_dir_cfr;
+      snapshot.wind_gust_cfr  = existing.wind_gust_cfr;
+    }
+    if (existing.wind_source) snapshot.wind_source = existing.wind_source;
+  }
   if (existing && existing.obs_source === 'cfr') {
     snapshot.wind_speed    = existing.wind_speed;
     snapshot.wind_dir      = existing.wind_dir;
@@ -1316,6 +1351,16 @@ async function getSituazioneAccuracy(zoneKey, kvUrl, kvToken) {
 
 async function verifySituazione(zoneKey, currentData, kvUrl, kvToken) {
   if (!kvUrl || !kvToken) return;
+  // fix 2026-07-11 (audit A1): actual da stazione reale (grezzo), non dal
+  // nowcast OM. Se non c'e' un campione reale recente, la verifica si salta.
+  var vsZone = ZONES[zoneKey];
+  if (!vsZone || !vsZone.bias_station) return;
+  var vsSamples = await kvGet('bias_samples:' + vsZone.bias_station, kvUrl, kvToken) || [];
+  var vsLast = (Array.isArray(vsSamples) && vsSamples.length > 0) ? vsSamples[0] : null;
+  if (!vsLast || !vsLast.station || vsLast.station.wind_kt === null || vsLast.station.wind_kt === undefined) return;
+  if ((Date.now() - new Date(vsLast.ts).getTime()) > 45 * 60000) return;
+  var vsActual = vsLast.station.wind_kt;
+  var vsActualDir = (vsLast.station.direction !== null && vsLast.station.direction !== undefined) ? vsLast.station.direction : null;
   var now = new Date();
   // Verifica schede delle ultime 6h e 12h
   var horizons = [6, 12];
@@ -1344,7 +1389,18 @@ async function verifySituazione(zoneKey, currentData, kvUrl, kvToken) {
     var existing = await kvGet(verSitKey, kvUrl, kvToken);
     if (existing) continue;
     // Estrai previsione vento dalla scheda (cerca pattern Xkn nel testo)
-    var windMatch = sitFound.text ? sitFound.text.match(/(\d+)-(\d+)kn|(\d+\.?\d*)kn/) : null;
+    // fix 2026-07-11 (audit C4): la regex prendeva la PRIMA occorrenza "Xkn"
+    // nell'intero testo — spesso il vento ATTUALE citato in "SITUAZIONE
+    // ATTUALE", non la previsione. Ora cerca prima nella sezione "EVOLUZIONE
+    // ATTESA"; il testo completo resta solo come fallback.
+    var sitSearchText = sitFound.text || '';
+    var evoIdx = sitSearchText.indexOf('EVOLUZIONE');
+    if (evoIdx >= 0) {
+      var evoEnd = sitSearchText.indexOf('CONSIGLIO', evoIdx);
+      sitSearchText = evoEnd > evoIdx ? sitSearchText.slice(evoIdx, evoEnd) : sitSearchText.slice(evoIdx);
+    }
+    var windMatch = sitSearchText ? sitSearchText.match(/(\d+)-(\d+)kn|(\d+\.?\d*)kn/) : null;
+    if (!windMatch && sitFound.text) windMatch = sitFound.text.match(/(\d+)-(\d+)kn|(\d+\.?\d*)kn/);
     var predictedWindMin = null, predictedWindMax = null;
     if (windMatch) {
       if (windMatch[1] && windMatch[2]) {
@@ -1361,14 +1417,15 @@ async function verifySituazione(zoneKey, currentData, kvUrl, kvToken) {
       allerta_predicted: sitFound.allerta,
       wind_predicted_min: predictedWindMin,
       wind_predicted_max: predictedWindMax,
-      actual_wind: currentData.wind_speed,
-      actual_wind_dir: currentData.wind_dir,
+      actual_wind: vsActual,
+      actual_wind_dir: vsActualDir,
+      actual_source: 'station:' + vsZone.bias_station,
       actual_pressure: currentData.pressure,
       actual_wave: currentData.wave_height,
       verified_at: now.toISOString(),
-      // Valuta se la previsione era corretta
+      // Valuta se la previsione era corretta (vs dato reale di stazione)
       wind_in_range: (predictedWindMin !== null && predictedWindMax !== null) ?
-        (currentData.wind_speed >= predictedWindMin * 0.7 && currentData.wind_speed <= predictedWindMax * 1.3) : null
+        (vsActual >= predictedWindMin * 0.7 && vsActual <= predictedWindMax * 1.3) : null
     };
     await kvSet(verSitKey, verRecord, 2592000, kvUrl, kvToken); // 30 giorni
   }
@@ -1376,6 +1433,20 @@ async function verifySituazione(zoneKey, currentData, kvUrl, kvToken) {
 
 async function verifyForecasts(zoneKey, currentData, kvUrl, kvToken) {
 if (!kvUrl || !kvToken) return;
+// fix 2026-07-11 (audit A1): l'actual era currentData.wind_speed, cioe' il
+// nowcast OM — la "verifica" confrontava la previsione AI col modello, non
+// con la realta' misurata. Ora l'actual viene dalla stazione reale della zona
+// (bias_samples, campione recente <=45min, valore GREZZO non pesato). Se non
+// c'e' un dato reale recente la verifica si salta: meglio nessun campione che
+// un campione contro il modello.
+var vfZone = ZONES[zoneKey];
+if (!vfZone || !vfZone.bias_station) return;
+var vfSamples = await kvGet('bias_samples:' + vfZone.bias_station, kvUrl, kvToken) || [];
+var vfLast = (Array.isArray(vfSamples) && vfSamples.length > 0) ? vfSamples[0] : null;
+if (!vfLast || !vfLast.station || vfLast.station.wind_kt === null || vfLast.station.wind_kt === undefined) return;
+if ((Date.now() - new Date(vfLast.ts).getTime()) > 45 * 60000) return;
+var vfActual = vfLast.station.wind_kt;
+var vfActualDir = (vfLast.station.direction !== null && vfLast.station.direction !== undefined) ? vfLast.station.direction : null;
 var now = new Date();
 // H+3 incluso -- usa chiave predict: (AI forecast)
 var horizons = [3, 6, 12, 24];
@@ -1395,7 +1466,7 @@ for (var si = 0; si < slots15.length; si++) {
 if (!forecast) continue;
 var predictedWind = forecast['forecast_h' + h];
 if (predictedWind == null) continue;
-var windError = parseFloat((currentData.wind_speed - predictedWind).toFixed(1));
+var windError = parseFloat((vfActual - predictedWind).toFixed(1));
 var verKey = 'verify:' + zoneKey + ':' + pastRomeHour + ':h' + h;
 // Evita di sovrascrivere verifiche gia salvate
 var existing = await kvGet(verKey, kvUrl, kvToken);
@@ -1404,17 +1475,23 @@ var verRecord = {
 forecast_time: pastTime.toISOString(),
 horizon_h: h,
 predicted_wind: predictedWind,
-actual_wind: currentData.wind_speed,
-actual_wind_dir: currentData.wind_dir || null,
+actual_wind: vfActual,
+actual_wind_dir: vfActualDir,
+actual_source: 'station:' + vfZone.bias_station,
 actual_wave: currentData.wave_height,
 wind_error: windError,
 wave_error: 0
 };
 await kvSet(verKey, verRecord, 2592000, kvUrl, kvToken);
-await updateBias(zoneKey, verRecord, kvUrl, kvToken);
+// fix 2026-07-11 (audit A1): rimosso updateBias() — alimentava bias:zona con
+// errori misurati contro OM e applicati poi al forecast deterministico da
+// applyBias(). Il circuito di correzione attivo e' predict_bias (backfill).
 }
 }
 
+// DEPRECATA (audit A1, 2026-07-11): nessun chiamante attivo. Alimentava
+// bias:zona con errori misurati contro il nowcast OM. Mantenuta solo per
+// riferimento storico — rimuovere in una futura pulizia.
 async function updateBias(zoneKey, verRecord, kvUrl, kvToken) {
 var biasKey = 'bias:' + zoneKey;
 var bias = await kvGet(biasKey, kvUrl, kvToken);
@@ -1477,6 +1554,9 @@ async function biasComputeStations(kvUrl, kvToken) {
   return results;
 }
 
+// DEPRECATA (audit A1, 2026-07-11): nessun chiamante attivo. Applicava al
+// forecast deterministico un bias derivato da errori AI-vs-OM. Il circuito di
+// correzione attivo e' predict_bias in action=predict (deterministico, B2).
 function applyBias(forecast, bias) {
 if (!bias || bias.samples < 10) return forecast;
 var corrected = JSON.parse(JSON.stringify(forecast));
@@ -1567,14 +1647,11 @@ async function getNeighborSnapshots(zoneKey, kvUrl, kvToken) {
     for (var hi = 0; hi < 3 && !found; hi++) {
       var t = new Date(now.getTime() - hi * 3600000);
       var mins = t.getMinutes() < 30 ? '00' : '30';
-      var tRome = t.toLocaleString('en-CA', {
-        timeZone:'Europe/Rome', year:'numeric', month:'2-digit', day:'2-digit',
-        hour:'2-digit', hour12:false
-      });
-      var tm = tRome.match(/([0-9]{4})-([0-9]{2})-([0-9]{2}), ([0-9]{2})/) ||
-               tRome.match(/([0-9]{4})-([0-9]{2})-([0-9]{2}),([0-9]{2})/);
-      if (!tm) continue;
-      var th = tm[1]+'-'+tm[2]+'-'+tm[3]+'T'+tm[4];
+      // fix 2026-07-11 (audit A4): saveZoneSnapshot scrive le chiavi snap: con
+      // ora UTC (toISOString); qui si leggeva con ora Europe/Rome — in ora
+      // legale la chiave puntava 2 ore avanti e il dato veniva trovato solo
+      // per caso al terzo tentativo del loop. Ora stessa convenzione UTC.
+      var th = t.toISOString().slice(0, 13);
       var snap = await kvGet('snap:' + nk + ':' + th + '-' + mins, kvUrl, kvToken);
       if (snap) { found = { zone: nk, name: ZONES[nk] ? ZONES[nk].name : nk, snap: snap }; }
     }
@@ -1748,14 +1825,17 @@ var alerts = buildAlerts(diagnosis, currentData, localEffects, ports);
 var reliability = calcReliability(hasStormglass, diagnosis.signals, rotationAnalysis);
 var briefingText = generateBriefingText(zone.name, diagnosis, currentData, forecast, win, alerts);
 
-// Apply bias correction if enough historical data
+// fix 2026-07-11 (audit A1): rimossa l'applicazione di applyBias() al forecast
+// deterministico. bias:zona era alimentato da verifyForecasts confrontando le
+// previsioni AI con il nowcast OM (extractCurrentData.wind_speed = valore del
+// modello, non della stazione): errore misurato sul sistema AI-vs-OM e applicato
+// al sistema deterministico — doppia incoerenza. La correzione basata su dati
+// reali vive ora solo in predict_bias (backfill_actuals su bias_samples).
+// bias:zona resta leggibile a scopo informativo ma non altera piu' le previsioni.
 var bias = null;
 try {
 if (kvUrl && kvToken) {
 bias = await getBias(zoneKey, kvUrl, kvToken);
-if (bias && bias.samples >= 10) {
-forecast = applyBias(forecast, bias);
-}
 }
 } catch(e) {}
 
@@ -1889,15 +1969,7 @@ async function updateLammaBias(kvUrl, kvToken) {
 
 module.exports = async function handler(req, res) {
 
-// Helper: ora corrente in formato Europe/Rome compatibile con OM hourly.time
-function getNowRome() {
-  var romeStr = new Date().toLocaleString('en-CA', {
-    timeZone: 'Europe/Rome', year:'numeric', month:'2-digit', day:'2-digit',
-    hour:'2-digit', minute:'2-digit', hour12: false
-  });
-  var m = romeStr.match(/([0-9]{4})-([0-9]{2})-([0-9]{2}), ([0-9]{2}):([0-9]{2})/) || romeStr.match(/([0-9]{4})-([0-9]{2})-([0-9]{2}),([0-9]{2}):([0-9]{2})/);
-  return m ? m[1]+'-'+m[2]+'-'+m[3]+'T'+m[4]+':00' : null;
-}
+// getNowRome spostata a livello modulo (audit A6) — vedi definizione sopra fetchECMWF
 
 res.setHeader('Access-Control-Allow-Origin', '*');
 res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -1963,7 +2035,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.56', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.57', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -2367,14 +2439,34 @@ if (action === 'scrape_cfr') {
       return kvGet(scfSlotKey2, kvUrl, kvToken).catch(function(){ return null; }).then(function(existingSnap){
         var merged = existingSnap && typeof existingSnap === 'object' ? Object.assign({}, existingSnap) : {};
         merged.ts = scfTs;
-        merged.wind_speed = scfData.wind_kt;
-        merged.wind_dir = scfData.dir_deg;
-        merged.wind_gust = scfData.gust_kt;
+        // fix 2026-07-05 (parte 2): non sovrascrivere piu' wind_speed/wind_dir/
+        // wind_gust se già presenti (scritti dal processo "ricco" al centro-zona).
+        // fix 2026-07-11 (audit A5): prima obs_source='cfr' veniva marcato ANCHE
+        // quando il vento CFR non era stato scritto (perche' lo slot conteneva
+        // gia' il valore OM del processo ricco): saveZoneSnapshot poi "preservava
+        // come reale" un valore OM, e il filtro cfrSnaps14 in action=predict
+        // includeva snapshot col vento del modello credendoli osservazioni.
+        // Ora: (1) il dato reale CFR viene SEMPRE salvato nei campi dedicati
+        // wind_*_cfr, indipendentemente dall'ordine di scrittura; (2) obs_source
+        // ='cfr' e wind_source='cfr' solo se i campi principali sono davvero CFR.
+        var cfrWindLanded = false;
+        if (merged.wind_speed == null) { merged.wind_speed = scfData.wind_kt; cfrWindLanded = true; }
+        if (merged.wind_dir == null) merged.wind_dir = scfData.dir_deg;
+        if (merged.wind_gust == null) merged.wind_gust = scfData.gust_kt;
+        // Campi dedicati: il dato reale non va mai perso, qualunque sia l'ordine
+        merged.wind_speed_cfr = scfData.wind_kt;
+        merged.wind_dir_cfr   = scfData.dir_deg;
+        merged.wind_gust_cfr  = scfData.gust_kt;
         merged.wind_speed_om = scfOm.wind_kt;
         merged.wind_dir_om = scfOm.direction;
         if (merged.pressure == null) merged.pressure = scfOm.pressure_mb;
         if (scfData.temp_air_real != null && !isNaN(scfData.temp_air_real)) merged.temp_air_real = scfData.temp_air_real;
-        merged.obs_source = 'cfr';
+        if (cfrWindLanded || merged.wind_source === 'cfr') {
+          merged.obs_source = 'cfr';
+          merged.wind_source = 'cfr';
+        } else if (!merged.wind_source) {
+          merged.wind_source = 'om'; // il vento nei campi principali e' del modello
+        }
         merged.obs_station = st.id;
         merged.obs_quota = st.quota || null;
         if (merged.wave_height === undefined) merged.wave_height = null;
@@ -3222,12 +3314,12 @@ return calcZone(zk, null, kvUrl, kvToken, { query: { history: '1' } })
 .catch(function(e) { cronResults[zk] = { ok: false, error: e.message }; });
 });
 await Promise.all(cronPromises);
-// Genera scheda situazione per ogni zona in parallelo (chiamata diretta)
-var sitPromises = cronZones.map(function(zk) {
-  return generateSituazioneForZone(zk, true, kvUrl, kvToken, process.env.ANTHROPIC_KEY || null)
-    .catch(function() {});
-});
-await Promise.all(sitPromises);
+// fix 2026-07-11 (audit A3): rimossa la chiamata a generateSituazioneForZone —
+// la funzione NON esisteva (refactoring rimasto a meta'): il ReferenceError
+// sincrono faceva rispondere 500 a ogni run di action=cron e le schede
+// situazione da cron non venivano MAI generate. La generazione resta on-demand
+// via action=situazione&zone=X (o va estratta in una funzione condivisa se si
+// vuole davvero il cron — da fare come refactoring dedicato, non qui).
 return res.status(200).json({ ok: true, ts: new Date().toISOString(), zones: cronResults });
 }
 
@@ -3365,7 +3457,10 @@ for (var d2 = 0; d2 < 7; d2 = d2 + 1) {
 for (var h2 = 0; h2 < 24; h2 = h2 + 1) {
 (function(dd, hh) {
 var t = new Date(now2.getTime() - dd * 86400000 - hh * 3600000);
-var ts = t.toISOString().slice(0, 13);
+// fix 2026-07-11 (audit A4): verifyForecasts scrive le chiavi verify: con ora
+// Europe/Rome (pastRomeHour); questo scanner le leggeva con ora UTC — in ora
+// legale perdeva le 2 ore piu' recenti. Ora legge con la stessa convenzione.
+var ts = t.toLocaleString('sv-SE', {timeZone:'Europe/Rome'}).replace(' ','T').slice(0,13).replace(':','-');
 var key = 'verify:' + zoneKey + ':' + ts + ':h6';
 verPromises.push(kvGet(key, kvUrl, kvToken).then(function(v) {
 return v ? v : null;
@@ -3533,28 +3628,51 @@ if (action === 'agent') {
   try {
     var anthropicKey = process.env.ANTHROPIC_KEY || null;
     if (!anthropicKey) return res.status(500).json({ error: 'ANTHROPIC_KEY non configurata' });
-    // Rate limit globale: max 30 chiamate/ora per evitare abusi
-    if (kvUrl && kvToken) {
-      var agentRateKey = 'ratelimit:agent:' + new Date().toISOString().slice(0,13);
-      var agentCount = await kvGet(agentRateKey, kvUrl, kvToken) || 0;
-      if (parseInt(agentCount) >= 30) return res.status(429).json({ error: 'Limite chiamate raggiunto, riprova tra qualche minuto' });
-      await fetch(kvUrl, { method:'POST', headers:{ Authorization:'Bearer '+kvToken, 'Content-Type':'application/json' }, body: JSON.stringify(['INCR', agentRateKey]) });
-      await fetch(kvUrl, { method:'POST', headers:{ Authorization:'Bearer '+kvToken, 'Content-Type':'application/json' }, body: JSON.stringify(['EXPIRE', agentRateKey, 3600]) });
-    }
+    // fix 2026-07-11 (audit C1): hardening del proxy LLM. Prima: (1) GET-poi-
+    // INCR = race condition sul contatore; (2) limite solo globale, nessun
+    // limite per IP; (3) se KV non rispondeva il limite SPARIVA in silenzio
+    // (proxy aperto senza freni); (4) nessun vincolo su dimensioni di system/
+    // messages. requireSecret non e' applicabile (chiamata dal client pubblico
+    // index.html): restano vincoli di dimensione e rate, fail-closed.
+    // TODO refactoring futuro: template di prompt lato server (id template +
+    // testo utente vincolato) invece di system/messages arbitrari dal client.
+    if (!kvUrl || !kvToken) return res.status(503).json({ error: 'Servizio temporaneamente non disponibile' });
+    var agentHourKey = new Date().toISOString().slice(0,13);
+    var agentIp = ((req.headers['x-forwarded-for'] || '').split(',')[0] || '').trim() || 'unknown';
+    var agentIncr = async function(key, ttl) {
+      var r1 = await fetch(kvUrl, { method:'POST', headers:{ Authorization:'Bearer '+kvToken, 'Content-Type':'application/json' }, body: JSON.stringify(['INCR', key]) });
+      var j1 = await r1.json();
+      await fetch(kvUrl, { method:'POST', headers:{ Authorization:'Bearer '+kvToken, 'Content-Type':'application/json' }, body: JSON.stringify(['EXPIRE', key, ttl]) });
+      return parseInt(j1 && j1.result != null ? j1.result : 0, 10);
+    };
+    var agCountGlobal = await agentIncr('ratelimit:agent:' + agentHourKey, 3600);
+    if (agCountGlobal > 30) return res.status(429).json({ error: 'Limite chiamate raggiunto, riprova tra qualche minuto' });
+    var agCountIp = await agentIncr('ratelimit:agent_ip:' + agentIp + ':' + agentHourKey, 3600);
+    if (agCountIp > 10) return res.status(429).json({ error: 'Limite chiamate per utente raggiunto, riprova tra qualche minuto' });
     var body = await new Promise(function(resolve, reject) {
       var data = '';
-      req.on('data', function(chunk) { data += chunk; });
+      req.on('data', function(chunk) {
+        data += chunk;
+        if (data.length > 30000) { req.destroy(); resolve(null); } // cap payload
+      });
       req.on('end', function() { try { resolve(JSON.parse(data)); } catch(e) { resolve({}); } });
       req.on('error', reject);
     });
+    if (!body) return res.status(413).json({ error: 'Payload troppo grande' });
+    var agSystem = typeof body.system === 'string' ? body.system : '';
+    var agMessages = Array.isArray(body.messages) ? body.messages : [];
+    if (agSystem.length > 6000) return res.status(400).json({ error: 'System prompt troppo lungo' });
+    if (agMessages.length > 20) return res.status(400).json({ error: 'Troppi messaggi' });
+    var agTotalChars = agMessages.reduce(function(a, m){ return a + (m && typeof m.content === 'string' ? m.content.length : 0); }, 0);
+    if (agTotalChars > 20000) return res.status(400).json({ error: 'Conversazione troppo lunga' });
     var agentRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 1800,
-        system: body.system || '',
-        messages: body.messages || []
+        system: agSystem,
+        messages: agMessages
       })
     });
     if (!agentRes.ok) return res.status(500).json({ error: 'AI error ' + agentRes.status });
@@ -3574,8 +3692,7 @@ if (action === 'situazione') {
 
     var isFast = req.query.fast === '1';
     var snapsSit = await getWindHistory(zoneKey, kvUrl, kvToken, 48);
-    var biasSit = await getBias(zoneKey, kvUrl, kvToken);
-    var rotSit = analyzeWindRotation(snapsSit.slice(0, 24));
+    var rotSit = analyzeWindRotation(snapsSit.slice(0, 24)); // biasSit rimosso (audit A1)
     var currentSit = snapsSit[snapsSit.length - 1] || null;
     if (!currentSit) return res.status(500).json({ error: 'Nessun dato disponibile per la zona' });
 
@@ -3623,9 +3740,10 @@ if (action === 'situazione') {
     sLines.push('');
     sLines.push('PATTERN SINOTTICO: ' + (diagSit.description || diagSit.case));
     sLines.push('ROTAZIONE: ' + rotSit.trend + ', percorso ' + (rotSit.total_path||0) + ' gradi in ' + rotSit.hours + 'h');
-    if (biasSit && biasSit.wind_bias) {
-      sLines.push('BIAS STORICO: ' + biasSit.wind_bias + 'kn (i modelli tendono a ' + (biasSit.wind_bias < 0 ? 'sovrastimare' : 'sottostimare') + ')');
-    }
+    // fix 2026-07-11 (audit A1): rimossa la riga "BIAS STORICO ... i modelli
+    // tendono a..." — usava bias:zona, che misurava la deviazione delle
+    // previsioni AI dal nowcast OM, non il bias dei modelli vs realta'.
+    // L'etichetta era semanticamente falsa e fuorviava l'AI.
     if (alertsSit.length > 0) {
       sLines.push('');
       sLines.push('ALERT RILEVATI: ' + alertsSit.join(' | '));
@@ -3686,14 +3804,16 @@ if (action === 'situazione') {
       }
     }
 
-    // === BIAS PREVISIONALE (errori sistematici AI) ===
-    // fix 2026-07-04: la versione precedente diceva "sottrai il bias da OM" con un
-    // esempio aritmeticamente sbagliato (8-(-3) scritto come 5, ma fa 11). La
-    // formula corretta e': previsione_corretta = OM + bias, dove bias =
-    // media(reale - previsto). Con bias negativo (sovrastima sistematica, come
-    // successo per mesi su alcune zone) la vecchia istruzione spingeva l'AI ad
-    // AUMENTARE la previsione invece di abbassarla, peggiorando l'errore invece
-    // di correggerlo.
+    // === BIAS PREVISIONALE (contesto qualitativo) ===
+    // storia: fix 2026-07-04 aveva corretto il segno della formula nel prompt;
+    // fix 2026-07-11 (audit B2) ha eliminato del tutto la formula dal prompt.
+    // fix 2026-07-11 (audit B2): rimossa la "CORREZIONE BIAS OBBLIGATORIA" con
+    // formula aritmetica — delegare calcoli all'LLM e' la causa dei bug di segno
+    // di luglio (lezione sezione 9 metodologia). Inoltre il bias e' misurato sui
+    // record source:'predict' (audit B1): applicarlo numericamente alle schede
+    // situazione significherebbe correggere un prodotto con gli errori di un
+    // altro. Qui resta solo un'indicazione qualitativa di tendenza; la
+    // correzione numerica vive in action=predict, deterministica, post-estrazione.
     if (kvUrl && kvToken) {
       var biasPred = await kvGet('predict_bias:' + zoneKey, kvUrl, kvToken);
       if (biasPred && biasPred.bias) {
@@ -3703,15 +3823,14 @@ if (action === 'situazione') {
           var b = bp[h];
           if (!b || b.n < 5 || b.mean === null) return;
           var label = 'H+' + h.slice(1);
-          var dir2 = b.mean > 0 ? 'sottostima' : 'sovrastima';
-          var signTxt = b.mean >= 0 ? ('+' + b.mean) : b.mean;
-          bpLines.push(label + ': errore medio ' + signTxt + 'kn (' + dir2 + ', n=' + b.n + ') - la tua previsione OM per ' + label + ' deve diventare OM ' + (b.mean >= 0 ? '+ ' + b.mean : '- ' + Math.abs(b.mean)) + ' = OM ' + signTxt + 'kn');
+          var dir2 = b.mean > 0 ? 'sottostimare' : 'sovrastimare';
+          bpLines.push(label + ': le previsioni per questa zona tendono a ' + dir2 + ' di ~' + Math.abs(b.mean) + 'kn (n=' + b.n + ')');
         });
         if (bpLines.length > 0) {
           sLines.push('');
-          sLines.push('CORREZIONE BIAS OBBLIGATORIA (basata su ' + Object.keys(bp).filter(function(h){ var b=bp[h]; return b&&b.n>=5&&b.mean!==null; }).length + ' orizzonti verificati):');
+          sLines.push('TENDENZA ERRORI RECENTI (solo contesto, NON applicare correzioni numeriche):');
           bpLines.forEach(function(l){ sLines.push('- ' + l); });
-          sLines.push('IMPORTANTE: questi errori sono sistematici e confermati. FORMULA: previsione_corretta = valore_OM + bias (bias gia\' col suo segno, sommalo cosi\' com\'e\'). Esempio: OM=8kn, bias=-3kn -> previsione_corretta = 8 + (-3) = 5kn. Esempio: OM=6kn, bias=+2kn -> previsione_corretta = 6 + 2 = 8kn.');
+          sLines.push('Tienine conto qualitativamente nella valutazione della fascia di vento attesa.');
         }
       }
     }
@@ -3799,7 +3918,10 @@ if (action === 'situazione') {
       var phListSit = await kvGet('predict_history:' + zoneKey, kvUrl, kvToken) || [];
       phListSit = Array.isArray(phListSit) ? phListSit : [];
       phListSit.unshift(sitPredRecord);
-      if (phListSit.length > 30) phListSit.length = 30;
+      // fix 2026-07-11 (audit C5): cap per-source (30+30), come in action=predict
+      var phSitOnly = phListSit.filter(function(x){ return x && x.source === 'situazione'; }).slice(0, 30);
+      var phPredOnly = phListSit.filter(function(x){ return x && x.source !== 'situazione'; }).slice(0, 30);
+      phListSit = phPredOnly.concat(phSitOnly).sort(function(a,b){ return new Date(b.generated_at) - new Date(a.generated_at); });
       await kvSet('predict_history:' + zoneKey, phListSit, 2592000, kvUrl, kvToken);
     }
 
@@ -3828,7 +3950,18 @@ if (action === 'predict') {
     // Get last 14 days of snapshots
     var snapshots14 = await getWindHistory(zoneKey, kvUrl, kvToken, req.query.fast === '1' ? 48 : 336);
     // Per zone con dati reali CFR, usa solo quelli per l'analisi storica
-    var cfrSnaps14 = snapshots14.filter(function(s){ return s.obs_source === 'cfr'; });
+    // fix 2026-07-11 (audit A5): il filtro obs_source==='cfr' includeva anche
+    // snapshot col vento OM nei campi principali (marcati 'cfr' per errore di
+    // merge). Ora usa la provenienza per campo, e recupera il valore reale dai
+    // campi dedicati wind_*_cfr quando i campi principali contengono OM.
+    var cfrSnaps14 = snapshots14.filter(function(s){
+      return s.wind_source === 'cfr' || s.obs_source === 'cfr' || s.wind_speed_cfr != null;
+    }).map(function(s){
+      if (s.wind_speed_cfr != null && s.wind_source !== 'cfr' && s.obs_source !== 'cfr') {
+        return Object.assign({}, s, { wind_speed: s.wind_speed_cfr, wind_dir: s.wind_dir_cfr, wind_gust: s.wind_gust_cfr });
+      }
+      return s;
+    });
     if (cfrSnaps14.length >= 3) snapshots14 = cfrSnaps14;
     var bias = await getBias(zoneKey, kvUrl, kvToken);
     var biasStatLivorno = await kvGet('bias_stats:livorno', kvUrl, kvToken);
@@ -3918,20 +4051,32 @@ if (action === 'predict') {
     var maxWind24 = last24.length > 0 ? Math.max.apply(null, last24.map(function(s){return s.wind_speed;})).toFixed(1) : '--';
 
     // Find similar historical patterns (last 14 days, same pressure trend)
+    // fix 2026-07-11 (audit B3): "dopo 6h" era calcolato per indice
+    // (futureSnaps[5] con cadenza 30min = ~2,5-3h, meta' del dichiarato; con
+    // filtro CFR la serie e' anche irregolare). Ora il vento "6 ore dopo" si
+    // cerca per TIMESTAMP (target ts+6h, tolleranza ±45min) — l'etichetta nel
+    // prompt torna vera.
     var similarCases = [];
-    for (var si = 24; si < validSnaps.length - 6; si++) {
+    for (var si = 24; si < validSnaps.length; si++) {
+      if (!validSnaps[si].ts) continue;
       var histP = validSnaps.slice(Math.max(0,si-3), si).map(function(s){return s.pressure;});
       if (histP.length < 2) continue;
       var histPDelta = histP[histP.length-1] - histP[0];
       var histTrend = histPDelta < -1 ? 'calo' : histPDelta > 1 ? 'rialzo' : 'stabile';
       var currTrend = pressureTrend.indexOf('calo') >= 0 ? 'calo' : pressureTrend.indexOf('rialzo') >= 0 ? 'rialzo' : 'stabile';
       if (histTrend === currTrend) {
-        var futureSnaps = validSnaps.slice(si, si+6);
-        if (futureSnaps.length >= 6) {
+        var scTarget = new Date(validSnaps[si].ts).getTime() + 6 * 3600000;
+        var scBest = null, scBestDiff = 45 * 60000;
+        for (var sj = si + 1; sj < validSnaps.length; sj++) {
+          if (!validSnaps[sj].ts) continue;
+          var scDiff = Math.abs(new Date(validSnaps[sj].ts).getTime() - scTarget);
+          if (scDiff < scBestDiff) { scBestDiff = scDiff; scBest = validSnaps[sj]; }
+        }
+        if (scBest && scBest.wind_speed != null) {
           similarCases.push({
             at: validSnaps[si].ts,
             wind_at: validSnaps[si].wind_speed,
-            wind_6h: futureSnaps[5].wind_speed,
+            wind_6h: scBest.wind_speed,
             pressure_at: validSnaps[si].pressure,
             dir_at: validSnaps[si].wind_dir
           });
@@ -4163,6 +4308,34 @@ if (action === 'predict') {
       forecast_h12: extractWindVal(aiText, '12'),
       slot: (function(){ var h = parseInt(getNowRome().slice(11,13),10); return h < 11 ? 'morning' : 'afternoon'; }())
     };
+    // fix 2026-07-11 (audit B2): correzione bias DETERMINISTICA post-estrazione.
+    // L'aritmetica non si delega piu' all'LLM (lezione sezione 9 metodologia):
+    // il prompt resta privo di istruzioni di calcolo, la somma la fa il codice,
+    // verificabile a mano. forecast_hN = valore corretto (e' quello che
+    // verifica/backfill misurano, quindi il bias futuro e' il residuo della
+    // previsione FINALE — circuito coerente); forecast_hN_raw = estratto grezzo.
+    var bpApplied = [];
+    if (kvUrl && kvToken) {
+      try {
+        var bpPred2 = await kvGet('predict_bias:' + zoneKey, kvUrl, kvToken);
+        if (bpPred2 && bpPred2.bias) {
+          ['h1','h3','h6','h9','h12'].forEach(function(bh) {
+            var bb = bpPred2.bias[bh];
+            var bRaw = predRecord['forecast_' + bh];
+            if (!bb || bb.n < 5 || bb.mean === null || bRaw === null || bRaw === undefined) return;
+            predRecord['forecast_' + bh + '_raw'] = bRaw;
+            var bCorr = Math.max(0, Math.round((bRaw + bb.mean) * 10) / 10);
+            predRecord['forecast_' + bh] = bCorr;
+            bpApplied.push('H+' + bh.slice(1) + ': ' + bRaw + ' -> ' + bCorr + ' kn (bias ' + (bb.mean >= 0 ? '+' : '') + bb.mean + ', n=' + bb.n + ')');
+          });
+          if (bpApplied.length > 0) {
+            predRecord.bias_corrected = true;
+            predRecord.prediction_text = aiText + '\n\nCORREZIONE BIAS (applicata dal motore, non dall\'AI):\n- ' + bpApplied.join('\n- ');
+            aiText = predRecord.prediction_text;
+          }
+        }
+      } catch(bpErr) {}
+    }
     if (kvUrl && kvToken) {
       var saveOk = await kvSet(predKey, predRecord, 2592000, kvUrl, kvToken); // 30 days TTL
       if (!saveOk) console.error('predict: kvSet failed for key', predKey);
@@ -4170,7 +4343,12 @@ if (action === 'predict') {
       var phList = await kvGet('predict_history:' + zoneKey, kvUrl, kvToken) || [];
       phList = Array.isArray(phList) ? phList : [];
       phList.unshift(Object.assign({}, predRecord, { source: 'predict' }));
-      if (phList.length > 30) phList.length = 30;
+      // fix 2026-07-11 (audit C5): cap per-source (30+30), non globale — prima
+      // le situazioni da cron potevano espellere le previsioni verificate prima
+      // che il backfill le usasse per il bias.
+      var phPred = phList.filter(function(x){ return x && x.source !== 'situazione'; }).slice(0, 30);
+      var phSit  = phList.filter(function(x){ return x && x.source === 'situazione'; }).slice(0, 30);
+      phList = phPred.concat(phSit).sort(function(a,b){ return new Date(b.generated_at) - new Date(a.generated_at); });
       await kvSet('predict_history:' + zoneKey, phList, 2592000, kvUrl, kvToken);
     }
 
@@ -4312,7 +4490,8 @@ if (action === 'migrate_history') {
       if (enriched[hor[0]] != null) continue;
       var target = new Date(gen.getTime() + hor[2] * 3600000);
       if (target > new Date()) continue;
-      var tr = target.toLocaleString('sv-SE',{timeZone:'Europe/Rome'}).replace(' ','T').slice(0,13).replace(':','-');
+      // fix 2026-07-11 (audit A4): chiavi snap: in UTC, non Roma
+      var tr = target.toISOString().slice(0, 13);
       var m2 = target.getMinutes() < 30 ? '00' : '30';
       var snap = await kvGet('snap:' + mhZone + ':' + tr + '-' + m2, kvUrl, kvToken);
       if (snap && snap.wind_speed != null) { enriched[hor[0]] = snap.wind_speed; enriched[hor[1]] = snap.wind_dir; }
@@ -4398,7 +4577,10 @@ if (action === 'forecast_stats') {
         var snapRes = await Promise.all([3,6,12].map(function(hh) {
           var t = new Date(gen.getTime() + hh * 3600000);
           if (t > new Date()) return Promise.resolve(null);
-          var tr = t.toLocaleString('sv-SE',{timeZone:'Europe/Rome'}).replace(' ','T').slice(0,13).replace(':','-');
+          // fix 2026-07-11 (audit A4): chiavi snap: in UTC, non Roma — prima
+          // in ora legale leggeva lo snapshot di 2 ore DOPO il target (gli
+          // actual_3h diventavano di fatto actual_5h)
+          var tr = t.toISOString().slice(0, 13);
           var m = t.getMinutes() < 30 ? '00' : '30';
           return kvGet('snap:' + zoneKey + ':' + tr + '-' + m, kvUrl, kvToken);
         }));
@@ -4472,7 +4654,8 @@ if (action === 'forecast_stats') {
     var currentBias = biasPred ? biasPred.bias : null;
     if (!currentBias && verified.length >= 3) {
       var inlineErrors = {h1:[],h3:[],h6:[],h9:[],h12:[]};
-      verified.forEach(function(p) {
+      // fix 2026-07-11 (audit B1): solo record source:'predict', come nel backfill
+      verified.filter(function(p){ return p && p.source !== 'situazione'; }).forEach(function(p) {
         var getA = function(k){ return p[k] != null ? p[k] : (p.prediction && p.prediction[k] != null ? p.prediction[k] : null); };
         var getF = function(k){ return p[k] != null ? p[k] : (p.prediction && p.prediction[k] != null ? p.prediction[k] : null); };
         ['h1','h3','h6','h9','h12'].forEach(function(h) {
@@ -4514,7 +4697,14 @@ if (action === 'backfill_actuals') {
       if (!Array.isArray(bfList) || bfList.length === 0) { bfResults.push({zone:bfZk, skipped:'no_predictions'}); continue; }
       // Carica bias_samples per questa zona (ultime 100 osservazioni)
       var bfSamples = await kvGet('bias_samples:' + bfZone.bias_station, kvUrl, kvToken) || [];
-      // Peso quota: riduce affidabilita stazioni in quota
+      // fix 2026-07-11 (audit A2): bfWeight NON e' un peso di affidabilita' ma
+      // una RIDUZIONE A VENTO DI SUPERFICIE (il vento misurato a 100-470m e'
+      // fisicamente piu' forte che a 10m; lo stesso fattore e' applicato alle
+      // osservazioni recenti nel prompt situazione, per coerenza). Un peso di
+      // fiducia non deve mai moltiplicare la misura. Il valore grezzo viene ora
+      // salvato accanto a quello ridotto (actual_Nh_raw + actual_quota_factor),
+      // cosi' la trasformazione e' esplicita, verificabile e reversibile.
+      // TODO futuro: sostituire i 4 gradini con profilo logaritmico del vento.
       var bfQuota = bfZone.bias_quota || 0;
       var bfWeight = bfQuota <= 15 ? 1.0 : bfQuota <= 100 ? 0.85 : bfQuota <= 200 ? 0.65 : 0.45;
       // Se bias_samples vuoto, prova con snapshot zona (wind_speed osservato)
@@ -4526,9 +4716,11 @@ if (action === 'backfill_actuals') {
         var bfNow2 = new Date();
         for (var bfSi = 0; bfSi < 48; bfSi++) {
           var bfSt = new Date(bfNow2.getTime() - bfSi * 3600000);
-          var bfSRome = bfSt.toLocaleString('sv-SE', {timeZone:'Europe/Rome'}).replace(' ','T').slice(0,13).replace(':','-');
-          bfSnapKeys.push('snap:' + bfZk + ':' + bfSRome + '-00');
-          bfSnapKeys.push('snap:' + bfZk + ':' + bfSRome + '-30');
+          // fix 2026-07-11 (audit A4): chiavi snap: scritte in UTC da
+          // saveZoneSnapshot/scrape_cfr — qui si leggeva in ora Roma (+2h estate)
+          var bfSUtc = bfSt.toISOString().slice(0, 13);
+          bfSnapKeys.push('snap:' + bfZk + ':' + bfSUtc + '-00');
+          bfSnapKeys.push('snap:' + bfZk + ':' + bfSUtc + '-30');
         }
         var bfSnapResults = await kvMGet(bfSnapKeys, kvUrl, kvToken);
         bfSnapResults.forEach(function(snap) {
@@ -4556,7 +4748,9 @@ if (action === 'backfill_actuals') {
           });
           if (best) {
             item[hor[0]] = Math.round(best.station.wind_kt * bfWeight * 10) / 10;
+            item[hor[0] + '_raw'] = best.station.wind_kt; // valore misurato, non trasformato (audit A2)
             item[hor[1]] = best.station.direction;
+            item.actual_quota_factor = bfWeight;
             bfUpdated++;
           }
         });
@@ -4574,7 +4768,12 @@ if (action === 'backfill_actuals') {
     try {
       var bfList2 = await kvGet('predict_history:' + bfZk2, kvUrl, kvToken) || [];
       var bfErrors = {h1:[], h3:[], h6:[], h9:[], h12:[]};
-      (bfList2 || []).forEach(function(item) {
+      // fix 2026-07-11 (audit B1): il bias era calcolato sull'unione di due
+      // popolazioni (record source:'predict' e source:'situazione', prompt e
+      // formati diversi) ma la correzione veniva applicata a un solo prodotto.
+      // Ora predict_bias misura SOLO i record di action=predict: il circuito
+      // corregge lo stesso prodotto che misura.
+      (bfList2 || []).filter(function(item){ return item && item.source !== 'situazione'; }).forEach(function(item) {
         var getAct = function(item, k){ return item[k] != null ? item[k] : (item.prediction && item.prediction[k] != null ? item.prediction[k] : null); };
         var getFc = function(item, k){ return item[k] != null ? item[k] : (item.prediction && item.prediction[k] != null ? item.prediction[k] : null); };
         if (getAct(item,'actual_1h') !== null && getFc(item,'forecast_h1') !== null) bfErrors.h1.push(getAct(item,'actual_1h') - getFc(item,'forecast_h1'));
@@ -4663,7 +4862,8 @@ if (action === 'predict_history') {
         var snapResults = await Promise.all([3,6,12].map(function(hh) {
           var t = new Date(gen.getTime() + hh * 3600000);
           var m = t.getMinutes() < 30 ? '00' : '30';
-          var tr = t.toLocaleString('sv-SE',{timeZone:'Europe/Rome'}).replace(' ','T').slice(0,13).replace(':','-').replace(':','-');
+          // fix 2026-07-11 (audit A4): chiavi snap: in UTC, non Roma
+          var tr = t.toISOString().slice(0, 13);
           return kvGet('snap:' + zone + ':' + tr + '-' + m, kvUrl, kvToken);
         }));
         return snapResults.map(function(s){ return s ? {wind_speed: s.wind_speed, wind_dir: s.wind_dir} : null; });
@@ -4709,12 +4909,17 @@ if (action === 'predict_history') {
     try {
       var days = Math.min(parseInt(req.query.days) || 7, 30);
       var zone = ZONES[zoneKey];
+      // fix 2026-07-11 (audit A4): timezone=UTC (era Europe/Rome). Le chiavi
+      // snap: seguono la convenzione UTC di saveZoneSnapshot; con hh.time in
+      // ora Roma questo writer creava chiavi sfasate di +1/+2h rispetto a
+      // tutti gli altri scrittori/lettori, e anche il campo ts era sbagliato
+      // (new Date("...T09:00") interpretata come UTC sul server Vercel).
       var atmUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + zone.lat + '&longitude=' + zone.lon +
         '&hourly=temperature_2m,relativehumidity_2m,surface_pressure,windspeed_10m,winddirection_10m,windgusts_10m' +
-        '&wind_speed_unit=kn&timezone=Europe/Rome&forecast_days=1&past_days=' + days + '&models=best_match';
+        '&wind_speed_unit=kn&timezone=UTC&forecast_days=1&past_days=' + days + '&models=best_match';
       var waveUrl = 'https://marine-api.open-meteo.com/v1/marine?latitude=' + zone.lat + '&longitude=' + zone.lon +
         '&hourly=wave_height,wave_period,wave_direction,swell_wave_height,swell_wave_period,swell_wave_direction' +
-        '&length_unit=metric&timezone=Europe/Rome&forecast_days=1&past_days=' + days;
+        '&length_unit=metric&timezone=UTC&forecast_days=1&past_days=' + days;
       var res2 = await Promise.all([fetch(atmUrl), fetch(waveUrl)]);
       var atmData = await res2[0].json();
       if (!atmData.hourly) return res.status(500).json({ error: 'OM error' });
@@ -5567,7 +5772,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.56 - by mdisailor engine',
+engine: 'nautilus-engine v2.13.57 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -5663,7 +5868,8 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
     // Legge snapshot OM per confronto
     try {
-      var snapKey = 'snap:' + zona + ':' + getNowRome().slice(0, 13) + '-00';
+      // fix 2026-07-11 (audit A4): chiavi snap: in UTC, non Roma (getNowRome)
+      var snapKey = 'snap:' + zona + ':' + new Date().toISOString().slice(0, 13) + '-00';
       var snapRaw = await kvGet(snapKey, kvUrl, kvToken);
       var snap = snapRaw ? JSON.parse(snapRaw) : null;
       var omAvg = snap ? (snap.wind_speed || 0) : 0;
@@ -5694,4 +5900,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.56
+// Fine codice - NAUTILUS ENGINE v2.13.57

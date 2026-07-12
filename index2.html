@@ -91,17 +91,13 @@
 
   <div class="section-label">Diagnostica engine</div>
   <div class="grid">
+    <a class="card" href="/diag.html">
+      <div class="card-title">Diagnostica <span class="arrow">→</span></div>
+      <div class="card-desc">Stato engine, continuità raccolta dati, IFS e processi — con semafori e spiegazioni, per zona.</div>
+    </a>
     <a class="card" href="/api/engine?action=ping">
-      <div class="card-title">Ping <span class="arrow">→</span></div>
-      <div class="card-desc">Stato engine, versione, zone attive, ora server.</div>
-    </a>
-    <a class="card" href="/api/engine?action=ifs_check&zone=viareggio">
-      <div class="card-title">IFS Check <span class="arrow">→</span></div>
-      <div class="card-desc">Ultimi snapshot con campi ifs_*/wind_source (Viareggio).</div>
-    </a>
-    <a class="card" href="/api/engine?action=history&zone=viareggio&hours=6">
-      <div class="card-title">History <span class="arrow">→</span></div>
-      <div class="card-desc">Serie storica vento di una zona (grezza, JSON).</div>
+      <div class="card-title">Ping (grezzo) <span class="arrow">→</span></div>
+      <div class="card-desc">Risposta JSON diretta dell'engine, per verifica rapida.</div>
     </a>
   </div>
 </main>

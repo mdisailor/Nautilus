@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.7.28 -- 2026-07-12 - vento stazione in rosso quando fonte OM (non CFR reale) -->
+<!-- NAUTILUS v5.7.29 -- 2026-07-12 - vento OM in rosso anche nella matrice storica -->
 
 <html lang="it">
 <head>
@@ -3979,9 +3979,13 @@ function renderHistoryMatrix(snaps) {
     var hG = gust != null ? Math.max(MIN_H, Math.round(MIN_H+(gust/maxW)*(BAR_H-MIN_H))) : MIN_H;
     var colS = bftColor(spd), colG = bftColor(gust);
     var hw = Math.floor((COL_W-5)/2);
+    // 2026-07-11: numero vento in rosso quando la fonte e' OM (modello di ripiego,
+    // non dato reale della stazione). Serve a distinguere a colpo d'occhio.
+    var isOmW = s.wind_source === 'om';
+    var valColor = isOmW ? '#ff4444' : (isLast?'#fff':'#8ab8d0');
     return '<div style="width:'+COL_W+'px;flex-shrink:0;display:flex;flex-direction:column;align-items:center">' +
       '<div style="height:'+VAL_H+'px;display:flex;align-items:center;justify-content:center">' +
-        '<span style="font-family:DM Mono,monospace;font-size:0.36rem;color:'+(isLast?'#fff':'#8ab8d0')+';white-space:nowrap;font-weight:'+(isLast?'bold':'normal')+'">'+
+        '<span style="font-family:DM Mono,monospace;font-size:0.36rem;color:'+valColor+';white-space:nowrap;font-weight:'+(isLast||isOmW?'bold':'normal')+'">'+
         (spd!=null?Math.round(spd):'-')+'/'+(gust!=null?Math.round(gust):'-')+'</span></div>' +
       '<div style="height:'+BAR_H+'px;display:flex;align-items:flex-end;justify-content:center;gap:1px">' +
         '<div style="width:'+hw+'px;height:'+hS+'px;background:'+colS+';border-radius:2px 2px 0 0;opacity:'+(isLast?1:0.8)+'"></div>' +

@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.1 - by mdisailor engine - fix audit 2026-07-11: A1 ritiro circuito bias:zona (verifica vs OM), A2 actual grezzo+fattore quota documentato, A3 rimossa chiamata a funzione inesistente in cron, A4 chiavi snap/verify uniformate, A5 provenienza per campo negli snapshot, A6 getNowRome a scope modulo (IFS sempre null), B1 predict_bias solo source predict, B2 correzione bias deterministica post-estrazione, B3 casi simili +6h per timestamp, C1 hardening agent, C2 temp_water senza default finto, C4 estrazione vento da EVOLUZIONE, C5 cap predict_history per source
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.2 - by mdisailor engine - v2.14.2: vento sempre presente per la visualizzazione con wind_source (cfr reale / om ripiego, mostrato in rosso dalle pagine); statistiche e backfill usano SOLO wind_source=cfr, mai OM come osservazione. Su base fix audit 2026-07-11 (A1-A6,B1-B3,C1-C5)
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -1134,9 +1134,18 @@ var hourKey = now.toISOString().slice(0, 13) + '-' + mins;
 var key = 'snap:' + zoneKey + ':' + hourKey;
 var snapshot = {
 ts: now.toISOString(),
+// 2026-07-11: il vento nei campi principali e' SEMPRE presente per la
+// visualizzazione (mappa/schede mostrano sempre un numero). wind_source dice
+// se e' un dato reale ('cfr') o il modello di ripiego ('om'): le pagine
+// mostrano OM in rosso, e le STATISTICHE usano solo gli snapshot 'cfr'
+// (filtrano via 'om'). Cosi' il dato modello non sparisce dalla vista ma non
+// inquina mai i calcoli di bias/climatologia/accuratezza.
 wind_dir: data.wind_dir_om !== undefined ? data.wind_dir_om : data.wind_dir,
 wind_speed: data.wind_speed_om !== undefined ? data.wind_speed_om : data.wind_speed,
 wind_gust: data.wind_gust !== undefined ? data.wind_gust : null,
+wind_source: 'om',
+wind_speed_om: data.wind_speed_om !== undefined ? data.wind_speed_om : data.wind_speed,
+wind_dir_om: data.wind_dir_om !== undefined ? data.wind_dir_om : data.wind_dir,
 pressure: data.pressure,
 wave_height: data.wave_height,
 swell_height: data.swell_height,
@@ -2035,7 +2044,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.13.57', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.2', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -2449,10 +2458,15 @@ if (action === 'scrape_cfr') {
         // Ora: (1) il dato reale CFR viene SEMPRE salvato nei campi dedicati
         // wind_*_cfr, indipendentemente dall'ordine di scrittura; (2) obs_source
         // ='cfr' e wind_source='cfr' solo se i campi principali sono davvero CFR.
-        var cfrWindLanded = false;
-        if (merged.wind_speed == null) { merged.wind_speed = scfData.wind_kt; cfrWindLanded = true; }
-        if (merged.wind_dir == null) merged.wind_dir = scfData.dir_deg;
-        if (merged.wind_gust == null) merged.wind_gust = scfData.gust_kt;
+        // 2026-07-11: scrape_cfr gira solo quando il dato CFR reale c'e'
+        // (scfData.wind_kt appena scaricato). Il vento reale ha SEMPRE priorita'
+        // sul valore OM di ripiego eventualmente gia' scritto in questo slot da
+        // cron_snap: lo sovrascrive e marca wind_source='cfr'. Cosi' la
+        // visualizzazione mostra il dato reale (non rosso) e le statistiche lo
+        // contano come osservazione.
+        merged.wind_speed = scfData.wind_kt;
+        merged.wind_dir = scfData.dir_deg;
+        merged.wind_gust = scfData.gust_kt;
         // Campi dedicati: il dato reale non va mai perso, qualunque sia l'ordine
         merged.wind_speed_cfr = scfData.wind_kt;
         merged.wind_dir_cfr   = scfData.dir_deg;
@@ -2461,12 +2475,8 @@ if (action === 'scrape_cfr') {
         merged.wind_dir_om = scfOm.direction;
         if (merged.pressure == null) merged.pressure = scfOm.pressure_mb;
         if (scfData.temp_air_real != null && !isNaN(scfData.temp_air_real)) merged.temp_air_real = scfData.temp_air_real;
-        if (cfrWindLanded || merged.wind_source === 'cfr') {
-          merged.obs_source = 'cfr';
-          merged.wind_source = 'cfr';
-        } else if (!merged.wind_source) {
-          merged.wind_source = 'om'; // il vento nei campi principali e' del modello
-        }
+        merged.obs_source = 'cfr';
+        merged.wind_source = 'cfr';
         merged.obs_station = st.id;
         merged.obs_quota = st.quota || null;
         if (merged.wave_height === undefined) merged.wave_height = null;
@@ -4529,7 +4539,8 @@ if (action === 'migrate_history') {
       var tr = target.toISOString().slice(0, 13);
       var m2 = target.getMinutes() < 30 ? '00' : '30';
       var snap = await kvGet('snap:' + mhZone + ':' + tr + '-' + m2, kvUrl, kvToken);
-      if (snap && snap.wind_speed != null) { enriched[hor[0]] = snap.wind_speed; enriched[hor[1]] = snap.wind_dir; }
+      // 2026-07-11: solo vento reale CFR come actual, mai il ripiego OM
+      if (snap && snap.wind_speed != null && snap.wind_source === 'cfr') { enriched[hor[0]] = snap.wind_speed; enriched[hor[1]] = snap.wind_dir; }
     }
     return enriched;
   }));
@@ -4760,6 +4771,10 @@ if (action === 'backfill_actuals') {
         var bfSnapResults = await kvMGet(bfSnapKeys, kvUrl, kvToken);
         bfSnapResults.forEach(function(snap) {
           if (!snap || snap.wind_speed == null) return;
+          // 2026-07-11: accetta come "actual" SOLO snapshot con vento reale CFR.
+          // snap.wind_speed puo' essere OM (ripiego) quando manca il dato reale:
+          // usarlo come ground-truth falserebbe l'accuratezza. Se non e' cfr, salta.
+          if (snap.wind_source !== 'cfr') return;
           bfSnapSources.push({
             ts: snap.ts || snap.time || new Date().toISOString(),
             station: { wind_kt: snap.wind_speed, direction: snap.wind_dir }
@@ -5807,7 +5822,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.13.57 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.2 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -5907,8 +5922,11 @@ async function runLammaBiasCron(kvUrl, kvToken) {
       var snapKey = 'snap:' + zona + ':' + new Date().toISOString().slice(0, 13) + '-00';
       var snapRaw = await kvGet(snapKey, kvUrl, kvToken);
       var snap = snapRaw ? JSON.parse(snapRaw) : null;
-      var omAvg = snap ? (snap.wind_speed || 0) : 0;
-      var bias = omAvg > 0 ? Math.round((lammaAvg - omAvg) * 10) / 10 : null;
+      // fix 2026-07-11: era (snap.wind_speed || 0), ma ora wind_speed e' null
+      // quando non c'e' dato reale CFR — il || 0 avrebbe calcolato un bias contro
+      // un vento reale "0" inventato. Ora se non c'e' vento reale, niente bias.
+      var omAvg = snap && snap.wind_speed != null ? snap.wind_speed : null;
+      var bias = (omAvg != null && omAvg > 0) ? Math.round((lammaAvg - omAvg) * 10) / 10 : null;
 
       // Salva bias in KV
       var biasKey = 'lamma_bias:' + zona;
@@ -5935,4 +5953,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.13.57
+// Fine codice - NAUTILUS ENGINE v2.14.2

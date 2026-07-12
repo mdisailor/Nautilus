@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.7.29 -- 2026-07-12 - vento OM in rosso anche nella matrice storica -->
+<!-- NAUTILUS v5.7.30 -- 2026-07-12 - stazioni sempre visibili in lista anche senza campioni recenti (opzione A) + vento OM in rosso -->
 
 <html lang="it">
 <head>
@@ -5925,7 +5925,24 @@ async function biasLoadHistory(selectedStation, sfx) {
     const r = await fetch(ENGINE_URL + '?action=bias_history&station=' + st.id + '&limit=' + limit);
     const data = await r.json();
     const valid = (data.samples || []).filter(function(s){ return s.station && s.station.wind_kt !== null; });
-    if (!valid.length) continue;
+    // 2026-07-12 (opzione A): non saltare piu' le stazioni senza campioni — la voce
+    // appare sempre. Stazioni come Livorno Porto CFR (mareografo) scrivono in modo
+    // intermittente: prima sparivano dalla lista quando l'ultimo campione era vuoto.
+    if (!valid.length) {
+      if (selectedStation && st.id === selectedStation) {
+        html += '<div style="font-family:DM Mono,monospace;font-size:0.55rem;margin-bottom:8px;border-left:2px solid var(--border);padding-left:6px">'
+          + '<div style="color:var(--muted);margin-bottom:3px;font-size:0.58rem">' + st.name + '</div>'
+          + '<div style="color:var(--muted);font-size:0.5rem">Nessun dato reale recente per questa stazione.</div></div>';
+      } else {
+        html += '<div onclick="biasLoadHistory(\'' + st.id + '\'' + (sfx ? ',\'' + sfx + '\'' : ',null') + ')" style="font-family:DM Mono,monospace;font-size:0.55rem;display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid var(--border);cursor:pointer;opacity:0.55">'
+          + '<span style="color:var(--muted);width:80px">' + st.name + '</span>'
+          + '<span style="width:70px;color:var(--muted)">nessun dato</span>'
+          + '<span style="width:38px"></span><span style="width:42px"></span>'
+          + '<span style="color:var(--muted);font-size:0.5rem">--</span>'
+          + '</div>';
+      }
+      continue;
+    }
     anyData = true;
     const isSelected = selectedStation && st.id === selectedStation;
     if (isSelected) {
@@ -5969,7 +5986,7 @@ async function biasLoadHistory(selectedStation, sfx) {
     }
     } catch (stErr) { console.warn('bias-history station error:', st.id, stErr); }
   }
-  container.innerHTML = anyData ? html : '<div style="font-size:0.55rem;color:var(--muted)">Nessun campione ancora</div>';
+  container.innerHTML = html ? html : '<div style="font-size:0.55rem;color:var(--muted)">Nessun campione ancora</div>';
   if (spinner) spinner.style.display = 'none';
 }
 

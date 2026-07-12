@@ -1,4 +1,4 @@
-<!-- NAUTILUS DIAG v1.2 - mdisailor - 2026-07-12 - orari snapshot convertiti a ora Roma (erano UTC, -2h) -->
+<!-- NAUTILUS DIAG v1.3 - mdisailor - 2026-07-12 - valore vento OM in rosso nella tabella -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -211,10 +211,12 @@ function checkIfs(zone){
       html += '<table class="mini-table"><tr><th>Ora</th><th>Fonte</th><th>Vento</th><th>IFS</th><th>Onde</th></tr>';
       snaps.slice(0,6).forEach(function(s){
         var t = s.ts ? new Date(s.ts).toLocaleTimeString('it-IT',{timeZone:'Europe/Rome',hour:'2-digit',minute:'2-digit'}) : '?';
-        var src = s.wind_source==='cfr' ? '<span class="tag tag-cfr">cfr</span>' : s.wind_source==='om' ? '<span class="tag tag-om">om</span>' : s.wind_source;
+        var isOm = s.wind_source === 'om';
+        var windCell = s.wind_speed != null ? (isOm ? '<span style="color:#ff4444;font-weight:bold">' + s.wind_speed + 'kt</span>' : s.wind_speed + 'kt') : '—';
+        var src = s.wind_source==='cfr' ? '<span class="tag tag-cfr">cfr</span>' : s.wind_source==='om' ? '<span class="tag tag-om" style="background:rgba(255,68,68,0.2);color:#ff4444">om</span>' : s.wind_source;
         var ifs = typeof s.ifs_wind_speed==='number' ? s.ifs_wind_speed+'kt' : '—';
         var wave = typeof s.wave_height==='number' ? s.wave_height+'m' : '—';
-        html += '<tr><td>' + t + '</td><td>' + src + '</td><td>' + (s.wind_speed!=null?s.wind_speed+'kt':'—') + '</td><td>' + ifs + '</td><td>' + wave + '</td></tr>';
+        html += '<tr><td>' + t + '</td><td>' + src + '</td><td>' + windCell + '</td><td>' + ifs + '</td><td>' + wave + '</td></tr>';
       });
       html += '</table>';
 

@@ -1,4 +1,4 @@
-<!-- NAUTILUS DIAG v1.0 - mdisailor - 2026-07-11 - diagnostica strutturata leggibile -->
+<!-- NAUTILUS DIAG v1.1 - mdisailor - 2026-07-11 - tendina zone dinamica da action=zones, pannello engine piu leggibile -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -59,16 +59,7 @@
 <main>
   <div class="zone-picker">
     <label>Zona:</label>
-    <select id="zoneSelect">
-      <option value="viareggio">Viareggio</option>
-      <option value="bocca_arno">Bocca d'Arno</option>
-      <option value="gorgona">Gorgona</option>
-      <option value="livorno">Livorno</option>
-      <option value="capraia">Capraia</option>
-      <option value="elba_nord">Elba Nord</option>
-      <option value="giglio">Giglio</option>
-      <option value="orbetello">Orbetello</option>
-    </select>
+    <select id="zoneSelect"><option value="viareggio">caricamento zone...</option></select>
   </div>
 
   <div class="panel" id="panelPing"><div class="loading">Verifica engine...</div></div>
@@ -91,6 +82,20 @@ function rawBlock(id, obj){
 }
 function minutesAgo(ts){ return Math.round((Date.now() - new Date(ts).getTime())/60000); }
 
+// Popola la tendina zone da action=zones (elenco completo con nome)
+function loadZones(){
+  return fetch(ENGINE_URL + '?action=zones', {cache:'no-store'})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var sel = document.getElementById('zoneSelect');
+      var zones = (d.zones||[]).slice().sort(function(a,b){ return (a.name||a.key).localeCompare(b.name||b.key); });
+      if (zones.length){
+        sel.innerHTML = zones.map(function(z){ return '<option value="' + z.key + '">' + (z.name||z.key) + '</option>'; }).join('');
+      }
+    })
+    .catch(function(){ /* tendina resta col default */ });
+}
+
 // PANNELLO 1: engine (ping)
 function checkPing(){
   var p = document.getElementById('panelPing');
@@ -98,10 +103,11 @@ function checkPing(){
     .then(function(r){ return r.json(); })
     .then(function(d){
       var html = '<div class="panel-head"><div class="panel-title">Engine</div><div class="panel-sub">action=ping</div></div>';
-      html += row('green', 'Engine online', 'Il motore risponde correttamente.');
-      html += row('green', 'Versione: <span class="check-value">' + (d.v||'?') + '</span>', 'Se non corrisponde all\'ultima deployata, il deploy non è andato o è in cache.');
-      html += row(d.zones && d.zones.length > 0 ? 'green' : 'red', 'Zone attive: <span class="check-value">' + (d.zones ? d.zones.length : 0) + '</span>', 'Numero di zone configurate e abilitate.');
-      html += row('green', 'Ora server: <span class="check-value">' + (d.rome_now ? d.rome_now.slice(11) : '?') + '</span> (Roma)', 'Usata per gli slot orari delle previsioni.');
+      html += row('green', 'Stato: <span class="check-value">online</span>', 'Il motore risponde correttamente alle richieste.');
+      html += row('green', 'Versione engine: <span class="check-value">' + (d.v||'?') + '</span>', 'Deve corrispondere all\'ultima versione deployata. Se vedi una versione vecchia, il deploy non è andato a buon fine o è servita una risposta in cache.');
+      html += row(d.zones > 0 ? 'green' : 'red', 'Zone attive: <span class="check-value">' + (d.zones!=null ? d.zones : '?') + '</span>', 'Numero di zone configurate e abilitate nel motore.');
+      var serverTime = d.rome_now ? d.rome_now.slice(11) : '?';
+      html += row('green', 'Ora server: <span class="check-value">' + serverTime + '</span> (Roma)', 'Orario che il motore usa per calcolare gli slot delle previsioni. Se molto diverso dall\'ora reale, gli slot possono sfasarsi.');
       html += rawBlock('rawPing', d);
       p.innerHTML = html;
     })
@@ -222,8 +228,8 @@ function checkIfs(zone){
 }
 
 function runAll(){
-  var zone = document.getElementById('zoneSelect').value;
   checkPing();
+  var zone = document.getElementById('zoneSelect').value;
   checkData(zone);
   checkIfs(zone);
 }
@@ -232,7 +238,8 @@ document.getElementById('zoneSelect').addEventListener('change', function(){
   checkData(zone);
   checkIfs(zone);
 });
-runAll();
+// Prima popola la tendina, poi lancia i controlli sulla prima zona reale
+loadZones().then(runAll);
 </script>
 </body>
 </html>

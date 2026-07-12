@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.6.84 - mdisailor - 2026-07-12 - vento popup in rosso quando fonte OM (modello) invece di CFR reale -->
+<!-- NAUTILUS MAPPA v1.6.85 - mdisailor - 2026-07-12 - rimosso fallback .replace(_cfr) che mostrava dato Quercianella nel popup Livorno Porto CFR -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -2005,10 +2005,11 @@ MNW_LIVE.forEach(function(st) {
       .then(function(data) {
         var el = document.getElementById(popupId);
         if (!el) return;
-        var s = data.stations && (data.stations[st.key] || 
-                data.stations[st.key.replace('_cfr','')] || 
-                data.stations[st.key.replace('_mnw','')] ||
-                data.stations[st.sid]);
+        var s = data.stations && (data.stations[st.key] || data.stations[st.sid]);
+        // 2026-07-12: rimosso il fallback .replace('_cfr','') che faceva leggere
+        // al marker 'Livorno Porto CFR' il dato della zona 'livorno' (Quercianella),
+        // mostrandolo come se fosse del mareografo. Ogni stazione mostra solo il
+        // proprio dato reale; se non ne ha, dira' 'nessun dato' (onesto).
         if (!s || s.wind_kt === null || s.wind_kt === undefined) {
           // Fallback a bias_history
           fetch(ENGINE_URL + '?action=bias_history&station=' + st.sid + '&limit=10', {cache:'no-store'})

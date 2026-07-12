@@ -1,0 +1,238 @@
+<!-- NAUTILUS DIAG v1.0 - mdisailor - 2026-07-11 - diagnostica strutturata leggibile -->
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#020d1a">
+<title>NAUTILUS — Diagnostica</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Bebas+Neue&display=swap');
+  :root {
+    --bg:#020d1a; --card:#071828; --border:rgba(0,180,220,0.15);
+    --accent:#00f0ff; --warn:#ffaa00; --danger:#ff4444; --safe:#22dd88;
+    --muted:rgba(255,255,255,0.6); --text:rgba(255,255,255,0.9);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;padding:0 0 40px;}
+  header{padding:18px 20px;border-bottom:1px solid var(--border);display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;}
+  .logo{font-family:'Bebas Neue',sans-serif;font-size:1.7rem;letter-spacing:0.09em;color:#fff;}
+  .logo span{color:var(--accent);}
+  .subtitle{font-size:0.68rem;color:var(--muted);letter-spacing:0.12em;text-transform:uppercase;}
+  .backlink{margin-left:auto;font-size:0.6rem;color:var(--muted);text-decoration:none;border:1px solid var(--border);border-radius:6px;padding:5px 10px;}
+  .backlink:hover{color:var(--accent);border-color:var(--accent);}
+  main{padding:20px;max-width:820px;margin:0 auto;}
+  .zone-picker{display:flex;align-items:center;gap:8px;margin-bottom:18px;font-size:0.7rem;}
+  .zone-picker select{background:var(--card);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:0.72rem;padding:7px 10px;border-radius:6px;}
+  .panel{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:16px;}
+  .panel-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border);}
+  .panel-title{font-size:0.95rem;color:#fff;font-weight:500;}
+  .panel-sub{font-size:0.6rem;color:var(--muted);margin-left:auto;}
+  .checkrow{display:flex;align-items:flex-start;gap:10px;padding:7px 0;font-size:0.72rem;border-bottom:1px solid rgba(255,255,255,0.04);}
+  .checkrow:last-child{border-bottom:none;}
+  .light{width:12px;height:12px;border-radius:50%;flex-shrink:0;margin-top:3px;}
+  .light.green{background:var(--safe);box-shadow:0 0 6px var(--safe);}
+  .light.yellow{background:var(--warn);box-shadow:0 0 6px var(--warn);}
+  .light.red{background:var(--danger);box-shadow:0 0 6px var(--danger);}
+  .light.grey{background:var(--muted);}
+  .check-body{flex:1;}
+  .check-label{color:#fff;}
+  .check-detail{color:var(--muted);font-size:0.64rem;margin-top:2px;line-height:1.4;}
+  .check-value{color:var(--accent);font-weight:500;}
+  .loading{color:var(--muted);font-size:0.7rem;padding:20px;text-align:center;}
+  .mini-table{width:100%;border-collapse:collapse;font-size:0.62rem;margin-top:8px;}
+  .mini-table th{color:var(--muted);text-align:left;padding:4px 6px;font-weight:400;border-bottom:1px solid var(--border);}
+  .mini-table td{padding:4px 6px;border-bottom:1px solid rgba(255,255,255,0.04);}
+  .tag{display:inline-block;font-size:0.55rem;padding:1px 6px;border-radius:3px;}
+  .tag-cfr{background:rgba(34,221,136,0.15);color:var(--safe);}
+  .tag-om{background:rgba(255,170,0,0.15);color:var(--warn);}
+  .raw-toggle{font-size:0.58rem;color:var(--muted);cursor:pointer;text-decoration:underline;margin-top:10px;display:inline-block;}
+  .raw-json{background:#00060d;border:1px solid var(--border);border-radius:6px;padding:10px;font-size:0.58rem;color:var(--muted);white-space:pre-wrap;word-break:break-all;max-height:260px;overflow:auto;margin-top:6px;display:none;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">NAUTI<span>LUS</span></div>
+  <div class="subtitle">Diagnostica</div>
+  <a class="backlink" href="/index2.html">← Cruscotto</a>
+</header>
+<main>
+  <div class="zone-picker">
+    <label>Zona:</label>
+    <select id="zoneSelect">
+      <option value="viareggio">Viareggio</option>
+      <option value="bocca_arno">Bocca d'Arno</option>
+      <option value="gorgona">Gorgona</option>
+      <option value="livorno">Livorno</option>
+      <option value="capraia">Capraia</option>
+      <option value="elba_nord">Elba Nord</option>
+      <option value="giglio">Giglio</option>
+      <option value="orbetello">Orbetello</option>
+    </select>
+  </div>
+
+  <div class="panel" id="panelPing"><div class="loading">Verifica engine...</div></div>
+  <div class="panel" id="panelData"><div class="loading">Verifica dati zona...</div></div>
+  <div class="panel" id="panelIfs"><div class="loading">Verifica snapshot ricchi...</div></div>
+</main>
+
+<script>
+var ENGINE_URL = '/api/engine';
+
+function light(color){ return '<span class="light ' + color + '"></span>'; }
+function row(color, label, detail){
+  return '<div class="checkrow">' + light(color) +
+    '<div class="check-body"><div class="check-label">' + label + '</div>' +
+    (detail ? '<div class="check-detail">' + detail + '</div>' : '') + '</div></div>';
+}
+function rawBlock(id, obj){
+  return '<span class="raw-toggle" onclick="var e=document.getElementById(\'' + id + '\');e.style.display=e.style.display===\'block\'?\'none\':\'block\'">mostra/nascondi JSON grezzo</span>' +
+    '<div class="raw-json" id="' + id + '">' + JSON.stringify(obj, null, 2) + '</div>';
+}
+function minutesAgo(ts){ return Math.round((Date.now() - new Date(ts).getTime())/60000); }
+
+// PANNELLO 1: engine (ping)
+function checkPing(){
+  var p = document.getElementById('panelPing');
+  fetch(ENGINE_URL + '?action=ping', {cache:'no-store'})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var html = '<div class="panel-head"><div class="panel-title">Engine</div><div class="panel-sub">action=ping</div></div>';
+      html += row('green', 'Engine online', 'Il motore risponde correttamente.');
+      html += row('green', 'Versione: <span class="check-value">' + (d.v||'?') + '</span>', 'Se non corrisponde all\'ultima deployata, il deploy non è andato o è in cache.');
+      html += row(d.zones && d.zones.length > 0 ? 'green' : 'red', 'Zone attive: <span class="check-value">' + (d.zones ? d.zones.length : 0) + '</span>', 'Numero di zone configurate e abilitate.');
+      html += row('green', 'Ora server: <span class="check-value">' + (d.rome_now ? d.rome_now.slice(11) : '?') + '</span> (Roma)', 'Usata per gli slot orari delle previsioni.');
+      html += rawBlock('rawPing', d);
+      p.innerHTML = html;
+    })
+    .catch(function(e){
+      p.innerHTML = '<div class="panel-head"><div class="panel-title">Engine</div></div>' +
+        row('red', 'Engine non raggiungibile', 'Errore: ' + e.message + '. Il motore non risponde — problema serio, controlla il deploy su Vercel.');
+    });
+}
+
+// PANNELLO 2: dati zona (history) — continuità e freschezza
+function checkData(zone){
+  var p = document.getElementById('panelData');
+  p.innerHTML = '<div class="loading">Verifica dati zona...</div>';
+  fetch(ENGINE_URL + '?action=history&zone=' + zone + '&hours=6', {cache:'no-store'})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var snaps = d.snapshots || [];
+      var html = '<div class="panel-head"><div class="panel-title">Raccolta dati — ' + (d.name||zone) + '</div><div class="panel-sub">action=history</div></div>';
+
+      if (snaps.length === 0){
+        html += row('red', 'Nessun dato', 'La zona non ha snapshot nelle ultime 6 ore. Se la home è aggiornata è un problema di lettura, altrimenti la raccolta è ferma.');
+        html += rawBlock('rawData', d); p.innerHTML = html; return;
+      }
+
+      // Freschezza: quanti minuti fa l'ultimo dato
+      var last = snaps[snaps.length-1];
+      var ageMin = minutesAgo(last.ts);
+      var freshColor = ageMin <= 40 ? 'green' : ageMin <= 90 ? 'yellow' : 'red';
+      html += row(freshColor, 'Ultimo dato: <span class="check-value">' + ageMin + ' min fa</span>',
+        ageMin <= 40 ? 'Aggiornato (atteso ~30 min).' : ageMin <= 90 ? 'Un po\' vecchio, forse un ciclo saltato.' : 'Troppo vecchio: la raccolta potrebbe essersi fermata.');
+
+      // Continuità: cerca buchi > 45 min tra snapshot consecutivi
+      var gaps = 0, maxGap = 0;
+      for (var i=1;i<snaps.length;i++){
+        var dt = (new Date(snaps[i].ts) - new Date(snaps[i-1].ts))/60000;
+        if (dt > 45){ gaps++; if (dt>maxGap) maxGap = Math.round(dt); }
+      }
+      html += row(gaps===0 ? 'green' : gaps<=2 ? 'yellow' : 'red',
+        'Continuità: <span class="check-value">' + (gaps===0 ? 'nessun buco' : gaps + ' buchi') + '</span>',
+        gaps===0 ? snaps.length + ' snapshot regolari ogni ~30 min nelle ultime 6h.' : 'Buco massimo di ' + maxGap + ' min. Piccoli buchi capitano dopo un deploy.');
+
+      // Fonte dati
+      html += row(d.data_source==='cfr_station' ? 'green' : 'yellow',
+        'Fonte: <span class="check-value">' + (d.data_source==='cfr_station' ? 'stazione CFR reale' : 'modello OM') + '</span>',
+        d.data_source==='cfr_station' ? 'Dati da stazione fisica reale.' : 'Nessuna stazione CFR: usa il modello come ripiego.');
+
+      // Scarto stazione vs OM sull'ultimo dato con entrambi
+      var withOm = snaps.filter(function(s){ return s.wind_speed!=null && s.wind_speed_om!=null; });
+      if (withOm.length){
+        var lastOm = withOm[withOm.length-1];
+        var diff = Math.round((lastOm.wind_speed - lastOm.wind_speed_om)*10)/10;
+        html += row(Math.abs(diff)<3 ? 'green' : Math.abs(diff)<6 ? 'yellow' : 'red',
+          'Scarto reale vs modello: <span class="check-value">' + (diff>=0?'+':'') + diff + ' kt</span>',
+          'Stazione ' + lastOm.wind_speed + 'kt vs OM ' + lastOm.wind_speed_om + 'kt. Scarti grandi = OM poco affidabile lì, o dato stazione anomalo.');
+      }
+
+      html += rawBlock('rawData', d);
+      p.innerHTML = html;
+    })
+    .catch(function(e){
+      p.innerHTML = '<div class="panel-head"><div class="panel-title">Raccolta dati</div></div>' +
+        row('red', 'Errore lettura', e.message);
+    });
+}
+
+// PANNELLO 3: snapshot ricchi (ifs_check) — IFS, wind_source, onde
+function checkIfs(zone){
+  var p = document.getElementById('panelIfs');
+  p.innerHTML = '<div class="loading">Verifica snapshot ricchi...</div>';
+  fetch(ENGINE_URL + '?action=ifs_check&zone=' + zone, {cache:'no-store'})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var snaps = d.snapshots || [];
+      var html = '<div class="panel-head"><div class="panel-title">Snapshot ricchi (modelli)</div><div class="panel-sub">action=ifs_check</div></div>';
+
+      if (snaps.length === 0){
+        html += row('red', 'Nessuno snapshot', 'Il processo ricco (cron_snap) non ha scritto snapshot recenti per questa zona.');
+        html += rawBlock('rawIfs', d); p.innerHTML = html; return;
+      }
+
+      // IFS: almeno uno snapshot con ifs valorizzato?
+      var withIfs = snaps.filter(function(s){ return typeof s.ifs_wind_speed === 'number'; });
+      html += row(withIfs.length>0 ? 'green' : 'red',
+        'IFS ECMWF: <span class="check-value">' + (withIfs.length>0 ? 'attivo' : 'assente') + '</span>',
+        withIfs.length>0 ? withIfs.length + '/' + snaps.length + ' snapshot con dato IFS (es. ' + withIfs[0].ifs_wind_speed + 'kt). Fix A6 funzionante.' : 'Nessuno snapshot ha dati IFS: il fix A6 potrebbe non essere attivo o cron_snap non gira.');
+
+      // wind_source presente?
+      var withSource = snaps.filter(function(s){ return s.wind_source && s.wind_source !== '(assente)'; });
+      html += row(withSource.length>0 ? 'green' : 'yellow',
+        'Provenienza per campo: <span class="check-value">' + (withSource.length>0 ? 'tracciata' : 'assente') + '</span>',
+        withSource.length>0 ? 'Il campo wind_source è presente (fix A5 attivo).' : 'wind_source assente: fix A5 forse non deployato.');
+
+      // Alternanza cfr/om (i due processi lavorano entrambi)
+      var nCfr = snaps.filter(function(s){ return s.wind_source==='cfr'; }).length;
+      var nOm = snaps.filter(function(s){ return s.wind_source==='om'; }).length;
+      html += row(nCfr>0 && nOm>0 ? 'green' : 'yellow',
+        'Due processi attivi: <span class="check-value">' + nCfr + ' cfr · ' + nOm + ' om</span>',
+        nCfr>0 && nOm>0 ? 'Sia scrape_cfr (vento reale) sia cron_snap (modelli+onde) scrivono.' : 'Uno dei due processi non sta scrivendo in questa finestra — potrebbe essere normale a seconda del timing.');
+
+      // Tabella riepilogo snapshot
+      html += '<table class="mini-table"><tr><th>Ora</th><th>Fonte</th><th>Vento</th><th>IFS</th><th>Onde</th></tr>';
+      snaps.slice(0,6).forEach(function(s){
+        var t = s.ts ? s.ts.slice(11,16) : '?';
+        var src = s.wind_source==='cfr' ? '<span class="tag tag-cfr">cfr</span>' : s.wind_source==='om' ? '<span class="tag tag-om">om</span>' : s.wind_source;
+        var ifs = typeof s.ifs_wind_speed==='number' ? s.ifs_wind_speed+'kt' : '—';
+        var wave = typeof s.wave_height==='number' ? s.wave_height+'m' : '—';
+        html += '<tr><td>' + t + '</td><td>' + src + '</td><td>' + (s.wind_speed!=null?s.wind_speed+'kt':'—') + '</td><td>' + ifs + '</td><td>' + wave + '</td></tr>';
+      });
+      html += '</table>';
+
+      html += rawBlock('rawIfs', d);
+      p.innerHTML = html;
+    })
+    .catch(function(e){
+      p.innerHTML = '<div class="panel-head"><div class="panel-title">Snapshot ricchi</div></div>' +
+        row('red', 'Errore lettura', e.message);
+    });
+}
+
+function runAll(){
+  var zone = document.getElementById('zoneSelect').value;
+  checkPing();
+  checkData(zone);
+  checkIfs(zone);
+}
+document.getElementById('zoneSelect').addEventListener('change', function(){
+  var zone = this.value;
+  checkData(zone);
+  checkIfs(zone);
+});
+runAll();
+</script>
+</body>
+</html>

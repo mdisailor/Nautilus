@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.2 - by mdisailor engine - v2.14.2: vento sempre presente per la visualizzazione con wind_source (cfr reale / om ripiego, mostrato in rosso dalle pagine); statistiche e backfill usano SOLO wind_source=cfr, mai OM come osservazione. Su base fix audit 2026-07-11 (A1-A6,B1-B3,C1-C5)
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.3 - by mdisailor engine - v2.14.3: vento sempre presente per la visualizzazione con wind_source (cfr reale / om ripiego, mostrato in rosso dalle pagine); statistiche e backfill usano SOLO wind_source=cfr, mai OM come osservazione. Su base fix audit 2026-07-11 (A1-A6,B1-B3,C1-C5)
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2044,7 +2044,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.2', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.3', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -3543,10 +3543,16 @@ var effectiveHours = (hours <= 1 && minSlots === 0) ? 1.5 : hours;
 var cutoffH = new Date(Date.now() - effectiveHours * 3600000);
 var snapshots = [];
 
-// Per zone con stazione CFR usa bias_samples (dati reali stazione)
+// 2026-07-11: history preferisce gli SNAPSHOT VERI (getWindHistory) perche'
+// portano wind_source (cfr reale / om ripiego) — indispensabile perche' mappa
+// e app colorino di rosso il vento quando e' solo modello. bias_samples resta
+// come fallback (piu' storico) se gli snapshot non ci sono. Prima history usava
+// bias_samples per primo e non esponeva mai wind_source ne' gli slot 'om'.
 var zoneObjH = ZONES[zoneKey];
 var usedBiasSamples = false;
-if (zoneObjH && zoneObjH.bias_station) {
+snapshots = await getWindHistory(zoneKey, kvUrl, kvToken, effectiveHours);
+snapshots = snapshots.filter(function(s){ return new Date(s.ts) >= cutoffH; });
+if (snapshots.length < 3 && zoneObjH && zoneObjH.bias_station) {
   var bsSamples = await kvGet('bias_samples:' + zoneObjH.bias_station, kvUrl, kvToken) || [];
   var cfrSamples = bsSamples.filter(function(bs) {
     return bs.ts && bs.station && bs.station.wind_kt !== null &&
@@ -3564,17 +3570,15 @@ if (zoneObjH && zoneObjH.bias_station) {
         wave_height: null, wave_period: null,
         wind_speed_om: bs.om ? bs.om.wind_kt : null,
         wind_dir_om: bs.om ? bs.om.direction : null,
-        obs_source: 'cfr', obs_station: zoneObjH.bias_station
+        obs_source: 'cfr', obs_station: zoneObjH.bias_station, wind_source: 'cfr'
       };
     }).sort(function(a,b){ return new Date(a.ts) - new Date(b.ts); });
   }
 }
 
-// Fallback: zone senza stazione CFR usano snap OM
-if (!usedBiasSamples) {
-  snapshots = await getWindHistory(zoneKey, kvUrl, kvToken, effectiveHours);
-  if (hours <= 1 && snapshots.length > 3) snapshots = snapshots.slice(-3);
-}
+// 2026-07-11: getWindHistory e' gia' stato chiamato all'inizio. Qui resta solo
+// il taglio a 3 snapshot per richieste orarie brevi.
+if (!usedBiasSamples && hours <= 1 && snapshots.length > 3) snapshots = snapshots.slice(-3);
 
 var bias = await getBias(zoneKey, kvUrl, kvToken);
 var rotation = analyzeWindRotation(snapshots);
@@ -5822,7 +5826,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.2 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.3 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -5953,4 +5957,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.2
+// Fine codice - NAUTILUS ENGINE v2.14.3

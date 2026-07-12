@@ -1,4 +1,4 @@
-<!-- NAUTILUS DIAG v1.1 - mdisailor - 2026-07-11 - tendina zone dinamica da action=zones, pannello engine piu leggibile -->
+<!-- NAUTILUS DIAG v1.2 - mdisailor - 2026-07-12 - orari snapshot convertiti a ora Roma (erano UTC, -2h) -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -210,7 +210,7 @@ function checkIfs(zone){
       // Tabella riepilogo snapshot
       html += '<table class="mini-table"><tr><th>Ora</th><th>Fonte</th><th>Vento</th><th>IFS</th><th>Onde</th></tr>';
       snaps.slice(0,6).forEach(function(s){
-        var t = s.ts ? s.ts.slice(11,16) : '?';
+        var t = s.ts ? new Date(s.ts).toLocaleTimeString('it-IT',{timeZone:'Europe/Rome',hour:'2-digit',minute:'2-digit'}) : '?';
         var src = s.wind_source==='cfr' ? '<span class="tag tag-cfr">cfr</span>' : s.wind_source==='om' ? '<span class="tag tag-om">om</span>' : s.wind_source;
         var ifs = typeof s.ifs_wind_speed==='number' ? s.ifs_wind_speed+'kt' : '—';
         var wave = typeof s.wave_height==='number' ? s.wave_height+'m' : '—';

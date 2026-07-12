@@ -1,0 +1,142 @@
+<!-- NAUTILUS INDEX2 v1.0 - mdisailor - 2026-07-11 - cruscotto indice strumenti -->
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#020d1a">
+<title>NAUTILUS — Cruscotto</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Bebas+Neue&display=swap');
+  :root {
+    --bg:#020d1a; --card:#071828; --border:rgba(0,180,220,0.15);
+    --accent:#00f0ff; --warn:#ffaa00; --danger:#ff4444; --safe:#22dd88;
+    --muted:rgba(255,255,255,0.6); --text:rgba(255,255,255,0.9);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;padding:0 0 40px;}
+  header{padding:18px 20px;border-bottom:1px solid var(--border);}
+  .logo{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:0.09em;color:#fff;}
+  .logo span{color:var(--accent);}
+  .subtitle{font-size:0.7rem;color:var(--muted);letter-spacing:0.14em;text-transform:uppercase;margin-top:2px;}
+  .statusbar{display:flex;gap:18px;flex-wrap:wrap;padding:10px 20px;background:var(--card);border-bottom:1px solid var(--border);font-size:0.68rem;}
+  .status-item{display:flex;align-items:center;gap:6px;}
+  .status-item b{color:var(--accent);}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--muted);}
+  .dot.ok{background:var(--safe);box-shadow:0 0 8px var(--safe);}
+  .dot.err{background:var(--danger);box-shadow:0 0 8px var(--danger);}
+  main{padding:20px;max-width:900px;margin:0 auto;}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;text-decoration:none;color:var(--text);display:flex;flex-direction:column;gap:6px;transition:border-color 0.15s,transform 0.15s;}
+  .card:hover{border-color:var(--accent);transform:translateY(-2px);}
+  .card-title{font-size:0.95rem;color:#fff;font-weight:500;display:flex;align-items:center;justify-content:space-between;}
+  .card-title .arrow{color:var(--accent);font-size:0.8rem;}
+  .card-desc{font-size:0.65rem;color:var(--muted);line-height:1.5;}
+  .card-live{font-size:0.62rem;color:var(--accent);margin-top:4px;min-height:1em;}
+  .section-label{font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.12em;margin:20px 0 8px;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">NAUTI<span>LUS</span></div>
+  <div class="subtitle">Cruscotto — strumenti e diagnostica</div>
+</header>
+<div class="statusbar">
+  <div class="status-item"><span class="dot" id="statusDot"></span> <span id="statusText">verifica...</span></div>
+  <div class="status-item">engine <b id="engineVer">--</b></div>
+  <div class="status-item">zone attive <b id="zoneCount">--</b></div>
+  <div class="status-item">ora <b id="romeTime">--</b></div>
+</div>
+<main>
+  <div class="section-label">Applicazione</div>
+  <div class="grid">
+    <a class="card" href="/">
+      <div class="card-title">App principale <span class="arrow">→</span></div>
+      <div class="card-desc">Schede previsione per zona, situazione, allerte.</div>
+    </a>
+    <a class="card" href="/mappa.html">
+      <div class="card-title">Mappa <span class="arrow">→</span></div>
+      <div class="card-desc">Griglia vento OI, flusso animato, stazioni reali.</div>
+    </a>
+  </div>
+
+  <div class="section-label">Analisi accuratezza</div>
+  <div class="grid">
+    <a class="card" href="/stats.html">
+      <div class="card-title">Stats <span class="arrow">→</span></div>
+      <div class="card-desc">Previsioni AI vs reale per orizzonte, trend MAE.</div>
+    </a>
+    <a class="card" href="/mae.html">
+      <div class="card-title">MAE Compare <span class="arrow">→</span></div>
+      <div class="card-desc">Confronto errore OM vs AROME per stazione.</div>
+    </a>
+    <a class="card" href="/Score.html">
+      <div class="card-title">Score <span class="arrow">→</span></div>
+      <div class="card-desc">Quale modello vince per condizione (velocità/settore).</div>
+    </a>
+  </div>
+
+  <div class="section-label">Climatologia e simulazione</div>
+  <div class="grid">
+    <a class="card" href="/climatologia.html">
+      <div class="card-title">Climatologia <span class="arrow">→</span></div>
+      <div class="card-desc">Distribuzione fasce e settori per zona, dal dato reale.</div>
+      <div class="card-live" id="liveClima"></div>
+    </a>
+    <a class="card" href="/simulator.html">
+      <div class="card-title">Simulatore <span class="arrow">→</span></div>
+      <div class="card-desc">Come nasce il valore mappa per 3 punti pilota.</div>
+    </a>
+  </div>
+
+  <div class="section-label">Diagnostica engine</div>
+  <div class="grid">
+    <a class="card" href="/api/engine?action=ping">
+      <div class="card-title">Ping <span class="arrow">→</span></div>
+      <div class="card-desc">Stato engine, versione, zone attive, ora server.</div>
+    </a>
+    <a class="card" href="/api/engine?action=ifs_check&zone=viareggio">
+      <div class="card-title">IFS Check <span class="arrow">→</span></div>
+      <div class="card-desc">Ultimi snapshot con campi ifs_*/wind_source (Viareggio).</div>
+    </a>
+    <a class="card" href="/api/engine?action=history&zone=viareggio&hours=6">
+      <div class="card-title">History <span class="arrow">→</span></div>
+      <div class="card-desc">Serie storica vento di una zona (grezza, JSON).</div>
+    </a>
+  </div>
+</main>
+
+<script>
+var ENGINE_URL = '/api/engine';
+
+// Stato engine da ping
+fetch(ENGINE_URL + '?action=ping', {cache:'no-store'})
+  .then(function(r){ return r.json(); })
+  .then(function(d){
+    document.getElementById('statusDot').className = 'dot ok';
+    document.getElementById('statusText').textContent = 'engine online';
+    document.getElementById('engineVer').textContent = d.v || '--';
+    document.getElementById('zoneCount').textContent = d.zones ? d.zones.length : '--';
+    document.getElementById('romeTime').textContent = d.rome_now ? d.rome_now.slice(11) : '--';
+  })
+  .catch(function(){
+    document.getElementById('statusDot').className = 'dot err';
+    document.getElementById('statusText').textContent = 'engine non raggiungibile';
+  });
+
+// Numero live climatologia: campioni reali totali su tutte le zone
+var CLIMA_STATIONS = ['livorno','canale_piombino','viareggio','portoferraio','alberese','luri',
+  'barcaggio','gorgona_cfr','capraia_cfr','giglio_porto','giglio_castello','montecristo','portoferraio_cfr',
+  'orbetello','svincenzo_porto','venturina','forte_dei_marmi','lido_camaiore','bocca_arno_cfr','follonica','capalbio'];
+Promise.all(CLIMA_STATIONS.map(function(id){
+  return fetch(ENGINE_URL + '?action=bias_history&station=' + id + '&limit=100', {cache:'no-store'})
+    .then(function(r){ return r.json(); })
+    .then(function(d){ return (d.samples||[]).filter(function(s){ return s.station && s.station.wind_kt != null; }).length; })
+    .catch(function(){ return 0; });
+})).then(function(counts){
+  var tot = counts.reduce(function(a,b){ return a+b; }, 0);
+  document.getElementById('liveClima').textContent = tot + ' campioni reali raccolti';
+});
+</script>
+</body>
+</html>

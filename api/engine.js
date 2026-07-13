@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.3 - by mdisailor engine - v2.14.3: vento sempre presente per la visualizzazione con wind_source (cfr reale / om ripiego, mostrato in rosso dalle pagine); statistiche e backfill usano SOLO wind_source=cfr, mai OM come osservazione. Su base fix audit 2026-07-11 (A1-A6,B1-B3,C1-C5)
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.4 - by mdisailor engine - v2.14.4: aggiunta stazione Windfinder 'Livorno Porto' (id livorno_porto) in scrape_web2 per test raccolta dati. Su base v2.14.3 (vento con wind_source, solo cfr nelle statistiche) e audit 2026-07-11
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2044,7 +2044,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.3', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.4', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -2751,6 +2751,7 @@ if (action === 'scrape_web2') {
     var sw2Stations = [
       { id: 'barcaggio',          name: 'Barcaggio (Corsica)',        url: 'https://www.windfinder.com/report/barcaggio_corse', lat: 43.0058, lon: 9.4045, parser: 'windfinder' },
       { id: 'bonifacio_pertusato', name: 'Bonifacio - Cap Pertusato', url: 'https://www.windfinder.com/report/bonifacio',        lat: 41.3739, lon: 9.1783, parser: 'windfinder' },
+      { id: 'livorno_porto',      name: 'Livorno Porto',              url: 'https://www.windfinder.com/report/porto-di-livorno', lat: 43.5525, lon: 10.3014, parser: 'windfinder' },
       { id: 'vada', name: 'Vada (Camping Tripesce)', url: 'http://www.meteosystem.com/wlip/vada/', lat: 43.3550, lon: 10.4280, parser: 'meteosystem' }
     ];
     var sw2Filter = req.query.station || null;
@@ -5826,7 +5827,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.3 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.4 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -5957,4 +5958,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.3
+// Fine codice - NAUTILUS ENGINE v2.14.4

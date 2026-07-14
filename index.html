@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.7.35 -- 2026-07-14 - bussola singola: dato reale letto da data.wind_kt/dir_deg (struttura reale corretta) -->
+<!-- NAUTILUS v5.7.36 -- 2026-07-14 - fix race condition bussola singola: il fallback OM non gira piu in parallelo alla fetch, cosi le stazioni reali non vengono sovrascritte da OM rosso -->
 
 <html lang="it">
 <head>
@@ -600,7 +600,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.35  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.36  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -2011,7 +2011,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.35  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.36  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -2292,15 +2292,14 @@ async function fetchWeather() {
     }
   } catch(e) {}
   renderWeather(); renderTimeline(); renderBaroHistory(); renderTempHistory();
-  // Aggiorna singola bussola con dato OM solo se CFR non ha gia caricato
-  if (!scCfrLoaded) {
-    try {
-      var _idx = getCurrentIdx();
-      var _spd = state.weatherData.hourly.windspeed_10m[_idx];
-      var _dir = state.weatherData.hourly.winddirection_10m[_idx];
-      var _gust = state.weatherData.hourly.windgusts_10m[_idx];
-      updateSingleCompass(_spd, _dir, _gust, 'OM');
-    } catch(e) {}
+  // 2026-07-14: rimosso il blocco che scriveva OM sulla bussola singola qui.
+  // Girava in parallelo alla fetch asincrona di loadSingleCompass: scriveva OM
+  // (rosso) prima che il dato reale della stazione arrivasse, e a seconda della
+  // corsa restava OM anche quando la stazione aveva dati (bussole sempre rosse
+  // tranne quelle abbastanza veloci). Il fallback OM e' ora dentro
+  // loadSingleCompass, che scrive OM solo dopo aver verificato che non c'e' reale.
+  if (typeof loadSingleCompassOmFallback === 'function' && !scCfrLoaded && scSingleActive) {
+    loadSingleCompassOmFallback();
   }
   } catch(err) {
     document.getElementById('src-openmeteo').className = 'src-badge err';
@@ -3031,6 +3030,7 @@ function showSingleMeteo() {
   loadSingleCompass();
 }
 function showTripleMeteo() {
+  scSingleActive = false;
   var t = document.getElementById('triple-compass-section');
   var s = document.getElementById('single-compass-section');
   if (t) t.style.display = 'block';
@@ -3038,6 +3038,7 @@ function showTripleMeteo() {
   loadTripleCompasses();
 }
 var scCfrLoaded = false;
+var scSingleActive = false;
 
 // Mappa coordinate dropdown -> stazione reale (CFR/MNW/Windfinder)
 // Le chiavi sono lat,lon con .toFixed(3), come calcolato in loadSingleCompass
@@ -3063,12 +3064,25 @@ var LOC_TO_CFR = {
   '41.366,9.179':  'bonifacio_pertusato'
 };
 
+function loadSingleCompassOmFallback() {
+  // Fallback OM per la bussola singola: usato solo quando non c'e' dato reale.
+  try {
+    if (!state.weatherData || !state.weatherData.hourly) return;
+    var _idx = getCurrentIdx();
+    var _spd = state.weatherData.hourly.windspeed_10m[_idx];
+    var _dir = state.weatherData.hourly.winddirection_10m[_idx];
+    var _gust = state.weatherData.hourly.windgusts_10m[_idx];
+    updateSingleCompass(_spd, _dir, _gust, 'OM');
+  } catch(e) {}
+}
+
 async function loadSingleCompass() {
   scCfrLoaded = false;
+  scSingleActive = true;
   var nameEl = document.getElementById('sc-loc-name');
   if (nameEl) nameEl.textContent = state.locationName || '';
 
-  // Cerca stazione CFR esatta per le coordinate selezionate
+  // Cerca stazione reale esatta per le coordinate selezionate
   var key = state.lat.toFixed(3) + ',' + state.lon.toFixed(3);
   var cfrId = LOC_TO_CFR[key];
 
@@ -3077,9 +3091,8 @@ async function loadSingleCompass() {
       var res = await fetch(ENGINE_URL + '?action=station_refresh&station=' + cfrId + '&k=mdi');
       var json = await res.json();
       var d = json && json.data ? json.data : null;
-      // 2026-07-14: la risposta ha il dato reale direttamente in d.wind_kt/d.dir_deg
-      // (d.station e' una STRINGA col nome stazione, non un oggetto). Se c'e' il
-      // dato reale lo mostro come stazione vera; altrimenti OM in rosso.
+      // 2026-07-14: il dato reale e' in d.wind_kt/d.dir_deg direttamente
+      // (d.station e' una stringa col nome, non un oggetto).
       if (d && d.wind_kt !== null && d.wind_kt !== undefined) {
         updateSingleCompass(d.wind_kt, d.dir_deg, d.gust_kt, 'CFR');
         scCfrLoaded = true;
@@ -3087,7 +3100,9 @@ async function loadSingleCompass() {
       }
     } catch(e) {}
   }
-  // Nessuna stazione reale per queste coordinate: resta OM via renderWeather (in rosso)
+  // Nessun dato reale disponibile: fallback su OM (in rosso), gestito qui alla
+  // fine della fetch — non piu' in parallelo, cosi' niente race condition.
+  loadSingleCompassOmFallback();
 }
 
 
@@ -6023,7 +6038,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.7.35
+// Fine codice - NAUTILUS v5.7.36
 // ===== TRIPLE COMPASS =====
 var tcData = [null, null, null];
 var tcSelected = 0;

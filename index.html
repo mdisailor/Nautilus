@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.7.36 -- 2026-07-14 - fix race condition bussola singola: il fallback OM non gira piu in parallelo alla fetch, cosi le stazioni reali non vengono sovrascritte da OM rosso -->
+<!-- NAUTILUS v5.7.37 -- 2026-07-14 - bussola singola legge dato salvato (bias_history, istantaneo) invece di station_refresh live: risolve stazioni lente che restavano rosse -->
 
 <html lang="it">
 <head>
@@ -600,7 +600,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.36  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.37  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -2011,7 +2011,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.36  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.37  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -3088,13 +3088,21 @@ async function loadSingleCompass() {
 
   if (cfrId) {
     try {
-      var res = await fetch(ENGINE_URL + '?action=station_refresh&station=' + cfrId + '&k=mdi');
+      // 2026-07-14: legge il dato reale GIA' SALVATO (bias_samples via bias_history),
+      // come fa triple_wind. E' istantaneo: prima usava station_refresh che fa
+      // scraping dal vivo (2-3s per alcune stazioni), e le lente perdevano la
+      // corsa col fallback OM restando rosse. Ora il dato reale c'e' subito.
+      var res = await fetch(ENGINE_URL + '?action=bias_history&station=' + cfrId + '&limit=5');
       var json = await res.json();
-      var d = json && json.data ? json.data : null;
-      // 2026-07-14: il dato reale e' in d.wind_kt/d.dir_deg direttamente
-      // (d.station e' una stringa col nome, non un oggetto).
-      if (d && d.wind_kt !== null && d.wind_kt !== undefined) {
-        updateSingleCompass(d.wind_kt, d.dir_deg, d.gust_kt, 'CFR');
+      var samples = json && json.samples ? json.samples : [];
+      var realS = null;
+      for (var i = 0; i < samples.length; i++) {
+        if (samples[i].station && samples[i].station.wind_kt !== null && samples[i].station.wind_kt !== undefined) {
+          realS = samples[i]; break;
+        }
+      }
+      if (realS) {
+        updateSingleCompass(realS.station.wind_kt, realS.station.direction, realS.station.gust_kt, 'CFR');
         scCfrLoaded = true;
         return;
       }
@@ -6038,7 +6046,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.7.36
+// Fine codice - NAUTILUS v5.7.37
 // ===== TRIPLE COMPASS =====
 var tcData = [null, null, null];
 var tcSelected = 0;

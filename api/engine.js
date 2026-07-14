@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.5 - by mdisailor engine - v2.14.5: Livorno usa bias_station 'livorno_porto' (stazione Windfinder reale al porto) invece del mareografo muto livorno_cfr. Su base v2.14.4 (stazione Livorno Porto aggiunta) e audit 2026-07-11
+  // NAUTILUS ENGINE - Vercel API - engine.js - v2.14.6 - by mdisailor engine - v2.14.6: triple_wind accetta tutte le fonti reali (cfr/mnw/windfinder), non solo cfr, cosi Livorno Porto e altre stazioni non-CFR mostrano dato reale nel triplo coerente col singolo. Su base v2.14.5 e audit 2026-07-11
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2004,10 +2004,10 @@ var twResults = await Promise.all(twZones.map(async function(zk) {
     var samples = await kvGet('bias_samples:' + bs, kvUrl, kvToken) || [];
     var latest = samples[0];
     if (latest && latest.station && latest.station.wind_kt !== null &&
-        latest.station.source === 'cfr' &&
+        latest.station.source && latest.station.source !== 'om' &&
         (Date.now() - new Date(latest.ts).getTime()) < 2 * 3600 * 1000) {
       return {
-        zone: zk, ok: true, source: 'cfr',
+        zone: zk, ok: true, source: latest.station.source,
         wind_kt: latest.station.wind_kt,
         wind_dir: latest.station.direction,
         wind_gust: latest.station.gust_kt,
@@ -2044,7 +2044,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.5', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.6', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -5827,7 +5827,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.5 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.6 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -5958,4 +5958,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.5
+// Fine codice - NAUTILUS ENGINE v2.14.6

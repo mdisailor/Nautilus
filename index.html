@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.7.37 -- 2026-07-14 - bussola singola legge dato salvato (bias_history, istantaneo) invece di station_refresh live: risolve stazioni lente che restavano rosse -->
+<!-- NAUTILUS v5.7.38 -- 2026-07-14 - due label distinte: fonte vento nelle bussole (CFR/reale o OM rosso), label Open-Meteo/Stormglass spostata sopra la sezione previsioni/mare con testo chiarito -->
 
 <html lang="it">
 <head>
@@ -600,7 +600,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.37  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.38  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -789,14 +789,6 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
     <div class="wind-detail-row"><span class="wd-label">AGGIORNATO</span><span class="wd-value" id="tc-d-ts">--</span></div>
     <div class="wind-detail-row"><span class="wd-label">SORGENTE</span><span class="wd-value" id="tc-d-src">--</span></div>
   </div>
-</div>
-
-<div id="meteo-source-header" style="margin-top:8px">
-  <div class="source-row">
-    <span class="src-badge" id="src-openmeteo"> Open-Meteo</span>
-    <span class="src-badge" id="src-stormglass"> Stormglass</span>
-  </div>
-  <div id="meteo-src-ts" class="src-ts" style="display:none;margin:4px 20px 0">In attesa di dati</div>
 </div>
 
 <div id="single-compass-section" style="display:none;padding:8px 12px 0">
@@ -1127,6 +1119,14 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
       <div style="font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.15em;text-transform:uppercase;margin-top:3px;">Fonte: Stormglass  Multi-modello in tempo reale</div>
       <div id="mare-loc-text" style="font-family:'DM Mono',monospace;font-size:0.6rem;color:var(--accent);margin-top:8px;padding:8px 10px;background:var(--deep);border-radius:8px;border:1px solid var(--border);">--</div>
     </div>
+
+<div id="meteo-source-header" style="margin-top:16px">
+  <div class="source-row">
+    <span class="src-badge" id="src-openmeteo"> Open-Meteo</span>
+    <span class="src-badge" id="src-stormglass"> Stormglass</span>
+  </div>
+  <div id="meteo-src-ts" class="src-ts" style="display:none;margin:4px 20px 0">In attesa di dati</div>
+</div>
 
 <div class="marine-card" style="margin-top:16px">
   <div class="marine-header">
@@ -2011,7 +2011,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.37  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.38  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -2279,7 +2279,7 @@ async function fetchWeather() {
     var _ts = new Date().toLocaleTimeString('it-IT', {hour:'2-digit', minute:'2-digit'});
     document.getElementById('src-openmeteo').textContent = ' Open-Meteo';
     var _tsEl = document.getElementById('meteo-src-ts');
-    if (_tsEl) { _tsEl.textContent = 'Fonte: Open-Meteo best_match  Aggiornato ' + _ts; _tsEl.style.display = 'block'; }
+    if (_tsEl) { _tsEl.textContent = 'Previsioni e mare: Open-Meteo / Stormglass  Aggiornato ' + _ts; _tsEl.style.display = 'block'; }
     document.getElementById('dot-meteo').classList.add('ok');
     document.getElementById('stat-meteo').textContent = 'METEO OK';
     // Update SST from marine data
@@ -6046,7 +6046,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.7.37
+// Fine codice - NAUTILUS v5.7.38
 // ===== TRIPLE COMPASS =====
 var tcData = [null, null, null];
 var tcSelected = 0;

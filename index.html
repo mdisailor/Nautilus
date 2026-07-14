@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.7.32 -- 2026-07-13 - Livorno usa stazione reale Livorno Porto (Windfinder) invece del mareografo muto -->
+<!-- NAUTILUS v5.7.33 -- 2026-07-13 - bussole CFR reale o OM rosso; intestazione Open-Meteo/Stormglass come blocco unico sotto le bussole, visibile in entrambe le viste; Livorno Porto coord reali -->
 
 <html lang="it">
 <head>
@@ -600,7 +600,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.32  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.33  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -688,13 +688,6 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
     </optgroup>
   </select>
 </div>
-
-<div class="source-row">
-  <span class="src-badge" id="src-openmeteo"> Open-Meteo</span>
-  <span class="src-badge" id="src-stormglass"> Stormglass</span>
-</div>
-<div id="meteo-src-ts" class="src-ts" style="display:none;margin:4px 20px 0">In attesa di dati</div>
-
 
 <div id="triple-compass-section">
   <div style="display:flex;justify-content:space-around;align-items:flex-start;padding:6px 8px 0;gap:8px">
@@ -796,6 +789,14 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
     <div class="wind-detail-row"><span class="wd-label">AGGIORNATO</span><span class="wd-value" id="tc-d-ts">--</span></div>
     <div class="wind-detail-row"><span class="wd-label">SORGENTE</span><span class="wd-value" id="tc-d-src">--</span></div>
   </div>
+</div>
+
+<div id="meteo-source-header" style="margin-top:8px">
+  <div class="source-row">
+    <span class="src-badge" id="src-openmeteo"> Open-Meteo</span>
+    <span class="src-badge" id="src-stormglass"> Stormglass</span>
+  </div>
+  <div id="meteo-src-ts" class="src-ts" style="display:none;margin:4px 20px 0">In attesa di dati</div>
 </div>
 
 <div id="single-compass-section" style="display:none;padding:8px 12px 0">
@@ -2010,7 +2011,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.32  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.33  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -3025,19 +3026,15 @@ function refreshData() { if (state.lat) fetchAll(); else requestGPS(); }
 function showSingleMeteo() {
   var t = document.getElementById('triple-compass-section');
   var s = document.getElementById('single-compass-section');
-  var src = document.getElementById('meteo-src-ts');
   if (t) t.style.display = 'none';
   if (s) s.style.display = 'block';
-  if (src) src.style.display = 'block';
   loadSingleCompass();
 }
 function showTripleMeteo() {
   var t = document.getElementById('triple-compass-section');
   var s = document.getElementById('single-compass-section');
-  var src = document.getElementById('meteo-src-ts');
   if (t) t.style.display = 'block';
   if (s) s.style.display = 'none';
-  if (src) src.style.display = 'none';
   loadTripleCompasses();
 }
 var scCfrLoaded = false;
@@ -6017,7 +6014,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.7.32
+// Fine codice - NAUTILUS v5.7.33
 // ===== TRIPLE COMPASS =====
 var tcData = [null, null, null];
 var tcSelected = 0;
@@ -6040,7 +6037,11 @@ function updateTripleCompass(idx, r) {
   var needle = document.getElementById('tc-needle-' + idx);
   if (needle && dir !== null) needle.setAttribute('transform', 'rotate(' + dir + ',50,50)');
   var sEl = document.getElementById('tc-speed-' + idx);
-  if (sEl) sEl.textContent = spd !== null ? Math.round(spd) : '--';
+  // 2026-07-13: vento in rosso quando la fonte e' OM (modello di ripiego, la
+  // stazione CFR non ha risposto). CFR = dato reale, colore normale.
+  var isOm = src && src.toLowerCase().indexOf('om') === 0;
+  var tcColor = (spd !== null && isOm) ? '#ff4444' : 'var(--accent)';
+  if (sEl) { sEl.textContent = spd !== null ? Math.round(spd) : '--'; sEl.style.color = tcColor; }
   var dEl = document.getElementById('tc-dir-' + idx);
   if (dEl) dEl.textContent = dirToText(dir);
   var degEl = document.getElementById('tc-deg-' + idx);
@@ -6048,7 +6049,7 @@ function updateTripleCompass(idx, r) {
   var gustEl = document.getElementById('tc-gust-' + idx);
   if (gustEl) gustEl.textContent = gust !== null ? 'raffica ' + Math.round(gust) + 'kn' : 'raffica --kn';
   var srcEl = document.getElementById('tc-src-' + idx);
-  if (srcEl) srcEl.textContent = tcData[idx].src;
+  if (srcEl) { srcEl.textContent = tcData[idx].src; srcEl.style.color = isOm ? '#ff4444' : 'rgba(0,240,255,0.5)'; }
   if (idx === tcSelected) renderTripleDetail(idx);
 }
 
@@ -6073,7 +6074,7 @@ function renderTripleDetail(idx) {
 var TC_COORDS = [
   { lat: 43.875, lon: 10.236, name: 'Viareggio CFR' },
   { lat: 43.680, lon: 10.270, name: "Bocca d'Arno" },
-  { lat: 43.546, lon: 10.300, name: 'Livorno Porto CFR' }
+  { lat: 43.5525, lon: 10.3014, name: 'Livorno Porto' }
 ];
 
 function selectTripleCompass(idx) {

@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.7.34 -- 2026-07-13 - bussola singola legge dato reale stazione (era OM sempre rosso); LOC_TO_CFR allineato al menu + Livorno Porto; rosso solo per fonte OM -->
+<!-- NAUTILUS v5.7.35 -- 2026-07-14 - bussola singola: dato reale letto da data.wind_kt/dir_deg (struttura reale corretta) -->
 
 <html lang="it">
 <head>
@@ -600,7 +600,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.34  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.35  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -2011,7 +2011,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.34  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.35  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -3077,19 +3077,11 @@ async function loadSingleCompass() {
       var res = await fetch(ENGINE_URL + '?action=station_refresh&station=' + cfrId + '&k=mdi');
       var json = await res.json();
       var d = json && json.data ? json.data : null;
-      // Dato reale della stazione: d.station.wind_kt (fonte cfr/mnw/windfinder).
-      // 2026-07-13: prima leggeva data.wind_kt (livello sbagliato) e passava 'CFR'
-      // fisso — cosi' la bussola singola mostrava sempre OM/rosso. Ora usa il
-      // dato reale se c'e', con la sua fonte; altrimenti OM in rosso.
-      if (d && d.station && d.station.wind_kt !== null && d.station.wind_kt !== undefined) {
-        var realSrc = (d.station.source || 'CFR').toUpperCase().replace('MNW_API','MNW').replace('MNW_WEB','MNW');
-        updateSingleCompass(d.station.wind_kt, d.station.direction, d.station.gust_kt, realSrc);
-        scCfrLoaded = true;
-        return;
-      }
-      // Stazione senza dato reale in questo momento: OM in rosso
-      if (d && d.om && d.om.wind_kt !== null && d.om.wind_kt !== undefined) {
-        updateSingleCompass(d.om.wind_kt, d.om.direction, d.om.gust_kt, 'OM');
+      // 2026-07-14: la risposta ha il dato reale direttamente in d.wind_kt/d.dir_deg
+      // (d.station e' una STRINGA col nome stazione, non un oggetto). Se c'e' il
+      // dato reale lo mostro come stazione vera; altrimenti OM in rosso.
+      if (d && d.wind_kt !== null && d.wind_kt !== undefined) {
+        updateSingleCompass(d.wind_kt, d.dir_deg, d.gust_kt, 'CFR');
         scCfrLoaded = true;
         return;
       }
@@ -6031,7 +6023,7 @@ async function biasWebSample(stationId, sfx) {
   }
 }
 
-// Fine codice - NAUTILUS v5.7.34
+// Fine codice - NAUTILUS v5.7.35
 // ===== TRIPLE COMPASS =====
 var tcData = [null, null, null];
 var tcSelected = 0;

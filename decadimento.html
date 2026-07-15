@@ -1,11 +1,11 @@
-<!-- NAUTILUS DECADIMENTO v1.0 - mdisailor - 2026-07-15 - curva MAE per orizzonte con banda dispersione, per zona -->
+<!-- NAUTILUS DECADIMENTO v1.1 - mdisailor - 2026-07-15 - aggiunta separazione mattina/pomeriggio calcolata dai record grezzi predict_history -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#020d1a">
-<title>NAUTILUS — Decadimento previsioni v1.0</title>
+<title>NAUTILUS — Decadimento previsioni v1.1</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -47,7 +47,7 @@
 <header>
   <div class="logo">NAUTI<span>LUS</span></div>
   <div class="subtitle">Decadimento previsioni</div>
-  <div class="ver">v1.0</div>
+  <div class="ver">v1.1</div>
   <button class="btn" onclick="exportXLS()">↓ XLS</button>
 </header>
 <main>
@@ -63,7 +63,52 @@ var SECRET = 'mdi';
 var HOR = ['h1','h3','h6','h9','h12','h24'];
 var HOR_LBL = { h1:'+1h', h3:'+3h', h6:'+6h', h9:'+9h', h12:'+12h', h24:'+24h' };
 var HOR_NUM = { h1:1, h3:3, h6:6, h9:9, h12:12, h24:24 };
-var chart = null, currentData = null, currentZone = '';
+var chart = null, chartSlot = null, currentData = null, currentZone = '', currentSlots = null;
+
+// Coppie forecast/actual come sono salvate nei record predict_history
+var PAIRS = [['h1','actual_1h'],['h3','actual_3h'],['h6','actual_6h'],['h9','actual_9h'],['h12','actual_12h']];
+
+function meanOf(a){ return a.length ? a.reduce(function(x,y){return x+y;},0)/a.length : null; }
+function stdOf(a){
+  if (a.length < 2) return null;
+  var m = meanOf(a);
+  return Math.sqrt(a.reduce(function(s,v){ return s + (v-m)*(v-m); }, 0) / (a.length-1));
+}
+
+// Separa i record per slot (morning/afternoon) e calcola MAE + std per orizzonte.
+// Il campo slot e' salvato su ogni previsione dall'engine; se manca lo ricavo
+// dall'ora di generazione (stessa soglia dell'engine: <11 = mattina).
+function computeBySlot(records) {
+  var out = { morning:{}, afternoon:{} };
+  ['morning','afternoon'].forEach(function(sl){
+    PAIRS.forEach(function(p){ out[sl][p[0]] = []; });
+  });
+  (records||[]).forEach(function(r){
+    if (!r || !r.generated_at) return;
+    var sl = r.slot;
+    if (sl !== 'morning' && sl !== 'afternoon') {
+      var h = parseInt(String(r.generated_at).slice(11,13), 10);
+      sl = (h < 9) ? 'morning' : 'afternoon'; // generated_at e' UTC: 07:15 Roma = 05:15 UTC
+    }
+    PAIRS.forEach(function(p){
+      var f = r['forecast_' + p[0]], a = r[p[1]];
+      if (f == null || a == null || isNaN(f) || isNaN(a)) return;
+      out[sl][p[0]].push(Math.abs(parseFloat(a) - parseFloat(f)));
+    });
+  });
+  var res = { morning:{}, afternoon:{} };
+  ['morning','afternoon'].forEach(function(sl){
+    PAIRS.forEach(function(p){
+      var arr = out[sl][p[0]];
+      res[sl][p[0]] = arr.length ? {
+        n: arr.length,
+        mae: Math.round(meanOf(arr)*10)/10,
+        std: stdOf(arr) != null ? Math.round(stdOf(arr)*10)/10 : null
+      } : null;
+    });
+  });
+  return res;
+}
 
 // Giudizio affidabilita': non basta il MAE, conta la DISPERSIONE (std).
 // Rosso  = pochi campioni O std alta (errore imprevedibile)
@@ -95,9 +140,15 @@ async function load() {
   var out = document.getElementById('out');
   out.innerHTML = '<div class="empty">Caricamento...</div>';
   try {
-    var r = await fetch(ENGINE_URL + '?action=forecast_stats&zone=' + zone + '&k=' + SECRET, {cache:'no-store'});
-    var d = await r.json();
+    var both = await Promise.all([
+      fetch(ENGINE_URL + '?action=forecast_stats&zone=' + zone + '&k=' + SECRET, {cache:'no-store'}).then(function(x){ return x.json(); }),
+      fetch(ENGINE_URL + '?action=predict_history&zone=' + zone + '&k=' + SECRET, {cache:'no-store'}).then(function(x){ return x.json(); }).catch(function(){ return null; })
+    ]);
+    var d = both[0];
     currentData = d;
+    var phRaw = both[1];
+    var phList = phRaw ? (phRaw.predictions || phRaw.history || phRaw.list || (Array.isArray(phRaw) ? phRaw : [])) : [];
+    currentSlots = computeBySlot(phList);
     var cb = d.current_bias || {};
     var rows = HOR.filter(function(h){ return cb[h] && cb[h].n; }).map(function(h){
       var c = cb[h];
@@ -135,11 +186,36 @@ async function load() {
     });
     html += '</table></div>';
 
+    // --- Mattina vs Pomeriggio ---
+    var slotRows = [];
+    HOR.forEach(function(h){
+      var m = currentSlots.morning[h], a = currentSlots.afternoon[h];
+      if (m || a) slotRows.push({ h:h, lbl:HOR_LBL[h], m:m, a:a });
+    });
+    if (slotRows.length) {
+      html += '<div class="card"><div class="card-title">Mattina vs Pomeriggio — errore medio per orizzonte</div>'
+        + '<canvas id="cs"></canvas></div>';
+      html += '<div class="card"><div class="card-title">Dettaglio per slot</div><table>'
+        + '<tr><th>Orizzonte</th><th>Mattina N</th><th>Mattina MAE</th><th>Mattina std</th>'
+        + '<th>Pomeriggio N</th><th>Pomeriggio MAE</th><th>Pomeriggio std</th></tr>';
+      slotRows.forEach(function(x){
+        html += '<tr><td style="color:var(--accent)">' + x.lbl + '</td>'
+          + '<td>' + (x.m ? x.m.n : '--') + '</td><td><b>' + (x.m ? x.m.mae : '--') + '</b></td><td>' + (x.m && x.m.std != null ? x.m.std : '--') + '</td>'
+          + '<td>' + (x.a ? x.a.n : '--') + '</td><td><b>' + (x.a ? x.a.mae : '--') + '</b></td><td>' + (x.a && x.a.std != null ? x.a.std : '--') + '</td></tr>';
+      });
+      html += '</table></div>';
+    } else {
+      html += '<div class="card"><div class="note">Non ci sono ancora abbastanza previsioni verificate per separare mattina e pomeriggio.</div></div>';
+    }
+
     html += '<div class="card"><div class="note"><b>Come si legge.</b> La linea è l\'errore medio (MAE): quanto sbaglia in media la previsione a quella distanza. '
       + 'La banda attorno è la dispersione: quanto quell\'errore è costante. Un orizzonte è utile quando la linea è bassa <i>e</i> la banda è stretta — '
       + 'sbagliare poco in media non basta, se singole previsioni sbagliano molto.<br><br>'
       + '<b>Attenzione al regime.</b> Questi numeri valgono per le condizioni finora osservate. Con vento debole e stabile le previsioni reggono anche a lunga distanza; '
-      + 'il decadimento vero emerge con vento forte o instabile — finché quelle condizioni non entrano nel campione, la curva resta ottimista.</div></div>';
+      + 'il decadimento vero emerge con vento forte o instabile — finché quelle condizioni non entrano nel campione, la curva resta ottimista.<br><br>'
+      + '<b>Mattina vs pomeriggio.</b> Sono due problemi diversi: la previsione del mattino deve indovinare se e quando parte la brezza; quella del pomeriggio '
+      + 'la brezza ce l\'ha già davanti e deve dire quando cala. I due slot sono calcolati dai record grezzi delle previsioni, il grafico generale sopra dai dati aggregati dell\'engine: '
+      + 'piccole differenze tra i due sono normali.</div></div>';
 
     out.innerHTML = html;
 
@@ -164,9 +240,34 @@ async function load() {
         }
       }
     });
+    renderSlotChart(slotRows);
   } catch(e) {
     out.innerHTML = '<div class="empty" style="color:var(--danger)">Errore: ' + e.message + '</div>';
   }
+}
+
+function renderSlotChart(slotRows) {
+  var el = document.getElementById('cs');
+  if (!el || !slotRows.length) return;
+  var labels = slotRows.map(function(x){ return x.lbl; });
+  var mm = slotRows.map(function(x){ return x.m ? x.m.mae : null; });
+  var pp = slotRows.map(function(x){ return x.a ? x.a.mae : null; });
+  if (chartSlot) chartSlot.destroy();
+  chartSlot = new Chart(el.getContext('2d'), {
+    type: 'line',
+    data: { labels: labels, datasets: [
+      { label:'Mattina', data:mm, borderColor:'#ffaa00', backgroundColor:'#ffaa00', fill:false, pointRadius:4, borderWidth:2, tension:0.25, spanGaps:true },
+      { label:'Pomeriggio', data:pp, borderColor:'#22dd88', backgroundColor:'#22dd88', fill:false, pointRadius:4, borderWidth:2, tension:0.25, spanGaps:true }
+    ]},
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ labels:{ color:'#c8dff0', font:{family:"'DM Mono',monospace",size:10} } } },
+      scales:{
+        x:{ ticks:{color:'#c8dff0',font:{size:10}}, grid:{display:false} },
+        y:{ beginAtZero:true, ticks:{color:'#4a7a9b'}, grid:{color:'rgba(255,255,255,0.05)'}, title:{display:true,text:'MAE kn',color:'#4a7a9b'} }
+      }
+    }
+  });
 }
 
 function exportXLS() {
@@ -192,6 +293,19 @@ function exportXLS() {
     var ws2 = XLSX.utils.aoa_to_sheet(w);
     ws2['!cols'] = Array(7).fill({wch:12});
     XLSX.utils.book_append_sheet(wb, ws2, 'Per settimana');
+  }
+  if (currentSlots) {
+    var s = [['Orizzonte','Mattina N','Mattina MAE','Mattina std','Pomeriggio N','Pomeriggio MAE','Pomeriggio std']];
+    HOR.forEach(function(h){
+      var m = currentSlots.morning[h], a = currentSlots.afternoon[h];
+      if (!m && !a) return;
+      s.push([HOR_LBL[h], m?m.n:'', m?m.mae:'', m&&m.std!=null?m.std:'', a?a.n:'', a?a.mae:'', a&&a.std!=null?a.std:'']);
+    });
+    if (s.length > 1) {
+      var ws3 = XLSX.utils.aoa_to_sheet(s);
+      ws3['!cols'] = Array(7).fill({wch:14});
+      XLSX.utils.book_append_sheet(wb, ws3, 'Mattina vs Pomeriggio');
+    }
   }
   XLSX.writeFile(wb, 'nautilus_decadimento_' + currentZone + '_' + new Date().toISOString().slice(0,10) + '.xlsx');
 }

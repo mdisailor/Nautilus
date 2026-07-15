@@ -1,11 +1,11 @@
-<!-- NAUTILUS DECADIMENTO v1.1 - mdisailor - 2026-07-15 - aggiunta separazione mattina/pomeriggio calcolata dai record grezzi predict_history -->
+<!-- NAUTILUS DECADIMENTO v1.2 - mdisailor - 2026-07-15 - fix lettura predict_history: record annidato in .prediction, actual al livello item (le curve mattina/pomeriggio erano vuote) -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#020d1a">
-<title>NAUTILUS — Decadimento previsioni v1.1</title>
+<title>NAUTILUS — Decadimento previsioni v1.2</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -47,7 +47,7 @@
 <header>
   <div class="logo">NAUTI<span>LUS</span></div>
   <div class="subtitle">Decadimento previsioni</div>
-  <div class="ver">v1.1</div>
+  <div class="ver">v1.2</div>
   <button class="btn" onclick="exportXLS()">↓ XLS</button>
 </header>
 <main>
@@ -76,24 +76,31 @@ function stdOf(a){
 }
 
 // Separa i record per slot (morning/afternoon) e calcola MAE + std per orizzonte.
-// Il campo slot e' salvato su ogni previsione dall'engine; se manca lo ricavo
-// dall'ora di generazione (stessa soglia dell'engine: <11 = mattina).
+// STRUTTURA REALE di action=predict_history: ogni item e'
+//   { prediction: {generated_at, slot, forecast_hN...}, actual_3h, actual_6h, actual_12h }
+// cioe' il record sta annidato in .prediction e gli actual sono al livello sopra.
+// Gli actual per h1/h9 arrivano solo se gia' salvati nel record (backfill).
 function computeBySlot(records) {
   var out = { morning:{}, afternoon:{} };
   ['morning','afternoon'].forEach(function(sl){
     PAIRS.forEach(function(p){ out[sl][p[0]] = []; });
   });
-  (records||[]).forEach(function(r){
-    if (!r || !r.generated_at) return;
-    var sl = r.slot;
+  (records||[]).forEach(function(item){
+    if (!item) return;
+    var p = item.prediction || item;              // record grezzo
+    if (!p || !p.generated_at) return;
+    var sl = p.slot;
     if (sl !== 'morning' && sl !== 'afternoon') {
-      var h = parseInt(String(r.generated_at).slice(11,13), 10);
-      sl = (h < 9) ? 'morning' : 'afternoon'; // generated_at e' UTC: 07:15 Roma = 05:15 UTC
+      var h = parseInt(String(p.generated_at).slice(11,13), 10);
+      sl = (h < 9) ? 'morning' : 'afternoon';     // generated_at e' UTC: 07:15 Roma = 05:15 UTC
     }
-    PAIRS.forEach(function(p){
-      var f = r['forecast_' + p[0]], a = r[p[1]];
+    PAIRS.forEach(function(pr){
+      var f = p['forecast_' + pr[0]];
+      // actual: prima al livello item (calcolato dall'endpoint), poi nel record
+      var a = item[pr[1]];
+      if (a == null) a = p[pr[1]];
       if (f == null || a == null || isNaN(f) || isNaN(a)) return;
-      out[sl][p[0]].push(Math.abs(parseFloat(a) - parseFloat(f)));
+      out[sl][pr[0]].push(Math.abs(parseFloat(a) - parseFloat(f)));
     });
   });
   var res = { morning:{}, afternoon:{} };

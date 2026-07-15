@@ -1,0 +1,203 @@
+<!-- NAUTILUS DECADIMENTO v1.0 - mdisailor - 2026-07-15 - curva MAE per orizzonte con banda dispersione, per zona -->
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#020d1a">
+<title>NAUTILUS — Decadimento previsioni v1.0</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Bebas+Neue&display=swap');
+  :root{--bg:#020d1a;--card:#071828;--border:rgba(0,180,220,0.15);--accent:#00f0ff;
+        --warn:#ffaa00;--danger:#ff4444;--safe:#22dd88;--muted:rgba(255,255,255,0.6);--text:rgba(255,255,255,0.9);}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;padding:0 0 40px;}
+  header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;}
+  .logo{font-family:'Bebas Neue',sans-serif;font-size:1.7rem;letter-spacing:0.08em;color:#fff;}
+  .logo span{color:var(--accent);}
+  .subtitle{font-size:0.66rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;}
+  .ver{font-size:0.5rem;color:#fff;}
+  .btn{margin-left:auto;font-family:'DM Mono',monospace;font-size:0.58rem;padding:6px 11px;background:transparent;
+       border:1px solid var(--accent);color:var(--accent);border-radius:6px;cursor:pointer;text-decoration:none;}
+  main{padding:18px 20px;max-width:900px;margin:0 auto;}
+  .controls{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap;font-size:0.7rem;}
+  select{background:var(--card);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;
+         font-size:0.72rem;padding:7px 10px;border-radius:6px;}
+  .summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
+  .summary-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;}
+  .summary-label{font-size:0.58rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;}
+  .summary-value{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--accent);}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:16px;}
+  .card-title{font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px;}
+  canvas{max-height:320px;}
+  table{width:100%;border-collapse:collapse;font-size:0.7rem;}
+  th{color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;padding:6px 8px;text-align:left;
+     border-bottom:1px solid var(--border);font-weight:400;font-size:0.56rem;white-space:nowrap;}
+  td{padding:7px 8px;border-bottom:1px solid rgba(255,255,255,0.04);white-space:nowrap;}
+  tr:last-child td{border-bottom:none;}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle;}
+  .g{background:var(--safe);} .y{background:var(--warn);} .r{background:var(--danger);}
+  .note{font-size:0.58rem;color:var(--muted);line-height:1.5;}
+  .empty{text-align:center;padding:40px;color:var(--muted);font-size:0.7rem;}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">NAUTI<span>LUS</span></div>
+  <div class="subtitle">Decadimento previsioni</div>
+  <div class="ver">v1.0</div>
+  <button class="btn" onclick="exportXLS()">↓ XLS</button>
+</header>
+<main>
+  <div class="controls">
+    <label>Zona:</label>
+    <select id="zoneSel"><option value="bocca_arno">caricamento...</option></select>
+  </div>
+  <div id="out"><div class="empty">Caricamento...</div></div>
+</main>
+<script>
+var ENGINE_URL = 'https://nautilus-red.vercel.app/api/engine';
+var SECRET = 'mdi';
+var HOR = ['h1','h3','h6','h9','h12','h24'];
+var HOR_LBL = { h1:'+1h', h3:'+3h', h6:'+6h', h9:'+9h', h12:'+12h', h24:'+24h' };
+var HOR_NUM = { h1:1, h3:3, h6:6, h9:9, h12:12, h24:24 };
+var chart = null, currentData = null, currentZone = '';
+
+// Giudizio affidabilita': non basta il MAE, conta la DISPERSIONE (std).
+// Rosso  = pochi campioni O std alta (errore imprevedibile)
+// Giallo = campioni sufficienti, dispersione media
+// Verde  = abbastanza campioni E std bassa (sbaglia poco e in modo costante)
+function judge(n, mae, std) {
+  if (!n || n < 5) return { c:'r', t:'dati insufficienti' };
+  if (std == null) return { c:'y', t:'dispersione ignota' };
+  if (std > 3) return { c:'r', t:'troppo disperso' };
+  if (std > 1.8 || n < 10) return { c:'y', t:'indicativo' };
+  return { c:'g', t:'affidabile' };
+}
+
+function loadZones() {
+  return fetch(ENGINE_URL + '?action=zones', {cache:'no-store'})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var zs = (d.zones||[]).slice().sort(function(a,b){ return (a.name||a.key).localeCompare(b.name||b.key); });
+      if (!zs.length) return;
+      document.getElementById('zoneSel').innerHTML = zs.map(function(z){
+        return '<option value="'+z.key+'"'+(z.key==='bocca_arno'?' selected':'')+'>'+(z.name||z.key)+'</option>';
+      }).join('');
+    }).catch(function(){});
+}
+
+async function load() {
+  var zone = document.getElementById('zoneSel').value;
+  currentZone = zone;
+  var out = document.getElementById('out');
+  out.innerHTML = '<div class="empty">Caricamento...</div>';
+  try {
+    var r = await fetch(ENGINE_URL + '?action=forecast_stats&zone=' + zone + '&k=' + SECRET, {cache:'no-store'});
+    var d = await r.json();
+    currentData = d;
+    var cb = d.current_bias || {};
+    var rows = HOR.filter(function(h){ return cb[h] && cb[h].n; }).map(function(h){
+      var c = cb[h];
+      return { h:h, lbl:HOR_LBL[h], n:c.n, mae:c.mae, std:c.std, mean:c.mean, j:judge(c.n, c.mae, c.std) };
+    });
+
+    if (!rows.length) {
+      out.innerHTML = '<div class="empty">Nessuna previsione verificata per questa zona.<br>Serve che il ciclo di verifica accumuli dati reali.</div>';
+      return;
+    }
+
+    // Decadimento: confronto primo vs ultimo orizzonte disponibile
+    var first = rows[0], last = rows[rows.length-1];
+    var delta = Math.round((last.mae - first.mae)*10)/10;
+    var trendTxt = delta > 0.3 ? 'peggiora con la distanza' : delta < -0.3 ? 'regge (non decade)' : 'stabile';
+    var trendCol = delta > 0.3 ? 'var(--warn)' : 'var(--safe)';
+
+    var html = '<div class="summary-grid">'
+      + '<div class="summary-card"><div class="summary-label">Previsioni verificate</div><div class="summary-value">' + (d.verified||0) + '</div></div>'
+      + '<div class="summary-card"><div class="summary-label">Errore ' + first.lbl + ' → ' + last.lbl + '</div><div class="summary-value">' + first.mae + ' → ' + last.mae + ' kn</div></div>'
+      + '<div class="summary-card"><div class="summary-label">Andamento</div><div class="summary-value" style="font-size:0.85rem;color:' + trendCol + '">' + trendTxt + '</div></div>'
+      + '</div>';
+
+    html += '<div class="card"><div class="card-title">Errore medio per orizzonte — banda = dispersione (±std)</div><canvas id="c"></canvas></div>';
+
+    html += '<div class="card"><div class="card-title">Dettaglio per orizzonte</div><table>'
+      + '<tr><th>Orizzonte</th><th>N</th><th>MAE (kn)</th><th>Dispersione (std)</th><th>Bias medio</th><th>Affidabilità</th></tr>';
+    rows.forEach(function(x){
+      html += '<tr><td style="color:var(--accent)">' + x.lbl + '</td>'
+        + '<td>' + x.n + '</td>'
+        + '<td><b>' + x.mae + '</b></td>'
+        + '<td>' + (x.std != null ? x.std : '--') + '</td>'
+        + '<td>' + (x.mean > 0 ? '+' : '') + x.mean + '</td>'
+        + '<td><span class="dot ' + x.j.c + '"></span>' + x.j.t + '</td></tr>';
+    });
+    html += '</table></div>';
+
+    html += '<div class="card"><div class="note"><b>Come si legge.</b> La linea è l\'errore medio (MAE): quanto sbaglia in media la previsione a quella distanza. '
+      + 'La banda attorno è la dispersione: quanto quell\'errore è costante. Un orizzonte è utile quando la linea è bassa <i>e</i> la banda è stretta — '
+      + 'sbagliare poco in media non basta, se singole previsioni sbagliano molto.<br><br>'
+      + '<b>Attenzione al regime.</b> Questi numeri valgono per le condizioni finora osservate. Con vento debole e stabile le previsioni reggono anche a lunga distanza; '
+      + 'il decadimento vero emerge con vento forte o instabile — finché quelle condizioni non entrano nel campione, la curva resta ottimista.</div></div>';
+
+    out.innerHTML = html;
+
+    var labels = rows.map(function(x){ return x.lbl; });
+    var mae = rows.map(function(x){ return x.mae; });
+    var up = rows.map(function(x){ return Math.round((x.mae + (x.std||0))*10)/10; });
+    var lo = rows.map(function(x){ return Math.max(0, Math.round((x.mae - (x.std||0))*10)/10); });
+    if (chart) chart.destroy();
+    chart = new Chart(document.getElementById('c').getContext('2d'), {
+      type: 'line',
+      data: { labels: labels, datasets: [
+        { label:'+ std', data:up, borderColor:'rgba(0,240,255,0.15)', backgroundColor:'rgba(0,240,255,0.10)', fill:'+1', pointRadius:0, borderWidth:1 },
+        { label:'- std', data:lo, borderColor:'rgba(0,240,255,0.15)', backgroundColor:'transparent', fill:false, pointRadius:0, borderWidth:1 },
+        { label:'MAE (kn)', data:mae, borderColor:'#00f0ff', backgroundColor:'#00f0ff', fill:false, pointRadius:4, borderWidth:2, tension:0.25 }
+      ]},
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ labels:{ color:'#c8dff0', font:{family:"'DM Mono',monospace",size:10}, filter:function(i){ return i.text==='MAE (kn)'; } } } },
+        scales:{
+          x:{ ticks:{color:'#c8dff0',font:{size:10}}, grid:{display:false} },
+          y:{ beginAtZero:true, ticks:{color:'#4a7a9b'}, grid:{color:'rgba(255,255,255,0.05)'}, title:{display:true,text:'kn',color:'#4a7a9b'} }
+        }
+      }
+    });
+  } catch(e) {
+    out.innerHTML = '<div class="empty" style="color:var(--danger)">Errore: ' + e.message + '</div>';
+  }
+}
+
+function exportXLS() {
+  if (!currentData || !currentData.current_bias) { alert('Dati non ancora caricati.'); return; }
+  var wb = XLSX.utils.book_new();
+  var rows = [['Zona', currentZone], ['Verificate', currentData.verified || 0], [],
+              ['Orizzonte','Ore','N','MAE (kn)','Std','Bias medio','Affidabilita']];
+  HOR.forEach(function(h){
+    var c = currentData.current_bias[h];
+    if (!c || !c.n) return;
+    var j = judge(c.n, c.mae, c.std);
+    rows.push([HOR_LBL[h], HOR_NUM[h], c.n, c.mae, c.std, c.mean, j.t]);
+  });
+  var ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = Array(7).fill({wch:14});
+  XLSX.utils.book_append_sheet(wb, ws, 'Decadimento');
+
+  if (currentData.weekly_mae && currentData.weekly_mae.length) {
+    var w = [['Settimana','N','h1','h3','h6','h9','h12']];
+    currentData.weekly_mae.forEach(function(x){
+      w.push([x.week, x.n, x.h1_mae, x.h3_mae, x.h6_mae, x.h9_mae, x.h12_mae]);
+    });
+    var ws2 = XLSX.utils.aoa_to_sheet(w);
+    ws2['!cols'] = Array(7).fill({wch:12});
+    XLSX.utils.book_append_sheet(wb, ws2, 'Per settimana');
+  }
+  XLSX.writeFile(wb, 'nautilus_decadimento_' + currentZone + '_' + new Date().toISOString().slice(0,10) + '.xlsx');
+}
+
+document.getElementById('zoneSel').addEventListener('change', load);
+loadZones().then(load);
+</script>
+</body>
+</html>

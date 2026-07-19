@@ -1,4 +1,4 @@
-  // NAUTILUS ENGINE - Vercel API - engine.js - v2.14.6 - by mdisailor engine - v2.14.6: triple_wind accetta tutte le fonti reali (cfr/mnw/windfinder), non solo cfr, cosi Livorno Porto e altre stazioni non-CFR mostrano dato reale nel triplo coerente col singolo. Su base v2.14.5 e audit 2026-07-11
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.8 - by mdisailor engine - v2.14.8: cap bias_history alzato da 100 a 300 campioni, cosi le pagine trovano l'ultimo dato reale di una stazione muta anche se vecchio di giorni (per mostrarlo con la sua eta). Su base v2.14.6
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2044,7 +2044,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.6', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.8', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -5245,7 +5245,7 @@ if (action === 'snap_debug') {
 if (action === 'bias_history') {
   try {
     var bhStation = req.query.station || 'livorno';
-    var bhLimit = Math.min(parseInt(req.query.limit || '20'), 100);
+    var bhLimit = Math.min(parseInt(req.query.limit || '20'), 300);
     var bhKey = 'bias_samples:' + bhStation;
     var bhList = await kvGet(bhKey, kvUrl, kvToken);
     var bhSamples = Array.isArray(bhList) ? bhList.slice(0, bhLimit) : [];
@@ -5827,7 +5827,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.6 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.8 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -5958,4 +5958,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.6
+// Fine codice - NAUTILUS ENGINE v2.14.8

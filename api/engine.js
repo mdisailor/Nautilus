@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.8 - by mdisailor engine - v2.14.8: cap bias_history alzato da 100 a 300 campioni, cosi le pagine trovano l'ultimo dato reale di una stazione muta anche se vecchio di giorni (per mostrarlo con la sua eta). Su base v2.14.6
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.9 - by mdisailor engine - v2.14.9: fase raccolta dati, action=situazione non chiama piu l'AI (skip_ai, default attivo) - salva un record minimale con soli dati/alert gia calcolati in JS, zero costo Anthropic su questa azione. Riattivabile con skip_ai=0 in query. action=predict (numeri previsione) invariato. Su base v2.14.8
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -895,7 +895,7 @@ async function fetchOpenMeteo(lat, lon, model) {
 var atmParams = 'temperature_2m,relativehumidity_2m,surface_pressure,windspeed_10m,winddirection_10m,windgusts_10m,cloudcover,precipitation,visibility';
 var waveParams = 'wave_height,wave_period,wave_direction,swell_wave_height,swell_wave_period,swell_wave_direction';
 var useModel = model || 'best_match';
-var atmUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&hourly=' + atmParams + '&wind_speed_unit=kn&timezone=Europe/Rome&forecast_days=2&models=' + useModel;
+var atmUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&hourly=' + atmParams + '&wind_speed_unit=kn&timezone=Europe/Rome&forecast_days=2&models=' + useModel + '&elevation=0';
 var waveUrl = 'https://marine-api.open-meteo.com/v1/marine?latitude=' + lat + '&longitude=' + lon + '&hourly=' + waveParams + '&length_unit=metric&timezone=Europe/Rome&forecast_days=2';
 
 var results = await Promise.all([fetch(atmUrl), fetch(waveUrl)]);
@@ -2044,7 +2044,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.8', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.9', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -3768,9 +3768,43 @@ if (action === 'situazione') {
       alertsSit.push('Caduta pressione rapida: ' + pressTrend);
     }
     if (currentSit.wind_speed_850 && currentSit.wind_dir_850 && currentSit.wind_dir) {
-      var divSit = Math.abs(currentSit.wind_dir_850 - currentSit.wind_dir);
-      if (divSit > 90) alertsSit.push('Divergenza vento quota/superficie: ' + Math.round(divSit) + ' gradi');
+      var divSit850 = Math.abs(currentSit.wind_dir_850 - currentSit.wind_dir);
+      if (divSit850 > 90) alertsSit.push('Divergenza vento quota/superficie: ' + Math.round(divSit850) + ' gradi');
     }
+
+    // 2026-07-27: FASE RACCOLTA DATI - niente chiamata AI per situazione (costo
+    // zero su questa azione, si risparmia sull'output che e' la parte piu' cara).
+    // Salvo comunque un record minimale (stessa struttura chiave di sempre) cosi'
+    // situazione_get continua a funzionare e non resta a mostrare testo vecchio
+    // congelato, e la pipeline predict_history/stats non perde l'aggancio.
+    // Per riattivare il testo completo: mettere skip_ai=0 in query, o rimuovere
+    // questo blocco cosi' il codice prosegue verso la chiamata Anthropic sotto.
+    // action=predict (i numeri di previsione) NON e' toccato da questo taglio.
+    if (req.query.skip_ai !== '0') {
+      var allertaLevelMin = alertsSit.length >= 2 ? 'GIALLO' : 'VERDE';
+      var allertaColorMin = allertaLevelMin === 'GIALLO' ? '#ffaa00' : '#22dd88';
+      var now3sMin = new Date();
+      var mins15sMin = now3sMin.getMinutes() < 15 ? '00' : now3sMin.getMinutes() < 30 ? '15' : now3sMin.getMinutes() < 45 ? '30' : '45';
+      var romeHourSMin = getNowRome().slice(0, 13);
+      var sitKeyMin = 'situazione:' + zoneKey + ':' + romeHourSMin + '-' + mins15sMin;
+      var sitRecordMin = {
+        zone: zoneKey,
+        generated_at: now3sMin.toISOString(),
+        text: '[fase raccolta dati: solo numeri, testo AI sospeso]',
+        allerta: allertaLevelMin,
+        allerta_color: allertaColorMin,
+        current_wind: currentSit.wind_speed,
+        current_pressure: currentSit.pressure,
+        rotation_trend: rotSit.trend,
+        rotation_path: rotSit.total_path,
+        mode: 'solo_dati_no_ai',
+        alerts: alertsSit
+      };
+      if (kvUrl && kvToken) await kvSet(sitKeyMin, sitRecordMin, 86400 * 7, kvUrl, kvToken);
+      if (kvUrl && kvToken) await kvSet('situazione_latest:' + zoneKey, sitRecordMin, 86400 * 7, kvUrl, kvToken);
+      return res.status(200).json({ ok: true, zone: zoneKey, mode: 'solo_dati_no_ai', record: sitRecordMin });
+    }
+
 
     // Prompt AI
     var dir16sit = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
@@ -5827,7 +5861,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.8 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.9 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -5958,4 +5992,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.8
+// Fine codice - NAUTILUS ENGINE v2.14.9

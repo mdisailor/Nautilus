@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.9 - by mdisailor engine - v2.14.9: fase raccolta dati, action=situazione non chiama piu l'AI (skip_ai, default attivo) - salva un record minimale con soli dati/alert gia calcolati in JS, zero costo Anthropic su questa azione. Riattivabile con skip_ai=0 in query. action=predict (numeri previsione) invariato. Su base v2.14.8
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.10 - by mdisailor engine - v2.14.10: fix naming bias_station forte_marmi->forte_dei_marmi e casotto_pesc->casotto_pescatori (non combaciavano con la chiave reale scritta da scrape_cfr, forecast_stats/backfill_actuals cadevano nel fallback snap). Allineata anche la grid_rule excluded_stations. Su base v2.14.9
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -258,7 +258,7 @@ ports: { alberese: { name: 'Marina di Alberese', exposure: 'W', shelter: 'low', 
 local_effects: { foce_ombrone: { desc: 'Zona foce Ombrone', active_wind_dirs: [0,360], note: 'Costa bassa del Parco Maremma - vento libero da W' } }
 },
 forte_marmi: {
-enabled: true, name: 'Forte dei Marmi - Versilia N', lat: 43.963, lon: 10.174, bias_station: 'forte_marmi',
+enabled: true, name: 'Forte dei Marmi - Versilia N', lat: 43.963, lon: 10.174, bias_station: 'forte_dei_marmi', // fix 2026-07-31: era 'forte_marmi' (== chiave zona), non combaciava con la chiave reale scritta da scrape_cfr -- bias_samples/forecast_stats cadevano nel fallback snap
 ports: { forte_marmi: { name: 'Forte dei Marmi', exposure: 'W', shelter: 'low', swell_threshold: 1.0 } },
 local_effects: { apuane: { desc: 'Effetto Alpi Apuane', active_wind_dirs: [30,90], note: 'Tramontana accelerata a valle delle Apuane' } }
 },
@@ -278,7 +278,7 @@ ports: { quercianella: { name: 'Quercianella', exposure: 'SW', shelter: 'medium'
 local_effects: { }
 },
 casotto_gr: {
-enabled: true, name: 'Casotto P. - Marina di Grosseto', lat: 42.740, lon: 11.040, bias_station: 'casotto_pesc',
+enabled: true, name: 'Casotto P. - Marina di Grosseto', lat: 42.740, lon: 11.040, bias_station: 'casotto_pescatori', // fix 2026-07-31: era 'casotto_pesc', non combaciava con la chiave reale scritta da scrape_cfr -- stesso bug di forte_marmi
 ports: { casotto: { name: 'Marina di Grosseto', exposure: 'W', shelter: 'low', swell_threshold: 0.8 } },
 local_effects: { diaccia: { desc: 'Zona Diaccia Botrona', active_wind_dirs: [0,360], note: 'Costa del parco - area esposta con correnti lagunari' } }
 },
@@ -2044,7 +2044,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.9', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.10', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -5584,7 +5584,7 @@ if (action === 'grid_rules_init') {
         reason: 'Populonia+Venturina, zona risente del territorio — stazioni comandano (agg. 03/07 dopo fix coordinate)'
       },
       '44.00_10.15': {
-        excluded_stations: ['forte_marmi'],
+        excluded_stations: ['forte_dei_marmi'], // fix 2026-07-31: allineato al rename bias_station forte_marmi -> forte_dei_marmi
         reason: 'Forte dei Marmi esclusa (dati da rivalutare), matrice a zone assegna la seconda piu vicina (agg. 07/07)'
       },
       '43.50_9.90': {
@@ -5861,7 +5861,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.9 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.10 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -5992,4 +5992,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.9
+// Fine codice - NAUTILUS ENGINE v2.14.10

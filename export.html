@@ -1,4 +1,4 @@
-<!-- NAUTILUS EXPORT v1.1 - mdisailor - 2026-07-31 - v1.1: aggiunto predict_history per zona (grezzo, con prediction.slot morning/afternoon) per l'analisi mattina/pomeriggio come decadimento.html, ma su tutte le zone insieme. Su base v1.0 (zones+forecast_stats+mae_compare+bias_matrix+score_get). Nessuna scrittura Redis, solo GET esistenti. -->
+<!-- NAUTILUS EXPORT v1.3 - mdisailor - 2026-07-31 - v1.3: aggiunta computeBySlot() copiata identica da decadimento.html v1.2 (stesse coppie forecast/actual, stesso fallback slot su ora UTC, stessa std campionaria) -- calcola mattina/pomeriggio per orizzonte per ogni zona e lo aggiunge come decadimento_by_slot, cosi il JSON porta gia il dato pronto invece di doverlo ricalcolare fuori. Su base v1.2. -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Export Diagnostica v1.1</title>
+<title>NAUTILUS Export Diagnostica v1.3</title>
 <style>
   :root{
     --bg:#020e1c; --panel:#0a1a2e; --panel2:#0e2338; --border:#1c3a54;
@@ -23,7 +23,7 @@
   }
   header{
     padding:18px 16px 14px; border-bottom:1px solid var(--border);
-    display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:8px;
+    display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;
   }
   header h1{ font-size:17px; margin:0; font-weight:600; letter-spacing:.2px; }
   header .ver{ font-size:12px; color:var(--muted); font-family:var(--mono); }
@@ -66,7 +66,7 @@
 
 <header>
   <h1>NAUTILUS &mdash; Export Diagnostica</h1>
-  <span class="ver">v1.1</span>
+  <span class="ver">v1.3</span>
 </header>
 
 <main>
@@ -93,6 +93,54 @@
 <footer>
   <a class="back" href="/index2.html">&larr; torna al cruscotto</a>
 </footer>
+
+<script>
+// --- Copiata identica da decadimento.html v1.2 (stesse coppie forecast/actual,
+// stesso fallback slot su ora UTC, stessa std campionaria) - NON modificare la
+// logica qui senza modificarla anche li, altrimenti i due strumenti divergono. ---
+var PAIRS_DEC = [['h1','actual_1h'],['h3','actual_3h'],['h6','actual_6h'],['h9','actual_9h'],['h12','actual_12h']];
+function meanOfDec(a){ return a.length ? a.reduce(function(x,y){return x+y;},0)/a.length : null; }
+function stdOfDec(a){
+  if (a.length < 2) return null;
+  var m = meanOfDec(a);
+  return Math.sqrt(a.reduce(function(s,v){ return s + (v-m)*(v-m); }, 0) / (a.length-1));
+}
+function computeBySlot(records) {
+  var out = { morning:{}, afternoon:{} };
+  ['morning','afternoon'].forEach(function(sl){
+    PAIRS_DEC.forEach(function(p){ out[sl][p[0]] = []; });
+  });
+  (records||[]).forEach(function(item){
+    if (!item) return;
+    var p = item.prediction || item;
+    if (!p || !p.generated_at) return;
+    var sl = p.slot;
+    if (sl !== 'morning' && sl !== 'afternoon') {
+      var h = parseInt(String(p.generated_at).slice(11,13), 10);
+      sl = (h < 9) ? 'morning' : 'afternoon';
+    }
+    PAIRS_DEC.forEach(function(pr){
+      var f = p['forecast_' + pr[0]];
+      var a = item[pr[1]];
+      if (a == null) a = p[pr[1]];
+      if (f == null || a == null || isNaN(f) || isNaN(a)) return;
+      out[sl][pr[0]].push(Math.abs(parseFloat(a) - parseFloat(f)));
+    });
+  });
+  var res = { morning:{}, afternoon:{} };
+  ['morning','afternoon'].forEach(function(sl){
+    PAIRS_DEC.forEach(function(p){
+      var arr = out[sl][p[0]];
+      res[sl][p[0]] = arr.length ? {
+        n: arr.length,
+        mae: Math.round(meanOfDec(arr)*10)/10,
+        std: stdOfDec(arr) != null ? Math.round(stdOfDec(arr)*10)/10 : null
+      } : null;
+    });
+  });
+  return res;
+}
+</script>
 
 <script>
 (function(){
@@ -130,6 +178,7 @@
       generated_at: new Date().toISOString(),
       forecast_stats: {},
       predict_history: {},
+      decadimento_by_slot: {},
       mae_compare: null,
       bias_matrix: null,
       model_score: null,
@@ -170,6 +219,14 @@
       });
       log('predict_history: ' + Object.keys(result.predict_history).length + '/' + zones.length + ' zone ok', 'ok');
 
+      log('Calcolo mattina/pomeriggio per orizzonte (stessa logica di decadimento.html)...');
+      Object.keys(result.predict_history).forEach(function(zk){
+        var d = result.predict_history[zk];
+        var preds = d && d.predictions ? d.predictions : [];
+        result.decadimento_by_slot[zk] = computeBySlot(preds);
+      });
+      log('decadimento_by_slot calcolato per ' + Object.keys(result.decadimento_by_slot).length + ' zone', 'ok');
+
       log('Carico mae_compare (OM vs AROME grezzo)...');
       try {
         result.mae_compare = await getJson('/api/engine?action=mae_compare');
@@ -201,6 +258,7 @@
       summaryEl.innerHTML =
         '<div><b>Zone</b>: <span class="n">' + Object.keys(result.forecast_stats).length + '</span></div>' +
         '<div><b>Record predict_history totali</b>: <span class="n">' + totalPredRecords + '</span></div>' +
+        '<div><b>Zone con mattina/pomeriggio calcolato</b>: <span class="n">' + Object.keys(result.decadimento_by_slot).length + '</span></div>' +
         '<div><b>Stazioni (mae_compare)</b>: <span class="n">' + (result.mae_compare ? Object.keys(result.mae_compare.stations||{}).length : 0) + '</span></div>' +
         '<div><b>Errori</b>: <span class="n">' + result.errors.length + '</span></div>' +
         '<div><b>Dimensione JSON</b>: <span class="n">' + sizeKb + ' KB</span></div>';
@@ -236,4 +294,4 @@
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS EXPORT v1.1 -->
+<!-- Fine codice - NAUTILUS EXPORT v1.3 -->

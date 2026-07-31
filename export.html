@@ -1,4 +1,4 @@
-<!-- NAUTILUS EXPORT v1.0 - mdisailor - 2026-07-31 - nuova pagina: un tasto estrae zones+forecast_stats(per zona)+mae_compare+bias_matrix+score_get in un unico JSON, per analisi diagnostica. Nessuna scrittura Redis, solo GET esistenti. -->
+<!-- NAUTILUS EXPORT v1.1 - mdisailor - 2026-07-31 - v1.1: aggiunto predict_history per zona (grezzo, con prediction.slot morning/afternoon) per l'analisi mattina/pomeriggio come decadimento.html, ma su tutte le zone insieme. Su base v1.0 (zones+forecast_stats+mae_compare+bias_matrix+score_get). Nessuna scrittura Redis, solo GET esistenti. -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Export Diagnostica v1.0</title>
+<title>NAUTILUS Export Diagnostica v1.1</title>
 <style>
   :root{
     --bg:#020e1c; --panel:#0a1a2e; --panel2:#0e2338; --border:#1c3a54;
@@ -66,12 +66,13 @@
 
 <header>
   <h1>NAUTILUS &mdash; Export Diagnostica</h1>
-  <span class="ver">v1.0</span>
+  <span class="ver">v1.1</span>
 </header>
 
 <main>
   <p class="lead">
     Un tasto per estrarre in un unico JSON: statistiche previsioni per zona (<code>forecast_stats</code>),
+    storico previsioni grezzo con slot mattina/pomeriggio (<code>predict_history</code>),
     confronto grezzo OM vs AROME per stazione (<code>mae_compare</code>), matrice bias per fascia velocit&agrave;
     &times; settore &times; mattina/pomeriggio (<code>bias_matrix</code>), e model score (<code>score_get</code>).
     Nessuna scrittura, solo lettura.
@@ -128,6 +129,7 @@
     var result = {
       generated_at: new Date().toISOString(),
       forecast_stats: {},
+      predict_history: {},
       mae_compare: null,
       bias_matrix: null,
       model_score: null,
@@ -153,6 +155,20 @@
         }
       });
       log('forecast_stats: ' + Object.keys(result.forecast_stats).length + '/' + zones.length + ' zone ok', 'ok');
+
+      log('Carico predict_history per ogni zona (con slot mattina/pomeriggio)...');
+      var phSettled = await Promise.allSettled(zones.map(function(z){
+        return getJson('/api/engine?action=predict_history&zone=' + encodeURIComponent(z.key))
+          .then(function(d){ return { key: z.key, data: d }; });
+      }));
+      phSettled.forEach(function(r, i){
+        if (r.status === 'fulfilled') {
+          result.predict_history[r.value.key] = r.value.data;
+        } else {
+          result.errors.push({ source: 'predict_history:' + zones[i].key, message: String(r.reason) });
+        }
+      });
+      log('predict_history: ' + Object.keys(result.predict_history).length + '/' + zones.length + ' zone ok', 'ok');
 
       log('Carico mae_compare (OM vs AROME grezzo)...');
       try {
@@ -181,8 +197,10 @@
 
       var sizeKb = Math.round(new Blob([jsonStr]).size / 1024 * 10) / 10;
       summaryEl.style.display = 'block';
+      var totalPredRecords = Object.values(result.predict_history).reduce(function(a, d){ return a + ((d && d.total) || 0); }, 0);
       summaryEl.innerHTML =
         '<div><b>Zone</b>: <span class="n">' + Object.keys(result.forecast_stats).length + '</span></div>' +
+        '<div><b>Record predict_history totali</b>: <span class="n">' + totalPredRecords + '</span></div>' +
         '<div><b>Stazioni (mae_compare)</b>: <span class="n">' + (result.mae_compare ? Object.keys(result.mae_compare.stations||{}).length : 0) + '</span></div>' +
         '<div><b>Errori</b>: <span class="n">' + result.errors.length + '</span></div>' +
         '<div><b>Dimensione JSON</b>: <span class="n">' + sizeKb + ' KB</span></div>';
@@ -218,4 +236,4 @@
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS EXPORT v1.0 -->
+<!-- Fine codice - NAUTILUS EXPORT v1.1 -->

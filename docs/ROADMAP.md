@@ -1,7 +1,7 @@
 # NAUTILUS — Roadmap Attività (ROADMAP.md)
 
 Scaletta ordinata con dipendenze, stato e decisioni aperte.
-Aggiornato: 2026-07-01 (sera)
+Aggiornato: 2026-07-27
 
 ---
 
@@ -36,11 +36,28 @@ Aggiornato: 2026-07-01 (sera)
 |---|---|---|---|
 | 2.1 | Web app MAE compare (OM vs AROME per stazione) | ✅ | mae.html v1.10 deployata |
 | 2.2 | Valutazione affidabilità Vada e Cap Pertusato | 🔄 | In osservazione da >4 settimane. Decisione rinviata |
-| 2.3 | Stratificazione MAE per fascia velocità × settore | ⏳ | Dati già disponibili in bias_samples, da implementare in mae.html |
-| 2.4 | MAE per ora del giorno | ⏳ | Come 2.3, stesso dataset |
-| 2.5 | Trend MAE nel tempo (settimanale) | 🔒 | Richiede 2.3 completato |
-| 2.6 | Decisione finale su Vada e Cap Pertusato | ❓ | Dopo almeno 6 settimane di dati (target: fine luglio 2026) |
+| 2.3 | Stratificazione MAE per fascia velocità × settore | ⏳ **priorità alzata** | **Rafforzato dall'analisi del 25/07**: il peggioramento di accuratezza è coerente con un bias medio non stratificato, tarato su regime calmo. Serve prima più storico con vento sostenuto |
+| 2.4 | MAE per ora del giorno | ✅ parziale | `decadimento.html` v1.2 confronta **mattina vs pomeriggio** per orizzonte. Scoperto: il pomeriggio è più accurato (la brezza è già misurata, non va indovinato l'innesco) |
+| 2.5 | Trend MAE nel tempo (settimanale) | ✅ | `forecast_stats` restituisce `weekly_mae` + `trend`. **Attenzione**: il calcolo del trend include settimane con pochissimi campioni (N=2), che falsano il giudizio — da correggere |
+| 2.6 | Decisione finale su Vada e Cap Pertusato | ❓ **scaduto** | Target era fine luglio 2026: **è ora di decidere** |
 | 2.7 | Ricerca fonte alternativa per Bonifacio | ❓ | Météo-France verificata ma API con registrazione; Windfinder /report/ unica opzione trovata finora |
+
+---
+
+## Fase 2-bis — Qualità e onestà dei dati stazione (luglio 2026) 🔄
+
+Emersa non come fase pianificata ma dal lavoro di audit. Ha prodotto i principi ora in METODOLOGIA sez. 9.
+
+| # | Attività | Stato | Note |
+|---|---|---|---|
+| 2b.1 | Principio "solo dati reali" nelle statistiche | ✅ | Verifiche e backfill accettano solo `wind_source='cfr'`. Vento OM mostrato in **rosso** nelle UI |
+| 2b.2 | Livorno: mareografo → stazione vera | ✅ | `livorno_cfr` misurava marea, non vento. Sostituito con `livorno_porto` (Windfinder `it2005`), engine v2.14.5 |
+| 2b.3 | Principio "dati assenti" per stazioni mute | ✅ | La voce resta visibile con ultimo dato + età; mai nascondere il tasto, mai ripiego su stazione vicina. App v5.7.39 + engine v2.14.8 |
+| 2b.4 | Fix race condition bussole singole | ✅ | Leggono il dato già salvato (`bias_history`) invece di scraping live. App v5.7.36-39 |
+| 2b.5 | **Populonia: staccare da canale_piombino** | ⏳ **da fare** | Quota 164m sul promontorio, non rappresenta il canale a livello mare. Rimuovere come `bias_station`, **non** correggere con fattore di quota |
+| 2b.6 | **Populonia: correggere coordinate** | ⏳ **da fare** | Posizione usata troppo a est rispetto alla Livemap ufficiale. Chiarire anche se `populonia_cfr` (CFR `TOS03002300`) e `tsc539` (MNW) sono la stessa stazione |
+| 2b.7 | Stazioni mute `tsc228` / `tsc578` | 🔄 attesa | Online ma senza campo vento. Verificare con `action=mnw_test&k=mdi`. Quando `tsc228` torna: valutarla come `bias_station` del canale al posto di Populonia |
+| 2b.8 | Dato OM sospetto su Capraia | ❓ aperto | Pressione 978 hPa e direzione opposta all'avviso marittimo. **Non manipolare** il dato: semmai segnalarlo come sospetto |
 
 ---
 
@@ -71,6 +88,12 @@ Aggiornato: 2026-07-01 (sera)
 | 4.2 | Integrazione con predict_history come bias correttivo | 🔒 | Dipende da 4.1 |
 | 4.3 | Validazione previsioni griglia vs predict AI per zona | 🔒 | Dipende da 4.2 |
 
+**Analisi di fattibilità (25/07)** — l'architettura è quasi tutta presente (griglia OM, bias per zona, interpolazione spaziale). Punti chiariti:
+- L'OI **non si può applicare a una previsione**: confronta OM con le stazioni *adesso*, ma alle 18 di stasera nessuna stazione ha ancora misurato. Quello che si può applicare è il **bias appreso** (statistico, dallo storico), interpolato sulla griglia futura.
+- La fascia di condizione va scelta su **quello che OM prevede per quell'ora**, non sul vento attuale — la matrice esistente classifica già così.
+- **Limiti da mettere in conto**: ~60% delle celle è vuoto (mancano dati con vento sostenuto); la verifica è possibile solo dove c'è una stazione; l'errore atteso è più alto della mappa del presente perché si interpola un'aspettativa statistica invece di un fatto misurato.
+- Il pavimento di errore è la **dispersione irriducibile** (~1 kn in bonaccia, presumibilmente 2-3 kn con vento forte): correggendo il bias si scende *verso* la std, non sotto.
+
 ---
 
 ## Fase 5 — Funzionalità future (backlog)
@@ -78,10 +101,39 @@ Aggiornato: 2026-07-01 (sera)
 | # | Attività | Priorità | Note |
 |---|---|---|---|
 | 5.1 | Mappa vento animata (Windy-style, esri wind-js) + evoluzione temporale | Alta | Estesa 2026-07-01: includere anche visualizzazione dell'evoluzione oraria (H+1/H+3/H+6...) del flusso, non solo l'istante corrente. Da fare insieme al fix di coerenza flusso/grid_rules (3.10) |
-| 5.2 | Bias adattivo per zona (predict_bias:zona in KV) | Alta | Mean H6/H12 error + 5 errori recenti nel prompt |
+| 5.2 | Bias adattivo per zona (predict_bias:zona in KV) | ✅ implementato | `predict_bias:zona` attivo, iniettato nel prompt. Due bug di segno corretti a luglio (prompt e `applyBias()` usavano `OM - bias` invece di `OM + bias`). **TODO residuo**: aggiungere gli ultimi 5 errori con contesto meteo al prompt |
 | 5.3 | Clustering errori per condizione sinottica (A/B/C/D) | Media | KV: predict_errors:zona con 10 errori + contesto |
 | 5.4 | Rete osservatori distribuiti (sailor network) | Bassa | Visione a lungo termine, richiede UI dedicata |
 | 5.5 | Pubblicazione pubblica app | Bassa | Attendere validazione griglia e affidabilità dati |
+
+---
+
+## Fase 6 — Affidabilità stratificata e sintesi (nuova, luglio 2026) 🔒
+
+Nasce da due scoperte di luglio: le previsioni non decadono come ci si aspettava, e l'accuratezza è peggiorata quando è cambiato il regime di vento. Entrambe indicano la stessa cosa: **un unico numero medio per zona non basta**.
+
+| # | Attività | Stato | Note |
+|---|---|---|---|
+| 6.1 | Semaforo affidabilità basato su **dispersione**, non solo su N | ⏳ | Ogni cella (zona × fascia × settore) salva `{bias, n, std, reliable}`. Doppio uso: semaforo visivo per l'utente + flag letto dall'engine per **saltare la correzione** dove la cella è inaffidabile. Sostituisce il semaforo a solo conteggio oggi in `simulator.html` |
+| 6.2 | Affidabilità per **orizzonte × slot** | ⏳ | Dati già disponibili (`decadimento.html` mostra il confronto mattina/pomeriggio). La stessa distanza può essere affidabile alle 13 e non alle 7 |
+| 6.3 | Affidabilità per **fascia di intensità del vento** | 🔒 | Dipende da: più storico con vento sostenuto. È la dimensione mancante emersa dall'analisi del 25/07 |
+| 6.4 | Filtrare i casi storici simili per **slot** nel prompt | ❓ | Oggi i casi sono scelti per *stessa tendenza barica* senza filtrare l'ora: una previsione delle 07 può ricevere casi delle 16. Due strade: (a) filtrare per slot — più solido ma dimezza i casi disponibili; (b) dichiarare lo slot nel prompt — più debole. Prima verificare quanti casi vengono trovati oggi in media |
+| 6.5 | **Sistema di sintesi automatico** | 🔒 | *Non un altro cruscotto*: un controllo che gira col cron e dà un **verdetto secco**. Confronta settimana corrente vs precedente per ogni orizzonte su tutte le zone, **scarta gli outlier isolati** (es. il 17/07 con errore 4× la norma), incrocia col vento reale per distinguere "regime cambiato" da "errore non spiegato", ed esce con "tutto normale" oppure "Zona X orizzonte Y in peggioramento, da controllare". **Non costruirlo ora**: con un solo regime osservato sintetizzerebbe rumore |
+| 6.6 | Archivio storico separato oltre la rotazione FIFO | 🔒 | `bias_samples` ruota (100→300 campioni). Prerequisito per percentuali climatologiche affidabili e per 6.1 |
+| 6.7 | Risolvere il limite di `action=history` | ⏳ **prerequisito** | Il 25/07 restituiva 136 ore anche chiedendone 240. Senza, non si possono fare analisi su finestre lunghe né alimentare 6.5 |
+
+**Quando si capisce che lo storico è "maturo"**: non è una data. Due criteri insieme — (a) il bias calcolato smette di spostarsi molto aggiungendo nuovi campioni; (b) sono stati osservati **più regimi diversi**, idealmente un ciclo completo bonaccia → vento → bonaccia. Oggi il campione è quasi tutto di un solo regime, ed è per questo che i giudizi automatici sono prematuri.
+
+---
+
+## Fase 7 — Costi AI 🔄
+
+| # | Attività | Stato | Note |
+|---|---|---|---|
+| 7.1 | Taglio testo descrittivo in `predict` | ✅ | Righe `CONFIDENZA`/`PATTERN`/`CONSIGLIO` commentate nel system prompt. Output da ~300 a ~80 parole |
+| 7.2 | Taglio chiamata AI in `situazione` | ✅ (v2.14.9, **da deployare**) | Salva record minimale con dati e alert già calcolati in JS. Zero costo su questa azione |
+| 7.3 | Riattivare il testo quando la fase di raccolta è conclusa | ⏳ | Istruzioni precise in METODOLOGIA sez. 12 |
+| 7.4 | Valutare cambio modello | ❓ | Sonnet 5 costa $2/$10 solo fino al **31/08/2026**, poi $3/$15 come Sonnet 4.6 — e col tokenizer più pesante resterebbe leggermente più caro a parità di prompt. Per ora la leva usata è stata tagliare il testo, non cambiare modello |
 
 ---
 
@@ -89,26 +141,29 @@ Aggiornato: 2026-07-01 (sera)
 
 | ID | Decisione | Contesto | Target |
 |---|---|---|---|
-| D1 | Declassare Vada a punto giallo? | Direzione sistematicamente opposta a stazioni vicine, sospetto sensore mal orientato | Fine luglio 2026 |
-| D2 | Declassare Cap Pertusato a punto giallo? | Windfinder aggiorna raramente, valori fissi per ore, anti-duplicato obs_time attivo | Fine luglio 2026 |
+| D1 | Declassare Vada a punto giallo? | Direzione sistematicamente opposta a stazioni vicine, sospetto sensore mal orientato | ⚠️ **Target scaduto** (era fine luglio 2026) |
+| D2 | Declassare Cap Pertusato a punto giallo? | Windfinder aggiorna raramente, valori fissi per ore, anti-duplicato obs_time attivo | ⚠️ **Target scaduto** (era fine luglio 2026) |
 | D3 | Passo griglia per OI: 0.1° o 0.05°? | 0.1° (~11km) è più leggero su Vercel piano Hobby; 0.05° (~5km) più preciso ma rischio timeout. Nota: attualmente in produzione il passo è 0.25° | Da rivalutare |
 | D4 | Libreria Kriging: @sakitam-gis/kriging o implementazione custom? | @sakitam-gis è MIT license ma non testata su Vercel Edge; custom più controllabile. Nota: attualmente in uso reliability_weight custom (1/(1+MAE)), non una vera libreria Kriging | Da rivalutare |
-| D5 | Soglia minima vento per peso direzione OI (nuovo, 2026-07-01) | Sotto quale velocità stazione la direzione letta è troppo rumorosa per comandare al peso nominale pieno? Casi noti: Viareggio 0.8-1.2kn (Δdir -88°), Populonia 1.4kn (Δdir -103°) | Dopo aver raccolto altri 2-3 casi simili |
+| D5 | Soglia minima vento per peso direzione OI (2026-07-01) | Sotto quale velocità stazione la direzione letta è troppo rumorosa per comandare al peso nominale pieno? Casi noti: Viareggio 0.8-1.2kn (Δdir -88°), Populonia 1.4kn (Δdir -103°) | Dopo aver raccolto altri 2-3 casi simili |
+| D6 | Come aumentare il dettaglio della griglia? (2026-07-25) | Ridurre il passo globale (0.25°→0.125°) **quadruplica** i punti (~400→~1600) e in passato ha bloccato la mappa: `action=grid` fa **una sola** chiamata OM per batch di 100 coordinate, quindi il collo di bottiglia è il peso della singola risposta e il timeout Vercel. Alternativa già collaudata: **punti extra mirati** in `GRID_EXTRA_POINTS` (28 attivi, nessun problema). Terza via discussa: caricamento progressivo a partire dalla vista corrente o dal punto cliccato | Non urgente — valutare quando serve davvero più dettaglio |
+| D7 | Quando riattivare il testo AI? | Tagliato in `predict` e `situazione` per la fase di raccolta dati. Riattivarlo costa (~$18/mese l'insieme, l'output pesa 5× l'input) | Quando lo storico sarà maturo (vedi criteri in Fase 6) |
+| D8 | Versione nel nome file vs link raw GitHub | La convenzione `METODOLOGIA-v1.4.md` rompe i link raw fissi usati a inizio sessione. Opzioni: (a) nomi fissi su GitHub, versione solo negli zip di lavoro; (b) versionare anche su GitHub aggiornando i link in CLAUDE.md a ogni rilascio | Da decidere |
 
 ---
 
-## Prossimi passi immediati
+## Prossimi passi immediati (aggiornato 27/07/2026)
 
-1. **Continuare monitoraggio celle a vento debole** — raccogliere altri casi oltre Viareggio e Populonia prima di tarare la soglia minima (D5). Ogni volta che si nota Δdir anomalo, verificare velocità stazione nel popup
-2. **Definire grid_rules per altre zone critiche** — dopo analisi fotografie con vento più sostenuto (8-15kt), identificare regole per Canale Piombino (escludere da celle San Vincenzo) e altre zone
-3. **Risolvere punta_ala** — zona previsione senza stazione reale vicina (<20km), MAE non affidabile
-4. **grid_snapshot automatico da cron** — dopo verifica budget Redis comandi (~25-30K/giorno, limite 500K/mese), aggiungere cron ogni 3 ore per accumulare dati storici celle con stazione
-5. **Integrare matrix_by_station nel simulatore** — usa ancora matrix (by_om), aggiornare per usare matrix_by_station sui punti pilota
-6. **Integrare score in OI** — applyOI usa bias globale, aggiornare per scelta modello dinamica da score
-7. **Validazione pin osservatori** — lista autorizzati in Redis obs_pins_authorized
-8. **Audit sicurezza** — nuovo giro completo
-9. **Verificare bias injection AI per Barcaggio**
-10. **Integrare AROME come base_model** — campo già previsto in grid_rules ma non implementato, prossimo step architetturale per il campo di background
+1. **Deployare engine v2.14.9** — taglio AI su `situazione`, pronto ma non ancora in produzione
+2. **Populonia: staccare da `canale_piombino`** e **correggere le coordinate** (2b.5, 2b.6) — le due correzioni più concrete in coda
+3. **Decidere su Vada e Cap Pertusato** (D1, D2) — il target era fine luglio, è scaduto
+4. **Correggere il calcolo del trend in `forecast_stats`** — oggi include settimane con N=2 che falsano il verdetto "in peggioramento"
+5. **Risolvere il limite di `action=history`** (6.7) — prerequisito per tutte le analisi su finestre lunghe
+6. **Continuare la raccolta dati con vento sostenuto** — è la condizione che sblocca 6.1, 6.3 e 6.5
+7. **Verificare periodicamente `tsc228` e `tsc578`** con `action=mnw_test&k=mdi`
+8. Audit sicurezza — giro completo ancora da chiudere
+9. Integrare AROME come `base_model` in grid_rules (3.3)
+10. `punta_ala`: zona senza stazione reale entro 20km
 
 ---
 

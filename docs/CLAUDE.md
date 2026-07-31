@@ -1,54 +1,61 @@
 # NAUTILUS — Contesto Sessione (CLAUDE.md)
 
 
-## PUNTO DI RIPRESA — 2026-07-01 (fine sessione, v1.6.56)
+## PUNTO DI RIPRESA — 2026-07-27
 
-**Versioni in produzione**: engine v2.13.42, mappa v1.6.56
+**Versioni in produzione**: engine **v2.14.9** · index **v5.7.39** · mappa **v1.6.87**
+**Pronto ma NON deployato**: engine **v2.14.9** (taglio chiamata AI su `action=situazione`)
 
-**Sessione di oggi (2026-07-01) — riepilogo completo:**
+### Fase attuale: raccolta dati e verifica numerica
 
-1. **Bug direzione OI risolto (mappa v1.6.54)** — `applyOI` calcolava la direzione pesando i vettori U/V per `speed × peso` invece di solo `peso`. Effetto: stazioni con vento debole perdevano il controllo della direzione anche con `min_weight` alto (la cella tornava vicina alla direzione OM nonostante la grid_rule). Fix: vettori normalizzati a modulo 1 prima di applicare il peso. Verificato su cella 43.75_10.15 (Viareggio) con script di confronto old/new in console — comportamento confermato coerente su tutte le 10 grid_rules attive, nessuna regressione.
+Il progetto è in una fase in cui servono **numeri consistenti**, non testo descrittivo. Il testo AI è stato tagliato in entrambi i punti dove veniva generato (dettagli e istruzioni di riattivazione in METODOLOGIA sezione 12):
+- `predict` → nel system prompt le righe `CONFIDENZA`/`PATTERN`/`CONSIGLIO` sono **commentate**; l'AI restituisce solo i numeri `H+N: X kn da DIR`. È il motivo per cui la sezione "Previsione Locale AI" nell'app appare senza testo pur avendo i numeri.
+- `situazione` → dal 27/07 non chiama più l'AI (engine v2.14.9): salva un record minimale con dati e alert già calcolati in JS.
 
-2. **Bug NaN frecce/flusso risolto (mappa v1.6.55)** — un punto griglia con `dir`/`speed` NaN (dato OM temporaneamente mancante) causava: (a) freccia visualizzata come orientata a nord invece di non essere disegnata (`ctx.rotate(NaN)` è no-op silenzioso); (b) contaminazione per contagio di **tutto** il campo del flusso animato vicino, perché NaN si propaga nella somma pesata IDW senza cutoff di raggio. Fix: guard `isNaN` aggiunti in `drawArrow` e in tutte le sorgenti di `buildVectorField` (grid, fallback zoom-alto, zone, stazioni). Confermato via export XLS: 399/399 celle con OM valido hanno anche OI valido, nessun NaN residuo.
+Da riattivare entrambi quando lo storico sarà maturo.
 
-3. **Coerenza flusso/grid_rules risolto (mappa v1.6.56)** — il flusso animato (`buildVectorField`) non rispecchiava le grid_rules puntuali: interpolava su un raggio ampio mescolando celle corrette con molte celle OM circostanti non corrette, diluendo visualmente la correzione puntuale. Esempio: San Vincenzo griglia mostra N (corretto), ma il flusso intorno andava Ovest→Est (OM grezzo). Fix: celle con `grid_rule` attiva ricevono un **boost di peso = 15** nell'interpolazione IDW del flusso, facendo domina localmente la cella corretta mentre il boost decade naturalmente con 1/d² allontanandosi. Testato su San Vincenzo — il flusso ora segue fedelmente la direzione della griglia corretta. **Punto 3.10 della ROADMAP: RISOLTO**.
+### Principi consolidati a luglio 2026 (valgono su tutto il sistema)
 
-4. **Verificato NON essere un bug**: il sospetto originale "Bocca d'Arno — grid_rule assegna viareggio_cfr ma OI usa ancora bocca_arno_cfr" — il filtro `allowed_stations` funziona correttamente (confermato via console log `grid_rule cellKey: X stazioni → Y dopo filtro` su tutte le 10 celle). Il sospetto nasceva da confusione tra il marker zona "Bocca d'Arno" (43.680/10.270, gestito da `bias_station` in engine.js, sistema indipendente) e la cella griglia OI 43.75_10.15 (~12km di distanza, gestita da grid_rules) — due punti diversi sulla mappa.
+1. **Solo dati reali nelle statistiche.** Le verifiche usano esclusivamente `wind_source='cfr'` (o fonte reale); la visualizzazione mostra sempre un numero ma se è modello lo scrive in **rosso**. Mai un valore OM spacciato per osservazione.
+2. **"Dati assenti", non tasto nascosto né ripiego geografico.** Quando una stazione tace: la voce **resta visibile**, mostra l'ultimo dato con la sua **età** ("6 kn NW · 54h fa"), e quel dato **non entra nei calcoli** (scartato oltre 45 min). Mai sostituire con una stazione vicina — il ripiego geografico è una bugia anche quando il dato sostituto è vero.
+3. **I dati di fonti esterne non si manipolano.** Se un valore OM sembra implausibile (caso Capraia, pressione 978 hPa), va **segnalato come sospetto**, non corretto silenziosamente per farlo sembrare plausibile.
+4. **Esporre l'ipotesi e concordare prima di scrivere codice.** Vale soprattutto quando si tocca il trattamento di dati esterni o logiche di calcolo. Non presentare modifiche già fatte come fatto compiuto.
+5. **Attenzione ai fallback taciti.** Ogni `||` con un valore di comodo su un campo che rappresenta la realtà è un sospetto (`|| 0`, `|| 15`, `|| 1013`).
 
-5. **Esclusione canale_piombino da San Vincenzo: non necessaria** — con il fix v1.6.56 della coerenza flusso/grid_rules, il problema percepito (canale_piombino "inquinava" il flusso intorno a San Vincenzo) è risolto. Scartato per non aggiungere regole non essenziali.
+### Lavoro svolto in luglio 2026 (sintesi)
 
-6. **Punta Ala e NetSens: scartati** — la stazione NetSens individuata (`https://mobile.netsens.it/sensors.php?gw=44`) ha i dati dietro JavaScript + Base64, scrapabile ma con complessità aggiunta. Dato che il vento è cambiato e non è più riproducibile la situazione originale che segnalava il problema, rinviato a quando avremo bisogno specifico di coprire Punta Ala con previsioni AI.
+- **Audit incrociato (11/07)**: sei bug critici corretti (A1-A6), engine da v2.13.x a v2.14.0
+- **Reset storico (04/07)**: `reset_history_all` su tutte le 26 zone — i dati di verifica partono da quella data
+- **Livorno risolto (13/07)**: `livorno_cfr` era un **mareografo** (misura marea, non vento) → sostituito con **`livorno_porto`**, stazione Windfinder (spot `it2005`, 43.5525N 10.3014E, quota zero, source `mnw_web`), promossa a `bias_station` della zona. Da tenere sotto osservazione: segna meno di altri siti, forse poco esposta nel bacino portuale.
+- **Quercianella = Calignaia**: stessa stazione fisica, due nomi (43.465/10.347, 40m, MNW `tsc265`). Non è alternativa per Livorno Porto.
+- **Bussole (14-15/07)**: risolta race condition per cui le bussole singole restavano rosse (OM) anche con stazioni vive. Ora leggono il dato **già salvato** (`bias_history`, istantaneo) invece di `station_refresh` (scraping live 2-3s). `triple_wind` accetta **tutte** le fonti reali, non solo `cfr`.
+- **Decadimento previsioni (15/07)**: nuovo cruscotto `decadimento.html`. Scoperta controintuitiva: in regime di bonaccia **la previsione non decade** con la distanza (MAE +12h più basso di +1h). Inoltre le previsioni del **pomeriggio sono più accurate** di quelle del mattino.
+- **Piombino (19-20/07)**: `tsc228` (MeteoNetwork) risponde `200 ok` ma **senza campo vento** — stazione online che non trasmette più anemometria. Confermato dalla Livemap ufficiale. Stesso sintomo su `tsc578` (Capraia). Nessun bug nostro.
+- **Bug cache mappa (22/07)**: `fetchZoneData` era l'unica fetch senza `cache:'no-store'` → i popup marker mostravano snapshot vecchi di ore. Risolto in mappa v1.6.87.
+- **Analisi accuratezza (25/07)**: il peggioramento è **reale** (MAE Viareggio da ~2.0 a ~3.0 kn). Ipotesi pressione testata e **scartata**. Causa più probabile: `applyBias()` usa un unico bias medio storico, tarato su un regime calmo, che non si adatta quando il vento si fa più forte e variabile.
+- **Costi AI (27/07)**: mappata l'architettura dei costi, tagliato il testo di `situazione`.
 
-**Nuovo problema identificato, NON ancora risolto (in osservazione)**:
-Direzione instabile su celle con stazione a vento molto debole (<2kn) — **classe di problema**, non un bug puntuale. Il fix del punto 1 è matematicamente corretto (la direzione segue il peso nominale), ma quando la stazione ha vento quasi calmo la sua lettura di direzione è intrinsecamente rumorosa (banderuola non deflessa). Con `min_weight` alto, questo rumore comanda quasi tutta la cella. Casi osservati:
-- Viareggio CFR a 0.8-1.2kn → cella 43.75_10.15 con Δdir fino a -88° (poi risolto da solo quando il vento è salito e la direzione stazione si è allineata a OM)
-- Populonia CFR a 1.4kn → cella 43.00_10.65 con Δdir -103° (osservato 01/07 13:57, non ancora risolto)
+### Problemi aperti prioritari
 
-Soluzione proposta (rinviata, in attesa di più casi): soglia minima di vento sotto la quale il peso nominale sulla direzione viene attenuato (es. sotto 3-4kn, coerente con soglia `rotationMinWind=5` già usata in `diagnoseSynopticCase` in engine.js per lo stesso motivo). Da implementare quando si decide di trattare questa classe di zone con l'"Opzione 2" (pipeline di pesi separata velocità/direzione) piuttosto che continuare con patch puntuali.
+| Problema | Stato |
+|---|---|
+| **Populonia — staccare dal canale di Piombino** | Da fare. È a quota 164m sul promontorio, non può rappresentare il vento del canale a livello mare. Va rimossa come `bias_station` di `canale_piombino`, **non corretta con fattore di quota** |
+| **Populonia — coordinate sbagliate** | Da fare. Usa lat 42.987731 lon 10.537734 (righe engine ~29, ~2167, ~2170, ~2330, ~2601) ma risulta troppo a **est** rispetto alla Livemap ufficiale. Coordinata vera da `meteonetwork.eu/it/weather-station/tsc539-stazione-meteorologica-di-populonia`. Da chiarire: `populonia_cfr` ha codice CFR `TOS03002300` ma l'URL punta a `tsc539` (MNW) — stessa stazione o due diverse? |
+| **tsc228 (Piombino) e tsc578 (Capraia) mute** | Attesa. Verificare periodicamente con `action=mnw_test&k=mdi`. Quando `tsc228` torna, valutare di farla `bias_station` del canale al posto di Populonia |
+| **Bias non stratificato per condizione** | Rafforzato dall'analisi del 25/07. Serve giudizio di affidabilità per **orizzonte × slot × fascia di intensità del vento** |
+| **`action=history` tronca lo storico** | Il 25/07 restituiva 136 ore anche chiedendone 240. Prerequisito per analisi su finestre lunghe e per il sistema di sintesi |
+| **Dato OM sospetto su Capraia** | Aperto, nessuna azione. Pressione 978 hPa e direzione opposta all'avviso marittimo. Non manipolare |
 
-**Nuova limitazione strutturale identificata (non un bug, backlog)**:
-Il flusso animato (`buildVectorField`) non rispecchia le grid_rules puntuali — interpola su un raggio ampio tutte le sorgenti OM vicine, diluendo la correzione dei singoli punti griglia corretti in mezzo a molte celle OM non corrette circostanti. Il dato puntuale (freccia/popup sulla cella esatta) resta corretto; solo il flusso visuale in quel punto risulta "sbagliato" perché è una media d'area. Da trattare insieme al punto Roadmap 5.1 (mappa vento animata Windy-style) — vedi ROADMAP.md.
+### Note operative sulla collaborazione
 
-**grid_rules attive** (10 regole, inizializzare con `action=grid_rules_init&k=mdi`):
-- San Vincenzo: 43.25_10.65, 43.00_10.40, 43.25_10.40 → solo svincenzo_porto
-- Populonia: 43.00_10.65 → solo populonia_cfr
-- Viareggio: 43.75_10.15, 44.00_10.15 → solo viareggio_cfr
-- Gorgona: 43.50_9.90 → solo gorgona_cfr ✅ funziona
-- Capraia: 43.00_9.90, 43.00_9.65 → capraia_cfr/mnw ✅ funziona
-- Follonica: 42.75_10.65 → excluded_stations follonica
+- **Gli allegati `document` da iPad arrivano vuoti** — il testo va **incollato direttamente in chat**, non allegato. Vale per JSON diagnostici e output URL.
+- **Sessioni lunghe**: la quota si consuma più in fretta con Opus e con conversazioni lunghe (ogni turno rielabora la cronologia). Per sessioni di manutenzione conviene **Sonnet 5**; Opus per problemi diagnostici ambigui, in sessioni brevi e mirate.
+- **Il filesystem di lavoro si resetta tra sessioni** — ricaricare engine, index, mappa correnti a ogni ripresa.
 
-**Prossimi passi immediati**:
-1. Continuare monitoraggio celle con stazione a vento debole (Populonia, Viareggio) — raccogliere più casi prima di tarare la soglia di affidabilità direzione
-2. Valutare soglia minima vento per peso direzione (quando si hanno abbastanza casi)
-3. Aggiungere esclusione canale_piombino per celle San Vincenzo
-4. Risolvere punta_ala (zona senza stazione reale)
-5. Raccogliere fogli Excel con vento più sostenuto (8-15kt)
-6. Integrare AROME come campo base (base_model in grid_rules)
-7. Coerenza flusso animato / grid_rules — da valutare insieme a Roadmap 5.1
-
+---
 
 Documento di contesto persistente per sessioni di lavoro con Claude.
-Aggiornato: 2026-07-01 | Versione riferimento: engine v2.13.42
+Aggiornato: 2026-07-27 | Versioni riferimento: engine v2.14.8 · index v5.7.39 · mappa v1.6.87
 
 ---
 
@@ -65,6 +72,8 @@ https://raw.githubusercontent.com/mdisailor/Nautilus/refs/heads/main/mappa.html
 
 **Istruzioni per Claude all'inizio sessione**: leggi prima i tre .md per il contesto, poi i file di codice solo se la sessione li tocca — index.html e engine.js sono grandi, consumano contesto, leggili solo se necessario.
 
+> **Da decidere**: la convenzione "versione nel nome file" (`METODOLOGIA-v1.4.md`) è in tensione con questi link raw, che puntano a nomi fissi e si romperebbero a ogni nuova versione. Due opzioni: (a) tenere i nomi fissi su GitHub e usare la versione nel nome solo per gli zip di lavoro; (b) versionare anche su GitHub e aggiornare i link qui a ogni rilascio. **Non ancora deciso.**
+
 ---
 
 ## Stack tecnico
@@ -76,7 +85,7 @@ https://raw.githubusercontent.com/mdisailor/Nautilus/refs/heads/main/mappa.html
 | Meteo primario | Open-Meteo (`/v1/forecast`, best_match ~9km) |
 | Meteo secondario | Open-Meteo MeteoFrance (`/v1/meteofrance`, AROME 2.5km) |
 | Stazioni reali | MeteoNetwork API (token Bearer), CFR Toscana (scraping HTML), Windfinder `/report/` (scraping JSON embedded), Meteosystem (scraping HTML) |
-| AI | Anthropic Claude Sonnet (via API, `action=situazione` e `action=predict`) |
+| AI | Anthropic Claude via API. **Solo `action=predict`** genera i numeri di previsione (Haiku 4.5 se `fast=1`, altrimenti Sonnet 4.6). `action=situazione` **non chiama più l'AI** dal 27/07 (engine v2.14.9). Il "Briefing operativo" (`generateBriefingText`) è JavaScript puro, non è mai costato nulla |
 | Cron | cron-job.org (esterno) |
 | IDE remoto | github.dev (VS Code browser, da iPad) |
 
@@ -86,9 +95,14 @@ https://raw.githubusercontent.com/mdisailor/Nautilus/refs/heads/main/mappa.html
 
 | File | Versione | Note |
 |---|---|---|
-| `api/engine.js` | v2.13.42 | Engine principale, tutte le action |
-| `public/index.html` | v5.7.27 | App principale (meteo, engine, bias) |
-| `public/mappa.html` | v1.6.56 | Mappa vento. Fix direzione OI (v1.6.54) + fix NaN (v1.6.55) + boost flusso/grid_rules (v1.6.56), 2026-07-01 |
+| *(nota: i `.html` stanno nella **radice** del repo, non in `public/`)* | | |
+| `api/engine.js` | **v2.14.8** | Engine principale. v2.14.9 pronta ma non deployata (taglio AI su `situazione`) |
+| `index.html` | **v5.7.39** | App principale. Stazioni mute mostrano ultimo dato + età |
+| `mappa.html` | **v1.6.87** | Mappa vento. Fix cache `fetchZoneData` (v1.6.87, 22/07) |
+| `index2.html` | v1.2 | **Cruscotto**: indice strumenti + stato engine live |
+| `diag.html` | v1.3 | Diagnostica strutturata per zona con semafori |
+| `climatologia.html` | v1.4 | Distribuzione fasce e settori per zona |
+| `decadimento.html` | v1.2 | MAE per orizzonte con banda dispersione + confronto mattina/pomeriggio |
 | `public/stats.html` | v1.18 | Accuratezza previsioni AI |
 | `public/mae.html` | v1.10 | Comparazione MAE OM vs AROME + osservazioni manuali |
 | `public/score.html` | v1.6 | Cruscotto model score per condizione (strumento validazione temporaneo) |
@@ -99,7 +113,7 @@ https://raw.githubusercontent.com/mdisailor/Nautilus/refs/heads/main/mappa.html
 ## Zone attive
 
 ### Zone con predict/situazione AI (cron orario)
-19 zone toscane storiche + Barcaggio = **20 zone totali**
+**26 zone attive** (`enabled: true` in engine.js). `reset_history_all` eseguito il 04/07/2026 su tutte: i dati di verifica partono da quella data.
 
 Zone toscane: Livorno, Canale Piombino, Capraia, Elba Nord, Elba Sud, Giglio, Gorgona, Montecristo, Orbetello, Punta Ala, S.Vincenzo, Follonica, Capalbio, Alberese, Forte Marmi, Casotto GR, Venturina, Bocca d'Arno, Viareggio
 
@@ -151,7 +165,12 @@ Corsica: **Barcaggio** (Capo Corso) — predict attivo dal 2026-06-19
 `bocca_arno`, `capraia_w`, `populonia`, `portoferraio`, `alberese`, `luri`
 
 ### Windfinder /report/ (scraping JSON embedded)
-`barcaggio`, `bonifacio_pertusato`
+`barcaggio`, `bonifacio_pertusato`, **`livorno_porto`** (spot `it2005`, dal 13/07 — `bias_station` della zona Livorno)
+
+### Stazioni MUTE (online ma senza campo vento) — verificare con `action=mnw_test&k=mdi`
+- **`tsc228`** (canale_piombino) — muta dal 17/07 circa
+- **`tsc578`** (capraia_w) — stesso sintomo
+Rispondono `status:200 ok:true` ma senza `wind_speed`/`wind_dir`. Non è licenza revocata (quella dà errore). Fuori dal nostro controllo: attendere che il sensore rientri.
 
 ### Meteosystem (scraping HTML)
 `vada`
@@ -174,7 +193,7 @@ Corsica: **Barcaggio** (Capo Corso) — predict attivo dal 2026-06-19
 ## Problemi aperti / in osservazione
 
 - Vada e Bonifacio/Cap Pertusato: dati inaffidabili, in osservazione da >4 settimane. Decisione rinviata.
-- Populonia CFR: altitudine codificata come 164m invece di 0m (stazione marina) — bias non affidabile per navigazione, badge rosso quota in UI
+- **Populonia CFR**: è fisicamente a **164m sul promontorio** (non è un errore di codifica). Il problema è che **non può rappresentare il canale di Piombino** a livello mare: va staccata come `bias_station`, non corretta con un fattore di quota. In più le coordinate usate risultano spostate a est rispetto alla posizione reale — vedi PUNTO DI RIPRESA
 - Giglio, Montecristo, Gorgona: timeout `situazione` occasionale per fetch OWM/ICON lenti su isole remote
 - Bias injection AI: non confermato che il modello applichi effettivamente la correzione nel prompt — da verificare con `predict_log` strutturato
 - **Direzione OI instabile su celle con stazione a vento debole (<2kn)** — classe di problema, vedi PUNTO DI RIPRESA. Casi osservati: Viareggio, Populonia. Soluzione proposta ma rinviata (soglia minima vento).
@@ -191,7 +210,7 @@ Corsica: **Barcaggio** (Capo Corso) — predict attivo dal 2026-06-19
 | Bias injection AI non verificata per Barcaggio | engine.txt | Aperto | Non confermato che bias_station venga effettivamente applicata nel prompt per le nuove stazioni |
 | `lamma_bias` non integrato in predict | engine.txt | Aperto | action=lamma_bias_get esiste come monitoring ma non iniettato nel prompt AI |
 | Populonia quota 164m errata | engine.txt / index.html | Aperto | È una stazione marina, dovrebbe essere 0m — badge rosso quota in UI |
-| Livorno CFR da rinominare | index.html | Aperto | È un mareografo, non una stazione vento — il nome inganna |
+| Livorno CFR è un mareografo | — | ✅ Risolto 13/07 | Sostituito da `livorno_porto` (Windfinder `it2005`) come `bias_station` della zona |
 | `action=debug_fs` da rimuovere | engine.txt | Aperto | Action di debug per Livorno, non serve in produzione — rischio sicurezza |
 | Subtitle stats.html versione engine hardcoded | stats.html | Aperto | Da aggiornare manualmente ad ogni release engine |
 | Mappa layer colore WebGL inguardabile oltre Z10 | mappa.html | Aperto | 5 fix pendenti: (1) viewport +400px per punti fuori schermo, (2) isNaN check punti (Marina di Pisa causa buchi), (3) kernel gaussiano invece IDW puro, (4) limite 60 punti vicini al centro, (5) texture size adattiva per zoom |
@@ -234,7 +253,12 @@ Il bias injection è attivo per le zone con n>=5 campioni verificati (actual pop
 - **Una modifica alla volta**, testata prima di procedere
 - **engine.txt**: zero caratteri non-ASCII, `node --check` obbligatorio prima del deploy
 - **Zip**: directory pulita, un file per zip, `unzip -l` per verifica contenuto, nome file convenzione `nomefile-vXXXX.zip`
-- **Versioning**: aggiornare la versione in tutti i punti dove appare nel file (di norma 3: commento inizio codice, commento fine codice, punto esposto in UI/HP; per mappa.html sono 6: anche `<title>`, footer visibile, badge `#nav-ver`)
+- **Versioning — punti da aggiornare insieme a ogni rilascio** (se se ne dimentica uno, a video resta la versione vecchia dopo il deploy):
+  - `engine.js` (**4 punti**): header riga 1 · campo `v:'...'` nella risposta `action=ping` (**la home legge questo**) · stringa `engine:'nautilus-engine vX.Y.Z'` a fondo file · commento di chiusura
+  - `index.html` (**4 punti**): header riga 3 · riga ~603 (a video, home) · riga ~2014 (a video, diagnostica) · commento di chiusura
+  - `mappa.html` (**5 punti**): header riga 1 · `<title>` (~11) · `span#nav-ver` (~240) · footer `div#footer` (~306) · commento identificativo (~310). **Non toccare** i commenti `fix v1.6.82` sparsi nel codice: sono storici
+  - pagine cruscotto (**3 punti**): commento riga 1 · `<title>` · versione a video nell'header
+- **Versione nel nome del file**: obbligatoria e progressiva — `METODOLOGIA-v1.4.md`, `engine-v21409.zip`, `index-v5739.zip`, `mappa-v1687.zip`, `decadimento-v12.zip`. Il numero nel nome **deve coincidere** con quello dentro il file. Un numero **non si riusa mai**, nemmeno se la build è stata scartata prima del deploy (caso reale: v2.14.7 buttata → la successiva è stata numerata v2.14.8)
 - **predict_history**: limite 30 voci, campo `slot` morning/afternoon
 - **migrate_history**: solo se chiave non esiste (check EXISTS Redis) — non sovrascrive mai
 - **forecast_stats**: non scrive mai in Redis, solo lettura

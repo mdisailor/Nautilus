@@ -1,0 +1,363 @@
+<!-- NAUTILUS PREVISIONI v1.0 - mdisailor - 2026-07-31 - nuova pagina: mappa vento PREVISTO (non attuale). Doppia freccia = nostra previsione AI corretta (zone attive, direzione estratta dal testo). Freccia singola = OM grezzo di ripiego (action=grid esteso, engine v2.14.11). Selettore orizzonte Ora/+1h/+3h/+6h/+9h/+12h cambia solo quale campo gia' scaricato disegnare, nessuna nuova fetch al cambio. Refresh automatico ogni 10 min (stessa cadenza di mappa.html). File completamente separato da mappa.html, nessun rischio sulla mappa esistente. -->
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#020e1c">
+<title>NAUTILUS Previsioni Vento v1.0</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root{--bg:#020e1c;--panel:#0a1a2e;--border:#1c3a54;--text:#dce8f2;--muted:#7d99ad;--accent:#2fb8d6;}
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;}
+  header{
+    position:relative;z-index:1000;padding:10px 14px;border-bottom:1px solid var(--border);
+    display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;background:var(--bg);
+  }
+  header h1{font-size:15px;margin:0;font-weight:600;}
+  header .ver{font-size:11px;color:var(--muted);}
+  a.back{color:var(--accent);text-decoration:none;font-size:12px;margin-left:auto;}
+  #hourbar{
+    position:relative;z-index:1000;display:flex;gap:6px;padding:8px 12px;
+    border-bottom:1px solid var(--border);background:var(--panel);overflow-x:auto;
+  }
+  .hbtn{
+    background:transparent;border:1px solid var(--border);color:var(--text);
+    padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;
+    white-space:nowrap;-webkit-tap-highlight-color:transparent;
+  }
+  .hbtn.active{background:var(--accent);border-color:var(--accent);color:#001a20;}
+  #freshness{
+    position:relative;z-index:1000;padding:5px 14px;font-size:11px;color:var(--muted);
+    border-bottom:1px solid var(--border);background:var(--panel);
+  }
+  #map{position:absolute;top:0;left:0;right:0;bottom:0;z-index:0;}
+  #mapwrap{position:relative;height:calc(100% - 108px);}
+  #legend{
+    position:absolute;bottom:14px;left:14px;z-index:900;background:rgba(10,26,46,0.92);
+    border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:11px;
+    color:var(--muted);line-height:1.6;max-width:220px;
+  }
+  #legend b{color:var(--text);}
+  #status{
+    position:absolute;top:10px;right:10px;z-index:900;background:rgba(10,26,46,0.92);
+    border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:11px;color:var(--muted);
+    max-width:200px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>NAUTILUS &mdash; Previsioni Vento</h1>
+  <span class="ver">v1.0</span>
+  <a class="back" href="/index2.html">&larr; cruscotto</a>
+</header>
+
+<div id="hourbar">
+  <button class="hbtn active" data-h="now">Ora</button>
+  <button class="hbtn" data-h="h1">+1h</button>
+  <button class="hbtn" data-h="h3">+3h</button>
+  <button class="hbtn" data-h="h6">+6h</button>
+  <button class="hbtn" data-h="h9">+9h</button>
+  <button class="hbtn" data-h="h12">+12h</button>
+</div>
+<div id="freshness">Caricamento...</div>
+
+<div id="mapwrap">
+  <div id="map"></div>
+  <div id="legend">
+    <div><b>═══▶▶</b> doppia freccia = nostra previsione (media + raffica), zona attiva</div>
+    <div><b>─▶</b> freccia singola = modello OM grezzo, nessuna zona nostra qui</div>
+    <div style="margin-top:6px;">Colore = intensità (scala Beaufort)</div>
+  </div>
+  <div id="status"></div>
+</div>
+
+<script>
+var ENGINE_URL = 'https://nautilus-red.vercel.app/api/engine';
+var REFRESH_MS = 600000; // 10 minuti, stessa cadenza di mappa.html (setInterval loadAll)
+
+// ==================== Griglia (identica a mappa.html: 0.25 gradi) ====================
+var GRID = [];
+for (var _la = 40.0; _la <= 44.6; _la = Math.round((_la+0.25)*100)/100) {
+  for (var _lo = 7.4; _lo <= 12.5; _lo = Math.round((_lo+0.25)*100)/100) {
+    GRID.push({ lat:_la, lon:_lo });
+  }
+}
+
+// ==================== Tabella rosa dei venti -> gradi (16 punti, IT) ====================
+var COMPASS_TO_DEG = {
+  'N':0, 'NNE':22.5, 'NE':45, 'ENE':67.5, 'E':90, 'ESE':112.5, 'SE':135, 'SSE':157.5,
+  'S':180, 'SSO':202.5, 'SO':225, 'OSO':247.5, 'O':270, 'ONO':292.5, 'NO':315, 'NNO':337.5
+};
+
+// Estrae "H+N: X kn da DIR" dal testo libero della previsione. Ritorna {speed, dir} o null.
+// Stesso pattern usato da action=predict (extractWindVal) per la velocita', qui aggiungiamo
+// anche la direzione (mai salvata in un campo strutturato -- vedi METODOLOGIA).
+function parseForecastFromText(text, h) {
+  if (!text) return null;
+  var re = new RegExp('H\\+?' + h + '\\s*:\\s*([0-9]+\\.?[0-9]*)\\s*kn\\s*da\\s*([A-Za-z]+)', 'i');
+  var m = text.match(re);
+  if (!m) return null;
+  var dirTxt = m[2].toUpperCase();
+  var deg = COMPASS_TO_DEG[dirTxt];
+  if (deg === undefined) return null; // etichetta non riconosciuta -- niente freccia nostra, si cade sul fallback OM
+  return { speed: parseFloat(m[1]), dir: deg };
+}
+
+// ==================== Stile frecce (copiato identico da mappa.html v1.6.88) ====================
+function windColor(s){
+  if (s >= 34) return '#cc0000';
+  if (s >= 28) return '#ff3300';
+  if (s >= 22) return '#ff8800';
+  if (s >= 17) return '#ffdd00';
+  if (s >= 11) return '#00cc44';
+  if (s >= 7)  return '#00ee88';
+  if (s >= 4)  return '#44ddcc';
+  if (s >= 1)  return '#88ccff';
+  return '#aaddff';
+}
+
+function drawSingleArrow(ctx, ox, oy, rad, len, lw, colShaft, colHead, alpha){
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(ox, oy);
+  ctx.rotate(rad);
+  var hw = len * 0.40;
+  var lwOut = lw + 2.5;
+  ctx.beginPath();
+  ctx.moveTo(0, len * 0.45);
+  ctx.lineTo(0, -len * 0.25);
+  ctx.strokeStyle = 'rgba(90,90,90,0.5)';
+  ctx.lineWidth = lwOut;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(0, -len * 0.50);
+  ctx.lineTo(-hw * 0.52, -len * 0.50 + hw * 0.88);
+  ctx.lineTo( hw * 0.52, -len * 0.50 + hw * 0.88);
+  ctx.closePath();
+  ctx.strokeStyle = 'rgba(90,90,90,0.5)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(90,90,90,0.5)';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(0, len * 0.45);
+  ctx.lineTo(0, -len * 0.25);
+  ctx.strokeStyle = colShaft;
+  ctx.lineWidth = lw;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(0, -len * 0.50);
+  ctx.lineTo(-hw * 0.52, -len * 0.50 + hw * 0.88);
+  ctx.lineTo( hw * 0.52, -len * 0.50 + hw * 0.88);
+  ctx.closePath();
+  ctx.fillStyle = colHead;
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawArrow(ctx, cx, cy, dir, spd, gust, alpha, isZone, zoom){
+  if (spd === null || spd === undefined || isNaN(spd)) return;
+  if (dir === null || dir === undefined || isNaN(dir)) return; // guard NaN, come mappa.html v1.6.55
+  var zScale = Math.max(0.4, Math.min(1.4, (zoom - 6) * 0.3));
+  var base = isZone ? 28 * zScale : 16 * zScale;
+  var extra = Math.min(spd * 1.6, 18) * zScale;
+  var len = base + extra;
+  var lw = isZone ? Math.max(2, 4 * zScale) : Math.max(1.5, 2.8 * zScale);
+  var rad = (dir - 180) * Math.PI / 180;
+  var colSpd  = windColor(spd);
+  var colGust = (gust != null && !isNaN(gust)) ? windColor(gust) : colSpd;
+
+  if (isZone) {
+    var off = 5 * zScale;
+    var perpX = Math.cos(rad) * off;
+    var perpY = Math.sin(rad) * off;
+    drawSingleArrow(ctx, cx - perpX, cy - perpY, rad, len, lw, colSpd, colSpd, alpha);
+    drawSingleArrow(ctx, cx + perpX, cy + perpY, rad, len, lw, colGust, colGust, alpha);
+  } else {
+    drawSingleArrow(ctx, cx, cy, rad, len, lw, colSpd, colGust, alpha);
+  }
+}
+
+// ==================== Stato ====================
+var state = {
+  gridPoints: [],    // da action=grid (con .forecast.hN)
+  zonePoints: [],    // { lat, lon, name, key, now:{speed,dir,gust}, h1:{...}, h3:{...}, ... }
+  currentHour: 'now',
+  lastFetch: null
+};
+
+var map, canvas, ctx;
+
+function initMap(){
+  map = L.map('map', { zoomControl: true, attributionControl: false }).setView([43.2, 10.0], 8);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    subdomains: 'abcd', maxZoom: 12
+  }).addTo(map);
+  var overlay = L.control({position:'bottomright'});
+  canvas = document.createElement('canvas');
+  canvas.style.position = 'absolute';
+  canvas.style.top = '0'; canvas.style.left = '0';
+  canvas.style.pointerEvents = 'none';
+  canvas.style.zIndex = 500;
+  map.getPanes().overlayPane.appendChild(canvas);
+  ctx = canvas.getContext('2d');
+  function resizeCanvas(){
+    var size = map.getSize();
+    canvas.width = size.x; canvas.height = size.y;
+    var topLeft = map.containerPointToLayerPoint([0,0]);
+    L.DomUtil.setPosition(canvas, topLeft);
+  }
+  map.on('move resize zoom', function(){ resizeCanvas(); drawAll(); });
+  resizeCanvas();
+}
+
+async function fetchJson(url){
+  var r = await fetch(url, { cache: 'no-store' });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+async function loadGrid(){
+  var lats = GRID.map(function(p){ return p.lat; }).join(',');
+  var lons = GRID.map(function(p){ return p.lon; }).join(',');
+  var d = await fetchJson(ENGINE_URL + '?action=grid&lats=' + lats + '&lons=' + lons);
+  state.gridPoints = d.points || [];
+}
+
+async function loadZones(){
+  var zd = await fetchJson(ENGINE_URL + '?action=zones');
+  var zones = (zd.zones || []).filter(function(z){ return z.bias_station; });
+  var results = await Promise.allSettled(zones.map(function(z){
+    return fetchJson(ENGINE_URL + '?action=predict_history&zone=' + encodeURIComponent(z.key) + '&limit=1')
+      .then(function(ph){
+        var item = (ph.predictions || [])[0];
+        var p = item ? (item.prediction || item) : null;
+        return { zone: z, p: p };
+      });
+  }));
+  var zonePoints = [];
+  results.forEach(function(r){
+    if (r.status !== 'fulfilled' || !r.value.p) return;
+    var z = r.value.zone, p = r.value.p;
+    var text = p.prediction_text || '';
+    var entry = { lat: z.lat, lon: z.lon, name: z.name, key: z.key };
+    ['h1','h3','h6','h9','h12'].forEach(function(h){
+      var speedField = p['forecast_' + h]; // gia' corretto (bias applicato), numero
+      var parsed = parseForecastFromText(text, h.slice(1));
+      if (speedField != null && parsed) {
+        entry[h] = { speed: speedField, dir: parsed.dir, gust: null };
+      } else {
+        entry[h] = null; // niente nostra previsione valida per questo orizzonte -- si cade sul fallback OM in draw
+      }
+    });
+    zonePoints.push(entry);
+  });
+  state.zonePoints = zonePoints;
+}
+
+function nearestGridPoint(lat, lon){
+  var best = null, bestD = Infinity;
+  state.gridPoints.forEach(function(g){
+    var d = Math.pow(g.lat-lat,2) + Math.pow(g.lon-lon,2);
+    if (d < bestD) { bestD = d; best = g; }
+  });
+  return best;
+}
+
+function gridValueFor(g, hourKey){
+  if (hourKey === 'now') return { speed: g.speed, dir: g.dir, gust: g.gust };
+  return (g.forecast && g.forecast[hourKey]) ? g.forecast[hourKey] : null;
+}
+
+function drawAll(){
+  if (!ctx) return;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  var bounds = map.getBounds();
+  var zoom = map.getZoom();
+  var minPx = zoom >= 10 ? 18 : zoom >= 9 ? 22 : 30;
+  var drawn = [];
+  var hourKey = state.currentHour;
+
+  function tryDraw(lat, lon, dir, spd, gust, isZone){
+    if (!bounds.contains([lat, lon])) return;
+    var pt = map.latLngToContainerPoint([lat, lon]);
+    for (var i = 0; i < drawn.length; i++){
+      var dx = pt.x - drawn[i].x, dy = pt.y - drawn[i].y;
+      if (Math.sqrt(dx*dx+dy*dy) < minPx) return;
+    }
+    drawn.push(pt);
+    drawArrow(ctx, pt.x, pt.y, dir, spd, gust, 0.95, isZone, zoom);
+  }
+
+  // Zone nostre per prime (vincono lo spazio), stesso ordine di priorita' di mappa.html
+  state.zonePoints.forEach(function(z){
+    var v = hourKey === 'now' ? null : z[hourKey]; // "ora" non ha forecast nostro, e' sempre presente/attuale -> fallback OM
+    if (v) {
+      tryDraw(z.lat, z.lon, v.dir, v.speed, v.gust, true);
+    } else {
+      var g = nearestGridPoint(z.lat, z.lon);
+      if (g) {
+        var gv = gridValueFor(g, hourKey);
+        if (gv) tryDraw(z.lat, z.lon, gv.dir, gv.speed, gv.gust, false);
+      }
+    }
+  });
+
+  // Griglia OM di sfondo
+  state.gridPoints.forEach(function(g){
+    var gv = gridValueFor(g, hourKey);
+    if (!gv) return;
+    tryDraw(g.lat, g.lon, gv.dir, gv.speed, gv.gust, false);
+  });
+}
+
+function updateFreshness(){
+  var el = document.getElementById('freshness');
+  if (!state.lastFetch) { el.textContent = 'In caricamento...'; return; }
+  var d = state.lastFetch;
+  var hh = String(d.getHours()).padStart(2,'0');
+  var mm = String(d.getMinutes()).padStart(2,'0');
+  el.textContent = 'Dati aggiornati alle ' + hh + ':' + mm + ' (si aggiorna da solo ogni 10 min)';
+}
+
+async function loadAll(){
+  var statusEl = document.getElementById('status');
+  statusEl.textContent = 'Aggiorno...';
+  try {
+    await Promise.all([loadGrid(), loadZones()]);
+    state.lastFetch = new Date();
+    updateFreshness();
+    statusEl.textContent = state.zonePoints.length + ' zone, ' + state.gridPoints.length + ' punti griglia';
+    drawAll();
+  } catch(e) {
+    statusEl.textContent = 'Errore: ' + e.message;
+  }
+}
+
+document.querySelectorAll('.hbtn').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    document.querySelectorAll('.hbtn').forEach(function(b){ b.classList.remove('active'); });
+    btn.classList.add('active');
+    state.currentHour = btn.dataset.h;
+    drawAll();
+  });
+});
+
+initMap();
+loadAll();
+setInterval(loadAll, REFRESH_MS); // stessa cadenza di mappa.html (setInterval loadAll, 600000)
+</script>
+
+</body>
+</html>
+<!-- Fine codice - NAUTILUS PREVISIONI v1.0 -->

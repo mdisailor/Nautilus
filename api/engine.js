@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.10 - by mdisailor engine - v2.14.10: fix naming bias_station forte_marmi->forte_dei_marmi e casotto_pesc->casotto_pescatori (non combaciavano con la chiave reale scritta da scrape_cfr, forecast_stats/backfill_actuals cadevano nel fallback snap). Allineata anche la grid_rule excluded_stations. Su base v2.14.9
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.11 - by mdisailor engine - v2.14.11: action=grid estesa con campo additivo "forecast" (h1/h3/h6/h9/h12 per punto, gia presenti nell hourly Open-Meteo ma scartati) - usata da previsioni.html. forecast_days alzato 1->2 per garantire +12h a qualunque ora del giorno. Nessun campo esistente toccato. Su base v2.14.10
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2044,7 +2044,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.10', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.11', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -5112,10 +5112,14 @@ if (action === 'grid') {
   try {
     var latStr = glats.join(',');
     var lonStr = glons.join(',');
+    // fix 2026-07-31: forecast_days alzato da 1 a 2 -- con 1 solo giorno l'array
+    // orario copre solo la giornata corrente (mezzanotte-mezzanotte); una chiamata
+    // nel tardo pomeriggio poteva far uscire l'indice +12h fuori dai limiti
+    // dell'array. Necessario per esporre il campo "forecast" (previsioni.html).
     var gridUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + latStr +
       '&longitude=' + lonStr +
       '&hourly=windspeed_10m,winddirection_10m,windgusts_10m' +
-      '&wind_speed_unit=kn&timezone=Europe/Rome&forecast_days=1';
+      '&wind_speed_unit=kn&timezone=Europe/Rome&forecast_days=2';
     var gridRes = await fetch(gridUrl);
     if (!gridRes.ok) {
       return res.status(gridRes.status).json({ error: 'Open-Meteo error: ' + gridRes.status });
@@ -5124,18 +5128,40 @@ if (action === 'grid') {
     var items = Array.isArray(gridData) ? gridData : [gridData];
     // Trova indice ora corrente Europe/Rome
     var nowRome2 = getNowRome();
+    // fix 2026-07-31: espone anche gli orizzonti futuri (+1/+3/+6/+9/+12h), gia'
+    // presenti nell'array orario scaricato da Open-Meteo ma finora scartati.
+    // Campo additivo "forecast" -- i campi esistenti (speed/dir/gust/time a
+    // livello punto) restano identici, nessun consumatore esistente (mappa.html)
+    // si accorge del cambiamento. Usato da previsioni.html.
     var gridPoints = items.map(function(d, idx) {
       if (!d.hourly) return null;
       var h = d.hourly;
       var tidx = h.time ? h.time.findIndex(function(t){ return t === nowRome2; }) : 0;
       if (tidx < 0) tidx = 0;
+      var pickAt = function(offset) {
+        var i = tidx + offset;
+        var maxLen = h.windspeed_10m ? h.windspeed_10m.length : 0;
+        if (i >= maxLen) return null;
+        var spd = h.windspeed_10m ? h.windspeed_10m[i] : null;
+        var dir = h.winddirection_10m ? h.winddirection_10m[i] : null;
+        var gst = h.windgusts_10m ? h.windgusts_10m[i] : null;
+        if (spd === null && dir === null) return null;
+        return { speed: spd, dir: dir, gust: gst, time: h.time[i] ? h.time[i].slice(11,16) : null };
+      };
       return {
         lat: glats[idx],
         lon: glons[idx],
         speed: h.windspeed_10m    ? h.windspeed_10m[tidx]    : null,
         dir:   h.winddirection_10m ? h.winddirection_10m[tidx] : null,
         gust:  h.windgusts_10m   ? h.windgusts_10m[tidx]   : null,
-        time:  nowRome2.slice(11, 16)
+        time:  nowRome2.slice(11, 16),
+        forecast: {
+          h1:  pickAt(1),
+          h3:  pickAt(3),
+          h6:  pickAt(6),
+          h9:  pickAt(9),
+          h12: pickAt(12)
+        }
       };
     }).filter(function(p){ return p !== null; });
     return res.status(200).json({ points: gridPoints, ts: new Date().toISOString() });
@@ -5861,7 +5887,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.10 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.11 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -5992,4 +6018,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.10
+// Fine codice - NAUTILUS ENGINE v2.14.11

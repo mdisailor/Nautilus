@@ -1,4 +1,4 @@
-<!-- NAUTILUS PREVISIONI v2.5 - mdisailor - 2026-08-01 - v2.5: v2.4 sovracorretto -- decadimento 1/(d+90) troppo dolce, ogni cella mediava su quasi tutti i 400 punti griglia, risultato quasi uniforme ovunque. Tornato a decadimento quadratico 1/(d+28)^2 -- stessa localita di prima (simile a quella che gia funziona per le frecce/FLOW) ma senza il gradino netto che creava le isole. Su base v2.4. -->
+<!-- NAUTILUS PREVISIONI v2.6 - mdisailor - 2026-08-01 - v2.6: campo colorato piu trasparente (opacity 0.65->0.5). Assottigliato l alone grigio dietro le frecce (drawSingleArrow, lwOut e opacita ridotti) -- sopra lo sfondo colorato risultava troppo marcato e sembrava un cerchio attorno a ogni freccia, specialmente sui 399 punti griglia. Non toccato COLOR_SOFTEN in questo giro, per isolare quale modifica risolve cosa. Su base v2.5. -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Previsioni Vento v2.5</title>
+<title>NAUTILUS Previsioni Vento v2.6</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -44,7 +44,7 @@
   }
   #map{position:absolute;top:0;left:0;right:0;bottom:0;z-index:0;}
   #mapwrap{position:relative;height:calc(100% - 108px);}
-  #field-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:460;filter:blur(11px);opacity:0.65;}
+  #field-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:460;filter:blur(11px);opacity:0.5;}
   #particle-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:480;}
   #btn-flow{
     position:absolute;top:10px;left:10px;z-index:900;background:rgba(10,26,46,0.92);
@@ -69,7 +69,7 @@
 
 <header>
   <h1>NAUTILUS &mdash; Previsioni Vento</h1>
-  <span class="ver">v2.5</span>
+  <span class="ver">v2.6</span>
   <a class="back" href="/index2.html">&larr; cruscotto</a>
 </header>
 
@@ -186,11 +186,11 @@ function drawSingleArrow(ctx, ox, oy, rad, len, lw, colShaft, colHead, alpha){
   ctx.translate(ox, oy);
   ctx.rotate(rad);
   var hw = len * 0.40;
-  var lwOut = lw + 2.5;
+  var lwOut = lw + 1; // fix 2026-08-01: era lw+2.5, con lo sfondo colorato l'alone sembrava un cerchio
   ctx.beginPath();
   ctx.moveTo(0, len * 0.45);
   ctx.lineTo(0, -len * 0.25);
-  ctx.strokeStyle = 'rgba(90,90,90,0.5)';
+  ctx.strokeStyle = 'rgba(70,70,70,0.28)';
   ctx.lineWidth = lwOut;
   ctx.lineCap = 'round';
   ctx.stroke();
@@ -199,10 +199,10 @@ function drawSingleArrow(ctx, ox, oy, rad, len, lw, colShaft, colHead, alpha){
   ctx.lineTo(-hw * 0.52, -len * 0.50 + hw * 0.88);
   ctx.lineTo( hw * 0.52, -len * 0.50 + hw * 0.88);
   ctx.closePath();
-  ctx.strokeStyle = 'rgba(90,90,90,0.5)';
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = 'rgba(70,70,70,0.28)';
+  ctx.lineWidth = 1.2;
   ctx.stroke();
-  ctx.fillStyle = 'rgba(90,90,90,0.5)';
+  ctx.fillStyle = 'rgba(70,70,70,0.28)';
   ctx.fill();
   ctx.beginPath();
   ctx.moveTo(0, len * 0.45);
@@ -772,4 +772,4 @@ setInterval(loadAll, REFRESH_MS);
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS PREVISIONI v2.5 -->
+<!-- Fine codice - NAUTILUS PREVISIONI v2.6 -->

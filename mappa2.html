@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA2 v1.1 - mdisailor - 2026-08-01 - v1.1: due fix -- (1) opacita mancante sul color-canvas, colore a piena saturazione; (2) colore risultava sganciato da FLOW (copiato per errore il comportamento di previsioni.html senza conferma) -- ripristinato colore+particelle insieme sotto lo stesso tasto FLOW, comportamento originale di mappa.html. OI resta separato: decide solo quale dato (gridData/gridDataOI), non se qualcosa si vede. Su base v1.0. -->
+<!-- NAUTILUS MAPPA2 v1.2 - mdisailor - 2026-08-01 - v1.2: tolto il taglio "zoom>10" ereditato dal vecchio metodo a cerchi (i colori sparivano da zoom 11 in su) -- la bilineare e molto piu leggera, non serve piu limitarla per zoom. Opacita abbassata 0.5->0.4. Su base v1.1. -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa2 Vento v1.1</title>
+<title>NAUTILUS Mappa2 Vento v1.2</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -48,7 +48,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 
 /* CANVAS */
 #wind-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:600}
-#color-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:570;filter:blur(4px);opacity:0.5;}
+#color-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:570;filter:blur(4px);opacity:0.4;}
 #particle-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:580}
 
 /* BOTTONE FLOW */
@@ -217,7 +217,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa2 v1.1</span>
+    <span id="nav-ver">mappa2 v1.2</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -278,11 +278,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA2 v1.1 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA2 v1.2 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA2 v1.1
+// NAUTILUS MAPPA2 v1.2
 
 var ENGINE_URL = '/api/engine';
 
@@ -985,9 +985,11 @@ var colorField2 = { res:8 };
 
 function drawColorLayer(){
   var W = cCanvas.width, H = cCanvas.height;
-  var zoom = map.getZoom();
   cCtx.clearRect(0, 0, W, H);
-  if (zoom > 10) return;
+  // fix 2026-08-01: tolto "if (zoom > 10) return" ereditato dal vecchio metodo a
+  // cerchi (costoso, disattivato oltre zoom 10 per non appesantire). La bilineare
+  // e' molto piu' leggera (lookup O(1) per cella, non somma su centinaia di punti),
+  // non serve piu' il taglio.
 
   buildGridLookup2();
   if (gridLookup2.points.length === 0) return;

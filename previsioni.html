@@ -1,4 +1,4 @@
-<!-- NAUTILUS PREVISIONI v1.1 - mdisailor - 2026-07-31 - v1.1: aggiunto flusso animato (particelle, IDW), portato da mappa.html semplificato -- niente oiEnabled/grid_rules, fonti sono le stesse gia usate per le frecce (zone nostre peso alto + griglia OM riempitivo). Rebuild automatico al cambio orizzonte, zoom/pan, e refresh dati ogni 10 min. Su base v1.0. -->
+<!-- NAUTILUS PREVISIONI v1.2 - mdisailor - 2026-07-31 - v1.2: fix basemap -- era 'dark_all' (mai usata altrove nel progetto), i colori delle particelle (particleColor, copiati da mappa.html) sono tarati per stare su sfondo chiaro e sparivano sullo scuro. Allineata a 'voyager', la stessa basemap di mappa.html. Su base v1.1. -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Previsioni Vento v1.1</title>
+<title>NAUTILUS Previsioni Vento v1.2</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -62,7 +62,7 @@
 
 <header>
   <h1>NAUTILUS &mdash; Previsioni Vento</h1>
-  <span class="ver">v1.1</span>
+  <span class="ver">v1.2</span>
   <a class="back" href="/index2.html">&larr; cruscotto</a>
 </header>
 
@@ -358,7 +358,7 @@ var map, canvas, ctx;
 
 function initMap(){
   map = L.map('map', { zoomControl: true, attributionControl: false }).setView([43.2, 10.0], 8);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
     subdomains: 'abcd', maxZoom: 12
   }).addTo(map);
   canvas = document.createElement('canvas');
@@ -534,4 +534,4 @@ setInterval(loadAll, REFRESH_MS); // stessa cadenza di mappa.html (setInterval l
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS PREVISIONI v1.1 -->
+<!-- Fine codice - NAUTILUS PREVISIONI v1.2 -->

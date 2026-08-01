@@ -1,4 +1,4 @@
-<!-- NAUTILUS PREVISIONI v2.0 - mdisailor - 2026-07-31 - v2.0: riscrittura del modello temporale. Prima: bottoni +1h/+3h/+6h/+9h/+12h relativi al momento del predict (fuorvianti col passare del tempo). Ora: bottoni a ore intere assolute (14,15,16...), due "orologi" separati -- OM sempre ricalcolato da adesso vero (action=grid, forecast.h1..h12 tutte le 12 ore, engine v2.14.12), nostro sempre relativo a quando e' girato l'ultimo predict (fermo fino al prossimo, combacia solo sui bottoni il cui scarto dal predict e' esattamente 1/3/6/9/12h). Bottone dell'ora corrente: mai previsione nostra, solo OM live + lettura reale stazioni (action=stations_snapshot, nuovo). Su base v1.2. -->
+<!-- NAUTILUS PREVISIONI v2.2 - mdisailor - 2026-08-01 - v2.2: aggiunto tasto XLS -- esporta un file Excel con un foglio per fascia oraria (bottone), ogni foglio elenca zone (con fonte: stazione reale/nostra AI/OM fallback) e tutta la griglia OM. Libreria SheetJS via CDN, tutto client-side. Su base v2.1 (pannello debug ancora presente). -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,9 +8,10 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Previsioni Vento v2.0</title>
+<title>NAUTILUS Previsioni Vento v2.2</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{--bg:#020e1c;--panel:#0a1a2e;--border:#1c3a54;--text:#dce8f2;--muted:#7d99ad;--accent:#2fb8d6;}
   *{box-sizing:border-box;}
@@ -67,7 +68,7 @@
 
 <header>
   <h1>NAUTILUS &mdash; Previsioni Vento</h1>
-  <span class="ver">v2.0</span>
+  <span class="ver">v2.2</span>
   <a class="back" href="/index2.html">&larr; cruscotto</a>
 </header>
 
@@ -78,6 +79,7 @@
   <div id="map"></div>
   <canvas id="particle-canvas"></canvas>
   <button id="btn-flow" title="Animazione flusso vento">&#x1F300; FLOW</button>
+  <button id="btn-xls" title="Esporta tutti i dati orari in Excel" style="position:absolute;top:10px;left:110px;z-index:900;background:rgba(10,26,46,0.92);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;">&#128202; XLS</button>
   <div id="legend">
     <div><b>═══▶▶</b> doppia freccia = nostra previsione, dall'ultimo predict</div>
     <div><b>─▶</b> freccia singola = OM, sempre ricalcolato da adesso</div>
@@ -85,6 +87,11 @@
     <div style="margin-top:6px;">Colore = intensità (scala Beaufort)</div>
   </div>
   <div id="status"></div>
+  <div id="debugpanel" style="position:absolute;bottom:14px;right:14px;z-index:900;background:rgba(10,26,46,0.95);border:2px solid #ff8800;border-radius:8px;padding:8px 10px;font-size:11px;color:#fff;font-family:monospace;max-width:220px;">
+    <div style="color:#ff8800;font-weight:bold;">DEBUG temporaneo</div>
+    <div>Punto test: 43.55, 10.3</div>
+    <div id="debugcontent">--</div>
+  </div>
 </div>
 
 <script>
@@ -551,6 +558,20 @@ function drawAll(){
     if (!gv) return;
     tryDraw(g.lat, g.lon, gv.dir, gv.speed, gv.gust, false);
   });
+
+  // DEBUG temporaneo -- punto di riferimento fisso 43.55/10.3, per verificare
+  // se il valore usato dalla pagina cambia col bottone selezionato
+  var dbg = document.getElementById('debugcontent');
+  if (dbg) {
+    var testPoint = state.gridPoints.find(function(g){ return Math.abs(g.lat-43.55)<0.01 && Math.abs(g.lon-10.3)<0.01; });
+    if (testPoint) {
+      var tv = omValueForOffset(testPoint, offset);
+      dbg.innerHTML = 'offset selezionato: ' + offset + '<br>' +
+        (tv ? ('speed: ' + tv.speed + ' kn<br>dir: ' + tv.dir + '&deg;') : 'nessun dato per questo offset');
+    } else {
+      dbg.innerHTML = 'punto test non trovato in griglia (offset: ' + offset + ')';
+    }
+  }
 }
 
 function updateFreshness(){
@@ -590,6 +611,64 @@ document.getElementById('btn-flow').addEventListener('click', function(){
   }
 });
 
+// ==================== Esportazione XLS -- un foglio per fascia oraria ====================
+function exportXLS(){
+  var btn = document.getElementById('btn-xls');
+  var oldText = btn.innerHTML;
+  btn.innerHTML = '...';
+  try {
+    var wb = XLSX.utils.book_new();
+    state.hourButtons.forEach(function(hb){
+      var rows = [];
+      rows.push(['tipo','nome/lat_lon','lat','lon','fonte','speed_kn','dir_deg','gust_kn']);
+
+      // Zone nostre -- stessa logica di drawAll: bottone 0 = stazioni reali,
+      // bottoni futuri = nostra previsione se disponibile, altrimenti OM piu' vicino
+      state.zonePoints.forEach(function(z){
+        if (hb.offset === 0) {
+          var st = state.stationsNow[z.biasStation];
+          if (st && st.wind_kt != null) {
+            rows.push(['zona', z.name, z.lat, z.lon, 'stazione reale (' + (st.age_min != null ? st.age_min + 'min fa' : '?') + ')', st.wind_kt, st.direction, st.gust_kt]);
+          } else {
+            var g0 = nearestGridPoint(z.lat, z.lon);
+            var gv0 = g0 ? omValueForOffset(g0, 0) : null;
+            rows.push(['zona', z.name, z.lat, z.lon, 'OM (nessuna lettura reale)', gv0 ? gv0.speed : '', gv0 ? gv0.dir : '', gv0 ? gv0.gust : '']);
+          }
+          return;
+        }
+        var v = ourValueForOffset(z, hb.offset);
+        if (v) {
+          rows.push(['zona', z.name, z.lat, z.lon, 'nostra previsione AI', v.speed, v.dir, '']);
+        } else {
+          var g = nearestGridPoint(z.lat, z.lon);
+          var gv = g ? omValueForOffset(g, hb.offset) : null;
+          rows.push(['zona', z.name, z.lat, z.lon, 'OM (nessun orizzonte nostro)', gv ? gv.speed : '', gv ? gv.dir : '', gv ? gv.gust : '']);
+        }
+      });
+
+      // Griglia OM completa
+      state.gridPoints.forEach(function(g){
+        var gv = omValueForOffset(g, hb.offset);
+        if (!gv) return;
+        rows.push(['griglia', g.lat.toFixed(2) + ',' + g.lon.toFixed(2), g.lat, g.lon, 'OM', gv.speed, gv.dir, gv.gust]);
+      });
+
+      var ws = XLSX.utils.aoa_to_sheet(rows);
+      var dayLbl = romeDayLabel(hb.date);
+      var hourLbl = romeHourLabel(hb.date);
+      var sheetName = hourLbl + '_' + dayLbl.replace('/', '-');
+      XLSX.utils.book_append_sheet(wb, ws, sheetName.substring(0, 31)); // limite Excel 31 caratteri
+    });
+    var fname = 'nautilus_previsioni_' + new Date().toISOString().slice(0,16).replace(/[:T]/g,'-') + '.xlsx';
+    XLSX.writeFile(wb, fname);
+  } catch(e) {
+    alert('Errore esportazione: ' + e.message);
+  } finally {
+    btn.innerHTML = oldText;
+  }
+}
+document.getElementById('btn-xls').addEventListener('click', exportXLS);
+
 initMap();
 loadAll();
 setInterval(loadAll, REFRESH_MS);
@@ -597,4 +676,4 @@ setInterval(loadAll, REFRESH_MS);
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS PREVISIONI v2.0 -->
+<!-- Fine codice - NAUTILUS PREVISIONI v2.2 -->

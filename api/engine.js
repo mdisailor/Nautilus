@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.11 - by mdisailor engine - v2.14.11: action=grid estesa con campo additivo "forecast" (h1/h3/h6/h9/h12 per punto, gia presenti nell hourly Open-Meteo ma scartati) - usata da previsioni.html. forecast_days alzato 1->2 per garantire +12h a qualunque ora del giorno. Nessun campo esistente toccato. Su base v2.14.10
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.12 - by mdisailor engine - v2.14.12: action=grid, campo "forecast" esteso da 5 ore discrete (h1/h3/h6/h9/h12) a tutte le 12 ore (h1..h12) -- previsioni.html adesso ha bottoni ora per ora, non solo sui 5 orizzonti AI. Su base v2.14.11
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2044,7 +2044,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.11', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.12', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -5148,6 +5148,12 @@ if (action === 'grid') {
         if (spd === null && dir === null) return null;
         return { speed: spd, dir: dir, gust: gst, time: h.time[i] ? h.time[i].slice(11,16) : null };
       };
+      var forecastAll = {};
+      // fix 2026-07-31 v2.14.12: prima solo 5 ore discrete (h1/h3/h6/h9/h12), ora
+      // tutte le 12 -- previsioni.html ha bottoni ora per ora (14,15,16...), non
+      // solo sui 5 orizzonti che ha la previsione AI. Dato gia' scaricato, solo
+      // esposto per intero invece che a "salti".
+      for (var _fh = 1; _fh <= 12; _fh++) { forecastAll['h' + _fh] = pickAt(_fh); }
       return {
         lat: glats[idx],
         lon: glons[idx],
@@ -5155,13 +5161,7 @@ if (action === 'grid') {
         dir:   h.winddirection_10m ? h.winddirection_10m[tidx] : null,
         gust:  h.windgusts_10m   ? h.windgusts_10m[tidx]   : null,
         time:  nowRome2.slice(11, 16),
-        forecast: {
-          h1:  pickAt(1),
-          h3:  pickAt(3),
-          h6:  pickAt(6),
-          h9:  pickAt(9),
-          h12: pickAt(12)
-        }
+        forecast: forecastAll
       };
     }).filter(function(p){ return p !== null; });
     return res.status(200).json({ points: gridPoints, ts: new Date().toISOString() });
@@ -5887,7 +5887,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.11 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.12 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -6018,4 +6018,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.11
+// Fine codice - NAUTILUS ENGINE v2.14.12

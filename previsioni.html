@@ -1,4 +1,4 @@
-<!-- NAUTILUS PREVISIONI v2.2 - mdisailor - 2026-08-01 - v2.2: aggiunto tasto XLS -- esporta un file Excel con un foglio per fascia oraria (bottone), ogni foglio elenca zone (con fonte: stazione reale/nostra AI/OM fallback) e tutta la griglia OM. Libreria SheetJS via CDN, tutto client-side. Su base v2.1 (pannello debug ancora presente). -->
+<!-- NAUTILUS PREVISIONI v2.3 - mdisailor - 2026-08-01 - v2.3: aggiunto campo colorato continuo di sfondo stile Windy (field-canvas, sotto le particelle) -- riusa lo stesso buildVectorField gia calcolato per FLOW, ora costruito sempre (non solo a FLOW acceso) cosi lo sfondo colorato resta visibile di default. Scala colore continua (speedToFieldColor, interpolata) separata da windColor (a scatti, per le frecce). Rimosso il pannello DEBUG temporaneo (causa del "poco cambiamento" chiarita: disaccordo reale AI vs OM su alcune zone, non un bug). Su base v2.2. -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Previsioni Vento v2.2</title>
+<title>NAUTILUS Previsioni Vento v2.3</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -44,6 +44,7 @@
   }
   #map{position:absolute;top:0;left:0;right:0;bottom:0;z-index:0;}
   #mapwrap{position:relative;height:calc(100% - 108px);}
+  #field-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:460;filter:blur(9px);opacity:0.68;}
   #particle-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:480;}
   #btn-flow{
     position:absolute;top:10px;left:10px;z-index:900;background:rgba(10,26,46,0.92);
@@ -68,7 +69,7 @@
 
 <header>
   <h1>NAUTILUS &mdash; Previsioni Vento</h1>
-  <span class="ver">v2.2</span>
+  <span class="ver">v2.3</span>
   <a class="back" href="/index2.html">&larr; cruscotto</a>
 </header>
 
@@ -77,6 +78,7 @@
 
 <div id="mapwrap">
   <div id="map"></div>
+  <canvas id="field-canvas"></canvas>
   <canvas id="particle-canvas"></canvas>
   <button id="btn-flow" title="Animazione flusso vento">&#x1F300; FLOW</button>
   <button id="btn-xls" title="Esporta tutti i dati orari in Excel" style="position:absolute;top:10px;left:110px;z-index:900;background:rgba(10,26,46,0.92);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;">&#128202; XLS</button>
@@ -84,14 +86,10 @@
     <div><b>═══▶▶</b> doppia freccia = nostra previsione, dall'ultimo predict</div>
     <div><b>─▶</b> freccia singola = OM, sempre ricalcolato da adesso</div>
     <div style="margin-top:6px;">Bottone "ora": sempre dato reale stazioni, mai previsione</div>
-    <div style="margin-top:6px;">Colore = intensità (scala Beaufort)</div>
+    <div style="margin-top:6px;">Frecce: colore = intensità (scala Beaufort)</div>
+    <div style="margin-top:4px;">Sfondo colorato: campo interpolato continuo, sempre attivo</div>
   </div>
   <div id="status"></div>
-  <div id="debugpanel" style="position:absolute;bottom:14px;right:14px;z-index:900;background:rgba(10,26,46,0.95);border:2px solid #ff8800;border-radius:8px;padding:8px 10px;font-size:11px;color:#fff;font-family:monospace;max-width:220px;">
-    <div style="color:#ff8800;font-weight:bold;">DEBUG temporaneo</div>
-    <div>Punto test: 43.55, 10.3</div>
-    <div id="debugcontent">--</div>
-  </div>
 </div>
 
 <script>
@@ -135,6 +133,38 @@ function romeHourLabel(d){
 }
 function romeDayLabel(d){
   return new Intl.DateTimeFormat('it-IT', { timeZone:'Europe/Rome', day:'2-digit', month:'2-digit' }).format(d);
+}
+
+// ==================== Colore continuo per il campo di sfondo (stile Windy) ====================
+// Diverso da windColor() (a scatti, per le frecce): qui interpolo linearmente tra
+// i punti di ancoraggio per avere una transizione morbida, non a fasce nette.
+var FIELD_COLOR_STOPS = [
+  [0,  [40, 55, 130]],
+  [3,  [30, 110, 175]],
+  [6,  [35, 165, 175]],
+  [10, [70, 180, 105]],
+  [15, [170, 195, 60]],
+  [20, [230, 195, 40]],
+  [25, [235, 130, 30]],
+  [30, [215, 55, 35]],
+  [40, [170, 30, 120]]
+];
+function speedToFieldColor(spd){
+  if (spd == null || isNaN(spd)) return 'rgba(0,0,0,0)';
+  var stops = FIELD_COLOR_STOPS;
+  if (spd <= stops[0][0]) { var c0 = stops[0][1]; return 'rgb(' + c0[0] + ',' + c0[1] + ',' + c0[2] + ')'; }
+  for (var i = 0; i < stops.length - 1; i++){
+    var a = stops[i], b = stops[i+1];
+    if (spd >= a[0] && spd <= b[0]){
+      var t = (spd - a[0]) / (b[0] - a[0]);
+      var r = Math.round(a[1][0] + (b[1][0]-a[1][0]) * t);
+      var g = Math.round(a[1][1] + (b[1][1]-a[1][1]) * t);
+      var bl = Math.round(a[1][2] + (b[1][2]-a[1][2]) * t);
+      return 'rgb(' + r + ',' + g + ',' + bl + ')';
+    }
+  }
+  var cl = stops[stops.length-1][1];
+  return 'rgb(' + cl[0] + ',' + cl[1] + ',' + cl[2] + ')';
 }
 
 // ==================== Stile frecce (identico a mappa.html v1.6.88) ====================
@@ -227,6 +257,7 @@ var state = {
 // ==================== Flusso animato ====================
 var particleState = { active:false, field:null, fieldRes:14, fieldW:0, fieldH:0, particles:[], animFrame:null };
 var pCanvas, pCtx;
+var fCanvas, fCtx;
 var PARTICLE_COUNT = 600;
 var MAX_AGE = 60;
 
@@ -282,6 +313,27 @@ function buildVectorField(){
     }
   }
   particleState.field = field;
+}
+
+// Disegna il campo continuo colorato -- riusa lo stesso field gia' calcolato da
+// buildVectorField(), non ricalcola nulla. Sfumato via CSS filter:blur() sul canvas.
+function drawField(){
+  if (!fCtx) return;
+  var W = fCanvas.width, H = fCanvas.height;
+  fCtx.clearRect(0, 0, W, H);
+  if (!particleState.field) return;
+  var res = particleState.fieldRes;
+  var cols = particleState.fieldW, rows = particleState.fieldH;
+  for (var row = 0; row < rows; row++){
+    for (var col = 0; col < cols; col++){
+      var idx = (row * cols + col) * 2;
+      var u = particleState.field[idx], v = particleState.field[idx+1];
+      if (u === 0 && v === 0) continue; // cella senza copertura (fuori dai sources)
+      var spd = Math.sqrt(u*u + v*v);
+      fCtx.fillStyle = speedToFieldColor(spd);
+      fCtx.fillRect(col * res, row * res, res + 1, res + 1);
+    }
+  }
 }
 
 function sampleField(px, py){
@@ -358,12 +410,13 @@ function resizeParticleCanvas(){
   if (!pCanvas) return;
   var size = map.getSize();
   pCanvas.width = size.x; pCanvas.height = size.y;
+  if (fCanvas) { fCanvas.width = size.x; fCanvas.height = size.y; }
 }
 
 function rebuildAndAnimate(){
-  if (!particleState.active) return;
   buildVectorField();
-  startParticles();
+  drawField();
+  if (particleState.active) startParticles();
 }
 
 // ==================== Mappa ====================
@@ -383,6 +436,8 @@ function initMap(){
   ctx = canvas.getContext('2d');
   pCanvas = document.getElementById('particle-canvas');
   pCtx = pCanvas.getContext('2d');
+  fCanvas = document.getElementById('field-canvas');
+  fCtx = fCanvas.getContext('2d');
   function resizeCanvas(){
     var size = map.getSize();
     canvas.width = size.x; canvas.height = size.y;
@@ -391,7 +446,7 @@ function initMap(){
     resizeParticleCanvas();
   }
   map.on('move resize zoom', function(){ resizeCanvas(); drawAll(); });
-  map.on('moveend zoomend', function(){ if (particleState.active) rebuildAndAnimate(); });
+  map.on('moveend zoomend', function(){ rebuildAndAnimate(); });
   resizeCanvas();
 }
 
@@ -490,7 +545,7 @@ function renderHourBar(){
       state.currentOffset = btn.offset;
       renderHourBar();
       drawAll();
-      if (particleState.active) rebuildAndAnimate();
+      rebuildAndAnimate();
     });
     bar.appendChild(b);
   });
@@ -558,20 +613,6 @@ function drawAll(){
     if (!gv) return;
     tryDraw(g.lat, g.lon, gv.dir, gv.speed, gv.gust, false);
   });
-
-  // DEBUG temporaneo -- punto di riferimento fisso 43.55/10.3, per verificare
-  // se il valore usato dalla pagina cambia col bottone selezionato
-  var dbg = document.getElementById('debugcontent');
-  if (dbg) {
-    var testPoint = state.gridPoints.find(function(g){ return Math.abs(g.lat-43.55)<0.01 && Math.abs(g.lon-10.3)<0.01; });
-    if (testPoint) {
-      var tv = omValueForOffset(testPoint, offset);
-      dbg.innerHTML = 'offset selezionato: ' + offset + '<br>' +
-        (tv ? ('speed: ' + tv.speed + ' kn<br>dir: ' + tv.dir + '&deg;') : 'nessun dato per questo offset');
-    } else {
-      dbg.innerHTML = 'punto test non trovato in griglia (offset: ' + offset + ')';
-    }
-  }
 }
 
 function updateFreshness(){
@@ -594,7 +635,7 @@ async function loadAll(){
     statusEl.textContent = state.zonePoints.length + ' zone, ' + state.gridPoints.length + ' punti griglia';
     renderHourBar();
     drawAll();
-    if (particleState.active) rebuildAndAnimate();
+    rebuildAndAnimate();
   } catch(e) {
     statusEl.textContent = 'Errore: ' + e.message;
   }
@@ -676,4 +717,4 @@ setInterval(loadAll, REFRESH_MS);
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS PREVISIONI v2.2 -->
+<!-- Fine codice - NAUTILUS PREVISIONI v2.3 -->

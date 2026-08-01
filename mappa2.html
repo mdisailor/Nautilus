@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA2 v1.0 - mdisailor - 2026-08-01 - Fork sperimentale di mappa.html v1.6.88, per confronto affiancato. Sostituito drawColorLayer (cerchi radiali, isole sopra lo sfondo) con interpolazione bilineare sulla griglia OM/OI regolare (stessa tecnica validata su previsioni.html v3.0). Tolte le 3 modalita OM/NAU/ALL e le nauSources separate in buildVectorField -- ora tutto legge solo activeGrid() (OM puro o OM+correzione locale secondo OI on/off). Restano solo 2 tasti: FLOW (particelle, sempre indipendente dal colore) e OI (che decide se activeGrid() e gridData o gridDataOI). mappa.html originale NON toccato. -->
+<!-- NAUTILUS MAPPA2 v1.1 - mdisailor - 2026-08-01 - v1.1: due fix -- (1) opacita mancante sul color-canvas, colore a piena saturazione; (2) colore risultava sganciato da FLOW (copiato per errore il comportamento di previsioni.html senza conferma) -- ripristinato colore+particelle insieme sotto lo stesso tasto FLOW, comportamento originale di mappa.html. OI resta separato: decide solo quale dato (gridData/gridDataOI), non se qualcosa si vede. Su base v1.0. -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa2 Vento v1.0</title>
+<title>NAUTILUS Mappa2 Vento v1.1</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -48,7 +48,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 
 /* CANVAS */
 #wind-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:600}
-#color-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:570;filter:blur(4px);}
+#color-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:570;filter:blur(4px);opacity:0.5;}
 #particle-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:580}
 
 /* BOTTONE FLOW */
@@ -217,7 +217,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa2 v1.0</span>
+    <span id="nav-ver">mappa2 v1.1</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -278,11 +278,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA2 v1.0 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA2 v1.1 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA2 v1.0
+// NAUTILUS MAPPA2 v1.1
 
 var ENGINE_URL = '/api/engine';
 
@@ -457,8 +457,8 @@ function resizeCanvas(){
   cCanvas.height = w.offsetHeight;
 }
 resizeCanvas();
-window.addEventListener('resize', function(){ resizeCanvas(); drawWind(); rebuildAndAnimate(); });
-map.on('moveend zoomend', function(){ drawWind(); rebuildAndAnimate(); document.getElementById('nav-zoom').textContent = 'z' + map.getZoom(); });
+window.addEventListener('resize', function(){ resizeCanvas(); drawWind(); if(particleState.active) rebuildAndAnimate(); });
+map.on('moveend zoomend', function(){ drawWind(); if(particleState.active) rebuildAndAnimate(); document.getElementById('nav-zoom').textContent = 'z' + map.getZoom(); });
 
 function windColor(s){
   // Scala Beaufort
@@ -1124,16 +1124,19 @@ function rebuildAndAnimate(){
   if (particleState.active) startParticles();
 }
 
-// BOTTONE FLOW -- accende/spegne solo le particelle; il colore di sfondo
-// (drawColorLayer) e' sempre attivo, indipendente da FLOW (allineato a previsioni.html)
+// BOTTONE FLOW -- accende/spegne insieme colore di sfondo E particelle, come
+// nel comportamento originale di mappa.html (corretto: qui non deve stare
+// sempre acceso come in previsioni.html -- decisione diversa per questa pagina)
 document.getElementById('btn-flow').addEventListener('click', function(){
   particleState.active = !particleState.active;
   this.classList.toggle('active', particleState.active);
   if (particleState.active){
     buildVectorField();
+    drawColorLayer();
     startParticles();
   } else {
     stopParticles();
+    cCtx.clearRect(0, 0, cCanvas.width, cCanvas.height);
   }
 });
 
@@ -1467,7 +1470,7 @@ document.addEventListener('DOMContentLoaded', function(){
           state.gridDataOI = applyOI(state.gridData, state.stationData);
           applyStationOverrideToExtraPoints();
           drawWind();
-          rebuildAndAnimate();
+          if (particleState.active) rebuildAndAnimate();
           if (hudTsEl) hudTsEl.textContent = hudTsEl.textContent.split(' | ')[0] + debugOICountText();
         } else if (hudTsEl) {
           hudTsEl.textContent = hudTsEl.textContent.split(' | ')[0] + ' | SALTATO: gridData=' + state.gridData.length + ' stationData=' + state.stationData.length;
@@ -1525,7 +1528,7 @@ async function loadAll(){
     updateZoneMarkers();
     resizeCanvas();
     drawWind();
-    rebuildAndAnimate();
+    if (particleState.active) rebuildAndAnimate();
     state.lastUpdate = new Date();
     var ts = state.lastUpdate.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
     setHud('ok', 'Dati in diretta');

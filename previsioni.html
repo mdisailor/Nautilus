@@ -1,4 +1,4 @@
-<!-- NAUTILUS PREVISIONI v2.6 - mdisailor - 2026-08-01 - v2.6: campo colorato piu trasparente (opacity 0.65->0.5). Assottigliato l alone grigio dietro le frecce (drawSingleArrow, lwOut e opacita ridotti) -- sopra lo sfondo colorato risultava troppo marcato e sembrava un cerchio attorno a ogni freccia, specialmente sui 399 punti griglia. Non toccato COLOR_SOFTEN in questo giro, per isolare quale modifica risolve cosa. Su base v2.5. -->
+<!-- NAUTILUS PREVISIONI v3.0 - mdisailor - 2026-08-01 - v3.0: cambiato approccio dello sfondo colorato, non solo tarato -- il metodo precedente (punti sparsi pesati per distanza + blur) creava sempre "isole" intorno alle zone (poche, peso alto) sopra la griglia OM densa, qualunque parametro si usasse: difetto strutturale, non un numero da tarare. Sostituito con interpolazione BILINEARE sulla griglia OM regolare (buildGridLookup/bilinearGridSpeed) -- continua per costruzione, niente pesi/blur necessari per nascondere giunture. Le zone nostre non entrano piu nel colore di sfondo, restano solo nelle frecce. Blur ridotto a 4px (solo per smussare i pixel della griglia fine, non per nascondere isole). Su base v2.6. -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Previsioni Vento v2.6</title>
+<title>NAUTILUS Previsioni Vento v3.0</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -44,7 +44,7 @@
   }
   #map{position:absolute;top:0;left:0;right:0;bottom:0;z-index:0;}
   #mapwrap{position:relative;height:calc(100% - 108px);}
-  #field-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:460;filter:blur(11px);opacity:0.5;}
+  #field-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:460;filter:blur(4px);opacity:0.5;}
   #particle-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:480;}
   #btn-flow{
     position:absolute;top:10px;left:10px;z-index:900;background:rgba(10,26,46,0.92);
@@ -69,7 +69,7 @@
 
 <header>
   <h1>NAUTILUS &mdash; Previsioni Vento</h1>
-  <span class="ver">v2.6</span>
+  <span class="ver">v3.0</span>
   <a class="back" href="/index2.html">&larr; cruscotto</a>
 </header>
 
@@ -321,58 +321,81 @@ function buildVectorField(){
   particleState.field = field;
 }
 
-// ==================== Campo colorato di sfondo -- separato da quello di FLOW ====================
-// Griglia molto piu' fitta (colorFieldRes) e decadimento morbido (distanza+softening,
-// non 1/d^2 con stop netto) apposta per fondere le sorgenti in una sfumatura continua
-// invece di "isole" colorate intorno a ogni singolo punto. Il campo di FLOW (sopra)
-// resta con il decadimento originale: li' serve accuratezza locale per le particelle,
-// qui serve solo un bel gradiente visivo.
-var colorField = { data:null, res:7, w:0, h:0 };
-var COLOR_SOFTEN = 28; // px -- ammorbidisce lo scatto vicino alla sorgente, senza spalmare tutto
+// ==================== Campo colorato di sfondo -- interpolazione bilineare sulla griglia OM ====================
+// Approccio cambiato 2026-08-01: il precedente (punti sparsi pesati per distanza +
+// blur) creava sempre "isole" intorno alle zone (poche, peso alto) sopra lo sfondo
+// denso OM (400 punti), qualunque parametro di sfumatura si usasse -- difetto
+// strutturale del metodo, non un numero da tarare. La griglia OM e' pero' GIA'
+// regolare (passo fisso 0.25 gradi): basta una vera interpolazione bilineare tra i
+// 4 punti griglia piu' vicini, continua per costruzione, senza pesi/blur. Le zone
+// nostre restano SOLO nelle frecce, non entrano piu' nel colore di sfondo.
+var gridLookup = { lats:[], lons:[], numLat:0, numLon:0 };
+
+function buildGridLookup(){
+  if (!state.gridPoints.length) { gridLookup = { lats:[], lons:[], numLat:0, numLon:0 }; return; }
+  var lons = [];
+  var firstLat = state.gridPoints[0].lat;
+  for (var i = 0; i < state.gridPoints.length; i++){
+    if (state.gridPoints[i].lat !== firstLat) break;
+    lons.push(state.gridPoints[i].lon);
+  }
+  var numLon = lons.length;
+  var numLat = Math.floor(state.gridPoints.length / numLon);
+  var lats = [];
+  for (var r = 0; r < numLat; r++) lats.push(state.gridPoints[r * numLon].lat);
+  gridLookup = { lats:lats, lons:lons, numLat:numLat, numLon:numLon };
+}
+
+// Velocita' interpolata bilinearmente alla posizione lat/lon esatta, per l'offset
+// corrente. Ritorna null se fuori dalla copertura griglia o dato mancante.
+function bilinearGridSpeed(lat, lon, offset){
+  var lats = gridLookup.lats, lons = gridLookup.lons;
+  if (lats.length < 2 || lons.length < 2) return null;
+  if (lat < lats[0] || lat > lats[lats.length-1] || lon < lons[0] || lon > lons[lons.length-1]) return null;
+  var li = 0; while (li < lats.length-2 && lats[li+1] <= lat) li++;
+  var lj = 0; while (lj < lons.length-2 && lons[lj+1] <= lon) lj++;
+  var tLat = (lat - lats[li]) / (lats[li+1] - lats[li]);
+  var tLon = (lon - lons[lj]) / (lons[lj+1] - lons[lj]);
+  function speedAt(latIdx, lonIdx){
+    var g = state.gridPoints[latIdx * gridLookup.numLon + lonIdx];
+    if (!g) return null;
+    var v = omValueForOffset(g, offset);
+    return v ? v.speed : null;
+  }
+  var s00 = speedAt(li,lj), s10 = speedAt(li+1,lj), s01 = speedAt(li,lj+1), s11 = speedAt(li+1,lj+1);
+  if (s00 == null || s10 == null || s01 == null || s11 == null) return null;
+  var top = s00*(1-tLon) + s01*tLon;
+  var bot = s10*(1-tLon) + s11*tLon;
+  return top*(1-tLat) + bot*tLat;
+}
+
+var colorField = { data:null, res:8, w:0, h:0 };
 
 function buildColorField(){
   if (!fCanvas) return;
+  buildGridLookup();
   var W = fCanvas.width, H = fCanvas.height;
   var res = colorField.res;
   var cols = Math.ceil(W / res);
   var rows = Math.ceil(H / res);
   colorField.w = cols;
   colorField.h = rows;
+  var offset = state.currentOffset;
 
-  var src = gatherSources(W, H);
-  var omSources = src.om, nauSources = src.nau;
-  if (omSources.length === 0 && nauSources.length === 0){ colorField.data = null; return; }
-
-  var data = new Float32Array(cols * rows); // solo la velocita' (magnitudine), non serve dir per il colore
+  var data = new Float32Array(cols * rows);
   for (var row = 0; row < rows; row++){
     for (var col = 0; col < cols; col++){
       var cx = col * res + res/2, cy = row * res + res/2;
-      var sumU = 0, sumV = 0, sumW = 0;
-      for (var ni = 0; ni < nauSources.length; ni++){
-        var n = nauSources[ni];
-        var dn = Math.sqrt((cx-n.x)*(cx-n.x) + (cy-n.y)*(cy-n.y)) + COLOR_SOFTEN;
-        var wn = n.w / (dn*dn);
-        sumU += n.u*wn; sumV += n.v*wn; sumW += wn;
-      }
-      for (var oi = 0; oi < omSources.length; oi++){
-        var o = omSources[oi];
-        var doo = Math.sqrt((cx-o.x)*(cx-o.x) + (cy-o.y)*(cy-o.y)) + COLOR_SOFTEN;
-        var wo = 1.0 / (doo*doo);
-        sumU += o.u*wo; sumV += o.v*wo; sumW += wo;
-      }
-      if (sumW > 1e-10) {
-        var uu = sumU/sumW, vv = sumV/sumW;
-        data[row*cols+col] = Math.sqrt(uu*uu + vv*vv);
-      } else {
-        data[row*cols+col] = -1; // nessuna copertura
-      }
+      var ll = map.containerPointToLatLng([cx, cy]);
+      var spd = bilinearGridSpeed(ll.lat, ll.lng, offset);
+      data[row*cols+col] = (spd == null) ? -1 : spd;
     }
   }
   colorField.data = data;
 }
 
-// Disegna il campo continuo colorato -- usa colorField (griglia fitta, decadimento
-// morbido), NON il field di FLOW (che resta accurato/locale per le particelle).
+// Disegna il campo continuo -- bilineare per costruzione, blur minimo solo per
+// smussare il bordo a scalini dei pixel della griglia fine (non per nascondere isole).
 function drawField(){
   if (!fCtx) return;
   var W = fCanvas.width, H = fCanvas.height;
@@ -383,7 +406,7 @@ function drawField(){
   for (var row = 0; row < rows; row++){
     for (var col = 0; col < cols; col++){
       var spd = colorField.data[row * cols + col];
-      if (spd < 0) continue; // nessuna copertura in questa cella
+      if (spd < 0) continue;
       fCtx.fillStyle = speedToFieldColor(spd);
       fCtx.fillRect(col * res, row * res, res + 1, res + 1);
     }
@@ -772,4 +795,4 @@ setInterval(loadAll, REFRESH_MS);
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS PREVISIONI v2.6 -->
+<!-- Fine codice - NAUTILUS PREVISIONI v3.0 -->

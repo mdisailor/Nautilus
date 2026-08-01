@@ -1,4 +1,4 @@
-<!-- NAUTILUS PREVISIONI v1.2 - mdisailor - 2026-07-31 - v1.2: fix basemap -- era 'dark_all' (mai usata altrove nel progetto), i colori delle particelle (particleColor, copiati da mappa.html) sono tarati per stare su sfondo chiaro e sparivano sullo scuro. Allineata a 'voyager', la stessa basemap di mappa.html. Su base v1.1. -->
+<!-- NAUTILUS PREVISIONI v2.0 - mdisailor - 2026-07-31 - v2.0: riscrittura del modello temporale. Prima: bottoni +1h/+3h/+6h/+9h/+12h relativi al momento del predict (fuorvianti col passare del tempo). Ora: bottoni a ore intere assolute (14,15,16...), due "orologi" separati -- OM sempre ricalcolato da adesso vero (action=grid, forecast.h1..h12 tutte le 12 ore, engine v2.14.12), nostro sempre relativo a quando e' girato l'ultimo predict (fermo fino al prossimo, combacia solo sui bottoni il cui scarto dal predict e' esattamente 1/3/6/9/12h). Bottone dell'ora corrente: mai previsione nostra, solo OM live + lettura reale stazioni (action=stations_snapshot, nuovo). Su base v1.2. -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Previsioni Vento v1.2</title>
+<title>NAUTILUS Previsioni Vento v2.0</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -28,10 +28,15 @@
   }
   .hbtn{
     background:transparent;border:1px solid var(--border);color:var(--text);
-    padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;
-    white-space:nowrap;-webkit-tap-highlight-color:transparent;
+    padding:7px 12px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;
+    white-space:nowrap;-webkit-tap-highlight-color:transparent;text-align:center;min-width:44px;
   }
+  .hbtn .daymark{display:block;font-size:8px;color:var(--muted);font-weight:400;margin-top:1px;}
+  .hbtn.now{border-color:var(--muted);}
+  .hbtn.now::before{content:'ora ';font-size:9px;color:var(--muted);display:block;font-weight:400;}
+  .hbtn.has-our{border-color:#2fb8d6;}
   .hbtn.active{background:var(--accent);border-color:var(--accent);color:#001a20;}
+  .hbtn.active .daymark{color:#001a20;}
   #freshness{
     position:relative;z-index:1000;padding:5px 14px;font-size:11px;color:var(--muted);
     border-bottom:1px solid var(--border);background:var(--panel);
@@ -48,13 +53,13 @@
   #legend{
     position:absolute;bottom:14px;left:14px;z-index:900;background:rgba(10,26,46,0.92);
     border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:11px;
-    color:var(--muted);line-height:1.6;max-width:220px;
+    color:var(--muted);line-height:1.6;max-width:230px;
   }
   #legend b{color:var(--text);}
   #status{
     position:absolute;top:10px;right:10px;z-index:900;background:rgba(10,26,46,0.92);
     border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:11px;color:var(--muted);
-    max-width:200px;
+    max-width:220px;text-align:right;
   }
 </style>
 </head>
@@ -62,18 +67,11 @@
 
 <header>
   <h1>NAUTILUS &mdash; Previsioni Vento</h1>
-  <span class="ver">v1.2</span>
+  <span class="ver">v2.0</span>
   <a class="back" href="/index2.html">&larr; cruscotto</a>
 </header>
 
-<div id="hourbar">
-  <button class="hbtn active" data-h="now">Ora</button>
-  <button class="hbtn" data-h="h1">+1h</button>
-  <button class="hbtn" data-h="h3">+3h</button>
-  <button class="hbtn" data-h="h6">+6h</button>
-  <button class="hbtn" data-h="h9">+9h</button>
-  <button class="hbtn" data-h="h12">+12h</button>
-</div>
+<div id="hourbar"><!-- popolato via JS, cambia ogni refresh --></div>
 <div id="freshness">Caricamento...</div>
 
 <div id="mapwrap">
@@ -81,8 +79,9 @@
   <canvas id="particle-canvas"></canvas>
   <button id="btn-flow" title="Animazione flusso vento">&#x1F300; FLOW</button>
   <div id="legend">
-    <div><b>═══▶▶</b> doppia freccia = nostra previsione (media + raffica), zona attiva</div>
-    <div><b>─▶</b> freccia singola = modello OM grezzo, nessuna zona nostra qui</div>
+    <div><b>═══▶▶</b> doppia freccia = nostra previsione, dall'ultimo predict</div>
+    <div><b>─▶</b> freccia singola = OM, sempre ricalcolato da adesso</div>
+    <div style="margin-top:6px;">Bottone "ora": sempre dato reale stazioni, mai previsione</div>
     <div style="margin-top:6px;">Colore = intensità (scala Beaufort)</div>
   </div>
   <div id="status"></div>
@@ -90,7 +89,7 @@
 
 <script>
 var ENGINE_URL = 'https://nautilus-red.vercel.app/api/engine';
-var REFRESH_MS = 600000; // 10 minuti, stessa cadenza di mappa.html (setInterval loadAll)
+var REFRESH_MS = 600000; // 10 minuti, stessa cadenza di mappa.html
 
 // ==================== Griglia (identica a mappa.html: 0.25 gradi) ====================
 var GRID = [];
@@ -106,9 +105,6 @@ var COMPASS_TO_DEG = {
   'S':180, 'SSO':202.5, 'SO':225, 'OSO':247.5, 'O':270, 'ONO':292.5, 'NO':315, 'NNO':337.5
 };
 
-// Estrae "H+N: X kn da DIR" dal testo libero della previsione. Ritorna {speed, dir} o null.
-// Stesso pattern usato da action=predict (extractWindVal) per la velocita', qui aggiungiamo
-// anche la direzione (mai salvata in un campo strutturato -- vedi METODOLOGIA).
 function parseForecastFromText(text, h) {
   if (!text) return null;
   var re = new RegExp('H\\+?' + h + '\\s*:\\s*([0-9]+\\.?[0-9]*)\\s*kn\\s*da\\s*([A-Za-z]+)', 'i');
@@ -116,11 +112,25 @@ function parseForecastFromText(text, h) {
   if (!m) return null;
   var dirTxt = m[2].toUpperCase();
   var deg = COMPASS_TO_DEG[dirTxt];
-  if (deg === undefined) return null; // etichetta non riconosciuta -- niente freccia nostra, si cade sul fallback OM
+  if (deg === undefined) return null;
   return { speed: parseFloat(m[1]), dir: deg };
 }
 
-// ==================== Stile frecce (copiato identico da mappa.html v1.6.88) ====================
+// ==================== Tempo: "ora corrente" come istante assoluto (floor all'ora) ====================
+// Nota: si assume che il fuso del browser abbia lo stesso offset a ore intere di
+// Europe/Rome (vero per l'uso reale dell'app, Toscana). L'etichetta a video usa
+// comunque Intl con timeZone esplicito, per correttezza visiva indipendente dal device.
+function floorToHour(d){
+  return new Date(d.getTime() - (d.getMinutes()*60000 + d.getSeconds()*1000 + d.getMilliseconds()));
+}
+function romeHourLabel(d){
+  return new Intl.DateTimeFormat('it-IT', { timeZone:'Europe/Rome', hour:'2-digit', hour12:false }).format(d);
+}
+function romeDayLabel(d){
+  return new Intl.DateTimeFormat('it-IT', { timeZone:'Europe/Rome', day:'2-digit', month:'2-digit' }).format(d);
+}
+
+// ==================== Stile frecce (identico a mappa.html v1.6.88) ====================
 function windColor(s){
   if (s >= 34) return '#cc0000';
   if (s >= 28) return '#ff3300';
@@ -176,7 +186,7 @@ function drawSingleArrow(ctx, ox, oy, rad, len, lw, colShaft, colHead, alpha){
 
 function drawArrow(ctx, cx, cy, dir, spd, gust, alpha, isZone, zoom){
   if (spd === null || spd === undefined || isNaN(spd)) return;
-  if (dir === null || dir === undefined || isNaN(dir)) return; // guard NaN, come mappa.html v1.6.55
+  if (dir === null || dir === undefined || isNaN(dir)) return;
   var zScale = Math.max(0.4, Math.min(1.4, (zoom - 6) * 0.3));
   var base = isZone ? 28 * zScale : 16 * zScale;
   var extra = Math.min(spd * 1.6, 18) * zScale;
@@ -199,16 +209,15 @@ function drawArrow(ctx, cx, cy, dir, spd, gust, alpha, isZone, zoom){
 
 // ==================== Stato ====================
 var state = {
-  gridPoints: [],    // da action=grid (con .forecast.hN)
-  zonePoints: [],    // { lat, lon, name, key, now:{speed,dir,gust}, h1:{...}, h3:{...}, ... }
-  currentHour: 'now',
+  gridPoints: [],       // da action=grid (con .forecast.h1..h12)
+  zonePoints: [],       // { lat, lon, name, key, biasStation, genDate, h1..h12:{speed,dir} }
+  stationsNow: {},       // da action=stations_snapshot: { stationId: {wind_kt,direction,gust_kt,age_min} }
+  hourButtons: [],       // [{ offset, date }] ricostruito ad ogni loadAll
+  currentOffset: 0,      // quale bottone e' selezionato -- persiste tra i refresh
   lastFetch: null
 };
 
-// ==================== Flusso animato (portato da mappa.html, semplificato: niente
-// oiEnabled/grid_rules boost -- previsioni.html non ha quella macchina OI. Le fonti
-// sono le stesse gia' usate per le frecce: zone nostre (peso alto) + griglia OM
-// (riempitivo), stessa filosofia gia' in tryDraw/drawAll. ====================
+// ==================== Flusso animato ====================
 var particleState = { active:false, field:null, fieldRes:14, fieldW:0, fieldH:0, particles:[], animFrame:null };
 var pCanvas, pCtx;
 var PARTICLE_COUNT = 600;
@@ -222,23 +231,20 @@ function buildVectorField(){
   particleState.fieldW = cols;
   particleState.fieldH = rows;
   var EPS = 1e-10;
-  var hourKey = state.currentHour;
 
-  // Fonti OM (griglia) - peso base 1.0
   var omSources = [];
   state.gridPoints.forEach(function(g){
     var px = map.latLngToContainerPoint([g.lat, g.lon]);
     if (px.x < -300 || px.x > W+300 || px.y < -300 || px.y > H+300) return;
-    var gv = gridValueFor(g, hourKey);
+    var gv = omValueForOffset(g, state.currentOffset);
     if (!gv || gv.dir == null || gv.speed == null || isNaN(gv.dir) || isNaN(gv.speed)) return;
     var rad = gv.dir * Math.PI / 180;
     omSources.push({ x:px.x, y:px.y, u:-Math.sin(rad)*gv.speed, v:Math.cos(rad)*gv.speed });
   });
 
-  // Fonti nostre (zone) - peso alto, dominano localmente dove abbiamo previsione valida
   var nauSources = [];
   state.zonePoints.forEach(function(z){
-    var v = hourKey === 'now' ? null : z[hourKey];
+    var v = ourValueForOffset(z, state.currentOffset);
     if (!v || v.dir == null || v.speed == null || isNaN(v.dir) || isNaN(v.speed)) return;
     var px = map.latLngToContainerPoint([z.lat, z.lon]);
     var rad = v.dir * Math.PI / 180;
@@ -353,7 +359,7 @@ function rebuildAndAnimate(){
   startParticles();
 }
 
-
+// ==================== Mappa ====================
 var map, canvas, ctx;
 
 function initMap(){
@@ -388,11 +394,17 @@ async function fetchJson(url){
   return r.json();
 }
 
+// ==================== Caricamento dati ====================
 async function loadGrid(){
   var lats = GRID.map(function(p){ return p.lat; }).join(',');
   var lons = GRID.map(function(p){ return p.lon; }).join(',');
   var d = await fetchJson(ENGINE_URL + '?action=grid&lats=' + lats + '&lons=' + lons);
   state.gridPoints = d.points || [];
+}
+
+async function loadStationsSnapshot(){
+  var d = await fetchJson(ENGINE_URL + '?action=stations_snapshot');
+  state.stationsNow = d.stations || {};
 }
 
 async function loadZones(){
@@ -411,19 +423,70 @@ async function loadZones(){
     if (r.status !== 'fulfilled' || !r.value.p) return;
     var z = r.value.zone, p = r.value.p;
     var text = p.prediction_text || '';
-    var entry = { lat: z.lat, lon: z.lon, name: z.name, key: z.key };
-    ['h1','h3','h6','h9','h12'].forEach(function(h){
-      var speedField = p['forecast_' + h]; // gia' corretto (bias applicato), numero
-      var parsed = parseForecastFromText(text, h.slice(1));
-      if (speedField != null && parsed) {
-        entry[h] = { speed: speedField, dir: parsed.dir, gust: null };
-      } else {
-        entry[h] = null; // niente nostra previsione valida per questo orizzonte -- si cade sul fallback OM in draw
-      }
+    var entry = {
+      lat: z.lat, lon: z.lon, name: z.name, key: z.key,
+      biasStation: z.bias_station,
+      genDate: p.generated_at ? new Date(p.generated_at) : null
+    };
+    [1,3,6,9,12].forEach(function(h){
+      var speedField = p['forecast_h' + h]; // gia' corretto (bias applicato)
+      var parsed = parseForecastFromText(text, h);
+      entry['h' + h] = (speedField != null && parsed) ? { speed: speedField, dir: parsed.dir } : null;
     });
     zonePoints.push(entry);
   });
   state.zonePoints = zonePoints;
+}
+
+// ==================== Bottoni ora ====================
+function buildHourButtons(){
+  var nowFloored = floorToHour(new Date());
+  var buttons = [];
+  for (var i = 0; i <= 12; i++){
+    buttons.push({ offset: i, date: new Date(nowFloored.getTime() + i * 3600000) });
+  }
+  state.hourButtons = buttons;
+}
+
+// Vero se questa zona ha una previsione nostra valida per questo bottone (scarto
+// dall'ULTIMO PREDICT, non da adesso -- l'"orologio nostro").
+function ourValueForOffset(zoneEntry, offset){
+  if (!zoneEntry.genDate || offset === 0) return null; // bottone "ora" non mostra mai l'AI
+  var btn = state.hourButtons[offset];
+  if (!btn) return null;
+  var genFloored = floorToHour(zoneEntry.genDate);
+  var offsetFromPredict = Math.round((btn.date.getTime() - genFloored.getTime()) / 3600000);
+  if ([1,3,6,9,12].indexOf(offsetFromPredict) === -1) return null;
+  return zoneEntry['h' + offsetFromPredict] || null;
+}
+
+// OM per questo bottone -- sempre relativo ad "adesso" (l'"orologio OM"), mai al predict.
+function omValueForOffset(gridPoint, offset){
+  if (offset === 0) return { speed: gridPoint.speed, dir: gridPoint.dir, gust: gridPoint.gust };
+  return (gridPoint.forecast && gridPoint.forecast['h' + offset]) ? gridPoint.forecast['h' + offset] : null;
+}
+
+function renderHourBar(){
+  var bar = document.getElementById('hourbar');
+  bar.innerHTML = '';
+  state.hourButtons.forEach(function(btn){
+    var b = document.createElement('button');
+    b.className = 'hbtn' + (btn.offset === 0 ? ' now' : '') + (btn.offset === state.currentOffset ? ' active' : '');
+    // ha almeno una zona con previsione nostra valida per questo bottone?
+    var hasOur = btn.offset !== 0 && state.zonePoints.some(function(z){ return !!ourValueForOffset(z, btn.offset); });
+    if (hasOur) b.className += ' has-our';
+    var todayLabel = romeDayLabel(new Date());
+    var btnDayLabel = romeDayLabel(btn.date);
+    var dayMark = (btnDayLabel !== todayLabel) ? ('<span class="daymark">' + btnDayLabel + '</span>') : '';
+    b.innerHTML = romeHourLabel(btn.date) + dayMark;
+    b.addEventListener('click', function(){
+      state.currentOffset = btn.offset;
+      renderHourBar();
+      drawAll();
+      if (particleState.active) rebuildAndAnimate();
+    });
+    bar.appendChild(b);
+  });
 }
 
 function nearestGridPoint(lat, lon){
@@ -435,11 +498,7 @@ function nearestGridPoint(lat, lon){
   return best;
 }
 
-function gridValueFor(g, hourKey){
-  if (hourKey === 'now') return { speed: g.speed, dir: g.dir, gust: g.gust };
-  return (g.forecast && g.forecast[hourKey]) ? g.forecast[hourKey] : null;
-}
-
+// ==================== Disegno ====================
 function drawAll(){
   if (!ctx) return;
   ctx.clearRect(0,0,canvas.width,canvas.height);
@@ -447,7 +506,7 @@ function drawAll(){
   var zoom = map.getZoom();
   var minPx = zoom >= 10 ? 18 : zoom >= 9 ? 22 : 30;
   var drawn = [];
-  var hourKey = state.currentHour;
+  var offset = state.currentOffset;
 
   function tryDraw(lat, lon, dir, spd, gust, isZone){
     if (!bounds.contains([lat, lon])) return;
@@ -460,23 +519,35 @@ function drawAll(){
     drawArrow(ctx, pt.x, pt.y, dir, spd, gust, 0.95, isZone, zoom);
   }
 
-  // Zone nostre per prime (vincono lo spazio), stesso ordine di priorita' di mappa.html
+  // Zone nostre per prime (vincono lo spazio)
   state.zonePoints.forEach(function(z){
-    var v = hourKey === 'now' ? null : z[hourKey]; // "ora" non ha forecast nostro, e' sempre presente/attuale -> fallback OM
+    if (offset === 0) {
+      // bottone "ora": dato reale stazione, mai AI
+      var st = state.stationsNow[z.biasStation];
+      if (st && st.wind_kt != null && st.direction != null) {
+        tryDraw(z.lat, z.lon, st.direction, st.wind_kt, st.gust_kt, true);
+        return;
+      }
+      // nessuna lettura reale recente -- cade sull'OM del punto griglia piu' vicino
+      var g0 = nearestGridPoint(z.lat, z.lon);
+      if (g0) tryDraw(z.lat, z.lon, g0.dir, g0.speed, g0.gust, false);
+      return;
+    }
+    var v = ourValueForOffset(z, offset);
     if (v) {
-      tryDraw(z.lat, z.lon, v.dir, v.speed, v.gust, true);
+      tryDraw(z.lat, z.lon, v.dir, v.speed, null, true);
     } else {
       var g = nearestGridPoint(z.lat, z.lon);
       if (g) {
-        var gv = gridValueFor(g, hourKey);
+        var gv = omValueForOffset(g, offset);
         if (gv) tryDraw(z.lat, z.lon, gv.dir, gv.speed, gv.gust, false);
       }
     }
   });
 
-  // Griglia OM di sfondo
+  // Griglia OM di sfondo -- sempre dall'orologio OM (relativo ad adesso)
   state.gridPoints.forEach(function(g){
-    var gv = gridValueFor(g, hourKey);
+    var gv = omValueForOffset(g, offset);
     if (!gv) return;
     tryDraw(g.lat, g.lon, gv.dir, gv.speed, gv.gust, false);
   });
@@ -495,26 +566,18 @@ async function loadAll(){
   var statusEl = document.getElementById('status');
   statusEl.textContent = 'Aggiorno...';
   try {
-    await Promise.all([loadGrid(), loadZones()]);
+    await Promise.all([loadGrid(), loadZones(), loadStationsSnapshot()]);
+    buildHourButtons();
     state.lastFetch = new Date();
     updateFreshness();
     statusEl.textContent = state.zonePoints.length + ' zone, ' + state.gridPoints.length + ' punti griglia';
+    renderHourBar();
     drawAll();
     if (particleState.active) rebuildAndAnimate();
   } catch(e) {
     statusEl.textContent = 'Errore: ' + e.message;
   }
 }
-
-document.querySelectorAll('.hbtn').forEach(function(btn){
-  btn.addEventListener('click', function(){
-    document.querySelectorAll('.hbtn').forEach(function(b){ b.classList.remove('active'); });
-    btn.classList.add('active');
-    state.currentHour = btn.dataset.h;
-    drawAll();
-    if (particleState.active) rebuildAndAnimate();
-  });
-});
 
 document.getElementById('btn-flow').addEventListener('click', function(){
   particleState.active = !particleState.active;
@@ -529,9 +592,9 @@ document.getElementById('btn-flow').addEventListener('click', function(){
 
 initMap();
 loadAll();
-setInterval(loadAll, REFRESH_MS); // stessa cadenza di mappa.html (setInterval loadAll, 600000)
+setInterval(loadAll, REFRESH_MS);
 </script>
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS PREVISIONI v1.2 -->
+<!-- Fine codice - NAUTILUS PREVISIONI v2.0 -->

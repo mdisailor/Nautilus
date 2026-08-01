@@ -1,4 +1,4 @@
-<!-- NAUTILUS PREVISIONI v1.0 - mdisailor - 2026-07-31 - nuova pagina: mappa vento PREVISTO (non attuale). Doppia freccia = nostra previsione AI corretta (zone attive, direzione estratta dal testo). Freccia singola = OM grezzo di ripiego (action=grid esteso, engine v2.14.11). Selettore orizzonte Ora/+1h/+3h/+6h/+9h/+12h cambia solo quale campo gia' scaricato disegnare, nessuna nuova fetch al cambio. Refresh automatico ogni 10 min (stessa cadenza di mappa.html). File completamente separato da mappa.html, nessun rischio sulla mappa esistente. -->
+<!-- NAUTILUS PREVISIONI v1.1 - mdisailor - 2026-07-31 - v1.1: aggiunto flusso animato (particelle, IDW), portato da mappa.html semplificato -- niente oiEnabled/grid_rules, fonti sono le stesse gia usate per le frecce (zone nostre peso alto + griglia OM riempitivo). Rebuild automatico al cambio orizzonte, zoom/pan, e refresh dati ogni 10 min. Su base v1.0. -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Previsioni Vento v1.0</title>
+<title>NAUTILUS Previsioni Vento v1.1</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
@@ -38,6 +38,13 @@
   }
   #map{position:absolute;top:0;left:0;right:0;bottom:0;z-index:0;}
   #mapwrap{position:relative;height:calc(100% - 108px);}
+  #particle-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:480;}
+  #btn-flow{
+    position:absolute;top:10px;left:10px;z-index:900;background:rgba(10,26,46,0.92);
+    border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;
+    font-size:12px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;
+  }
+  #btn-flow.active{color:var(--accent);border-color:var(--accent);box-shadow:0 0 14px rgba(0,240,255,0.3);}
   #legend{
     position:absolute;bottom:14px;left:14px;z-index:900;background:rgba(10,26,46,0.92);
     border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:11px;
@@ -55,7 +62,7 @@
 
 <header>
   <h1>NAUTILUS &mdash; Previsioni Vento</h1>
-  <span class="ver">v1.0</span>
+  <span class="ver">v1.1</span>
   <a class="back" href="/index2.html">&larr; cruscotto</a>
 </header>
 
@@ -71,6 +78,8 @@
 
 <div id="mapwrap">
   <div id="map"></div>
+  <canvas id="particle-canvas"></canvas>
+  <button id="btn-flow" title="Animazione flusso vento">&#x1F300; FLOW</button>
   <div id="legend">
     <div><b>═══▶▶</b> doppia freccia = nostra previsione (media + raffica), zona attiva</div>
     <div><b>─▶</b> freccia singola = modello OM grezzo, nessuna zona nostra qui</div>
@@ -196,6 +205,155 @@ var state = {
   lastFetch: null
 };
 
+// ==================== Flusso animato (portato da mappa.html, semplificato: niente
+// oiEnabled/grid_rules boost -- previsioni.html non ha quella macchina OI. Le fonti
+// sono le stesse gia' usate per le frecce: zone nostre (peso alto) + griglia OM
+// (riempitivo), stessa filosofia gia' in tryDraw/drawAll. ====================
+var particleState = { active:false, field:null, fieldRes:14, fieldW:0, fieldH:0, particles:[], animFrame:null };
+var pCanvas, pCtx;
+var PARTICLE_COUNT = 600;
+var MAX_AGE = 60;
+
+function buildVectorField(){
+  var W = pCanvas.width, H = pCanvas.height;
+  var res = particleState.fieldRes;
+  var cols = Math.ceil(W / res);
+  var rows = Math.ceil(H / res);
+  particleState.fieldW = cols;
+  particleState.fieldH = rows;
+  var EPS = 1e-10;
+  var hourKey = state.currentHour;
+
+  // Fonti OM (griglia) - peso base 1.0
+  var omSources = [];
+  state.gridPoints.forEach(function(g){
+    var px = map.latLngToContainerPoint([g.lat, g.lon]);
+    if (px.x < -300 || px.x > W+300 || px.y < -300 || px.y > H+300) return;
+    var gv = gridValueFor(g, hourKey);
+    if (!gv || gv.dir == null || gv.speed == null || isNaN(gv.dir) || isNaN(gv.speed)) return;
+    var rad = gv.dir * Math.PI / 180;
+    omSources.push({ x:px.x, y:px.y, u:-Math.sin(rad)*gv.speed, v:Math.cos(rad)*gv.speed });
+  });
+
+  // Fonti nostre (zone) - peso alto, dominano localmente dove abbiamo previsione valida
+  var nauSources = [];
+  state.zonePoints.forEach(function(z){
+    var v = hourKey === 'now' ? null : z[hourKey];
+    if (!v || v.dir == null || v.speed == null || isNaN(v.dir) || isNaN(v.speed)) return;
+    var px = map.latLngToContainerPoint([z.lat, z.lon]);
+    var rad = v.dir * Math.PI / 180;
+    nauSources.push({ x:px.x, y:px.y, u:-Math.sin(rad)*v.speed, v:Math.cos(rad)*v.speed, w:10.0 });
+  });
+
+  if (omSources.length === 0 && nauSources.length === 0){ particleState.field = null; return; }
+
+  var field = new Float32Array(cols * rows * 2);
+  for (var row = 0; row < rows; row++){
+    for (var col = 0; col < cols; col++){
+      var cx = col * res + res/2, cy = row * res + res/2;
+      var sumU = 0, sumV = 0, sumW = 0;
+      for (var ni = 0; ni < nauSources.length; ni++){
+        var n = nauSources[ni];
+        var dxn = cx-n.x, dyn = cy-n.y, d2n = dxn*dxn+dyn*dyn;
+        if (d2n < 900) d2n = 900;
+        var wn = n.w/d2n; sumU += n.u*wn; sumV += n.v*wn; sumW += wn;
+      }
+      for (var oi = 0; oi < omSources.length; oi++){
+        var o = omSources[oi];
+        var dxo = cx-o.x, dyo = cy-o.y, d2o = dxo*dxo+dyo*dyo;
+        if (d2o < 900) d2o = 900;
+        var wo = 1.0/d2o; sumU += o.u*wo; sumV += o.v*wo; sumW += wo;
+      }
+      var idx = (row * cols + col) * 2;
+      if (sumW > EPS){ field[idx] = sumU/sumW; field[idx+1] = sumV/sumW; }
+    }
+  }
+  particleState.field = field;
+}
+
+function sampleField(px, py){
+  var res = particleState.fieldRes;
+  var cols = particleState.fieldW, rows = particleState.fieldH;
+  if (!particleState.field) return {u:0, v:0, spd:0};
+  var col = px / res, row = py / res;
+  var c0 = Math.floor(col), c1 = c0+1, r0 = Math.floor(row), r1 = r0+1;
+  if (c0 < 0 || r0 < 0 || c1 >= cols || r1 >= rows) return {u:0, v:0, spd:0};
+  var tc = col - c0, tr = row - r0;
+  function get(r,c){ var i=(r*cols+c)*2; return {u:particleState.field[i], v:particleState.field[i+1]}; }
+  var f00=get(r0,c0), f10=get(r1,c0), f01=get(r0,c1), f11=get(r1,c1);
+  var u = f00.u*(1-tc)*(1-tr) + f01.u*tc*(1-tr) + f10.u*(1-tc)*tr + f11.u*tc*tr;
+  var v = f00.v*(1-tc)*(1-tr) + f01.v*tc*(1-tr) + f10.v*(1-tc)*tr + f11.v*tc*tr;
+  return { u:u, v:v, spd:Math.sqrt(u*u+v*v) };
+}
+
+function spawnParticle(){
+  return { x: Math.random()*pCanvas.width, y: Math.random()*pCanvas.height, age: Math.floor(Math.random()*MAX_AGE) };
+}
+
+function particleColor(spd){
+  if (spd >= 34) return 'rgba(204,0,0,0.9)';
+  if (spd >= 28) return 'rgba(255,51,0,0.9)';
+  if (spd >= 22) return 'rgba(255,136,0,0.9)';
+  if (spd >= 17) return 'rgba(220,200,0,0.85)';
+  if (spd >= 11) return 'rgba(0,180,60,0.85)';
+  if (spd >=  7) return 'rgba(0,160,100,0.8)';
+  if (spd >=  4) return 'rgba(30,100,200,0.75)';
+  if (spd >=  1) return 'rgba(60,60,180,0.7)';
+  return 'rgba(80,80,160,0.5)';
+}
+
+function animateParticles(){
+  if (!particleState.active) return;
+  var W = pCanvas.width, H = pCanvas.height;
+  pCtx.globalCompositeOperation = 'destination-out';
+  pCtx.globalAlpha = 0.04;
+  pCtx.fillRect(0, 0, W, H);
+  pCtx.globalCompositeOperation = 'source-over';
+  pCtx.globalAlpha = 1.0;
+  var speedScale = 0.10;
+  particleState.particles.forEach(function(p, i){
+    var fv = sampleField(p.x, p.y);
+    if (fv.spd < 0.3 || p.age > MAX_AGE){ particleState.particles[i] = spawnParticle(); return; }
+    var nx = p.x + fv.u * speedScale, ny = p.y + fv.v * speedScale;
+    if (nx < 0 || nx > W || ny < 0 || ny > H){ particleState.particles[i] = spawnParticle(); return; }
+    pCtx.beginPath();
+    pCtx.moveTo(p.x, p.y);
+    pCtx.lineTo(nx, ny);
+    pCtx.strokeStyle = particleColor(fv.spd);
+    pCtx.lineWidth = fv.spd > 22 ? 2.0 : fv.spd > 11 ? 1.6 : 1.2;
+    pCtx.stroke();
+    p.x = nx; p.y = ny; p.age++;
+  });
+  particleState.animFrame = requestAnimationFrame(animateParticles);
+}
+
+function startParticles(){
+  if (!particleState.field) return;
+  if (particleState.animFrame) cancelAnimationFrame(particleState.animFrame);
+  pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
+  particleState.particles = [];
+  for (var i = 0; i < PARTICLE_COUNT; i++) particleState.particles.push(spawnParticle());
+  animateParticles();
+}
+
+function stopParticles(){
+  if (particleState.animFrame){ cancelAnimationFrame(particleState.animFrame); particleState.animFrame = null; }
+  if (pCtx) pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
+}
+
+function resizeParticleCanvas(){
+  if (!pCanvas) return;
+  var size = map.getSize();
+  pCanvas.width = size.x; pCanvas.height = size.y;
+}
+
+function rebuildAndAnimate(){
+  if (!particleState.active) return;
+  buildVectorField();
+  startParticles();
+}
+
+
 var map, canvas, ctx;
 
 function initMap(){
@@ -203,7 +361,6 @@ function initMap(){
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
     subdomains: 'abcd', maxZoom: 12
   }).addTo(map);
-  var overlay = L.control({position:'bottomright'});
   canvas = document.createElement('canvas');
   canvas.style.position = 'absolute';
   canvas.style.top = '0'; canvas.style.left = '0';
@@ -211,13 +368,17 @@ function initMap(){
   canvas.style.zIndex = 500;
   map.getPanes().overlayPane.appendChild(canvas);
   ctx = canvas.getContext('2d');
+  pCanvas = document.getElementById('particle-canvas');
+  pCtx = pCanvas.getContext('2d');
   function resizeCanvas(){
     var size = map.getSize();
     canvas.width = size.x; canvas.height = size.y;
     var topLeft = map.containerPointToLayerPoint([0,0]);
     L.DomUtil.setPosition(canvas, topLeft);
+    resizeParticleCanvas();
   }
   map.on('move resize zoom', function(){ resizeCanvas(); drawAll(); });
+  map.on('moveend zoomend', function(){ if (particleState.active) rebuildAndAnimate(); });
   resizeCanvas();
 }
 
@@ -339,6 +500,7 @@ async function loadAll(){
     updateFreshness();
     statusEl.textContent = state.zonePoints.length + ' zone, ' + state.gridPoints.length + ' punti griglia';
     drawAll();
+    if (particleState.active) rebuildAndAnimate();
   } catch(e) {
     statusEl.textContent = 'Errore: ' + e.message;
   }
@@ -350,7 +512,19 @@ document.querySelectorAll('.hbtn').forEach(function(btn){
     btn.classList.add('active');
     state.currentHour = btn.dataset.h;
     drawAll();
+    if (particleState.active) rebuildAndAnimate();
   });
+});
+
+document.getElementById('btn-flow').addEventListener('click', function(){
+  particleState.active = !particleState.active;
+  this.classList.toggle('active', particleState.active);
+  if (particleState.active){
+    buildVectorField();
+    startParticles();
+  } else {
+    stopParticles();
+  }
 });
 
 initMap();
@@ -360,4 +534,4 @@ setInterval(loadAll, REFRESH_MS); // stessa cadenza di mappa.html (setInterval l
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS PREVISIONI v1.0 -->
+<!-- Fine codice - NAUTILUS PREVISIONI v1.1 -->

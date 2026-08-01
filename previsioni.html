@@ -1,4 +1,4 @@
-<!-- NAUTILUS PREVISIONI v2.4 - mdisailor - 2026-08-01 - v2.4: sfondo colorato v2.3 mostrava "isole" intorno ai punti sorgente invece di una sfumatura continua -- causa: decadimento 1/d^2 con stop netto (buono per FLOW, dove serve accuratezza locale, non per il colore). Aggiunto colorField separato: griglia molto piu fitta (7px vs 14px) e decadimento morbido (1/(d+90), nessuno stop netto) SOLO per lo sfondo colorato -- il campo di FLOW resta invariato. Estratta gatherSources() condivisa per non duplicare la raccolta sorgenti. Su base v2.3. -->
+<!-- NAUTILUS PREVISIONI v2.5 - mdisailor - 2026-08-01 - v2.5: v2.4 sovracorretto -- decadimento 1/(d+90) troppo dolce, ogni cella mediava su quasi tutti i 400 punti griglia, risultato quasi uniforme ovunque. Tornato a decadimento quadratico 1/(d+28)^2 -- stessa localita di prima (simile a quella che gia funziona per le frecce/FLOW) ma senza il gradino netto che creava le isole. Su base v2.4. -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Previsioni Vento v2.4</title>
+<title>NAUTILUS Previsioni Vento v2.5</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -69,7 +69,7 @@
 
 <header>
   <h1>NAUTILUS &mdash; Previsioni Vento</h1>
-  <span class="ver">v2.4</span>
+  <span class="ver">v2.5</span>
   <a class="back" href="/index2.html">&larr; cruscotto</a>
 </header>
 
@@ -328,7 +328,7 @@ function buildVectorField(){
 // resta con il decadimento originale: li' serve accuratezza locale per le particelle,
 // qui serve solo un bel gradiente visivo.
 var colorField = { data:null, res:7, w:0, h:0 };
-var COLOR_SOFTEN = 90; // px -- piu' alto = sfumatura piu' ampia e dolce
+var COLOR_SOFTEN = 28; // px -- ammorbidisce lo scatto vicino alla sorgente, senza spalmare tutto
 
 function buildColorField(){
   if (!fCanvas) return;
@@ -350,14 +350,14 @@ function buildColorField(){
       var sumU = 0, sumV = 0, sumW = 0;
       for (var ni = 0; ni < nauSources.length; ni++){
         var n = nauSources[ni];
-        var dn = Math.sqrt((cx-n.x)*(cx-n.x) + (cy-n.y)*(cy-n.y));
-        var wn = n.w / (dn + COLOR_SOFTEN);
+        var dn = Math.sqrt((cx-n.x)*(cx-n.x) + (cy-n.y)*(cy-n.y)) + COLOR_SOFTEN;
+        var wn = n.w / (dn*dn);
         sumU += n.u*wn; sumV += n.v*wn; sumW += wn;
       }
       for (var oi = 0; oi < omSources.length; oi++){
         var o = omSources[oi];
-        var doo = Math.sqrt((cx-o.x)*(cx-o.x) + (cy-o.y)*(cy-o.y));
-        var wo = 1.0 / (doo + COLOR_SOFTEN);
+        var doo = Math.sqrt((cx-o.x)*(cx-o.x) + (cy-o.y)*(cy-o.y)) + COLOR_SOFTEN;
+        var wo = 1.0 / (doo*doo);
         sumU += o.u*wo; sumV += o.v*wo; sumW += wo;
       }
       if (sumW > 1e-10) {
@@ -772,4 +772,4 @@ setInterval(loadAll, REFRESH_MS);
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS PREVISIONI v2.4 -->
+<!-- Fine codice - NAUTILUS PREVISIONI v2.5 -->

@@ -1,0 +1,2211 @@
+<!-- NAUTILUS MAPPA2 v1.0 - mdisailor - 2026-08-01 - Fork sperimentale di mappa.html v1.6.88, per confronto affiancato. Sostituito drawColorLayer (cerchi radiali, isole sopra lo sfondo) con interpolazione bilineare sulla griglia OM/OI regolare (stessa tecnica validata su previsioni.html v3.0). Tolte le 3 modalita OM/NAU/ALL e le nauSources separate in buildVectorField -- ora tutto legge solo activeGrid() (OM puro o OM+correzione locale secondo OI on/off). Restano solo 2 tasti: FLOW (particelle, sempre indipendente dal colore) e OI (che decide se activeGrid() e gridData o gridDataOI). mappa.html originale NON toccato. -->
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#020e1c">
+<title>NAUTILUS Mappa2 Vento v1.0</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#020e1c; --card:#06182e; --border:#1a3a5c;
+  --accent:#0af0ff; --gold:#ffaa00; --warn:#ff7a00;
+  --danger:#ff2d2d; --safe:#00e676; --muted:#4a7a9b;
+  --text:#c8dff0; --white:#e8f4ff;
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg)}
+body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:var(--text)}
+
+/* NAV */
+#nav{
+  position:relative;z-index:1000;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 16px;height:48px;
+  background:rgba(2,14,28,0.97);border-bottom:1px solid var(--border);
+}
+#nav-logo{font-family:'Bebas Neue',cursive;font-size:1.4rem;color:var(--white);letter-spacing:0.12em}
+#nav-logo span{color:var(--accent)}
+#nav-ver{font-size:0.5rem;color:#ffffff;margin-left:8px;letter-spacing:0.05em}
+#nav-back{font-size:0.6rem;color:var(--muted);text-decoration:none;letter-spacing:0.1em;border:1px solid var(--border);border-radius:6px;padding:4px 10px}
+#nav-back:hover{color:var(--accent);border-color:var(--accent)}
+
+/* MAP */
+#map-wrap{position:relative;flex:1;overflow:hidden}
+#map{width:100%;height:100%}
+.leaflet-container{background:#020e1c !important}
+.leaflet-container{background:#a8c8e8 !important}
+.leaflet-control-zoom a{
+  background:var(--card) !important;color:var(--accent) !important;
+  border-color:var(--border) !important;
+}
+
+/* CANVAS */
+#wind-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:600}
+#color-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:570;filter:blur(4px);}
+#particle-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:580}
+
+/* BOTTONE FLOW */
+#btn-flow{
+  position:absolute;z-index:600;width:46px;height:46px;border-radius:12px;
+  background:rgba(6,24,46,0.97);border:1px solid var(--border);
+  color:var(--muted);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  backdrop-filter:blur(8px);transition:all 0.2s;
+  bottom:140px;left:14px;font-size:0.62rem;font-family:'DM Mono',monospace;
+  letter-spacing:0.04em;flex-direction:column;gap:1px;
+}
+#btn-flow.active{color:var(--accent);border-color:var(--accent);box-shadow:0 0 14px rgba(0,240,255,0.3)}
+#btn-flow:hover{color:var(--accent);border-color:var(--accent)}
+
+#btn-oi{
+  position:absolute;z-index:600;width:46px;height:46px;border-radius:12px;
+  background:rgba(6,24,46,0.97);border:1px solid var(--border);
+  color:var(--muted);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  backdrop-filter:blur(8px);transition:all 0.2s;
+  bottom:192px;left:14px;font-size:0.55rem;font-family:'DM Mono',monospace;
+  letter-spacing:0.04em;flex-direction:column;gap:1px;
+}
+#btn-oi.active{color:#00e676;border-color:#00e676;box-shadow:0 0 14px rgba(0,230,118,0.3)}
+#btn-oi:hover{color:#00e676;border-color:#00e676}
+
+#btn-export{
+  position:absolute;z-index:600;width:46px;height:46px;border-radius:12px;
+  background:rgba(6,24,46,0.97);border:1px solid var(--border);
+  color:var(--muted);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  backdrop-filter:blur(8px);transition:all 0.2s;
+  bottom:245px;left:14px;font-size:0.5rem;font-family:'DM Mono',monospace;
+  letter-spacing:0.04em;flex-direction:column;gap:1px;
+}
+#btn-export:hover{color:var(--gold);border-color:var(--gold)}
+
+/* HUD */
+#hud{
+  position:absolute;top:10px;left:50%;transform:translateX(-50%);
+  z-index:600;display:flex;gap:8px;align-items:center;
+}
+.hud-badge{
+  font-family:'DM Mono',monospace;font-size:0.82rem;letter-spacing:0.06em;
+  padding:7px 16px;border-radius:22px;
+  background:rgba(6,24,46,0.97);border:1px solid var(--border);
+  backdrop-filter:blur(10px);color:var(--text);
+  display:flex;align-items:center;gap:8px;
+}
+.hud-badge .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.dot-ok  {background:var(--safe);  box-shadow:0 0 7px var(--safe)}
+.dot-load{background:var(--gold);  box-shadow:0 0 7px var(--gold);animation:pulse 1s infinite}
+.dot-err {background:var(--danger);box-shadow:0 0 7px var(--danger)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+
+/* LEGEND */
+#legend{
+  position:absolute;bottom:36px;right:14px;z-index:600;
+  background:rgba(6,24,46,0.97);border:1px solid var(--accent);
+  border-radius:14px;backdrop-filter:blur(10px);
+  font-family:'DM Mono',monospace;font-size:0.82rem;color:var(--text);
+  box-shadow:0 4px 24px rgba(0,240,255,0.15);
+  max-height:82vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+}
+#legend-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:11px 16px;cursor:pointer;user-select:none;
+  border-bottom:1px solid transparent;transition:border-color 0.2s;
+}
+#legend-header.open{border-bottom-color:var(--border)}
+#legend-title{color:var(--accent);font-size:0.85rem;letter-spacing:0.1em;text-transform:uppercase;font-weight:bold}
+#legend-toggle{color:var(--muted);font-size:0.65rem;margin-left:12px;display:inline-block;transition:transform 0.2s}
+#legend-toggle.open{transform:rotate(180deg)}
+#legend-body{display:none;padding:12px 16px 14px}
+#legend-body.open{display:block}
+.leg-row{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+.leg-color{width:32px;height:5px;border-radius:3px;flex-shrink:0}
+.leg-note{margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:0.62rem;color:var(--muted);line-height:1.7}
+
+/* BUTTONS */
+#btn-gps,#btn-refresh{
+  position:absolute;z-index:600;width:46px;height:46px;border-radius:12px;
+  background:rgba(6,24,46,0.97);border:1px solid var(--border);
+  color:var(--muted);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  backdrop-filter:blur(8px);transition:all 0.2s;
+}
+#btn-gps{bottom:36px;left:14px;font-size:1.2rem}
+#btn-refresh{bottom:88px;left:14px;font-size:1rem;font-family:'DM Mono',monospace}
+#btn-gps:hover,#btn-gps.active{color:var(--accent);border-color:var(--accent);box-shadow:0 0 14px rgba(0,240,255,0.3)}
+#btn-refresh:hover{color:var(--gold);border-color:var(--gold)}
+
+/* Pannello inserimento osservazione */
+#obs-panel{
+  display:none;position:fixed;bottom:0;left:0;right:0;z-index:900;
+  background:var(--card);border-top:2px solid #ff9500;
+  padding:16px;max-height:80vh;overflow-y:auto;
+}
+#obs-panel.open{display:block}
+#obs-panel h3{font-family:'DM Mono',monospace;font-size:0.7rem;color:#ff9500;
+  letter-spacing:0.1em;text-transform:uppercase;margin-bottom:12px}
+.obs-field{margin-bottom:10px}
+.obs-field label{display:block;font-family:'DM Mono',monospace;font-size:0.55rem;
+  color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.08em}
+.obs-field input{width:100%;background:var(--bg);border:1px solid var(--border);
+  border-radius:8px;padding:8px 12px;font-family:'DM Mono',monospace;font-size:0.8rem;
+  color:var(--white);outline:none}
+.obs-field input:focus{border-color:#ff9500}
+.obs-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#obs-submit{width:100%;padding:12px;background:#ff9500;border:none;border-radius:10px;
+  font-family:'DM Mono',monospace;font-size:0.7rem;color:#000;font-weight:bold;
+  cursor:pointer;margin-top:4px;letter-spacing:0.08em}
+#obs-cancel{width:100%;padding:10px;background:transparent;border:1px solid var(--border);
+  border-radius:10px;font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--muted);
+  cursor:pointer;margin-top:6px}
+#obs-status{font-family:'DM Mono',monospace;font-size:0.6rem;margin-top:8px;
+  text-align:center;min-height:20px}
+
+/* FOOTER */
+#footer{
+  position:relative;z-index:1000;
+  display:flex;align-items:center;justify-content:center;
+  height:24px;background:rgba(2,14,28,0.97);border-top:1px solid var(--border);
+  font-family:'DM Mono',monospace;font-size:0.52rem;color:var(--muted);
+  letter-spacing:0.08em;
+}
+
+/* POPUP */
+.leaflet-popup-content-wrapper{
+  background:var(--card) !important;border:1px solid var(--border) !important;
+  border-radius:10px !important;box-shadow:0 4px 20px rgba(0,240,255,0.15) !important;
+}
+.leaflet-popup-tip{background:var(--card) !important}
+.grid-popup .leaflet-popup-content-wrapper{border-color:var(--muted) !important}
+.leaflet-popup-content{margin:12px 14px !important}
+.popup-name{font-family:'Bebas Neue',cursive;font-size:1.3rem;color:var(--white);letter-spacing:0.1em}
+.popup-wind{font-family:'DM Mono',monospace;font-size:0.95rem;color:var(--accent);margin-top:6px}
+.popup-ts{font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--muted);margin-top:4px}
+.popup-srcs{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
+.psrc{font-size:0.62rem;padding:3px 9px;border-radius:4px;border:1px solid}
+.psrc-om  {color:#8ab8d0;border-color:#8ab8d0}
+.psrc-icon{color:#90caf9;border-color:#90caf9}
+.psrc-ifs {color:#ce93d8;border-color:#ce93d8}
+.psrc-owm {color:var(--safe);border-color:var(--safe)}
+
+/* GPS marker */
+.gps-dot{
+  width:16px;height:16px;border-radius:50%;
+  background:var(--accent);border:3px solid var(--white);
+  box-shadow:0 0 0 5px rgba(0,240,255,0.25),0 0 20px rgba(0,240,255,0.5);
+  animation:gpspulse 2s ease-out infinite;
+}
+@keyframes gpspulse{
+  0%  {box-shadow:0 0 0 5px rgba(0,240,255,0.25),0 0 20px rgba(0,240,255,0.5)}
+  50% {box-shadow:0 0 0 10px rgba(0,240,255,0.08),0 0 30px rgba(0,240,255,0.3)}
+  100%{box-shadow:0 0 0 5px rgba(0,240,255,0.25),0 0 20px rgba(0,240,255,0.5)}
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&display=swap');
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<nav id="nav">
+  <div style="display:flex;align-items:baseline;gap:10px">
+    <div id="nav-logo">NAUTI<span>LUS</span></div>
+    <span id="nav-ver">mappa2 v1.0</span>
+    <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
+    <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
+  </div>
+  <a id="nav-back" href="#" onclick="event.preventDefault(); var p = prompt('Password:'); if (p === 'mdi') { window.location.href = '/?k=mdi'; }">APP</a>
+</nav>
+
+<div id="map-wrap">
+  <div id="map"></div>
+  <canvas id="wind-canvas"></canvas>
+  <canvas id="color-canvas"></canvas>
+  <canvas id="particle-canvas"></canvas>
+
+  <div id="hud">
+    <div class="hud-badge">
+      <div class="dot dot-load" id="hud-dot"></div>
+      <span id="hud-text">Caricamento...</span>
+    </div>
+    <div class="hud-badge" id="hud-time" style="display:none">
+      <span id="hud-ts">--:--</span>
+    </div>
+  </div>
+
+  <button id="btn-gps" title="Posizione GPS">GPS</button>
+  <button id="btn-refresh" title="Aggiorna">AGG</button>
+  <button id="btn-flow" title="Animazione flusso vento">&#x1F300;<br>FLOW</button>
+  <button id="btn-oi" title="Correzione Optimal Interpolation: applica bias stazioni reali alla griglia OM">OI<br>OFF</button>
+  <button id="btn-export" title="Esporta griglia in Excel per analisi" onclick="exportGrid()">📊<br>XLS</button>
+
+  <div id="legend">
+    <div id="legend-header" onclick="toggleLegend()">
+      <span id="legend-title">Scala Beaufort</span>
+      <span id="legend-toggle">&#9660;</span>
+    </div>
+    <div id="legend-body">
+    <div class="leg-row"><div class="leg-color" style="background:#cc0000"></div><span>F8+ &gt;34 kn</span></div>
+    <div class="leg-row"><div class="leg-color" style="background:#ff3300"></div><span>F7  28-34 kn</span></div>
+    <div class="leg-row"><div class="leg-color" style="background:#ff8800"></div><span>F6  22-28 kn</span></div>
+    <div class="leg-row"><div class="leg-color" style="background:#ffdd00"></div><span>F5  17-22 kn</span></div>
+    <div class="leg-row"><div class="leg-color" style="background:#00cc44"></div><span>F4  11-17 kn</span></div>
+    <div class="leg-row"><div class="leg-color" style="background:#00ee88"></div><span>F3   7-11 kn</span></div>
+    <div class="leg-row"><div class="leg-color" style="background:#44ddcc"></div><span>F2   4-7 kn</span></div>
+    <div class="leg-row"><div class="leg-color" style="background:#88ccff"></div><span>F1   1-4 kn</span></div>
+    <div class="leg-row"><div class="leg-color" style="background:#aaddff"></div><span>F0  &lt; 1 kn</span></div>
+    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+      <div class="leg-row">
+        <svg width="16" height="16"><circle cx="8" cy="8" r="7" fill="#ffaa00" fill-opacity="0.25" stroke="#e8f4ff" stroke-width="2"/><circle cx="8" cy="8" r="3" fill="#ffaa00"/></svg>
+        <span>Punti zona*</span>
+      </div>
+      <div class="leg-row">
+        <svg width="16" height="16"><circle cx="8" cy="8" r="5" fill="#ffaa00" fill-opacity="0.15" stroke="#ffaa00" stroke-width="1.5"/></svg>
+        <span>Griglia OM</span>
+      </div>
+    </div>
+    <div class="leg-note">
+      Colore = scala Beaufort<br>Griglia: shaft=vento testa=raffica<br>Punti zona: sinistra=vento<br>destra=raffica<br>Tap per dettagli e orario<br>Aggiorn. 10 min
+    </div>
+    </div>
+  </div>
+</div>
+
+<div id="footer">NAUTILUS MAPPA2 v1.0 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+
+<script>
+'use strict';
+// NAUTILUS MAPPA2 v1.0
+
+var ENGINE_URL = '/api/engine';
+
+var ZONES = [
+  { key:'livorno',          name:'Livorno',            lat:43.5497, lon:10.2950 },
+  { key:'viareggio',        name:'Viareggio',          lat:43.8621, lon:10.2329 },
+  { key:'la_spezia',        name:'La Spezia',          lat:44.0718, lon:9.8666  },
+  { key:'capraia',          name:'Capraia',            lat:43.0527, lon:9.8410  },
+  { key:'elba_nord',        name:'Elba Nord',          lat:42.8138, lon:10.3457 },
+  { key:'elba_sud',         name:'Elba Sud',           lat:42.7604, lon:10.4024 },
+  { key:'giglio',           name:'Giglio',             lat:42.3614, lon:10.9206 },
+  { key:'punta_ala',        name:'Punta Ala',          lat:42.8088, lon:10.7357 },
+  { key:'canale_piombino',  name:'Canale Piombino',    lat:42.9296, lon:10.5073 },
+];
+
+var BUOYS = [
+  { key:'gorgona',     name:'Boa Gorgona',              lat:43.4300, lon:9.8900,  type:'boa',      note:'CFR Toscana - onda + vento - accesso in richiesta' },
+  { key:'giannutri',   name:'Boa Giannutri',            lat:42.2500, lon:11.1200, type:'boa',      note:'CFR Toscana - onda + vento - accesso in richiesta' },
+  { key:'gombo',       name:'Correntometro Gombo',      lat:43.6900, lon:10.2800, type:'corr',     note:'CFR Toscana - foce Arno - accesso in richiesta' },
+  { key:'castiglione', name:'Correntometro Castiglione',lat:42.7700, lon:10.8800, type:'corr',     note:'CFR Toscana - accesso in richiesta' },
+  { key:'lv_porto',    name:'Livornometeo Porto',       lat:43.5497, lon:10.2950, type:'stazione', note:'Spostato su shipinfo.it a pagamento (maggio 2026). Accesso non disponibile.' },
+  { key:'capraia_st',  name:'Capraiameteo',             lat:43.0527, lon:9.8410,  type:'stazione', note:'Spostato su shipinfo.it a pagamento (maggio 2026). Accesso non disponibile.' },
+];
+
+var MNW_LIVE = [
+  { key:'livorno',          name:'Quercianella',   lat:43.465,  lon:10.347, sid:'livorno' },
+  { key:'livorno_porto',    name:'Livorno Porto', lat:43.5525, lon:10.3014, sid:'livorno_porto' },
+  { key:'canale_piombino',  name:'Piombino',       lat:42.920,  lon:10.530, sid:'canale_piombino' },
+  { key:'viareggio_cfr',    name:'Viareggio CFR',  lat:43.875,  lon:10.236, sid:'viareggio_cfr' },
+  { key:'capraia_mnw',      name:'Capraia Monte',  lat:43.058,  lon:9.822,  sid:'capraia_w' },
+  { key:'populonia_cfr',    name:'Populonia CFR',   lat:42.987731, lon:10.537734, sid:'populonia_cfr' },
+  { key:'portoferraio_mnw', name:'Portoferraio',    lat:42.813,  lon:10.368, sid:'portoferraio' },
+  { key:'alberese_mnw',     name:'Alberese',        lat:42.638,  lon:11.078, sid:'alberese' },
+  { key:'luri_mnw',         name:'Luri (Corsica)',  lat:42.818,  lon:9.441,  sid:'luri' },
+  { key:'barcaggio_mnw',    name:'Barcaggio',       lat:43.0058, lon:9.4045, sid:'barcaggio' },
+  { key:'bonifacio_mnw',    name:'Cap Pertusato',   lat:41.3658036, lon:9.179423, sid:'bonifacio_pertusato' },
+  { key:'vada_mnw',         name:'Vada',            lat:43.3550, lon:10.4280, sid:'vada' },
+  // CFR Toscana
+  { key:'gorgona_cfr',      name:'Gorgona',         lat:43.429512, lon:9.900141, sid:'gorgona_cfr' },
+  { key:'capraia_cfr',      name:'Capraia Isola',   lat:43.050,  lon:9.838,  sid:'capraia_cfr' },
+  { key:'giglio_porto',     name:'Giglio Porto',    lat:42.361401, lon:10.921193, sid:'giglio_porto' },
+  { key:'giglio_castello',  name:'Giglio Castello', lat:42.366456, lon:10.900401, sid:'giglio_castello' },
+  { key:'montecristo',      name:'Montecristo',     lat:42.335,  lon:10.311, sid:'montecristo' },
+  { key:'portoferraio_cfr', name:'Portof. CFR',     lat:42.816,  lon:10.328, sid:'portoferraio_cfr' },
+  { key:'orbetello',        name:'Orbetello',       lat:42.441,  lon:11.216, sid:'orbetello' },
+  { key:'svincenzo_porto',  name:'S.Vincenzo P.',   lat:43.098,  lon:10.537, sid:'svincenzo_porto' },
+  { key:'casotto_pescatori',name:'Casotto P. (Marina GR)',lat:42.740,  lon:11.040, sid:'casotto_pescatori' }, // fix 2026-07-31: key era 'casotto_pesc', stesso rename di forte_marmi
+  { key:'venturina',        name:'Venturina',       lat:43.025308, lon:10.603566, sid:'venturina' },
+  { key:'forte_dei_marmi',  name:'Forte dei Marmi', lat:43.963,  lon:10.174, sid:'forte_dei_marmi' }, // fix 2026-07-31: key era 'forte_marmi', allineata al rename bias_station in engine
+  { key:'lido_camaiore',    name:'Lido Camaiore',   lat:43.898,  lon:10.228, sid:'lido_camaiore' },
+  { key:'bocca_arno_cfr',   name:'Bocca Arno CFR',  lat:43.680,  lon:10.270, sid:'bocca_arno_cfr' },
+  { key:'follonica',        name:'Follonica',        lat:42.919,  lon:10.765, sid:'follonica' },
+  { key:'capalbio',         name:'Capalbio',         lat:42.459,  lon:11.269, sid:'capalbio' },
+];
+
+// Punti di riferimento Corsica/Sardegna senza stazione reale - solo dato calcolato OM (16 giugno, coordinate Google Maps 17-18 giugno)
+var CALC_ONLY = [
+  { key:'macinaggio',   name:'Macinaggio',                       lat:42.9591748, lon:9.4535343 },
+  { key:'centuri',      name:'Port de Centuri',                  lat:42.9668396, lon:9.3491256 },
+  { key:'isola_rossa',  name:'Isola Rossa',                      lat:42.6412736, lon:8.9416354 },
+  { key:'bonifacio',    name:'Bonifacio',                        lat:41.3848742, lon:9.1492944 },
+  { key:'cavallo',      name:'Isola Cavallo',                    lat:41.365111,  lon:9.2619239 },
+  { key:'lavezzi',      name:'Isola Lavezzi',                    lat:41.33463412867263, lon:9.258776167706714 },
+  { key:'razzoli',      name:'Razzoli',                          lat:41.3048393, lon:9.3364674 },
+  { key:'maddalena',    name:'La Maddalena',                     lat:41.217, lon:9.405 },
+  { key:'caprera',      name:'Caprera',                          lat:41.18632969583439, lon:9.448802082954757 },
+  { key:'punta_falcone',name:'Punta Falcone',                    lat:41.25846994282162, lon:9.229298520872078 },
+  { key:'sta_teresa',   name:'Santa Teresa di Gallura',          lat:41.24674198923995, lon:9.192899949643675 },
+  { key:'capo_testa',   name:'Capo Testa',                       lat:41.243772563877826, lon:9.144452120387172 },
+  { key:'castelsardo',  name:'Castelsardo',                      lat:40.917, lon:8.711 },
+  { key:'asinara',      name:'Isola dell\'Asinara',              lat:41.067, lon:8.270 },
+  { key:'capo_ferro',   name:'Faro di Capo Ferro',               lat:41.155880648396106, lon:9.521765673345698 },
+  { key:'porto_pollo',  name:'Porto Pollo',                      lat:41.197378707554066, lon:9.319666616227238 },
+];
+
+// Griglia 0.25 gradi - Liguria Toscana Corsica Nord Sardegna Nord
+var GRID = [];
+for (var _la = 40.0; _la <= 44.6; _la = Math.round((_la+0.25)*100)/100) {
+  for (var _lo = 7.4; _lo <= 12.5; _lo = Math.round((_lo+0.25)*100)/100) {
+    GRID.push({ lat:_la, lon:_lo });
+  }
+}
+
+// Punti extra mirati (2026-07-07): alcuni gruppi di stazioni reali distano tra
+// loro meno del passo della griglia 0.25 (~28km) e finiscono a competere per le
+// stesse 1-2 celle, con la matrice a zone che ne rappresenta sempre una sola e
+// lascia le altre invisibili (es. Viareggio non vinceva mai nessuna cella,
+// sempre battuta da Bocca d'Arno/Forte dei Marmi/Lido Camaiore piu' vicini).
+// Invece di infittire tutta la griglia (4x le celle, 4x le chiamate OM), si
+// aggiungono solo i punti mancanti esattamente alle coordinate della stazione
+// interessata: ognuno diventa una cella a se' (distanza ~0), quindi la matrice
+// a zone lo assegna in automatico e con peso pieno alla propria stazione.
+// Primo gruppo pilota: cluster Versilia (Viareggio/Bocca Arno/Lido Camaiore/
+// Forte dei Marmi), tutte entro 20km, oggi si contendevano solo 2 celle.
+var GRID_EXTRA_POINTS = [
+  { lat: 43.465,     lon: 10.347,    stationKey: 'livorno' },
+  { lat: 43.546,     lon: 10.300,    stationKey: 'livorno_cfr' },
+  { lat: 42.920,     lon: 10.530,    stationKey: 'canale_piombino' },
+  { lat: 43.875,     lon: 10.236,    stationKey: 'viareggio_cfr' },
+  { lat: 43.058,     lon: 9.822,     stationKey: 'capraia_mnw' },
+  { lat: 42.987731,  lon: 10.537734, stationKey: 'populonia_cfr' },
+  { lat: 42.813,     lon: 10.368,    stationKey: 'portoferraio_mnw' },
+  { lat: 42.638,     lon: 11.078,    stationKey: 'alberese_mnw' },
+  { lat: 42.818,     lon: 9.441,     stationKey: 'luri_mnw' },
+  { lat: 43.0058,    lon: 9.4045,    stationKey: 'barcaggio_mnw' },
+  { lat: 41.3658036, lon: 9.179423,  stationKey: 'bonifacio_mnw' },
+  { lat: 43.3550,    lon: 10.4280,   stationKey: 'vada_mnw' },
+  { lat: 43.429512,  lon: 9.900141,  stationKey: 'gorgona_cfr' },
+  { lat: 43.050,     lon: 9.838,     stationKey: 'capraia_cfr' },
+  { lat: 42.361401,  lon: 10.921193, stationKey: 'giglio_porto' },
+  { lat: 42.366456,  lon: 10.900401, stationKey: 'giglio_castello' },
+  { lat: 42.335,     lon: 10.311,    stationKey: 'montecristo' },
+  { lat: 42.816,     lon: 10.328,    stationKey: 'portoferraio_cfr' },
+  { lat: 42.441,     lon: 11.216,    stationKey: 'orbetello' },
+  { lat: 43.098,     lon: 10.537,    stationKey: 'svincenzo_porto' },
+  { lat: 42.740,     lon: 11.040,    stationKey: 'casotto_pescatori' },
+  { lat: 43.025308,  lon: 10.603566, stationKey: 'venturina' },
+  { lat: 43.963,     lon: 10.174,    stationKey: 'forte_dei_marmi' },
+  { lat: 43.898,     lon: 10.228,    stationKey: 'lido_camaiore' },
+  { lat: 43.680,     lon: 10.270,    stationKey: 'bocca_arno_cfr' },
+  { lat: 42.919,     lon: 10.765,    stationKey: 'follonica' },
+  { lat: 42.459,     lon: 11.269,    stationKey: 'capalbio' }
+];
+GRID_EXTRA_POINTS.forEach(function(p){
+  var exists = GRID.some(function(g){ return g.lat.toFixed(2) === p.lat.toFixed(2) && g.lon.toFixed(2) === p.lon.toFixed(2); });
+  if (!exists) GRID.push(p);
+});
+
+var state = { zoneData:{}, gridData:[], gridDataOI:[], stationData:[], gpsMarker:null, gpsCircle:null, lastUpdate:null };
+
+// MAPPA
+var map = L.map('map', {
+  center:[43.5, 10.2], zoom:8,
+  zoomControl:true, attributionControl:false,
+});
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
+  attribution:'CartoDB',maxZoom:19,subdomains:'abcd'
+}).addTo(map);
+L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',{opacity:0.7,maxZoom:18}).addTo(map);
+
+// CANVAS FRECCE
+var canvas = document.getElementById('wind-canvas');
+var ctx = canvas.getContext('2d');
+canvas.style.opacity = '1';
+
+// CANVAS PARTICELLE
+var pCanvas = document.getElementById('particle-canvas');
+var pCtx = pCanvas.getContext('2d');
+
+// CANVAS COLORE (con CSS blur applicato via stylesheet)
+var cCanvas = document.getElementById('color-canvas');
+var cCtx = cCanvas.getContext('2d');
+var particleState = {
+  active: false,
+  particles: [],
+  animFrame: null,
+  field: null,
+  fieldW: 0,
+  fieldH: 0,
+  fieldRes: 6
+};
+
+function resizeCanvas(){
+  var w = document.getElementById('map-wrap');
+  canvas.width = w.offsetWidth;
+  canvas.height = w.offsetHeight;
+  canvas.style.zIndex = '600';
+  canvas.style.opacity = '1';
+  pCanvas.width = w.offsetWidth;
+  pCanvas.height = w.offsetHeight;
+  cCanvas.width = w.offsetWidth;
+  cCanvas.height = w.offsetHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', function(){ resizeCanvas(); drawWind(); rebuildAndAnimate(); });
+map.on('moveend zoomend', function(){ drawWind(); rebuildAndAnimate(); document.getElementById('nav-zoom').textContent = 'z' + map.getZoom(); });
+
+function windColor(s){
+  // Scala Beaufort
+  if (s >= 34) return '#cc0000'; // F8+  rosso scuro
+  if (s >= 28) return '#ff3300'; // F7   rosso
+  if (s >= 22) return '#ff8800'; // F6   arancio
+  if (s >= 17) return '#ffdd00'; // F5   giallo
+  if (s >= 11) return '#00cc44'; // F4   verde scuro
+  if (s >= 7)  return '#00ee88'; // F3   verde medio
+  if (s >= 4)  return '#44ddcc'; // F2   azzurro-verde
+  if (s >= 1)  return '#88ccff'; // F1   azzurro chiaro
+  return '#aaddff';              // F0   quasi bianco
+}
+
+// Freccia primitiva: contorno nero netto + colore sopra (funziona su qualsiasi sfondo)
+function drawSingleArrow(ox, oy, rad, len, lw, colShaft, colHead, alpha){
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(ox, oy);
+  ctx.rotate(rad);
+  ctx.shadowBlur = 0;
+  var hw = len * 0.40;
+
+  // PASS 1: contorno nero (piu' spesso)
+  var lwOut = lw + 2.5;
+  ctx.beginPath();
+  ctx.moveTo(0, len * 0.45);
+  ctx.lineTo(0, -len * 0.25);
+  ctx.strokeStyle = 'rgba(90,90,90,0.5)';
+  ctx.lineWidth = lwOut;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(0, -len * 0.50);
+  ctx.lineTo(-hw * 0.52, -len * 0.50 + hw * 0.88);
+  ctx.lineTo( hw * 0.52, -len * 0.50 + hw * 0.88);
+  ctx.closePath();
+  ctx.strokeStyle = 'rgba(90,90,90,0.5)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(90,90,90,0.5)';
+  ctx.fill();
+
+  // PASS 2: colore vero sopra
+  ctx.beginPath();
+  ctx.moveTo(0, len * 0.45);
+  ctx.lineTo(0, -len * 0.25);
+  ctx.strokeStyle = colShaft;
+  ctx.lineWidth = lw;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(0, -len * 0.50);
+  ctx.lineTo(-hw * 0.52, -len * 0.50 + hw * 0.88);
+  ctx.lineTo( hw * 0.52, -len * 0.50 + hw * 0.88);
+  ctx.closePath();
+  ctx.fillStyle = colHead;
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawArrow(cx, cy, dir, spd, gust, alpha, isZone){
+  if (spd === null || spd === undefined || isNaN(spd)) return;
+  if (dir === null || dir === undefined || isNaN(dir)) return; // fix v1.6.55: dir NaN -> rotate(NaN) e' no-op silenzioso, freccia appare orientata a nord invece di non essere disegnata
+  var z = map.getZoom();
+  var zScale = Math.max(0.4, Math.min(1.4, (z - 6) * 0.3));
+  var base = isZone ? 28 * zScale : 16 * zScale;
+  var extra = Math.min(spd * 1.6, 18) * zScale;
+  var len = base + extra;
+  var lw = isZone ? Math.max(2, 4 * zScale) : Math.max(1.5, 2.8 * zScale);
+  var rad = (dir - 180) * Math.PI / 180;
+  var colSpd  = windColor(spd);
+  var colGust = (gust != null && !isNaN(gust)) ? windColor(gust) : colSpd;
+
+  if (isZone) {
+    // Due frecce parallele: offset laterale rispetto alla direzione
+    var off = 5 * zScale;
+    var perpX = Math.cos(rad) * off;
+    var perpY = Math.sin(rad) * off;
+    // Sinistra = vento medio
+    drawSingleArrow(cx - perpX, cy - perpY, rad, len, lw, colSpd, colSpd, alpha);
+    // Destra = raffica
+    drawSingleArrow(cx + perpX, cy + perpY, rad, len, lw, colGust, colGust, alpha);
+  } else {
+    // Griglia: freccia unica bicolore - shaft=vento, testa=raffica
+    drawSingleArrow(cx, cy, rad, len, lw, colSpd, colGust, alpha);
+  }
+}
+
+function drawWind(){
+  if (canvas.width === 0 || canvas.height === 0) { resizeCanvas(); }
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  var bounds = map.getBounds();
+  // Distanza minima in pixel tra frecce - si riduce con lo zoom per piu' densita'
+  var zoom = map.getZoom();
+  var minPx = zoom >= 10 ? 18 : zoom >= 9 ? 22 : 30;
+  var drawn = [];
+  // fix v1.6.82: disegna prima i punti dedicati alle stazioni (isStationPoint),
+  // cosi' vincono sempre lo spazio sullo schermo. Prima erano in fondo
+  // all'array e un punto di griglia normale vicino li occupava per primo,
+  // scartando la freccia della stazione (corretta) in favore di quella
+  // di griglia (meno precisa) — il dato era giusto ma non veniva mai disegnato.
+  var gridSorted = activeGrid().slice().sort(function(a,b){
+    return (b.isStationPoint?1:0) - (a.isStationPoint?1:0);
+  });
+  gridSorted.forEach(function(pt){
+    if (!bounds.contains([pt.lat, pt.lon])) return;
+    var ll = map.latLngToContainerPoint([pt.lat, pt.lon]);
+    for (var di = 0; di < drawn.length; di++){
+      var dx = ll.x - drawn[di].x, dy = ll.y - drawn[di].y;
+      if (Math.sqrt(dx*dx+dy*dy) < minPx) return;
+    }
+    drawn.push(ll);
+    var arrDir = pt.dir, arrSpd = pt.speed, arrGust = pt.gust;
+    if (pt.isStationPoint) {
+      // fix v1.6.82: la freccia sulla stazione mostra sempre il dato reale,
+      // letto qui al momento del disegno, indipendentemente dal tasto OI —
+      // il flusso di sfondo (buildVectorField) non e' toccato, resta legato
+      // al tasto come prima.
+      var epMatch = GRID_EXTRA_POINTS.filter(function(ep){ return Math.abs(pt.lat-ep.lat)<0.001 && Math.abs(pt.lon-ep.lon)<0.001; })[0];
+      var stLive = epMatch ? state.stationData.filter(function(s){ return s.key === epMatch.stationKey; })[0] : null;
+      if (stLive && stLive.speed != null && stLive.dir != null) {
+        arrDir = stLive.dir; arrSpd = stLive.speed; arrGust = stLive.gust;
+      }
+    }
+    drawArrow(ll.x, ll.y, arrDir, arrSpd, arrGust, 0.65, false);
+  });
+  ZONES.forEach(function(z){
+    var d = state.zoneData[z.key];
+    if (!d) return;
+    var ll = map.latLngToContainerPoint([z.lat, z.lon]);
+    // Freccia: usa OM come fonte primaria (piu preciso per direzione)
+    var spd  = d.wind_speed != null ? d.wind_speed : (d.wind_speed_obs || 0);
+    var dir  = d.wind_dir   != null ? d.wind_dir   : (d.wind_dir_obs  || 0);
+    var gust = d.wind_gust  != null ? d.wind_gust  : (d.wind_gust_obs || null);
+    drawArrow(ll.x, ll.y, dir, spd, gust, 1.0, true);
+  });
+}
+
+// ZONE MARKERS
+var zoneMarkers = {};
+
+function degToDir(deg){
+  return ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'][Math.round(deg/22.5)%16];
+}
+
+function zoneIcon(spd, gust){
+  var col = windColor(spd || 0);
+  var gustCol = gust ? windColor(gust) : col;
+  // Centro: colore vento medio. Bordo: colore raffica (se disponibile)
+  return L.divIcon({
+    html:'<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26">' +
+      '<circle cx="13" cy="13" r="11" fill="' + col + '" fill-opacity="0.2" stroke="' + gustCol + '" stroke-width="3"/>' +
+      '<circle cx="13" cy="13" r="5" fill="' + col + '"/></svg>',
+    className:'', iconSize:[26,26], iconAnchor:[13,13], popupAnchor:[0,-14]
+  });
+}
+
+ZONES.forEach(function(z){
+  var mk = L.marker([z.lat, z.lon], { icon:zoneIcon(0, null), zIndexOffset:100 }).addTo(map);
+  mk.on('click', function(){
+    mk.unbindPopup();
+    var d = state.zoneData[z.key];
+    if (!d){ mk.bindPopup('<div class="popup-name">' + z.name + '</div><div class="popup-ts">Dati non disponibili</div>').openPopup(); return; }
+    // Popup: OM fonte primaria (coerente con freccia), OWM mostrato come confronto
+    var spd    = d.wind_speed != null ? d.wind_speed.toFixed(1) : '--';
+    var dir    = d.wind_dir   != null ? degToDir(d.wind_dir)    : '--';
+    var spdSrc = 'OM';
+    var sObs   = (d.wind_speed_obs != null && d.wind_speed_obs !== undefined) ? d.wind_speed_obs : null;
+    var dObsN  = (d.wind_dir_obs   != null && d.wind_dir_obs   !== undefined) ? d.wind_dir_obs   : null;
+    var gust   = d.wind_gust != null ? d.wind_gust.toFixed(0)+'kn' : '--';
+    var dObs   = dObsN != null ? degToDir(dObsN) : null;
+    var sIfs  = (d.ifs_wind_speed != null && d.ifs_wind_speed !== undefined) ? d.ifs_wind_speed.toFixed(1) : null;
+    var dIfs  = (d.ifs_wind_dir   != null && d.ifs_wind_dir   !== undefined) ? degToDir(d.ifs_wind_dir)   : null;
+    var sIcon = (d.icon_wind_speed!= null && d.icon_wind_speed!== undefined) ? d.icon_wind_speed.toFixed(1): null;
+    var dIcon = (d.icon_wind_dir  != null && d.icon_wind_dir  !== undefined) ? degToDir(d.icon_wind_dir)  : null;
+    var snapTs = d.ts ? new Date(d.ts).toLocaleTimeString('it-IT',{timeZone:'Europe/Rome',hour:'2-digit',minute:'2-digit'}) : '--';
+    var gustOm  = (d.wind_gust     != null && d.wind_gust     !== undefined) ? parseFloat(d.wind_gust).toFixed(0)     : null;
+    var gustObs = (d.wind_gust_obs != null && d.wind_gust_obs !== undefined) ? parseFloat(d.wind_gust_obs).toFixed(0) : null;
+    var gustLine = '';
+    if (gustOm)  gustLine += '<span style="color:#8ab8d0">OM ' + gustOm + 'kn</span>';
+    if (gustObs) gustLine += (gustOm ? '&nbsp;&nbsp;' : '') + '<span style="color:#00e676">OWM ' + gustObs + 'kn</span>';
+    if (!gustLine) gustLine = '<span style="color:var(--muted)">--</span>';
+    // Pressione e tendenza
+    var pres = d.pressure ? d.pressure.toFixed(1) + ' hPa' : '--';
+    var trend3h = d.pressure_trend_3h != null ? d.pressure_trend_3h.toFixed(1) : null;
+    var trendStr = trend3h ? (trend3h > 0 ? '+' : '') + trend3h + '/3h' : '';
+    var trendColor = trend3h && trend3h <= -2 ? '#ff6b6b' : trend3h && trend3h >= 1 ? '#69db7c' : '#8ab8d0';
+    // Badge rischio semplificato
+    var windSpd = d.wind_speed || 0;
+    var windGust = d.wind_gust || 0;
+    var wave = d.wave_height || 0;
+    var gustRatio = windSpd > 3 ? windGust / windSpd : 0;
+    var riskLevel = 'BASSO';
+    var riskColor = '#1a6a2a';
+    if (windSpd >= 28 || windGust >= 35 || wave >= 2.5 || (trend3h && trend3h <= -5)) {
+      riskLevel = 'ALTO'; riskColor = '#7a1a00';
+    } else if (windSpd >= 10 || windGust >= 25 || wave >= 0.5 || (trend3h && trend3h <= -2) || gustRatio >= 2) {
+      riskLevel = 'MEDIO'; riskColor = '#856404';
+    }
+    // 850hPa se disponibile
+    var wind850 = '';
+    if (d.wind_speed_850 != null && d.wind_dir_850 != null) {
+      var dirs16m = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+      var dir850str = dirs16m[Math.round(d.wind_dir_850/22.5)%16];
+      wind850 = '<div style="font-size:0.65rem;color:#8ab8d0;margin-top:2px">850hPa: ' + d.wind_speed_850.toFixed(0) + 'kn ' + dir850str + '</div>';
+    }
+    // 2026-07-11: vento in rosso quando la fonte e' OM (modello di ripiego, non
+    // dato reale della stazione). wind_source='cfr' = dato reale, colore normale.
+    var isOmWind = d.wind_source === 'om';
+    var windColor = isOmWind ? '#ff4444' : 'var(--accent)';
+    var windTag = isOmWind ? ' <span style="font-size:0.55rem;color:#ff4444">(modello)</span>' : '';
+    var html =
+      '<div class="popup-name">' + z.name + '</div>' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">' +
+        '<div class="popup-wind" style="color:' + windColor + '">' + spd + ' kn ' + dir + windTag + '</div>' +
+        '<div style="background:' + riskColor + ';color:#fff;padding:2px 8px;border-radius:4px;font-size:0.6rem;font-weight:bold">' + riskLevel + '</div>' +
+      '</div>' +
+      '<div class="popup-wind" style="color:#ffaa00">Raffica: ' + gustLine + '</div>' +
+      '<div style="font-size:0.65rem;color:' + trendColor + ';margin-top:2px">Pressione: ' + pres + (trendStr ? ' <span style="color:' + trendColor + '">' + trendStr + '</span>' : '') + '</div>' +
+      wind850 +
+      '<div class="popup-ts">Snapshot ore ' + snapTs + '</div>' +
+      '<div class="popup-srcs">' +
+      '<span class="psrc psrc-om">OM ' + spd + 'kn ' + dir + '</span>' +
+      (sIcon ? '<span class="psrc psrc-icon">ICON ' + sIcon + 'kn ' + dIcon + '</span>' : '') +
+      (sIfs  ? '<span class="psrc psrc-ifs">IFS '  + sIfs  + 'kn ' + dIfs  + '</span>' : '') +
+      (sObs  ? '<span class="psrc psrc-owm">OWM '  + sObs  + 'kn ' + dObs  + '</span>' : '') +
+      '</div>';
+    var zPop = L.popup().setContent(html);
+    mk.bindPopup(zPop).openPopup();
+  });
+  zoneMarkers[z.key] = mk;
+});
+
+function updateZoneMarkers(){
+  ZONES.forEach(function(z){
+    var d = state.zoneData[z.key];
+    if (!d) return;
+    var spd  = d.wind_speed != null ? d.wind_speed : (d.wind_speed_obs || 0);
+    var gust = d.wind_gust  != null ? d.wind_gust  : (d.wind_gust_obs  || null);
+    zoneMarkers[z.key].setIcon(zoneIcon(spd, gust));
+  });
+}
+
+// LEGENDA TOGGLE
+function toggleLegend(){
+  var body = document.getElementById('legend-body');
+  var toggle = document.getElementById('legend-toggle');
+  var header = document.getElementById('legend-header');
+  var isOpen = body.classList.contains('open');
+  body.classList.toggle('open', !isOpen);
+  toggle.classList.toggle('open', !isOpen);
+  header.classList.toggle('open', !isOpen);
+}
+
+// CLICK GRIGLIA - trova punto piu' vicino e mostra popup
+var gridPopup = L.popup({ className:'grid-popup', autoPanPadding:[10,60] });
+
+map.on('click', function(e){
+  // Controlla se il click e' vicino a un punto zona (in quel caso il marker gestisce)
+  var clickLat = e.latlng.lat, clickLon = e.latlng.lng;
+  var zoneThresh = 0.08; // ~8km
+  for (var zi = 0; zi < ZONES.length; zi++){
+    var dz = Math.abs(ZONES[zi].lat - clickLat) + Math.abs(ZONES[zi].lon - clickLon);
+    if (dz < zoneThresh) return; // vicino a zona, ignora
+  }
+  if (activeGrid().length === 0) return;
+
+  // Trova punto griglia piu' vicino
+  var best = null, bestDist = 999;
+  activeGrid().forEach(function(pt){
+    var d = Math.sqrt(Math.pow(pt.lat - clickLat,2) + Math.pow(pt.lon - clickLon,2));
+    if (d < bestDist){ bestDist = d; best = pt; }
+  });
+  if (!best || bestDist > 0.2) return; // troppo lontano
+
+  var dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
+  var dirName = best.dir != null ? dirs[Math.round(best.dir/22.5)%16] : '--';
+  var spd = best.speed != null ? best.speed.toFixed(1) : '--';
+  var gustGrid = (best.gust != null && !isNaN(best.gust)) ? best.gust.toFixed(0) + ' kn' : '--';
+  var oiStr = (oiEnabled && best.oi_correction !== undefined) ?
+    '<div class="popup-ts" style="color:#00e676">OI: ' + (best.oi_correction >= 0 ? '+' : '') + best.oi_correction + ' kn</div>' : '';
+  var html =
+    '<div class="popup-name" style="font-size:0.85rem">Griglia OM</div>' +
+    '<div class="popup-wind">' + spd + ' kn ' + dirName + '</div>' +
+    '<div class="popup-wind" style="color:#ffaa00;font-size:0.85rem">Raffica: ' + gustGrid + '</div>' +
+    '<div class="popup-ts">Modello OM ore ' + (best.time || '--') + '</div>' +
+    oiStr +
+    '<div style="margin-top:8px"><button onclick="openObsPanel(' + clickLat.toFixed(5) + ',' + clickLon.toFixed(5) + ',\'\')" style="width:100%;padding:7px;background:rgba(255,149,0,0.15);border:1px solid #ff9500;border-radius:8px;font-family:DM Mono,monospace;font-size:0.55rem;color:#ff9500;cursor:pointer;letter-spacing:0.05em">📍 Inserisci osservazione</button></div>';
+  gridPopup.setLatLng(e.latlng).setContent(html).openOn(map);
+});
+
+// HUD
+function setHud(status, text){
+  document.getElementById('hud-dot').className = 'dot dot-' + status;
+  document.getElementById('hud-text').textContent = text;
+}
+
+// FETCH ZONE DATA
+async function fetchZoneData(){
+  var promises = ZONES.map(function(z){
+    return fetch(ENGINE_URL + '?action=history&zone=' + z.key + '&hours=1', {cache:'no-store'})
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if (data.snapshots && data.snapshots.length > 0){
+          state.zoneData[z.key] = data.snapshots[data.snapshots.length - 1];
+        }
+      }).catch(function(){});
+  });
+  await Promise.all(promises);
+}
+
+// FETCH GRID
+async function fetchGridData(){
+  // Proxy attraverso engine Vercel per evitare 429 da Open-Meteo
+  // Engine fa le chiamate con il suo IP, non quello del browser
+  var results = [];
+  var batchSize = 100; // Engine puo' gestire batch grandi
+  var promises = [];
+  for (var i = 0; i < GRID.length; i += batchSize){
+    var batch = GRID.slice(i, i + batchSize);
+    var lats = batch.map(function(p){ return p.lat; }).join(',');
+    var lons = batch.map(function(p){ return p.lon; }).join(',');
+    var url = ENGINE_URL + '?action=grid&lats=' + lats + '&lons=' + lons + '&_t=' + Date.now();
+    promises.push(
+      fetch(url, {cache: 'no-store'})
+        .then(function(r){ return r.json(); })
+        .then(function(d){ return d.points || []; })
+        .catch(function(e){ console.warn('Grid batch error:', e.message); return []; })
+    );
+  }
+  var batches = await Promise.all(promises);
+  batches.forEach(function(b){ results = results.concat(b); });
+  state.gridData = results;
+}
+
+// FETCH STAZIONI LIVE (per IDW particelle)
+async function fetchStationData(){
+  // Carica ultimo campione per ogni stazione MNW - stessa API del popup
+  var promises = MNW_LIVE.map(function(st){
+    return fetch(ENGINE_URL + '?action=bias_history&station=' + st.sid + '&limit=5', {cache:'no-store'})
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        // Trova il primo campione con dato stazione valido (non null)
+        var s = null;
+        if (data.samples) {
+          for (var si = 0; si < data.samples.length; si++) {
+            if (data.samples[si].station && data.samples[si].station.wind_kt !== null && data.samples[si].station.wind_kt !== undefined) {
+              s = data.samples[si];
+              break;
+            }
+          }
+        }
+        if (!s || !s.station || s.station.wind_kt == null) return null;
+        if (s.station.direction == null) return null;
+        return {
+          lat: st.lat,
+          lon: st.lon,
+          key: st.key,
+          speed: Number(s.station.wind_kt),
+          dir:   Number(s.station.direction),
+          ts:    s.ts
+        };
+      })
+      .catch(function(){ return null; });
+  });
+  var results = await Promise.all(promises);
+  state.stationData = results.filter(function(s){ return s !== null; });
+}
+
+// IDW VECTOR FIELD - v3 - tre modalita': om / nau / all
+function buildVectorField(){
+  var W = pCanvas.width, H = pCanvas.height;
+  var res = particleState.fieldRes;
+  var cols = Math.ceil(W / res);
+  var rows = Math.ceil(H / res);
+  particleState.fieldW = cols;
+  particleState.fieldH = rows;
+  var EPS = 1e-10;
+
+  // Sorgenti: solo activeGrid() (OM puro o OM+correzione locale, secondo OI on/off).
+  // fix 2026-08-01 (mappa2): tolte le nauSources separate (zone/stazioni pesate a
+  // parte) e le 3 modalita' OM/NAU/ALL -- con OI acceso la correzione locale e' gia'
+  // dentro activeGrid() (applyOI), non serve piu' un secondo strato di sorgenti a
+  // parte. Il boost sulle celle con grid_rule/oi_station_weight resta invariato.
+  var omSources = [];
+  var grid = activeGrid();
+  grid.forEach(function(pt){
+    var px = map.latLngToContainerPoint([pt.lat, pt.lon]);
+    if (px.x < -300 || px.x > W+300 || px.y < -300 || px.y > H+300) return;
+    if (pt.dir === null || pt.dir === undefined || isNaN(pt.dir) ||
+        pt.speed === null || pt.speed === undefined || isNaN(pt.speed)) return; // fix v1.6.55: NaN si propaga per contagio a tutta la somma pesata del campo
+    var rad = pt.dir * Math.PI / 180;
+    // fix v1.6.82 - 2026-07-03: il boost segue l'influenza reale della stazione
+    // (pt.oi_station_weight, calcolata in applyOI dalla matrice a zone + grid_rules)
+    var boostFlow = (oiEnabled && pt.oi_station_weight) ? (1 + pt.oi_station_weight * (FLOW_GRIDRULE_BOOST - 1)) : 1.0;
+    omSources.push({ x:px.x, y:px.y, u: -Math.sin(rad)*pt.speed, v: Math.cos(rad)*pt.speed, boost: boostFlow });
+  });
+  // Fallback: a zoom alto il passo griglia (0.25°) può cadere fuori da qualsiasi viewport piccolo.
+  // Garantisce sempre le 6 sorgenti più vicine al centro mappa per evitare campo vuoto.
+  if (omSources.length < 4 && grid.length > 0) {
+    var center = map.getCenter();
+    var validGrid = grid.filter(function(pt){
+      return !(pt.dir === null || pt.dir === undefined || isNaN(pt.dir) ||
+               pt.speed === null || pt.speed === undefined || isNaN(pt.speed));
+    }); // fix v1.6.55: esclude punti NaN anche dal fallback
+    var withDist = validGrid.map(function(pt){
+      var dLat = pt.lat - center.lat, dLon = pt.lon - center.lng;
+      return { pt: pt, d2: dLat*dLat + dLon*dLon };
+    });
+    withDist.sort(function(a,b){ return a.d2 - b.d2; });
+    var nearest = withDist.slice(0, 6);
+    omSources = nearest.map(function(item){
+      var px = map.latLngToContainerPoint([item.pt.lat, item.pt.lon]);
+      var rad = item.pt.dir * Math.PI / 180;
+      var boostFallback = (oiEnabled && item.pt.oi_station_weight) ? (1 + item.pt.oi_station_weight * (FLOW_GRIDRULE_BOOST - 1)) : 1.0;
+      return { x:px.x, y:px.y, u: -Math.sin(rad)*item.pt.speed, v: Math.cos(rad)*item.pt.speed, boost: boostFallback };
+    });
+  }
+
+  if (omSources.length === 0){ particleState.field = null; return; }
+
+  var field = new Float32Array(cols * rows * 2);
+
+  for (var row = 0; row < rows; row++){
+    for (var col = 0; col < cols; col++){
+      var cx = col * res + res/2;
+      var cy = row * res + res/2;
+      var sumU = 0, sumV = 0, sumW = 0;
+
+      for (var oi = 0; oi < omSources.length; oi++){
+        var o = omSources[oi];
+        var dx = cx-o.x, dy = cy-o.y, d2 = dx*dx+dy*dy;
+        if (d2 < 900) d2 = 900;
+        var w = (1.0/d2) * (o.boost || 1.0); sumU+=o.u*w; sumV+=o.v*w; sumW+=w;
+      }
+
+      var idx = (row * cols + col) * 2;
+      if (sumW > EPS){ field[idx] = sumU/sumW; field[idx+1] = sumV/sumW; }
+    }
+  }
+  particleState.field = field;
+}
+
+// ==================== Sfondo colorato -- interpolazione bilineare (mappa2, 2026-08-01) ====================
+// Sostituisce il vecchio drawColorLayer a cerchi (createRadialGradient per punto):
+// creava sempre "isole" intorno alle zone/stazioni (poche, peso alto) sopra la
+// griglia OM densa, qualunque parametro di sfumatura si usasse -- difetto
+// strutturale del metodo, non un numero da tarare (stessa diagnosi e stesso fix
+// gia' validati su previsioni.html v3.0). La griglia OM/OI e' pero' GIA' regolare
+// (passo fisso 0.25 gradi, escludendo GRID_EXTRA_POINTS via il flag isStationPoint
+// gia' esistente) -- basta una vera interpolazione bilineare tra i 4 punti griglia
+// piu' vicini, continua per costruzione, senza pesi/blur pesante. Legge sempre
+// activeGrid(): OM puro con OI off, OM+correzione locale con OI on.
+var FIELD_COLOR_STOPS = [
+  [0,  [40, 55, 130]],
+  [3,  [30, 110, 175]],
+  [6,  [35, 165, 175]],
+  [10, [70, 180, 105]],
+  [15, [170, 195, 60]],
+  [20, [230, 195, 40]],
+  [25, [235, 130, 30]],
+  [30, [215, 55, 35]],
+  [40, [170, 30, 120]]
+];
+function speedToFieldColor(spd){
+  if (spd == null || isNaN(spd)) return 'rgba(0,0,0,0)';
+  var stops = FIELD_COLOR_STOPS;
+  if (spd <= stops[0][0]) { var c0 = stops[0][1]; return 'rgb(' + c0[0] + ',' + c0[1] + ',' + c0[2] + ')'; }
+  for (var i = 0; i < stops.length - 1; i++){
+    var a = stops[i], b = stops[i+1];
+    if (spd >= a[0] && spd <= b[0]){
+      var t = (spd - a[0]) / (b[0] - a[0]);
+      var r = Math.round(a[1][0] + (b[1][0]-a[1][0]) * t);
+      var g = Math.round(a[1][1] + (b[1][1]-a[1][1]) * t);
+      var bl = Math.round(a[1][2] + (b[1][2]-a[1][2]) * t);
+      return 'rgb(' + r + ',' + g + ',' + bl + ')';
+    }
+  }
+  var cl = stops[stops.length-1][1];
+  return 'rgb(' + cl[0] + ',' + cl[1] + ',' + cl[2] + ')';
+}
+
+var gridLookup2 = { lats:[], lons:[], numLat:0, numLon:0, points:[] };
+
+function buildGridLookup2(){
+  var regular = activeGrid().filter(function(pt){ return !pt.isStationPoint; });
+  if (regular.length === 0) { gridLookup2 = { lats:[], lons:[], numLat:0, numLon:0, points:[] }; return; }
+  var lons = [];
+  var firstLat = regular[0].lat;
+  for (var i = 0; i < regular.length; i++){
+    if (regular[i].lat !== firstLat) break;
+    lons.push(regular[i].lon);
+  }
+  var numLon = lons.length;
+  var numLat = Math.floor(regular.length / numLon);
+  var lats = [];
+  for (var r = 0; r < numLat; r++) lats.push(regular[r * numLon].lat);
+  gridLookup2 = { lats:lats, lons:lons, numLat:numLat, numLon:numLon, points:regular };
+}
+
+function bilinearGridSpeed2(lat, lon){
+  var lats = gridLookup2.lats, lons = gridLookup2.lons;
+  if (lats.length < 2 || lons.length < 2) return null;
+  if (lat < lats[0] || lat > lats[lats.length-1] || lon < lons[0] || lon > lons[lons.length-1]) return null;
+  var li = 0; while (li < lats.length-2 && lats[li+1] <= lat) li++;
+  var lj = 0; while (lj < lons.length-2 && lons[lj+1] <= lon) lj++;
+  var tLat = (lat - lats[li]) / (lats[li+1] - lats[li]);
+  var tLon = (lon - lons[lj]) / (lons[lj+1] - lons[lj]);
+  function speedAt(latIdx, lonIdx){
+    var pt = gridLookup2.points[latIdx * gridLookup2.numLon + lonIdx];
+    if (!pt || pt.speed == null || isNaN(pt.speed)) return null;
+    return pt.speed;
+  }
+  var s00 = speedAt(li,lj), s10 = speedAt(li+1,lj), s01 = speedAt(li,lj+1), s11 = speedAt(li+1,lj+1);
+  if (s00 == null || s10 == null || s01 == null || s11 == null) return null;
+  var top = s00*(1-tLon) + s01*tLon;
+  var bot = s10*(1-tLon) + s11*tLon;
+  return top*(1-tLat) + bot*tLat;
+}
+
+var colorField2 = { res:8 };
+
+function drawColorLayer(){
+  var W = cCanvas.width, H = cCanvas.height;
+  var zoom = map.getZoom();
+  cCtx.clearRect(0, 0, W, H);
+  if (zoom > 10) return;
+
+  buildGridLookup2();
+  if (gridLookup2.points.length === 0) return;
+
+  var res = colorField2.res;
+  var cols = Math.ceil(W / res);
+  var rows = Math.ceil(H / res);
+  for (var row = 0; row < rows; row++){
+    for (var col = 0; col < cols; col++){
+      var cx = col * res + res/2, cy = row * res + res/2;
+      var ll = map.containerPointToLatLng([cx, cy]);
+      var spd = bilinearGridSpeed2(ll.lat, ll.lng);
+      if (spd == null) continue;
+      cCtx.fillStyle = speedToFieldColor(spd);
+      cCtx.fillRect(col * res, row * res, res + 1, res + 1);
+    }
+  }
+}
+
+
+function sampleField(px, py){
+  var res = particleState.fieldRes;
+  var cols = particleState.fieldW;
+  var rows = particleState.fieldH;
+  if (!particleState.field) return {u:0, v:0, spd:0};
+  var col = px / res;
+  var row = py / res;
+  var c0 = Math.floor(col), c1 = c0+1;
+  var r0 = Math.floor(row), r1 = r0+1;
+  if (c0 < 0 || r0 < 0 || c1 >= cols || r1 >= rows) return {u:0, v:0, spd:0};
+  var tc = col - c0, tr = row - r0;
+  function get(r,c){ var i=(r*cols+c)*2; return {u:particleState.field[i], v:particleState.field[i+1]}; }
+  var f00=get(r0,c0), f10=get(r1,c0), f01=get(r0,c1), f11=get(r1,c1);
+  var u = f00.u*(1-tc)*(1-tr) + f01.u*tc*(1-tr) + f10.u*(1-tc)*tr + f11.u*tc*tr;
+  var v = f00.v*(1-tc)*(1-tr) + f01.v*tc*(1-tr) + f10.v*(1-tc)*tr + f11.v*tc*tr;
+  return { u:u, v:v, spd:Math.sqrt(u*u+v*v) };
+}
+
+// PARTICELLE
+var PARTICLE_COUNT = 600;
+var MAX_AGE = 60; // frame prima che una particella si rigenera
+
+function spawnParticle(){
+  return {
+    x: Math.random() * pCanvas.width,
+    y: Math.random() * pCanvas.height,
+    age: Math.floor(Math.random() * MAX_AGE)
+  };
+}
+
+function initParticles(){
+  particleState.particles = [];
+  for (var i = 0; i < PARTICLE_COUNT; i++){
+    particleState.particles.push(spawnParticle());
+  }
+}
+
+function particleColor(spd){
+  if (spd >= 34) return 'rgba(204,0,0,0.9)';
+  if (spd >= 28) return 'rgba(255,51,0,0.9)';
+  if (spd >= 22) return 'rgba(255,136,0,0.9)';
+  if (spd >= 17) return 'rgba(220,200,0,0.85)';
+  if (spd >= 11) return 'rgba(0,180,60,0.85)';
+  if (spd >=  7) return 'rgba(0,160,100,0.8)';
+  if (spd >=  4) return 'rgba(30,100,200,0.75)';
+  if (spd >=  1) return 'rgba(60,60,180,0.7)';
+  return 'rgba(80,80,160,0.5)';
+}
+
+function animateParticles(){
+  if (!particleState.active) return;
+  var W = pCanvas.width, H = pCanvas.height;
+
+
+  // Fade trail - erode le scie senza coprire la mappa sottostante
+  pCtx.globalCompositeOperation = 'destination-out';
+  pCtx.globalAlpha = 0.04;
+  pCtx.fillRect(0, 0, W, H);
+  pCtx.globalCompositeOperation = 'source-over';
+  pCtx.globalAlpha = 1.0;
+
+  var speedScale = 0.10; // rallentato
+
+  particleState.particles.forEach(function(p, i){
+    var fv = sampleField(p.x, p.y);
+    var spd = fv.spd;
+
+    if (spd < 0.3 || p.age > MAX_AGE){
+      particleState.particles[i] = spawnParticle();
+      return;
+    }
+
+    var nx = p.x + fv.u * speedScale;
+    var ny = p.y + fv.v * speedScale;
+
+    // Bordo: rigenera se esce
+    if (nx < 0 || nx > W || ny < 0 || ny > H){
+      particleState.particles[i] = spawnParticle();
+      return;
+    }
+
+    pCtx.beginPath();
+    pCtx.moveTo(p.x, p.y);
+    pCtx.lineTo(nx, ny);
+    pCtx.strokeStyle = particleColor(spd);
+    pCtx.lineWidth = spd > 22 ? 2.0 : spd > 11 ? 1.6 : 1.2;
+    pCtx.stroke();
+
+    p.x = nx;
+    p.y = ny;
+    p.age++;
+  });
+
+  particleState.animFrame = requestAnimationFrame(animateParticles);
+}
+
+function startParticles(){
+  if (!particleState.field) return;
+  if (particleState.animFrame) cancelAnimationFrame(particleState.animFrame);
+  pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
+  initParticles();
+  animateParticles();
+}
+
+function stopParticles(){
+  if (particleState.animFrame){ cancelAnimationFrame(particleState.animFrame); particleState.animFrame = null; }
+  pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
+  cCtx.clearRect(0, 0, cCanvas.width, cCanvas.height);
+}
+
+function rebuildAndAnimate(){
+  buildVectorField();
+  drawColorLayer();
+  if (particleState.active) startParticles();
+}
+
+// BOTTONE FLOW -- accende/spegne solo le particelle; il colore di sfondo
+// (drawColorLayer) e' sempre attivo, indipendente da FLOW (allineato a previsioni.html)
+document.getElementById('btn-flow').addEventListener('click', function(){
+  particleState.active = !particleState.active;
+  this.classList.toggle('active', particleState.active);
+  if (particleState.active){
+    buildVectorField();
+    startParticles();
+  } else {
+    stopParticles();
+  }
+});
+
+// LOAD ALL
+function activeGrid(){
+  return (oiEnabled && state.gridDataOI && state.gridDataOI.length > 0) ? state.gridDataOI : state.gridData;
+}
+
+// ============================================================
+// OPTIMAL INTERPOLATION (OI) — v1.1 — 2026-07-01
+// Corregge il campo OM usando le stazioni reali come punti di verità.
+// Metodo: IDW (Inverse Distance Weighting) sul campo di bias.
+// Per ogni punto griglia: correzione = somma(bias_i / dist_i^2) / somma(1/dist_i^2)
+// dove bias_i = stazione_i.speed - OM_nel_punto_più_vicino_alla_stazione_i
+// Rif: Gandin 1963 OI; Hieta et al. 2025 FMI (-24-29% RMSE)
+//
+// FIX 2026-07-01: la direzione ora usa vettori U/V normalizzati a modulo 1
+// (solo peso puro), non più pesati per la velocità della stazione/OM.
+// Bug precedente: con min_weight alto ma stazione a vento debole (es. 1kn),
+// il contributo vettoriale della stazione era comunque piccolo (peso x speed),
+// mentre OM con vento più forte manteneva un vettore grande anche a peso basso
+// -> la direzione finale tornava dominata da OM nonostante min_weight alto.
+// Scoperto su cella 43.75_10.15 (Bocca d'Arno/Viareggio): viareggio_cfr 1kn/157°
+// con min_weight 0.8 non riusciva a spostare la direzione da 221° (quasi OM) —
+// col fix converge a 166°, coerente con l'80% di peso nominale sulla stazione.
+// La velocità NON è affetta da questo bug — resta pesata per speed reale, corretto.
+// ============================================================
+var oiEnabled = false;
+var OI_MAX_DIST_KM = 60;
+var OI_MIN_STATIONS = 2;
+// fix v1.6.82: boost peso nel flusso animato per celle con grid_rule attiva.
+// Senza questo, buildVectorField interpola su area ampia mescolando la cella
+// corretta con le molte celle OM vicine non corrette, diluendo la correzione
+// puntuale nel flusso visuale (dato puntuale/popup restano corretti, solo il
+// flusso ne risultava "diluito" — vedi caso San Vincenzo 2026-07-01: griglia N,
+// flusso visivo Ovest->Est). Il boost decade comunque con 1/d^2, quindi l'effetto
+// resta locale intorno alla cella corretta e si attenua naturalmente allontanandosi.
+var FLOW_GRIDRULE_BOOST = 15;
+// Stazioni escluse da OI: dati inaffidabili, in osservazione. Rimuovere quando promosse.
+var OI_EXCLUDED = { 'bonifacio_mnw': true, 'vada_mnw': true };
+var state_biasMatrix = null; // Cache bias_matrix caricata all'avvio
+var state_gridRules = {};  // Regole per cella: { "43.25_10.65": { allowed_stations: [...] } }
+
+async function fetchGridRules(){
+  try {
+    var r = await fetch(ENGINE_URL + '?action=grid_rules_get&k=mdi', {cache:'no-store'});
+    var d = await r.json();
+    state_gridRules = d.rules || {};
+    console.log('grid_rules caricati:', Object.keys(state_gridRules).length, 'celle');
+  } catch(e){ console.warn('grid_rules fetch error:', e.message); }
+}
+
+// Matrice a zone (v2.0 - 2026-07-03): fonte unica di verita' per l'assegnazione
+// cella->stazione, letta da ZONES lato server (action=zones) invece di duplicare
+// centri/coordinate qui in mappa.html.
+var ZONE_MATRIX = []; // [{key, name, lat, lon, bias_station}]
+
+async function fetchZoneMatrix(){
+  try {
+    var r = await fetch(ENGINE_URL + '?action=zones', {cache:'no-store'});
+    var d = await r.json();
+    ZONE_MATRIX = (d.zones || []).filter(function(z){ return z.bias_station; });
+    console.log('zone matrix caricata:', ZONE_MATRIX.length, 'zone con bias_station');
+  } catch(e){ console.warn('zone matrix fetch error:', e.message); }
+}
+
+// Alias per i pochi bias_station il cui nome nel backend (ZONES, usato anche da
+// action=predict/backfill_actuals) non coincide con la chiave usata qui in
+// mappa.html per le stazioni OI. Il nome "vero" (senza _mnw) e' quello corretto
+// per il sistema di previsione/backfill; qui serve solo per trovare la stazione
+// giusta nella lista OI locale.
+var ZONE_STATION_ALIAS = {
+  'alberese': 'alberese_mnw',
+  'barcaggio': 'barcaggio_mnw'
+};
+
+// Trova la bias_station della zona con centro piu' vicino al punto di griglia
+function nearestZoneStation(lat, lon){
+  if (ZONE_MATRIX.length === 0) return null;
+  var best = null, bestD = Infinity;
+  ZONE_MATRIX.forEach(function(z){
+    var d = haversineKm(lat, lon, z.lat, z.lon);
+    if (d < bestD) { bestD = d; best = z; }
+  });
+  if (!best) return null;
+  var bs = best.bias_station;
+  return ZONE_STATION_ALIAS[bs] || bs;
+}
+
+
+// Carica bias_matrix all'avvio e la aggiorna ogni ora
+async function fetchBiasMatrix(){
+  try {
+    var r = await fetch(ENGINE_URL + '?action=bias_matrix', {cache:'no-store'});
+    var d = await r.json();
+    state_biasMatrix = d.stations || null;
+  } catch(e){ console.warn('bias_matrix fetch error:', e.message); }
+}
+
+function degToRad(d){ return d * Math.PI / 180; }
+
+function haversineKm(lat1, lon1, lat2, lon2){
+  var R = 6371;
+  var dLat = degToRad(lat2 - lat1);
+  var dLon = degToRad(lon2 - lon1);
+  var a = Math.sin(dLat/2)*Math.sin(dLat/2) +
+          Math.cos(degToRad(lat1))*Math.cos(degToRad(lat2))*
+          Math.sin(dLon/2)*Math.sin(dLon/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// Determina fascia velocità dalla velocità OM nel punto
+function bmSpeedKey(v){
+  if (v === null || v === undefined) return null;
+  if (v < 8)  return 'low';
+  if (v < 15) return 'mid';
+  return 'high';
+}
+
+// Determina settore dai gradi
+function bmSectorKey(dir){
+  if (dir === null || dir === undefined) return null;
+  if (dir >= 315 || dir < 45)  return 'N';
+  if (dir >= 45  && dir < 135) return 'E';
+  if (dir >= 135 && dir < 225) return 'S';
+  return 'W';
+}
+
+// Slot orario corrente (ora locale Italia approssimativa)
+function bmCurrentSlot(){
+  var h = new Date().getUTCHours() + 2;
+  if (h >= 24) h -= 24;
+  return (h >= 6 && h < 14) ? 'morning' : 'afternoon';
+}
+
+// Legge il bias storico per una stazione in base alle condizioni OM locali
+// Usa la matrice stratificata se disponibile, altrimenti fallback al bias globale
+function getBiasForConditions(stationId, omSpeed, omDir){
+  if (!state_biasMatrix || !state_biasMatrix[stationId]) return null;
+  var bm = state_biasMatrix[stationId];
+  var spdKey = bmSpeedKey(omSpeed);
+  var secKey = bmSectorKey(omDir);
+  var slot   = bmCurrentSlot();
+  if (spdKey && secKey) {
+    var matrixKey = spdKey + '_' + secKey + '_' + slot;
+    var cell = bm.matrix && bm.matrix[matrixKey];
+    // Usa cella matrice solo se ha abbastanza campioni (almeno 5)
+    if (cell && cell.n >= 5) return cell.bias_preferred;
+  }
+  // Fallback: bias globale
+  return bm.global_bias_preferred !== undefined ? bm.global_bias_preferred : null;
+}
+
+function applyOI(gridData, stationData){
+  // fix v1.6.82: tutte le uscite anticipate restituivano l'array/oggetti originali
+  // per riferimento — gridDataOI diventava letteralmente lo stesso array di
+  // gridData (OM puro), quindi qualunque mutazione successiva (es. l'override
+  // stazioni) si propagava a entrambi e il tasto OI smetteva di fare differenza.
+  function cloneGrid(g){ return g.map(function(p){ return Object.assign({}, p); }); }
+  if (!oiEnabled) return cloneGrid(gridData);
+  if (!stationData || stationData.length === 0) return cloneGrid(gridData);
+
+  var validStations = stationData.filter(function(s){
+    return s && s.speed !== null && s.speed !== undefined && !isNaN(s.speed) &&
+           s.dir !== null && s.dir !== undefined && !isNaN(s.dir) &&
+           !OI_EXCLUDED[s.key];
+  });
+  if (validStations.length === 0) return cloneGrid(gridData);
+
+  // Tetto di fiducia manuale (v1.6.82 - 2026-07-03): NON è la reliability MAE
+  // rimossa in precedenza (quella puniva chi divergeva da OM, sbagliato). Questo
+  // è un giudizio esplicito e documentato di M, verificato di persona confrontando
+  // con Livornometeo/Capraiameteo (fonti migliori ma non più accessibili, a
+  // pagamento su shipinfo.it dal maggio 2026): livorno_cfr e capraia_cfr sono
+  // meno rappresentative delle rispettive zone. Il tetto limita l'influenza
+  // massima raggiungibile, indipendentemente dalla distanza — anche a 0km il
+  // peso non supera il valore indicato. Rimuovere la voce se in futuro si
+  // recupera l'accesso a fonti migliori o si verifica che il sensore è cambiato.
+  var STATION_TRUST_CAP = {
+    'livorno_cfr': 0.5,
+    'capraia_cfr': 0.5
+  };
+
+  // Peso stazione: 1.0 a 0km, 0.0 a OI_MAX_DIST_KM — decadimento quadratico
+  // fix v1.6.82 - 2026-07-03: entro OI_LOCAL_DOMINANCE_KM il peso non scende mai
+  // sotto un pavimento alto (1.0 -> 0.8 lineare), indipendentemente dal decadimento
+  // quadratico. Prima, anche una stazione a 10-15km dalla propria cella di zona
+  // (la situazione più comune, dato che la griglia è fissa a 0.25°=~25km e le
+  // stazioni reali non cadono mai esattamente su un punto griglia) riceveva solo
+  // un peso parziale (0.3-0.6) — il flusso vicino alla stazione non coincideva mai
+  // col suo dato reale, a meno di una grid_rule scritta a mano. Ora ogni stazione
+  // di zona comanda quasi totalmente la propria area ravvicinata di default.
+  var OI_LOCAL_DOMINANCE_KM = 15;
+  function stationWeight(distKm, stationKey) {
+    if (distKm >= OI_MAX_DIST_KM) return 0.0;
+    var w;
+    if (distKm <= 0) {
+      w = 1.0;
+    } else {
+      var base = Math.pow(1 - distKm / OI_MAX_DIST_KM, 2);
+      if (distKm <= OI_LOCAL_DOMINANCE_KM) {
+        var localFloor = 1.0 - (distKm / OI_LOCAL_DOMINANCE_KM) * 0.2; // 1.0 a 0km -> 0.8 a 15km
+        w = Math.max(base, localFloor);
+      } else {
+        w = base;
+      }
+    }
+    var cap = STATION_TRUST_CAP[stationKey];
+    return (cap !== undefined) ? Math.min(w, cap) : w;
+  }
+
+  return gridData.map(function(pt){
+    // Matrice a zone (v2.0 - 2026-07-03): ogni cella appartiene a UNA sola zona,
+    // quella con centro piu' vicino tra le ZONES con bias_station configurata
+    // (nearestZoneStation, vedi fetchZoneMatrix). Di norma SOLO la stazione di
+    // quella zona puo' contribuire alla cella — questo evita la cancellazione
+    // vettoriale tra stazioni di zone diverse con direzioni opposte (es. Alberese/
+    // Casotto Pescatori) e le contaminazioni a lungo raggio (60km) viste con
+    // Barcaggio, Orbetello, Follonica ecc. Le grid_rules restano attive come
+    // override esplicito per i pochi casi noti dove servono piu' stazioni insieme
+    // (es. Populonia+Venturina, Viareggio+Bocca Arno) o per escluderne una
+    // (es. Follonica su 42.75_10.65).
+    var cellKey = pt.lat.toFixed(2) + '_' + pt.lon.toFixed(2);
+    var cellRules = state_gridRules[cellKey];
+    var defaultKey = nearestZoneStation(pt.lat, pt.lon);
+    var candidateKeys = defaultKey ? [defaultKey] : [];
+
+    if (cellRules && cellRules.allowed_stations && cellRules.allowed_stations.length > 0) {
+      candidateKeys = cellRules.allowed_stations.slice();
+    } else if (cellRules && cellRules.excluded_stations && cellRules.excluded_stations.length > 0) {
+      candidateKeys = candidateKeys.filter(function(k){ return cellRules.excluded_stations.indexOf(k) < 0; });
+    }
+
+    var contributions = [];
+    validStations.forEach(function(st){
+      if (candidateKeys.indexOf(st.key) < 0) return;
+      var d = haversineKm(pt.lat, pt.lon, st.lat, st.lon);
+      if (d > OI_MAX_DIST_KM) return;
+      // fix 2026-07-03: rimossa reliability da bias_matrix (era 1/(1+MAE_vs_OM) —
+      // penalizzava proprio le stazioni che divergono di piu' da OM, cioe' quelle
+      // con l'effetto orografico locale piu' forte e piu' vero). Nella vista diretta
+      // il dato di stazione e' sempre vero: il peso e' solo funzione della distanza.
+      var w = stationWeight(d, st.key);
+      if (w > 0) contributions.push({ st: st, d: d, w: w });
+    });
+
+    if (contributions.length === 0) return Object.assign({}, pt); // fix v1.6.82: copia, mai l'oggetto originale — altrimenti gridDataOI e gridData condividono riferimento e una mutazione su uno tocca anche l'altro
+
+    if (cellRules) console.log('grid_rule ' + cellKey + ': candidate =', candidateKeys, 'regola:', JSON.stringify(cellRules));
+
+    // Dominanza automatica per prossimità (v1.2 - 2026-07-03): utile nei rari casi
+    // con 2+ stazioni candidate per regola esplicita — la piu' vicina delle due
+    // non puo' essere annacquata da quella piu' lontana.
+    if (contributions.length > 1) {
+      var closest = contributions.reduce(function(a,c){ return (!a || c.d < a.d) ? c : a; }, null);
+      var others = contributions.filter(function(c){ return c !== closest; });
+      var secondDist = Math.min.apply(null, others.map(function(c){ return c.d; }));
+      if (closest.d < secondDist * 0.7) {
+        var dominanceFloor = Math.max(0, Math.pow(1 - closest.d / OI_MAX_DIST_KM, 1.5));
+        var otherW = others.reduce(function(a,c){ return a + c.w; }, 0);
+        var minClosestW = dominanceFloor * (closest.w + otherW || 1);
+        if (closest.w < minClosestW) closest.w = minClosestW;
+      }
+    }
+
+    // Applica min_weight se specificato nelle regole — garantisce peso minimo alla stazione
+    if (cellRules && cellRules.min_weight && contributions.length > 0) {
+      var minW = cellRules.min_weight;
+      // Riscala i pesi delle stazioni per garantire che la loro influenza totale sia almeno min_weight
+      var currentRawSum = contributions.reduce(function(a, c){ return a + c.w; }, 0);
+      if (currentRawSum < minW) {
+        var scale = minW / currentRawSum;
+        contributions = contributions.map(function(c){
+          return { st: c.st, d: c.d, w: c.w * scale };
+        });
+      }
+    }
+
+    // Somma pesi stazioni — cappata a 1.0 per garantire interpolazione corretta
+    var rawSumW = contributions.reduce(function(a, c){ return a + c.w; }, 0);
+    var stationInfluence = Math.min(1.0, rawSumW); // max influenza stazioni = 100%
+    var omInfluence = 1.0 - stationInfluence;      // complemento = influenza OM
+
+    // Normalizza i pesi delle stazioni in modo che sommino a stationInfluence
+    var scale = rawSumW > 0 ? stationInfluence / rawSumW : 0;
+
+    // Interpolazione velocita: media pesata stazione + OM (totalW sempre = 1.0)
+    var finalSpeed = pt.speed * omInfluence;
+    contributions.forEach(function(c){
+      finalSpeed += c.st.speed * c.w * scale;
+    });
+    finalSpeed = Math.max(0, Math.round(finalSpeed * 10) / 10);
+
+    // Interpolazione direzione via U/V — vettori normalizzati a modulo 1 (fix 2026-07-01)
+    // La direzione deve seguire il peso nominale (min_weight/omInfluence), non il modulo
+    // vettoriale che varia con la velocità — altrimenti stazioni con vento debole perdono
+    // il controllo della direzione anche con min_weight alto (bug Bocca d'Arno/Viareggio)
+    var omRad = degToRad(pt.dir);
+    var finalU = -Math.sin(omRad) * omInfluence;
+    var finalV = -Math.cos(omRad) * omInfluence;
+    contributions.forEach(function(c){
+      var stRad = degToRad(c.st.dir);
+      finalU += -Math.sin(stRad) * c.w * scale;
+      finalV += -Math.cos(stRad) * c.w * scale;
+    });
+    var finalDir = Math.atan2(-finalU, -finalV) * 180 / Math.PI;
+    if (finalDir < 0) finalDir += 360;
+    if (isNaN(finalDir)) finalDir = pt.dir; // safety fallback
+
+    return Object.assign({}, pt, {
+      speed: finalSpeed,
+      dir: Math.round(finalDir),
+      oi_correction: Math.round((finalSpeed - pt.speed) * 10) / 10,
+      oi_station_weight: Math.round(stationInfluence * 100) / 100
+    });
+  });
+}
+
+// Toggle OI
+document.addEventListener('DOMContentLoaded', function(){
+  var btnOI = document.getElementById('btn-oi');
+  if (btnOI) {
+    btnOI.addEventListener('click', function(){
+      var hudTsEl = document.getElementById('hud-ts');
+      try {
+        oiEnabled = !oiEnabled;
+        btnOI.innerHTML = oiEnabled ? 'OI<br>ON' : 'OI<br>OFF';
+        btnOI.classList.toggle('active', oiEnabled);
+        // Ricalcola griglia con/senza correzione e ridisegna
+        if (state.gridData.length > 0 && state.stationData.length > 0) {
+          state.gridDataOI = applyOI(state.gridData, state.stationData);
+          applyStationOverrideToExtraPoints();
+          drawWind();
+          rebuildAndAnimate();
+          if (hudTsEl) hudTsEl.textContent = hudTsEl.textContent.split(' | ')[0] + debugOICountText();
+        } else if (hudTsEl) {
+          hudTsEl.textContent = hudTsEl.textContent.split(' | ')[0] + ' | SALTATO: gridData=' + state.gridData.length + ' stationData=' + state.stationData.length;
+        }
+      } catch(clickErr) {
+        if (hudTsEl) hudTsEl.textContent = hudTsEl.textContent.split(' | ')[0] + ' | ERRORE: ' + clickErr.message;
+      }
+    });
+  }
+});
+
+// Forza i punti griglia extra (GRID_EXTRA_POINTS, tutte le stazioni della
+// rete) a mostrare il dato reale nella vista OI. La vista OI-OFF resta OM puro
+// anche su questi punti, per non perdere la possibilita' di confronto OM-vs-
+// reale quando serve (es. diagnosi). fix v1.6.82: spostata a livello globale —
+// prima era definita dentro loadAll() e il tasto OI (fuori scope) non riusciva
+// a vederla, fallendo in silenzio ad ogni click da quel momento in poi.
+function applyStationOverrideToExtraPoints(){
+  GRID_EXTRA_POINTS.forEach(function(ep){
+    var st = state.stationData.filter(function(s){ return s.key === ep.stationKey; })[0];
+    [state.gridData, state.gridDataOI].forEach(function(arr){
+      var pt = arr.filter(function(g){
+        return Math.abs(g.lat - ep.lat) < 0.001 && Math.abs(g.lon - ep.lon) < 0.001;
+      })[0];
+      if (!pt) return;
+      pt.isStationPoint = true; // solo un flag, non tocca i numeri usati dal flusso di sfondo
+      if (arr === state.gridDataOI && st && st.speed != null && st.dir != null) {
+        pt.speed = st.speed; pt.dir = st.dir; if (st.gust != null) pt.gust = st.gust;
+      }
+    });
+  });
+}
+
+// Diagnostica visibile (temporanea, 2026-07-10): conta quante celle hanno un
+// valore diverso tra gridData (OM) e gridDataOI (corretto), per capire se il
+// problema e' nel ricalcolo o nel disegno senza bisogno della console.
+function debugOICountText(){
+  if (!state.gridData.length || !state.gridDataOI.length) return '';
+  var diff = 0;
+  for (var i = 0; i < state.gridData.length; i++) {
+    var a = state.gridData[i], b = state.gridDataOI[i];
+    if (a && b && (Math.abs((a.speed||0)-(b.speed||0)) > 0.05 || Math.abs((a.dir||0)-(b.dir||0)) > 1)) diff++;
+  }
+  return ' | OI:' + (oiEnabled?'ON':'OFF') + ' corrette:' + diff + '/' + state.gridDataOI.length;
+}
+
+async function loadAll(){
+  document.getElementById('btn-refresh').style.opacity = '0.4';
+  setHud('load', 'Caricamento...');
+  try {
+    await Promise.all([fetchZoneData(), fetchGridData(), fetchStationData(), fetchBiasMatrix(), fetchGridRules(), fetchZoneMatrix()]);
+    // Applica Optimal Interpolation se attiva
+    state.gridDataOI = applyOI(state.gridData, state.stationData);
+    applyStationOverrideToExtraPoints();
+    updateZoneMarkers();
+    resizeCanvas();
+    drawWind();
+    rebuildAndAnimate();
+    state.lastUpdate = new Date();
+    var ts = state.lastUpdate.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+    setHud('ok', 'Dati in diretta');
+    var hTime = document.getElementById('hud-time');
+    hTime.style.display = 'flex';
+    document.getElementById('hud-ts').textContent = 'Agg. ' + ts + debugOICountText();
+    document.getElementById('nav-zoom').textContent = 'z' + map.getZoom();
+  } catch(e){
+    setHud('err', 'Errore caricamento');
+  }
+  document.getElementById('btn-refresh').style.opacity = '1';
+}
+
+// GPS
+document.getElementById('btn-gps').addEventListener('click', function(){
+  if (!navigator.geolocation){ alert('GPS non disponibile.'); return; }
+  var btn = this;
+  btn.style.color = 'var(--gold)';
+  navigator.geolocation.getCurrentPosition(
+    function(pos){
+      var lat = pos.coords.latitude, lon = pos.coords.longitude, acc = pos.coords.accuracy;
+      if (state.gpsMarker){ map.removeLayer(state.gpsMarker); }
+      if (state.gpsCircle){ map.removeLayer(state.gpsCircle); }
+      state.gpsCircle = L.circle([lat,lon],{
+        radius:acc, color:'#0af0ff', fillColor:'#0af0ff',
+        fillOpacity:0.08, weight:1, opacity:0.35,
+      }).addTo(map);
+      state.gpsMarker = L.marker([lat,lon],{
+        icon:L.divIcon({html:'<div class="gps-dot"></div>',className:'',iconSize:[16,16],iconAnchor:[8,8]}),
+        zIndexOffset:500
+      }).addTo(map);
+      map.setView([lat,lon], Math.max(map.getZoom(),9), {animate:true});
+      btn.style.color = 'var(--accent)';
+    },
+    function(err){
+      btn.style.color = '';
+      alert('GPS: ' + err.message);
+    },
+    {enableHighAccuracy:true, timeout:12000}
+  );
+});
+
+document.getElementById('btn-refresh').addEventListener('click', loadAll);
+
+// Auto-refresh ogni 10 min
+setInterval(loadAll, 600000);
+
+
+//  Boe e stazioni marine (simboli fissi) 
+var buoyIcon = L.divIcon({
+  className: '',
+  html: '<div style="width:18px;height:18px;background:#0af0ff;border:2px solid #0a9090;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;color:#000;font-weight:bold;box-shadow:0 0 8px rgba(10,240,255,0.7)">B</div>',
+  iconSize: [18, 18], iconAnchor: [9, 9]
+});
+var stationIcon = L.divIcon({
+  className: '',
+  html: '<div style="width:16px;height:16px;background:#ffaa00;border:2px solid #cc7700;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#000;font-weight:bold;box-shadow:0 0 8px rgba(255,170,0,0.7)">S</div>',
+  iconSize: [16, 16], iconAnchor: [8, 8]
+});
+var mnwIcon = L.divIcon({
+  className: '',
+  html: '<div style="width:20px;height:20px;background:#00cc66;border:2px solid #009944;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#000;font-weight:bold;box-shadow:0 0 10px rgba(0,204,102,0.9)">W</div>',
+  iconSize: [20, 20], iconAnchor: [10, 10]
+});
+BUOYS.forEach(function(b) {
+  var icon = (b.type === 'boa' || b.type === 'corr') ? buoyIcon : stationIcon;
+  var mk2 = L.marker([b.lat, b.lon], { icon: icon, zIndexOffset: 50 }).addTo(map);
+  mk2.bindPopup('<div style="font-family:DM Mono,monospace;font-size:0.7rem;min-width:180px">' +
+    '<div style="font-weight:bold;color:#0af0ff;margin-bottom:4px">' + b.name + '</div>' +
+    '<div style="color:#8ab8d0;font-size:0.6rem;margin-bottom:2px">' + (b.type === 'boa' ? 'Boa ondametrica' : b.type === 'corr' ? 'Correntometro' : 'Stazione meteo') + '</div>' +
+    '<div style="color:#888;font-size:0.58rem">' + b.note + '</div>' +
+    '</div>', { maxWidth: 240 });
+});
+
+// ============================================================
+// OSSERVAZIONI MANUALI — v1.0 — 2026-06-25
+// ============================================================
+var obsCurrentLat = null, obsCurrentLon = null, obsCurrentName = null;
+var obsMarkers = [];
+
+function openObsPanel(lat, lon, name) {
+  obsCurrentLat = lat;
+  obsCurrentLon = lon;
+  obsCurrentName = name || null;
+  // Pre-compila data/ora con adesso
+  var now = new Date();
+  var tzOffset = now.getTimezoneOffset() * 60000;
+  var localIso = new Date(now - tzOffset).toISOString().slice(0,16);
+  document.getElementById('obs-ts').value = localIso;
+  document.getElementById('obs-spd').value = '';
+  document.getElementById('obs-dir').value = '';
+  document.getElementById('obs-note').value = '';
+  document.getElementById('obs-status').textContent = '';
+  var coordsEl = document.getElementById('obs-coords');
+  if (name) {
+    coordsEl.innerHTML = '<span style="color:var(--white);font-weight:bold">' + name + '</span><br>' +
+      lat.toFixed(4) + '°N  ' + lon.toFixed(4) + '°E';
+  } else {
+    coordsEl.textContent = 'Posizione: ' + lat.toFixed(4) + '°N  ' + lon.toFixed(4) + '°E';
+  }
+  // Ricorda ultimo pin usato
+  var lastPin = localStorage.getItem('obs_pin') || '';
+  document.getElementById('obs-pin').value = lastPin;
+  document.getElementById('obs-panel').classList.add('open');
+}
+
+function closeObsPanel() {
+  stopCompass();
+  document.getElementById('obs-panel').classList.remove('open');
+}
+
+// Bussola per stima gradi vento (v1.6.82 - 2026-07-03): su iOS Safari serve il
+// permesso esplicito DeviceOrientationEvent.requestPermission(), richiedibile solo
+// da un gesto utente diretto (questo click lo è). webkitCompassHeading e' gia' la
+// bussola vera (0=Nord) su iOS; su Android/altri si usa 360-alpha come fallback.
+// Convenzione meteo: il grado da registrare e' "da dove viene il vento", quindi
+// l'utente deve orientare il telefono/testa verso la provenienza del vento, non
+// verso dove soffia.
+var compassActive = false;
+var compassHandler = null;
+
+function toggleCompass(){
+  if (compassActive) { stopCompass(); return; }
+  startCompass();
+}
+
+function startCompass(){
+  var liveEl = document.getElementById('obs-compass-live');
+  var btn = document.getElementById('obs-compass-btn');
+  if (!liveEl || !btn) return;
+
+  function attach(){
+    compassHandler = function(e){
+      var heading = null, accuracy = null;
+      if (typeof e.webkitCompassHeading === 'number' && !isNaN(e.webkitCompassHeading)) {
+        heading = e.webkitCompassHeading;
+        if (typeof e.webkitCompassAccuracy === 'number') accuracy = e.webkitCompassAccuracy;
+      } else if (e.absolute && e.alpha != null) {
+        heading = (360 - e.alpha) % 360;
+      }
+      if (heading != null) {
+        var rounded = Math.round(heading) % 360;
+        var accTxt = '';
+        if (accuracy != null) {
+          if (accuracy < 0) accTxt = ' — <span style="color:#ff4444">non calibrata, valore inaffidabile</span>';
+          else if (accuracy > 30) accTxt = ' — <span style="color:#ff9800">affidabilita\' bassa (±' + Math.round(accuracy) + '°)</span>';
+          else if (accuracy > 10) accTxt = ' — affidabilita\' media (±' + Math.round(accuracy) + '°)';
+          else accTxt = ' — <span style="color:#00e676">affidabilita\' buona (±' + Math.round(accuracy) + '°)</span>';
+        }
+        liveEl.innerHTML = '🧭 <b>' + rounded + '°</b>' + accTxt + '<br>tieni il telefono in piano, lato superiore verso da dove viene il vento';
+        liveEl.style.display = 'block';
+        document.getElementById('obs-dir').value = rounded;
+      }
+    };
+    window.addEventListener('deviceorientation', compassHandler, true);
+    compassActive = true;
+    btn.textContent = '🧭 Ferma bussola (usa questo valore)';
+  }
+
+  if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+    DeviceOrientationEvent.requestPermission().then(function(resp){
+      if (resp === 'granted') { attach(); }
+      else { liveEl.textContent = 'Permesso bussola negato — inserisci i gradi a mano.'; liveEl.style.display = 'block'; }
+    }).catch(function(){
+      liveEl.textContent = 'Bussola non disponibile su questo browser.'; liveEl.style.display = 'block';
+    });
+  } else if (window.DeviceOrientationEvent) {
+    attach();
+  } else {
+    liveEl.textContent = 'Bussola non supportata su questo dispositivo/browser.'; liveEl.style.display = 'block';
+  }
+}
+
+function stopCompass(){
+  if (compassHandler) { window.removeEventListener('deviceorientation', compassHandler, true); compassHandler = null; }
+  compassActive = false;
+  var btn = document.getElementById('obs-compass-btn');
+  if (btn) btn.textContent = '🧭 Usa bussola';
+}
+
+async function submitObs() {
+  var spd  = parseFloat(document.getElementById('obs-spd').value);
+  var dir  = parseFloat(document.getElementById('obs-dir').value);
+  var pin  = document.getElementById('obs-pin').value.trim();
+  var note = document.getElementById('obs-note').value.trim();
+  var ts   = document.getElementById('obs-ts').value;
+  var status = document.getElementById('obs-status');
+
+  if (!pin) { status.style.color = '#ff4444'; status.textContent = 'Pin mancante'; return; }
+  if (isNaN(spd) || spd < 0) { status.style.color = '#ff4444'; status.textContent = 'Velocità non valida'; return; }
+  if (isNaN(dir) || dir < 0 || dir > 360) { status.style.color = '#ff4444'; status.textContent = 'Direzione non valida (0-360)'; return; }
+
+  localStorage.setItem('obs_pin', pin);
+  status.style.color = 'var(--muted)';
+  status.textContent = 'Invio in corso...';
+
+  var tsIso = ts ? new Date(ts).toISOString() : new Date().toISOString();
+  var url = ENGINE_URL + '?action=obs_save&lat=' + obsCurrentLat + '&lon=' + obsCurrentLon +
+    '&spd=' + spd + '&dir=' + dir + '&pin=' + encodeURIComponent(pin) +
+    '&ts=' + encodeURIComponent(tsIso) +
+    (obsCurrentName ? '&name=' + encodeURIComponent(obsCurrentName) : '') +
+    (note ? '&note=' + encodeURIComponent(note) : '');
+
+  try {
+    var r = await fetch(url);
+    var d = await r.json();
+    if (d.ok) {
+      status.style.color = '#00e676';
+      status.textContent = '✓ Osservazione salvata';
+      setTimeout(function(){ closeObsPanel(); loadObsMarkers(); }, 1200);
+    } else {
+      status.style.color = '#ff4444';
+      status.textContent = 'Errore: ' + (d.error || 'sconosciuto');
+    }
+  } catch(e) {
+    status.style.color = '#ff4444';
+    status.textContent = 'Errore di rete';
+  }
+}
+
+async function loadObsMarkers() {
+  try {
+    var r = await fetch(ENGINE_URL + '?action=obs_list&limit=50');
+    var d = await r.json();
+    // Rimuovi marker esistenti
+    obsMarkers.forEach(function(m){ map.removeLayer(m); });
+    obsMarkers = [];
+    (d.observations || []).forEach(function(obs) {
+      var ageMin = Math.round((Date.now() - new Date(obs.ts).getTime()) / 60000);
+      var ageStr = ageMin < 60 ? ageMin + 'min fa' : Math.round(ageMin/60) + 'h fa';
+      var col = ageMin < 60 ? '#ff9500' : ageMin < 360 ? '#ffcc00' : '#888';
+      var icon = L.divIcon({
+        className: '',
+        html: '<div style="width:28px;height:28px;border-radius:50%;background:' + col + ';border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:0.5rem;font-family:DM Mono,monospace;color:#000;font-weight:bold">' + obs.pin + '</div>',
+        iconSize: [28,28], iconAnchor: [14,14]
+      });
+      var mk = L.marker([obs.lat, obs.lon], { icon: icon });
+      var omStr = obs.om ? obs.om.wind_kt + 'kt ' + obs.om.direction + '°' : '—';
+      mk.bindPopup(
+        '<div style="font-family:DM Mono,monospace;font-size:0.6rem;min-width:160px">' +
+        '<div style="font-weight:bold;color:#ff9500;margin-bottom:6px">📍 Osservazione #' + obs.pin + '</div>' +
+        '<div style="margin-bottom:2px">' + ageStr + ' — ' + new Date(obs.ts).toLocaleString('it-IT',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'}) + '</div>' +
+        '<div style="margin-bottom:2px">Vento: <b>' + obs.wind_kt + ' kt</b> da <b>' + obs.direction + '°</b></div>' +
+        '<div style="color:#888">OM: ' + omStr + '</div>' +
+        (obs.note ? '<div style="color:#aaa;margin-top:4px">' + obs.note + '</div>' : '') +
+        '</div>'
+      );
+      mk.addTo(map);
+      obsMarkers.push(mk);
+    });
+  } catch(e) { console.warn('obs_list error:', e); }
+}
+
+// ============================================================
+// EXPORT GRID — genera Excel con matrice geografica
+// ============================================================
+function exportGrid() {
+  if (!state.gridData || state.gridData.length === 0) {
+    alert('Dati griglia non ancora caricati. Premi AGG prima.');
+    return;
+  }
+  if (typeof XLSX === 'undefined') {
+    alert('Libreria Excel non ancora caricata. Riprova tra qualche secondo.');
+    return;
+  }
+
+  var btn = document.getElementById('btn-export');
+  if (btn) { btn.textContent = '...'; btn.style.color = 'var(--gold)'; }
+
+  try {
+    // Determina lats e lons uniche dalla griglia
+    var lats = [...new Set(state.gridData.map(function(p){ return p.lat; }))].sort(function(a,b){ return b-a; }); // decrescente = nord→sud
+    var lons = [...new Set(state.gridData.map(function(p){ return p.lon; }))].sort(function(a,b){ return a-b; }); // crescente = ovest→est
+
+    // Indice rapido per cercare punti griglia
+    function ptKey(lat, lon){ return lat.toFixed(2) + '_' + lon.toFixed(2); }
+    var gridIndex = {}, gridOIIndex = {};
+    state.gridData.forEach(function(p){ gridIndex[ptKey(p.lat, p.lon)] = p; });
+    var oiData = state.gridData;
+    if (oiEnabled && state.gridDataOI && state.gridDataOI.length > 0) {
+      // Usa gridDataOI già calcolato e visualizzato sulla mappa
+      oiData = state.gridDataOI;
+      var changed = 0;
+      state.gridData.forEach(function(pt, i){
+        if (oiData[i] && Math.abs(oiData[i].speed - pt.speed) > 0.01) changed++;
+      });
+      console.log('OI export da state.gridDataOI: celle cambiate=' + changed);
+    } else if (oiEnabled) {
+      // Fallback: ricalcola
+      var prevEnabled = oiEnabled;
+      oiEnabled = true;
+      oiData = applyOI(state.gridData, state.stationData);
+      oiEnabled = prevEnabled;
+    }
+    oiData.forEach(function(p){ gridOIIndex[ptKey(p.lat, p.lon)] = p; });
+
+    // Indice stazioni per trovare la più vicina a ogni punto
+    function haversineKmEx(lat1,lon1,lat2,lon2){
+      var R=6371,dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;
+      var a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+      return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+    }
+    var stations = (state.stationData || []).filter(function(st){
+      return st && st.lat && st.lon && st.speed !== null && st.speed !== undefined;
+    });
+
+    function nearestStation(lat, lon) {
+      var best = null, bestD = Infinity;
+      stations.forEach(function(st){
+        var d = haversineKmEx(lat, lon, st.lat, st.lon);
+        if (d < bestD){ bestD = d; best = st; }
+      });
+      return best && bestD <= 28 ? { st: best, d: Math.round(bestD*10)/10 } : null;
+    }
+
+    var wb = XLSX.utils.book_new();
+    var ts = new Date().toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).replace(/\//g,'-').replace(', ',' ').replace(/:/g,'.');
+
+    // Genera un foglio per un dataset (OM o OI)
+    function makeSheet(index, label) {
+      var data = [];
+      var headerLon = ['LAT \\ LON'];
+      var headerSub = [''];
+      lons.forEach(function(l){
+        headerLon.push(l.toFixed(2)); headerLon.push('');
+        headerSub.push('kt'); headerSub.push('dir°');
+      });
+      data.push(headerLon);
+      data.push(headerSub);
+      lats.forEach(function(lat) {
+        var rowModel = [lat.toFixed(2)];
+        var rowSt    = [lat.toFixed(2) + ' ST'];
+        lons.forEach(function(lon) {
+          var key = ptKey(lat, lon);
+          var pt  = index[key];
+          var near = nearestStation(lat, lon);
+          rowModel.push(pt ? pt.speed : '');
+          rowModel.push(pt ? pt.dir   : '');
+          if (near && near.d <= 28) {
+            rowSt.push(near.st.speed + ' (' + near.st.key.replace('_cfr','').replace('_mnw','') + ' ' + near.d + 'km)');
+            rowSt.push(near.st.dir);
+          } else { rowSt.push(''); rowSt.push(''); }
+        });
+        data.push(rowModel);
+        data.push(rowSt);
+      });
+      var ws = XLSX.utils.aoa_to_sheet(data);
+      var colW = [{ wch: 12 }];
+      lons.forEach(function(){ colW.push({ wch: 14 }); colW.push({ wch: 7 }); });
+      ws['!cols'] = colW;
+      XLSX.utils.book_append_sheet(wb, ws, label);
+    }
+
+    makeSheet(gridIndex,   '1-OM ' + ts);
+    makeSheet(gridOIIndex, '2-OI-' + (oiEnabled ? 'ON' : 'OFF') + ' ' + ts);
+
+    // Foglio 3: confronto delta con direzione circolare corretta
+    var deltaData = [['LAT','LON','OM kt','OI kt','Δ kt','OM dir°','OI dir°','Δ dir°','Stazione','Dist km','ST kt','ST dir°']];
+    lats.forEach(function(lat){
+      lons.forEach(function(lon){
+        var key = ptKey(lat, lon);
+        var ptOM = gridIndex[key];
+        var ptOI = gridOIIndex[key];
+        if (!ptOM) return;
+        var dv = ptOI ? Math.round((ptOI.speed - ptOM.speed)*10)/10 : 0;
+        var ddRaw = ptOI ? ptOI.dir - ptOM.dir : 0;
+        while (ddRaw > 180)  ddRaw -= 360;
+        while (ddRaw < -180) ddRaw += 360;
+        var near = nearestStation(lat, lon);
+        deltaData.push([
+          lat.toFixed(2), lon.toFixed(2),
+          ptOM.speed, ptOI ? Math.round(ptOI.speed*10)/10 : ptOM.speed,
+          dv,
+          ptOM.dir, ptOI ? ptOI.dir : ptOM.dir,
+          Math.round(ddRaw),
+          near && near.d <= 28 ? near.st.key : '',
+          near && near.d <= 28 ? near.d : '',
+          near && near.d <= 28 ? near.st.speed : '',
+          near && near.d <= 28 ? near.st.dir : ''
+        ]);
+      });
+    });
+    var wsDelta = XLSX.utils.aoa_to_sheet(deltaData);
+    wsDelta['!cols'] = [{wch:7},{wch:6},{wch:7},{wch:7},{wch:7},{wch:8},{wch:8},{wch:8},{wch:22},{wch:8},{wch:7},{wch:8}];
+    XLSX.utils.book_append_sheet(wb, wsDelta, '3-Delta ' + ts);
+
+    // Foglio 4: stazioni
+    var stData = [['Stazione','Lat','Lon','Vel (kt)','Dir (°)','Raffica (kt)']];
+    stations.forEach(function(st){
+      if (st.speed === null || st.speed === undefined) return;
+      stData.push([st.key, st.lat, st.lon, st.speed, st.dir, st.gust || '']);
+    });
+    var wsStations = XLSX.utils.aoa_to_sheet(stData);
+    wsStations['!cols'] = [{wch:22},{wch:10},{wch:10},{wch:10},{wch:10},{wch:12}];
+    XLSX.utils.book_append_sheet(wb, wsStations, '4-Stazioni ' + ts);
+
+    XLSX.writeFile(wb, 'nautilus-grid-' + ts.replace(/ /g,'_') + '.xlsx');
+  } catch(e) {
+    alert('Errore export: ' + e.message);
+  }
+
+  if (btn) { btn.innerHTML = '📊<br>XLS'; btn.style.color = 'var(--muted)'; }
+}
+
+loadAll();
+// Carica osservazioni esistenti all'avvio
+setTimeout(loadObsMarkers, 2000);
+
+try {
+MNW_LIVE.forEach(function(st) {
+  var mk = L.marker([st.lat, st.lon], { icon: mnwIcon, zIndexOffset: 60 }).addTo(map);
+  var popupId = 'mnwpop_' + st.key;
+  mk.bindPopup('<div id="' + popupId + '" style="font-family:DM Mono,monospace;font-size:0.7rem;min-width:200px">' +
+    '<div style="font-weight:bold;color:#00cc66;margin-bottom:4px">' + st.name + '</div>' +
+    '<div style="color:#fff;font-size:0.62rem">Caricamento...</div>' +
+    '</div>', { maxWidth: 260 });
+  mk.on('popupopen', function() {
+    fetch(ENGINE_URL + '?action=stations_snapshot&k=mdi', {cache: 'no-store'})
+      .then(function(r){ return r.json(); })
+      .then(function(data) {
+        var el = document.getElementById(popupId);
+        if (!el) return;
+        var s = data.stations && (data.stations[st.key] || data.stations[st.sid]);
+        // 2026-07-12: rimosso il fallback .replace('_cfr','') che faceva leggere
+        // al marker 'Livorno Porto CFR' il dato della zona 'livorno' (Quercianella),
+        // mostrandolo come se fosse del mareografo. Ogni stazione mostra solo il
+        // proprio dato reale; se non ne ha, dira' 'nessun dato' (onesto).
+        if (!s || s.wind_kt === null || s.wind_kt === undefined) {
+          // Fallback a bias_history
+          fetch(ENGINE_URL + '?action=bias_history&station=' + st.sid + '&limit=10', {cache:'no-store'})
+            .then(function(r2){ return r2.json(); })
+            .then(function(d2){
+              var el2 = document.getElementById(popupId);
+              if (!el2) return;
+              var s2 = null;
+              if (d2.samples) {
+                for (var si=0; si<d2.samples.length; si++) {
+                  if (d2.samples[si].station && d2.samples[si].station.wind_kt !== null && d2.samples[si].station.wind_kt !== undefined) {
+                    s2 = d2.samples[si]; break;
+                  }
+                }
+              }
+              if (!s2) {
+                el2.innerHTML = '<div style="font-weight:bold;color:#00cc66;margin-bottom:4px">' + st.name + '</div>' +
+                  '<div style="color:#fff;font-size:0.65rem">Nessun dato disponibile</div>';
+                return;
+              }
+              var wkt2 = s2.station.wind_kt;
+              var dir2 = s2.station.direction;
+              var dt2 = new Date(s2.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+              var dw2 = s2.delta && s2.delta.wind_kt !== null ? s2.delta.wind_kt : null;
+              var windCol2 = wkt2 < 15 ? '#4cff91' : wkt2 < 25 ? '#ffd700' : '#ff6060';
+              var dirTxt2 = dir2 !== null ? degToCard(dir2) + ' ' + dir2 + '°' : '--';
+              var arrowSvg2 = dir2 !== null
+                ? '<svg width="22" height="22" viewBox="-11 -11 22 22" style="display:inline-block;vertical-align:middle"><g transform="rotate(' + (dir2+180) + ')"><line x1="0" y1="9" x2="0" y2="-6" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><polygon points="0,-10 -4,-4 4,-4" fill="#fff"/></g></svg>'
+                : '';
+              el2.innerHTML = '<div style="font-weight:bold;color:#00cc66;font-size:0.78rem;margin-bottom:6px">' + st.name + '</div>' +
+                '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">' +
+                '<span style="font-size:1.5rem;font-weight:bold;color:' + windCol2 + '">' + wkt2 + '</span>' +
+                '<span style="font-size:0.65rem;color:#fff;font-weight:bold">kn</span>' +
+                arrowSvg2 + '<span style="font-size:0.72rem;color:#fff">' + dirTxt2 + '</span></div>' +
+                (dw2 !== null ? '<div style="font-size:0.65rem;color:#4cff91;margin-bottom:4px">Vs OM: ' + (dw2>=0?'+':'') + dw2 + ' kn</div>' : '') +
+                '<div style="color:#fff;font-size:0.62rem">' + dt2 + ' (da storico)</div>' +
+                '<div style="margin-top:8px"><button onclick="refreshMnwStation(\'' + st.sid + '\',\'' + popupId + '\',\'' + st.name + '\')" style="font-family:DM Mono,monospace;font-size:0.58rem;padding:3px 10px;background:rgba(0,204,102,0.15);border:1px solid #00cc66;border-radius:6px;color:#00cc66;cursor:pointer">&#8635; Aggiorna</button></div>';
+            }).catch(function(){
+              var el2 = document.getElementById(popupId);
+              if (el2) el2.innerHTML = '<div style="font-weight:bold;color:#00cc66;margin-bottom:4px">' + st.name + '</div><div style="color:#fff;font-size:0.65rem">Nessun dato disponibile</div>';
+            });
+          return;
+        }
+        var dt = new Date(s.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+        var dw = (s.om_wind_kt !== null && s.om_wind_kt !== undefined) ? Math.round((s.wind_kt - s.om_wind_kt)*10)/10 : null;
+        var wkt = s.wind_kt;
+        var windCol = wkt < 15 ? '#4cff91' : wkt < 25 ? '#ffd700' : '#ff6060';
+        var deltaCol = dw === null ? '#bbb' : Math.abs(dw) > 5 ? '#ff6060' : '#4cff91';
+        var dirTxt = (s.direction !== null ? degToCard(s.direction) + ' ' + s.direction + '°' : '--');
+        var dirDeg = (s.direction !== undefined && s.direction !== null) ? Number(s.direction) : null;
+        var arrowSvg = dirDeg !== null
+          ? '<svg width="22" height="22" viewBox="-11 -11 22 22" style="display:inline-block;vertical-align:middle">' +
+            '<g transform="rotate(' + (dirDeg + 180) + ')">' +
+            '<line x1="0" y1="9" x2="0" y2="-6" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>' +
+            '<polygon points="0,-10 -4,-4 4,-4" fill="#fff"/>' +
+            '</g></svg>'
+          : '';
+        var ageStr = s.age_min !== undefined ? s.age_min + 'min fa' : '';
+        el.innerHTML = '<div style="font-weight:bold;color:#00cc66;font-size:0.78rem;margin-bottom:6px">' + st.name + '</div>' +
+          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">' +
+          '<span style="font-size:1.5rem;font-weight:bold;color:' + windCol + '">' + wkt + '</span>' +
+          '<span style="font-size:0.65rem;color:#fff;font-weight:bold">kn</span>' +
+          arrowSvg +
+          '<span style="font-size:0.72rem;color:#fff">' + dirTxt + '</span>' +
+          '</div>' +
+          (dw !== null ? '<div style="font-size:0.65rem;color:' + deltaCol + ';margin-bottom:4px">Vs OM: ' + (dw >= 0 ? '+' : '') + dw + ' kn</div>' : '') +
+          '<div style="color:#fff;font-size:0.62rem;margin-top:4px">' + dt + ' · ' + ageStr + '</div>' +
+          '<div style="margin-top:8px">' +
+          '<button onclick="refreshMnwStation(\'' + st.sid + '\',\'' + popupId + '\',\'' + st.name + '\')" ' +
+          'style="font-family:DM Mono,monospace;font-size:0.58rem;padding:3px 10px;background:rgba(0,204,102,0.15);border:1px solid #00cc66;border-radius:6px;color:#00cc66;cursor:pointer">&#8635; Aggiorna</button>' +
+          '</div>';
+      }).catch(function(){ 
+        var el = document.getElementById(popupId);
+        if (el) el.innerHTML = '<div style="font-weight:bold;color:#00cc66;margin-bottom:4px">' + st.name + '</div>' +
+          '<div style="color:#fff;font-size:0.65rem">Errore caricamento dati</div>';
+      });
+  });
+});
+} catch(mnwErr) { console.warn('MNW markers error:', mnwErr); }
+
+// Punti di riferimento Corsica/Sardegna - solo dato calcolato OM, nessuna stazione reale (16 giugno)
+var calcOnlyIcon = L.divIcon({
+  className: '',
+  html: '<div style="width:14px;height:14px;background:#ffaa00;border:2px solid #cc7700;border-radius:50%;box-shadow:0 0 6px rgba(255,170,0,0.6)"></div>',
+  iconSize: [14, 14], iconAnchor: [7, 7]
+});
+try {
+CALC_ONLY.forEach(function(c) {
+  var mk3 = L.marker([c.lat, c.lon], { icon: calcOnlyIcon, zIndexOffset: 40 }).addTo(map);
+  var calcPopupId = 'calcpop_' + c.key;
+  mk3.bindPopup('<div id="' + calcPopupId + '" style="font-family:DM Mono,monospace;font-size:0.7rem;min-width:190px">' +
+    '<div style="font-weight:bold;color:#ffaa00;margin-bottom:4px">' + c.name + '</div>' +
+    '<div style="color:#fff;font-size:0.62rem">Caricamento...</div>' +
+    '</div>', { maxWidth: 240 });
+  mk3.on('popupopen', function() {
+    fetch(ENGINE_URL + '?action=meteo&lat=' + c.lat + '&lon=' + c.lon)
+      .then(function(r){ return r.json(); })
+      .then(function(data) {
+        var el = document.getElementById(calcPopupId);
+        if (!el) return;
+        var h = data && data.atm && data.atm.hourly;
+        if (!h || !h.windspeed_10m || !h.windspeed_10m.length) {
+          el.innerHTML = '<div style="font-weight:bold;color:#ffaa00;margin-bottom:4px">' + c.name + '</div>' +
+            '<div style="color:#fff;font-size:0.65rem">Dato non disponibile</div>';
+          return;
+        }
+        // Trova indice ora corrente (non sempre 0=mezzanotte, fix bug direzione/vento errati)
+        var tIdx = 0;
+        if (Array.isArray(h.time)) {
+          var nowMs = Date.now();
+          var bestDiff = Infinity;
+          for (var ti = 0; ti < h.time.length; ti++) {
+            var diff = Math.abs(new Date(h.time[ti]).getTime() - nowMs);
+            if (diff < bestDiff) { bestDiff = diff; tIdx = ti; }
+          }
+        }
+        var wkt = Math.round(h.windspeed_10m[tIdx] * 10) / 10;
+        var gkt = h.windgusts_10m ? Math.round(h.windgusts_10m[tIdx] * 10) / 10 : null;
+        var dirDeg = h.winddirection_10m ? h.winddirection_10m[tIdx] : null;
+        var windCol = wkt < 15 ? '#4cff91' : wkt < 25 ? '#ffd700' : '#ff6060';
+        var dirTxt = (dirDeg !== null ? degToCard(dirDeg) + ' ' + dirDeg + '°' : '--');
+        var arrowSvg = dirDeg !== null
+          ? '<svg width="22" height="22" viewBox="-11 -11 22 22" style="display:inline-block;vertical-align:middle">' +
+            '<g transform="rotate(' + (dirDeg + 180) + ')">' +
+            '<line x1="0" y1="9" x2="0" y2="-6" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>' +
+            '<polygon points="0,-10 -4,-4 4,-4" fill="#fff"/>' +
+            '</g></svg>'
+          : '';
+        el.innerHTML = '<div style="font-weight:bold;color:#ffaa00;font-size:0.78rem;margin-bottom:6px">' + c.name + '</div>' +
+          '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">' +
+          '<span style="font-size:1.5rem;font-weight:bold;color:' + windCol + '">' + wkt + '</span>' +
+          '<span style="font-size:0.65rem;color:#fff;font-weight:bold">kn</span>' +
+          (gkt !== null ? '<span style="font-size:0.65rem;color:#bbb">raffiche ' + gkt + ' kn</span>' : '') +
+          '</div>' +
+          '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">' +
+          arrowSvg +
+          '<span style="font-size:0.68rem;color:#fff">' + dirTxt + '</span>' +
+          '</div>' +
+          '<div style="color:#ffaa00;font-size:0.58rem;margin-top:4px">Solo dato calcolato (Open-Meteo)</div>' +
+          '<div style="color:#888;font-size:0.56rem">Nessuna stazione meteo reale nelle vicinanze - valore non verificato</div>' +
+          '<div style="margin-top:8px"><button onclick="openObsPanel(' + c.lat + ',' + c.lon + ',\'' + c.name.replace(/'/g,"\\'") + '\')" style="width:100%;padding:7px;background:rgba(255,149,0,0.15);border:1px solid #ff9500;border-radius:8px;font-family:DM Mono,monospace;font-size:0.55rem;color:#ff9500;cursor:pointer;letter-spacing:0.05em">📍 Inserisci osservazione</button></div>';
+      }).catch(function() {
+        var el = document.getElementById(calcPopupId);
+        if (el) el.innerHTML = '<div style="font-weight:bold;color:#ffaa00;margin-bottom:4px">' + c.name + '</div><div style="color:#fff;font-size:0.62rem">Errore caricamento dato</div>';
+      });
+  });
+});
+} catch(calcOnlyErr) { console.warn('Calc-only markers error:', calcOnlyErr); }
+
+function degToCard(d) {
+  if (d === null || d === undefined) return '--';
+  var dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+  return dirs[Math.round(Number(d) / 22.5) % 16];
+}
+
+function refreshMnwStation(sid, popupId, name) {
+  var el = document.getElementById(popupId);
+  if (!el) return;
+  var btn = el.querySelector('button');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span style="display:inline-block;width:10px;height:10px;border:2px solid rgba(0,204,102,0.3);border-top-color:#00cc66;border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle;margin-right:4px"></span>Carico...';
+  }
+  fetch(ENGINE_URL + '?action=station_refresh&station=' + sid, {cache: 'no-store'})
+    .then(function(r){ return r.json(); })
+    .then(function(res) {
+      if (!res.ok || !res.data) {
+        if (btn) { btn.disabled = false; btn.innerHTML = '&#8635; Aggiorna'; }
+        if (res.error && res.error.indexOf('Rate limit') >= 0) {
+          var rld = el.querySelector('.rl-msg');
+          if (!rld) { rld = document.createElement('div'); rld.className = 'rl-msg'; rld.style.cssText = 'font-size:0.55rem;color:#ffaa00;margin-top:4px'; el.appendChild(rld); }
+          rld.textContent = 'Attendi 60s tra un aggiornamento e l\'altro';
+        } else {
+          // Fallback: mostra ultimo dato da Redis bias_samples
+          fetch(ENGINE_URL + '?action=stations_snapshot&k=mdi', {cache: 'no-store'})
+            .then(function(r2){ return r2.json(); })
+            .then(function(snap){
+              if (snap && snap.stations && snap.stations[sid]) {
+                var s = snap.stations[sid];
+                var ageStr = s.age_min !== undefined ? s.age_min + 'min fa' : '';
+                var rld = el.querySelector('.rl-msg');
+                if (!rld) { rld = document.createElement('div'); rld.className = 'rl-msg'; rld.style.cssText = 'font-size:0.55rem;color:#ffaa00;margin-top:4px'; el.appendChild(rld); }
+                rld.innerHTML = 'Scraping non disponibile — ultimo dato Redis: <b>' + (s.wind_kt||'—') + 'kt ' + (s.direction||'—') + '°</b> ' + ageStr;
+              }
+            }).catch(function(){});
+        }
+        return;
+      }
+      // Aggiornamento riuscito — ricarica popup
+      var d = res.data;
+      var wkt = d.wind_kt;
+      var windCol = !wkt ? '#bbb' : wkt < 15 ? '#4cff91' : wkt < 25 ? '#ffd700' : '#ff6060';
+      var dirTxt = (d.dir_deg !== null && d.dir_deg !== undefined ? degToCard(d.dir_deg) + ' ' + d.dir_deg + '°' : '--');
+      var dirDeg = d.dir_deg !== null && d.dir_deg !== undefined ? Number(d.dir_deg) : null;
+      var arrowSvg = dirDeg !== null
+        ? '<svg width=\"22\" height=\"22\" viewBox=\"-11 -11 22 22\" style=\"display:inline-block;vertical-align:middle\">' +
+          '<g transform=\"rotate(' + (dirDeg + 180) + ')\">' +
+          '<line x1=\"0\" y1=\"9\" x2=\"0\" y2=\"-6\" stroke=\"#fff\" stroke-width=\"2.5\" stroke-linecap=\"round\"/>' +
+          '<polygon points=\"0,-10 -4,-4 4,-4\" fill=\"#fff\"/>' +
+          '</g></svg>' : '';
+      var dt = new Date(d.timestamp).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+      el.innerHTML = '<div style=\"font-weight:bold;color:#00cc66;font-size:0.78rem;margin-bottom:6px\">' + name + '</div>' +
+        '<div style=\"display:flex;align-items:center;gap:8px;margin-bottom:5px\">' +
+        (wkt ? '<span style=\"font-size:1.5rem;font-weight:bold;color:' + windCol + '\">' + wkt + '</span><span style=\"font-size:0.65rem;color:#fff;font-weight:bold\">kn</span>' : '<span style=\"color:#bbb\">--</span>') +
+        arrowSvg +
+        '<span style=\"font-size:0.72rem;color:#fff\">' + dirTxt + '</span>' +
+        '</div>' +
+        '<div style=\"color:#4cff91;font-size:0.6rem;margin-bottom:2px\">✓ Aggiornato ora</div>' +
+        '<div style=\"color:#fff;font-size:0.62rem;margin-top:4px\">' + dt + '</div>' +
+        '<div style=\"margin-top:8px\"><button onclick=\"refreshMnwStation(\'' + sid + '\',\'' + popupId + '\',\'' + name + '\')\" ' +
+        'style=\"font-family:DM Mono,monospace;font-size:0.58rem;padding:3px 10px;background:rgba(0,204,102,0.15);border:1px solid #00cc66;border-radius:6px;color:#00cc66;cursor:pointer\">&#8635; Aggiorna</button></div>';
+    })
+    .catch(function() {
+      if (btn) { btn.disabled = false; btn.innerHTML = '&#8635; Aggiorna'; }
+    });
+}
+
+// Fine codice - NAUTILUS MAPPA v1.6.82
+</script>
+<!-- Pannello inserimento osservazione manuale -->
+<div id="obs-panel">
+  <h3>📍 Osservazione vento</h3>
+  <div id="obs-coords" style="font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);margin-bottom:10px"></div>
+  <div class="obs-row">
+    <div class="obs-field">
+      <label>Velocità (nodi)</label>
+      <input type="number" id="obs-spd" min="0" max="100" step="0.1" placeholder="es. 12.5">
+    </div>
+    <div class="obs-field">
+      <label>Direzione (gradi)</label>
+      <input type="number" id="obs-dir" min="0" max="360" step="1" placeholder="es. 270">
+      <button type="button" id="obs-compass-btn" onclick="toggleCompass()" style="margin-top:4px;font-size:0.6rem;padding:4px 8px;width:100%;">🧭 Usa bussola</button>
+      <div id="obs-compass-live" style="font-family:'DM Mono',monospace;font-size:0.6rem;color:var(--accent,#4af);display:none;margin-top:3px;line-height:1.3"></div>
+    </div>
+  </div>
+  <div class="obs-row">
+    <div class="obs-field">
+      <label>Pin osservatore</label>
+      <input type="text" id="obs-pin" maxlength="8" placeholder="es. 01">
+    </div>
+    <div class="obs-field">
+      <label>Data/Ora</label>
+      <input type="datetime-local" id="obs-ts">
+    </div>
+  </div>
+  <div class="obs-field">
+    <label>Nota (opzionale)</label>
+    <input type="text" id="obs-note" maxlength="120" placeholder="es. vento in aumento">
+  </div>
+  <button id="obs-submit" onclick="submitObs()">INVIA OSSERVAZIONE</button>
+  <button id="obs-cancel" onclick="closeObsPanel()">Annulla</button>
+  <div id="obs-status"></div>
+</div>
+
+</body>
+</html>

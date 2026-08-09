@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.12 - by mdisailor engine - v2.14.12: action=grid, campo "forecast" esteso da 5 ore discrete (h1/h3/h6/h9/h12) a tutte le 12 ore (h1..h12) -- previsioni.html adesso ha bottoni ora per ora, non solo sui 5 orizzonti AI. Su base v2.14.11
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.13 - by mdisailor engine - v2.14.13: aggiunto archivio persistente in parallelo a bias_samples (nuova chiave bias_archive, tetto 3000 invece di 100 -- ~62gg) e predict_history (nuova chiave predict_archive, tetto 1000 invece di 30 -- ~500gg). Nessun campo esistente toccato, nessuna chiave esistente cambiata di forma -- solo due scritture aggiuntive dello stesso oggetto gia calcolato. backfill_actuals sincronizza gli actual anche sull archivio. Su base v2.14.12
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2044,7 +2044,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.12', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.13', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -4434,6 +4434,20 @@ if (action === 'predict') {
       var phSit  = phList.filter(function(x){ return x && x.source === 'situazione'; }).slice(0, 30);
       phList = phPred.concat(phSit).sort(function(a,b){ return new Date(b.generated_at) - new Date(a.generated_at); });
       await kvSet('predict_history:' + zoneKey, phList, 2592000, kvUrl, kvToken);
+      // fix 2026-08-09: archivio persistente in parallelo, tetto molto piu' alto
+      // (1000 invece di 30 -- ~500 giorni a 2 previsioni/giorno) -- predict_history
+      // e' una finestra fissa di 15 giorni che scorre, non si accumula mai oltre
+      // quello; senza questo, uno storico piu' lungo per orizzonte/slot non e' mai
+      // possibile costruirlo. Nessun campo nuovo, stesso predRecord gia' salvato
+      // sopra -- solo una seconda scrittura, solo le previsioni vere (non situazione).
+      try {
+        var paKey = 'predict_archive:' + zoneKey;
+        var paExisting = await kvGet(paKey, kvUrl, kvToken);
+        var paList = Array.isArray(paExisting) ? paExisting : [];
+        paList.unshift(Object.assign({}, predRecord, { source: 'predict' }));
+        if (paList.length > 1000) paList.length = 1000;
+        await kvSet(paKey, paList, 31536000, kvUrl, kvToken);
+      } catch(paErr) {}
     }
 
     var result = {
@@ -4848,6 +4862,35 @@ if (action === 'backfill_actuals') {
       if (bfUpdated > 0) {
         await kvSet('predict_history:' + bfZk, bfList, 2592000, kvUrl, kvToken);
       }
+      // fix 2026-08-09: sincronizza gli stessi actual sull'archivio persistente
+      // (predict_archive), abbinando per generated_at -- riusa il match appena
+      // fatto su bfList sopra, nessun nuovo calcolo. Gira sempre (non solo se
+      // bfUpdated>0 in questo giro), perche' l'archivio puo' avere buchi vecchi
+      // da riempire anche quando predict_history non cambia in questo ciclo.
+      try {
+        var paSyncKey = 'predict_archive:' + bfZk;
+        var paSyncList = await kvGet(paSyncKey, kvUrl, kvToken) || [];
+        if (Array.isArray(paSyncList) && paSyncList.length > 0) {
+          var bfByGen = {};
+          bfList.forEach(function(it){ if (it && it.generated_at) bfByGen[it.generated_at] = it; });
+          var paSyncUpdated = 0;
+          var actualFields = ['actual_1h','actual_1h_dir','actual_1h_raw','actual_3h','actual_3h_dir','actual_3h_raw',
+                               'actual_6h','actual_6h_dir','actual_6h_raw','actual_9h','actual_9h_dir','actual_9h_raw',
+                               'actual_12h','actual_12h_dir','actual_12h_raw','actual_quota_factor'];
+          paSyncList = paSyncList.map(function(aItem){
+            if (!aItem || !aItem.generated_at) return aItem;
+            var match = bfByGen[aItem.generated_at];
+            if (!match) return aItem;
+            actualFields.forEach(function(f){
+              if ((aItem[f] === undefined || aItem[f] === null) && match[f] !== undefined && match[f] !== null) {
+                aItem[f] = match[f]; paSyncUpdated++;
+              }
+            });
+            return aItem;
+          });
+          if (paSyncUpdated > 0) await kvSet(paSyncKey, paSyncList, 31536000, kvUrl, kvToken);
+        }
+      } catch(paSyncErr) {}
       bfResults.push({zone:bfZk, updated:bfUpdated, samples:bfSamples.length, weight:bfWeight});
     } catch(e) { bfResults.push({zone:bfZk, error:e.message}); }
   }
@@ -5268,6 +5311,20 @@ if (action === 'scrape_stations') {
         bsList.unshift(bsSample);
         if (bsList.length > 100) bsList.length = 100;
         await kvSet(bsKey, bsList, 31536000, kvUrl, kvToken);
+        // fix 2026-08-09: archivio persistente in parallelo, tetto molto piu' alto
+        // (3000 invece di 100 -- ~62 giorni a 48 campioni/giorno) -- bias_samples
+        // e' una finestra fissa che scorre, non si accumula mai oltre ~2 giorni;
+        // senza questo, un cambio di regime di vento che rientra nella calma dopo
+        // pochi giorni non resta mai visibile tutto insieme. Nessun campo nuovo,
+        // stesso bsSample gia' calcolato sopra -- solo una seconda scrittura.
+        try {
+          var baKey = 'bias_archive:' + bsSt.id;
+          var baExisting = await kvGet(baKey, kvUrl, kvToken);
+          var baList = Array.isArray(baExisting) ? baExisting : [];
+          baList.unshift(bsSample);
+          if (baList.length > 3000) baList.length = 3000;
+          await kvSet(baKey, baList, 31536000, kvUrl, kvToken);
+        } catch(baErr) {}
         bsResults.push({ id: bsSt.id, name: bsSt.name, ok: !!bsStation, mnw_error: bsMnwErr || undefined, sample: bsSample });
       } catch(bsE) {
         bsResults.push({ id: bsSt.id, name: bsSt.name, ok: false, error: bsE.message });
@@ -5887,7 +5944,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.12 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.13 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -6018,4 +6075,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.12
+// Fine codice - NAUTILUS ENGINE v2.14.13

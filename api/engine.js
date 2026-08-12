@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.16 - by mdisailor engine - v2.14.16: aggiunta action=archive_backfill (una tantum, richiede secret) -- unisce predict_history dentro predict_archive per zona, confronto per generated_at per non duplicare, cosi il pregresso di mesi non si perde quando escira dalla finestra fissa di 30 nelle prossime settimane. Puro salvataggio, nessun programma legge ancora predict_archive. Su base v2.14.15
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.17 - by mdisailor engine - v2.14.17: fix archive_backfill rispondeva Unauthorized con k=mdi -- usava requireSecret() (solo Authorization header, per i cron), sostituito col controllo ibrido k=mdi/secret di bias_reset/grid_rules_init, chiamabile a mano da browser. Su base v2.14.16
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2044,7 +2044,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.16', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.17', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -4689,7 +4689,13 @@ if (action === 'reset_history_all') {
 // Puro salvataggio: non cambia nulla in predict_history, non tocca il
 // comportamento delle previsioni -- nessun programma legge predict_archive.
 if (action === 'archive_backfill') {
-  if (!requireSecret(req)) return res.status(401).json({ error: 'Unauthorized' });
+  var abK = req.query.k || '';
+  var abSecret = req.query.secret || '';
+  var abCronSecret = process.env.CRON_SECRET || '';
+  // fix 2026-08-12: era requireSecret() (solo Authorization header, pensato
+  // per i cron) -- questa action va lanciata a mano dal browser una tantum,
+  // stesso controllo ibrido k=mdi/secret usato da bias_reset e grid_rules_init.
+  if (abK !== 'mdi' && (!abCronSecret || abSecret !== abCronSecret)) return res.status(401).json({ error: 'Unauthorized' });
   var abZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled !== false; });
   var abResults = [];
   for (var abi = 0; abi < abZones.length; abi++) {
@@ -6058,7 +6064,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.16 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.17 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -6189,4 +6195,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.16
+// Fine codice - NAUTILUS ENGINE v2.14.17

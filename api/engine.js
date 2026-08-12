@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.13 - by mdisailor engine - v2.14.13: aggiunto archivio persistente in parallelo a bias_samples (nuova chiave bias_archive, tetto 3000 invece di 100 -- ~62gg) e predict_history (nuova chiave predict_archive, tetto 1000 invece di 30 -- ~500gg). Nessun campo esistente toccato, nessuna chiave esistente cambiata di forma -- solo due scritture aggiuntive dello stesso oggetto gia calcolato. backfill_actuals sincronizza gli actual anche sull archivio. Su base v2.14.12
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.14 - by mdisailor engine - v2.14.14: aggiunta action=archive_check (sola lettura, nessuna scrittura) -- confronta finestra fissa (bias_samples/predict_history) e archivio persistente (bias_archive/predict_archive, introdotti v2.14.13) fianco a fianco, per verificare da URL che l accumulo stia davvero avvenendo. Su base v2.14.13
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2044,7 +2044,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.13', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.14', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -5372,6 +5372,42 @@ if (action === 'bias_history') {
   }
 }
 
+// /api/engine?action=archive_check&station=X&zone=Y -- sola lettura, nessuna
+// scrittura. Aggiunta 2026-08-09 per verificare che bias_archive/predict_archive
+// (introdotti in v2.14.13) stiano davvero accumulando oltre la vecchia finestra
+// fissa (bias_samples tetto 100, predict_history tetto 30) -- non c'era prima
+// nessun modo di leggerli da URL, solo la scrittura era stata fatta. Mostra
+// finestra fissa e archivio fianco a fianco, stessa chiave, per confronto diretto.
+if (action === 'archive_check') {
+  try {
+    var acStation = req.query.station || null;
+    var acZone = req.query.zone || null;
+    if (!acStation && !acZone) return res.status(400).json({ error: 'serve almeno uno tra station e zone' });
+    var acResult = {};
+    if (acStation) {
+      var acBs = await kvGet('bias_samples:' + acStation, kvUrl, kvToken) || [];
+      var acBa = await kvGet('bias_archive:' + acStation, kvUrl, kvToken) || [];
+      acBs = Array.isArray(acBs) ? acBs : [];
+      acBa = Array.isArray(acBa) ? acBa : [];
+      acResult.station = acStation;
+      acResult.bias_samples = { length: acBs.length, newest_ts: acBs[0] ? acBs[0].ts : null, oldest_ts: acBs[acBs.length-1] ? acBs[acBs.length-1].ts : null };
+      acResult.bias_archive  = { length: acBa.length, newest_ts: acBa[0] ? acBa[0].ts : null, oldest_ts: acBa[acBa.length-1] ? acBa[acBa.length-1].ts : null };
+    }
+    if (acZone) {
+      var acPh = await kvGet('predict_history:' + acZone, kvUrl, kvToken) || [];
+      var acPa = await kvGet('predict_archive:' + acZone, kvUrl, kvToken) || [];
+      acPh = Array.isArray(acPh) ? acPh : [];
+      acPa = Array.isArray(acPa) ? acPa : [];
+      acResult.zone = acZone;
+      acResult.predict_history = { length: acPh.length, newest_gen: acPh[0] ? acPh[0].generated_at : null, oldest_gen: acPh[acPh.length-1] ? acPh[acPh.length-1].generated_at : null };
+      acResult.predict_archive = { length: acPa.length, newest_gen: acPa[0] ? acPa[0].generated_at : null, oldest_gen: acPa[acPa.length-1] ? acPa[acPa.length-1].generated_at : null };
+    }
+    return res.status(200).json(acResult);
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
 // /api/engine?action=bias_reset&station=livorno - svuota campioni stazione (richiede secret)
 if (action === 'bias_reset') {
   try {
@@ -5944,7 +5980,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.13 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.14 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -6075,4 +6111,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.13
+// Fine codice - NAUTILUS ENGINE v2.14.14

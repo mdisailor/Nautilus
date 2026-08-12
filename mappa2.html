@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA2 v1.2 - mdisailor - 2026-08-01 - v1.2: tolto il taglio "zoom>10" ereditato dal vecchio metodo a cerchi (i colori sparivano da zoom 11 in su) -- la bilineare e molto piu leggera, non serve piu limitarla per zoom. Opacita abbassata 0.5->0.4. Su base v1.1. -->
+<!-- NAUTILUS MAPPA2 v1.3 - mdisailor - 2026-08-12 - v1.3: aggiunto tasto GRID on/off per nascondere/mostrare la griglia generica di sfondo -- i punti dedicati a stazioni reali (isStationPoint) e le zone restano sempre visibili, il tasto filtra solo la griglia densa. Su base v1.2. -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa2 Vento v1.2</title>
+<title>NAUTILUS Mappa2 Vento v1.3</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -86,6 +86,18 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   letter-spacing:0.04em;flex-direction:column;gap:1px;
 }
 #btn-export:hover{color:var(--gold);border-color:var(--gold)}
+
+#btn-grid-toggle{
+  position:absolute;z-index:600;width:46px;height:46px;border-radius:12px;
+  background:rgba(6,24,46,0.97);border:1px solid var(--border);
+  color:var(--muted);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  backdrop-filter:blur(8px);transition:all 0.2s;
+  bottom:297px;left:14px;font-size:0.55rem;font-family:'DM Mono',monospace;
+  letter-spacing:0.04em;flex-direction:column;gap:1px;
+}
+#btn-grid-toggle.active{color:var(--accent);border-color:var(--accent);box-shadow:0 0 14px rgba(0,240,255,0.3)}
+#btn-grid-toggle:hover{color:var(--accent);border-color:var(--accent)}
 
 /* HUD */
 #hud{
@@ -217,7 +229,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa2 v1.2</span>
+    <span id="nav-ver">mappa2 v1.3</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -245,6 +257,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   <button id="btn-flow" title="Animazione flusso vento">&#x1F300;<br>FLOW</button>
   <button id="btn-oi" title="Correzione Optimal Interpolation: applica bias stazioni reali alla griglia OM">OI<br>OFF</button>
   <button id="btn-export" title="Esporta griglia in Excel per analisi" onclick="exportGrid()">📊<br>XLS</button>
+  <button id="btn-grid-toggle" class="active" title="Mostra/nasconde le frecce della griglia generica">&#9750;<br>GRID</button>
 
   <div id="legend">
     <div id="legend-header" onclick="toggleLegend()">
@@ -278,11 +291,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA2 v1.2 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA2 v1.3 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA2 v1.2
+// NAUTILUS MAPPA2 v1.3
 
 var ENGINE_URL = '/api/engine';
 
@@ -411,7 +424,7 @@ GRID_EXTRA_POINTS.forEach(function(p){
   if (!exists) GRID.push(p);
 });
 
-var state = { zoneData:{}, gridData:[], gridDataOI:[], stationData:[], gpsMarker:null, gpsCircle:null, lastUpdate:null };
+var state = { zoneData:{}, gridData:[], gridDataOI:[], stationData:[], gpsMarker:null, gpsCircle:null, lastUpdate:null, showGridArrows:true };
 
 // MAPPA
 var map = L.map('map', {
@@ -565,6 +578,12 @@ function drawWind(){
   var gridSorted = activeGrid().slice().sort(function(a,b){
     return (b.isStationPoint?1:0) - (a.isStationPoint?1:0);
   });
+  // Tasto GRID on/off: nasconde solo la griglia generica di sfondo, non i
+  // punti dedicati a stazioni reali (isStationPoint) -- stesso principio di
+  // previsioni.html, dove le frecce zona/stazione restano sempre visibili.
+  if (!state.showGridArrows) {
+    gridSorted = gridSorted.filter(function(pt){ return pt.isStationPoint; });
+  }
   gridSorted.forEach(function(pt){
     if (!bounds.contains([pt.lat, pt.lon])) return;
     var ll = map.latLngToContainerPoint([pt.lat, pt.lon]);
@@ -1140,6 +1159,12 @@ document.getElementById('btn-flow').addEventListener('click', function(){
     stopParticles();
     cCtx.clearRect(0, 0, cCanvas.width, cCanvas.height);
   }
+});
+
+document.getElementById('btn-grid-toggle').addEventListener('click', function(){
+  state.showGridArrows = !state.showGridArrows;
+  this.classList.toggle('active', state.showGridArrows);
+  drawWind();
 });
 
 // LOAD ALL

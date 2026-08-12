@@ -1,4 +1,4 @@
-<!-- NAUTILUS PREVISIONI v3.0 - mdisailor - 2026-08-01 - v3.0: cambiato approccio dello sfondo colorato, non solo tarato -- il metodo precedente (punti sparsi pesati per distanza + blur) creava sempre "isole" intorno alle zone (poche, peso alto) sopra la griglia OM densa, qualunque parametro si usasse: difetto strutturale, non un numero da tarare. Sostituito con interpolazione BILINEARE sulla griglia OM regolare (buildGridLookup/bilinearGridSpeed) -- continua per costruzione, niente pesi/blur necessari per nascondere giunture. Le zone nostre non entrano piu nel colore di sfondo, restano solo nelle frecce. Blur ridotto a 4px (solo per smussare i pixel della griglia fine, non per nascondere isole). Su base v2.6. -->
+<!-- NAUTILUS PREVISIONI v3.1 - mdisailor - 2026-08-12 - v3.1: opacita campo colorato allineata a mappa2 (0.5->0.4). Aggiunto tasto GRID on/off per nascondere/mostrare le frecce della griglia OM di sfondo -- le frecce zona (AI/stazione reale/fallback) restano sempre visibili, tasto tocca solo il ciclo background. Su base v3.0. -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Previsioni Vento v3.0</title>
+<title>NAUTILUS Previsioni Vento v3.1</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -44,7 +44,7 @@
   }
   #map{position:absolute;top:0;left:0;right:0;bottom:0;z-index:0;}
   #mapwrap{position:relative;height:calc(100% - 108px);}
-  #field-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:460;filter:blur(4px);opacity:0.5;}
+  #field-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:460;filter:blur(4px);opacity:0.4;}
   #particle-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:480;}
   #btn-flow{
     position:absolute;top:10px;left:10px;z-index:900;background:rgba(10,26,46,0.92);
@@ -52,6 +52,7 @@
     font-size:12px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;
   }
   #btn-flow.active{color:var(--accent);border-color:var(--accent);box-shadow:0 0 14px rgba(0,240,255,0.3);}
+  #btn-grid-toggle.active{color:var(--accent);border-color:var(--accent);}
   #legend{
     position:absolute;bottom:14px;left:14px;z-index:900;background:rgba(10,26,46,0.92);
     border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:11px;
@@ -69,7 +70,7 @@
 
 <header>
   <h1>NAUTILUS &mdash; Previsioni Vento</h1>
-  <span class="ver">v3.0</span>
+  <span class="ver">v3.1</span>
   <a class="back" href="/index2.html">&larr; cruscotto</a>
 </header>
 
@@ -82,6 +83,7 @@
   <canvas id="particle-canvas"></canvas>
   <button id="btn-flow" title="Animazione flusso vento">&#x1F300; FLOW</button>
   <button id="btn-xls" title="Esporta tutti i dati orari in Excel" style="position:absolute;top:10px;left:110px;z-index:900;background:rgba(10,26,46,0.92);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;">&#128202; XLS</button>
+  <button id="btn-grid-toggle" title="Mostra/nasconde le frecce della griglia OM di sfondo" class="active" style="position:absolute;top:10px;left:200px;z-index:900;background:rgba(10,26,46,0.92);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;">&#9750; GRID</button>
   <div id="legend">
     <div><b>═══▶▶</b> doppia freccia = nostra previsione, dall'ultimo predict</div>
     <div><b>─▶</b> freccia singola = OM, sempre ricalcolato da adesso</div>
@@ -251,6 +253,7 @@ var state = {
   stationsNow: {},       // da action=stations_snapshot: { stationId: {wind_kt,direction,gust_kt,age_min} }
   hourButtons: [],       // [{ offset, date }] ricostruito ad ogni loadAll
   currentOffset: 0,      // quale bottone e' selezionato -- persiste tra i refresh
+  showGridArrows: true,  // tasto on/off frecce griglia OM di sfondo
   lastFetch: null
 };
 
@@ -686,11 +689,13 @@ function drawAll(){
   });
 
   // Griglia OM di sfondo -- sempre dall'orologio OM (relativo ad adesso)
-  state.gridPoints.forEach(function(g){
-    var gv = omValueForOffset(g, offset);
-    if (!gv) return;
-    tryDraw(g.lat, g.lon, gv.dir, gv.speed, gv.gust, false);
-  });
+  if (state.showGridArrows) {
+    state.gridPoints.forEach(function(g){
+      var gv = omValueForOffset(g, offset);
+      if (!gv) return;
+      tryDraw(g.lat, g.lon, gv.dir, gv.speed, gv.gust, false);
+    });
+  }
 }
 
 function updateFreshness(){
@@ -788,6 +793,12 @@ function exportXLS(){
 }
 document.getElementById('btn-xls').addEventListener('click', exportXLS);
 
+document.getElementById('btn-grid-toggle').addEventListener('click', function(){
+  state.showGridArrows = !state.showGridArrows;
+  this.classList.toggle('active', state.showGridArrows);
+  drawAll();
+});
+
 initMap();
 loadAll();
 setInterval(loadAll, REFRESH_MS);
@@ -795,4 +806,4 @@ setInterval(loadAll, REFRESH_MS);
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS PREVISIONI v3.0 -->
+<!-- Fine codice - NAUTILUS PREVISIONI v3.1 -->

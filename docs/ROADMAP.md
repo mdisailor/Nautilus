@@ -1,7 +1,7 @@
 # NAUTILUS — Roadmap Attività (ROADMAP.md)
 
 Scaletta ordinata con dipendenze, stato e decisioni aperte.
-Aggiornato: 2026-07-27
+Aggiornato: 2026-08-12
 
 ---
 
@@ -67,7 +67,7 @@ Emersa non come fase pianificata ma dal lavoro di audit. Ha prodotto i principi 
 |---|---|---|---|
 | 3.1 | Definizione bbox e passo griglia | ✅ | 40-44.6N / 7.4-12.5E, passo 0.25° — operativo |
 | 3.2 | Fetch OM/AROME per tutti i punti griglia | 🔄 | Proxy Vercel implementato per OM; AROME come base_model non ancora integrato |
-| 3.3 | Scelta campo di background per zona | ⏳ | Dipende da 2.3: AROME su isole piccole, OM su costa. Campo `base_model` in grid_rules già previsto, non implementato |
+| 3.3 | Scelta campo di background per zona | ⏳ | Dipende da 2.3: AROME su isole piccole, OM su costa. Campo `base_model` in grid_rules già previsto, non implementato. **Aggiornamento 12/8**: l'analisi su tutte le 25 stazioni mostra AROME vincente in 9/25 (non solo Alberese) — vedi Fase 6.8 per il disegno di un selettore dinamico invece di una scelta fissa per zona |
 | 3.4 | Implementazione OI (Optimal Interpolation) | ✅ | mappa v1.6.42 — sostituzione progressiva per distanza, grid_rules per celle specifiche |
 | 3.5 | Kriging con peso MAE stazione | ✅ | reliability_weight = 1/(1+MAE) nel peso IDW |
 | 3.6 | Correzione direzione in OI | ✅ | Componenti U/V — **fix v1.6.54 (2026-07-01): vettori normalizzati a modulo 1, peso nominale puro invece di peso×velocità. Risolve bug per cui stazioni a vento debole perdevano il controllo della direzione nonostante min_weight alto** |
@@ -80,11 +80,12 @@ Emersa non come fase pianificata ma dal lavoro di audit. Ha prodotto i principi 
 
 ---
 
-## Fase 4 — Griglia previsioni (non iniziata) 🔒
+## Fase 4 — Griglia previsioni (prototipo esterno costruito, integrazione OI ancora non iniziata) 🔒
 
 | # | Attività | Stato | Note |
 |---|---|---|---|
-| 4.1 | Estensione OI a H+3, H+6, H+12 | 🔒 | Dipende da Fase 3 completata |
+| 4.0 | Prototipo esterno: `previsioni.html` | ✅ fatto (1/8) | Griglia OM estesa a tutte le 12 ore future (`action=grid`, engine v2.14.11-12), bottoni a ore intere, nostra previsione (5 orizzonti) sovrapposta dove disponibile. **Non è ancora l'integrazione con l'OI** — è un livello più semplice, costruito apposta fuori da mappa.html per poter sperimentare senza rischio |
+| 4.1 | Estensione **OI** (non solo OM) a H+3, H+6, H+12 | 🔒 | Dipende da Fase 3 completata. Il prototipo 4.0 non applica l'OI alle ore future, solo alla zona vs OM puro |
 | 4.2 | Integrazione con predict_history come bias correttivo | 🔒 | Dipende da 4.1 |
 | 4.3 | Validazione previsioni griglia vs predict AI per zona | 🔒 | Dipende da 4.2 |
 
@@ -94,13 +95,15 @@ Emersa non come fase pianificata ma dal lavoro di audit. Ha prodotto i principi 
 - **Limiti da mettere in conto**: ~60% delle celle è vuoto (mancano dati con vento sostenuto); la verifica è possibile solo dove c'è una stazione; l'errore atteso è più alto della mappa del presente perché si interpola un'aspettativa statistica invece di un fatto misurato.
 - Il pavimento di errore è la **dispersione irriducibile** (~1 kn in bonaccia, presumibilmente 2-3 kn con vento forte): correggendo il bias si scende *verso* la std, non sotto.
 
+**Nota 1/8**: il modello "due orologi" del prototipo 4.0 (OM sempre relativo ad adesso, nostra previsione sempre relativa all'ultimo predict, i due non necessariamente sincronizzati) andrà ripensato quando si integra l'OI — l'OI oggi lavora solo sul presente, non ha un concetto di "due orologi".
+
 ---
 
 ## Fase 5 — Funzionalità future (backlog)
 
 | # | Attività | Priorità | Note |
 |---|---|---|---|
-| 5.1 | Mappa vento animata (Windy-style, esri wind-js) + evoluzione temporale | Alta | Estesa 2026-07-01: includere anche visualizzazione dell'evoluzione oraria (H+1/H+3/H+6...) del flusso, non solo l'istante corrente. Da fare insieme al fix di coerenza flusso/grid_rules (3.10) |
+| 5.1 | Mappa vento animata (Windy-style, esri wind-js) + evoluzione temporale | ✅ fatto (1/8, affinato 12/8), parzialmente | Sfondo colorato continuo + flusso animato realizzati con tecnica diversa da quella pianificata (interpolazione bilineare sulla griglia regolare, non esri wind-js) — vedi METODOLOGIA sezione 13. Presente e funzionante su `previsioni.html` (con evoluzione oraria) e `mappa2.html` (solo presente, sperimentale). **12/8**: aggiunto tasto GRID on/off su entrambe (nasconde solo la griglia generica, non le frecce zona/stazione), opacità allineata tra le due pagine, tolta la legenda ridondante su previsioni.html. **Non ancora su `mappa.html` produzione** — decisione di "promozione" mappa2→mappa ancora da prendere |
 | 5.2 | Bias adattivo per zona (predict_bias:zona in KV) | ✅ implementato | `predict_bias:zona` attivo, iniettato nel prompt. Due bug di segno corretti a luglio (prompt e `applyBias()` usavano `OM - bias` invece di `OM + bias`). **TODO residuo**: aggiungere gli ultimi 5 errori con contesto meteo al prompt |
 | 5.3 | Clustering errori per condizione sinottica (A/B/C/D) | Media | KV: predict_errors:zona con 10 errori + contesto |
 | 5.4 | Rete osservatori distribuiti (sailor network) | Bassa | Visione a lungo termine, richiede UI dedicata |
@@ -119,10 +122,11 @@ Nasce da due scoperte di luglio: le previsioni non decadono come ci si aspettava
 | 6.3 | Affidabilità per **fascia di intensità del vento** | 🔒 | Dipende da: più storico con vento sostenuto. È la dimensione mancante emersa dall'analisi del 25/07 |
 | 6.4 | Filtrare i casi storici simili per **slot** nel prompt | ❓ | Oggi i casi sono scelti per *stessa tendenza barica* senza filtrare l'ora: una previsione delle 07 può ricevere casi delle 16. Due strade: (a) filtrare per slot — più solido ma dimezza i casi disponibili; (b) dichiarare lo slot nel prompt — più debole. Prima verificare quanti casi vengono trovati oggi in media |
 | 6.5 | **Sistema di sintesi automatico** | 🔒 | *Non un altro cruscotto*: un controllo che gira col cron e dà un **verdetto secco**. Confronta settimana corrente vs precedente per ogni orizzonte su tutte le zone, **scarta gli outlier isolati** (es. il 17/07 con errore 4× la norma), incrocia col vento reale per distinguere "regime cambiato" da "errore non spiegato", ed esce con "tutto normale" oppure "Zona X orizzonte Y in peggioramento, da controllare". **Non costruirlo ora**: con un solo regime osservato sintetizzerebbe rumore |
-| 6.6 | Archivio storico separato oltre la rotazione FIFO | 🔒 | `bias_samples` ruota (100→300 campioni). Prerequisito per percentuali climatologiche affidabili e per 6.1 |
+| 6.6 | Archivio storico separato oltre la rotazione FIFO | ✅ **fatto (9-12/8)** | `bias_archive`/`predict_archive`, tetto molto più alto (3000/1000 invece di 100/30). Prerequisito per 6.1/6.3/6.5 e per il nuovo 6.8 — **oggi sola scrittura, nessuna action legge ancora da qui per calcolare/correggere** |
 | 6.7 | Risolvere il limite di `action=history` | ⏳ **prerequisito** | Il 25/07 restituiva 136 ore anche chiedendone 240. Senza, non si possono fare analisi su finestre lunghe né alimentare 6.5 |
+| 6.8 | **Selettore dinamico OM/AROME per cella** (vento×settore×slot) | 🔒 — disegnato (12/8), deliberatamente non scritto | `model_score`/`bias_matrix` calcolano già la matrice ogni ora, ma leggono solo `bias_samples` (~2gg): un n alto in quella finestra è quasi certamente un solo episodio di vento, non diversità di regime. Dati reali del 12/8 mostrano un pattern netto (AROME meglio pomeriggio+settore W, OM meglio mattina, su 3 punti pilota) e che AROME vince oggi in 9/25 stazioni — non solo Alberese. **Riprendere solo quando `bias_archive` (6.6) avrà settimane di giorni/regimi diversi**, verificando di nuovo le statistiche allora — stesso criterio di maturità di 6.5, non prima |
 
-**Quando si capisce che lo storico è "maturo"**: non è una data. Due criteri insieme — (a) il bias calcolato smette di spostarsi molto aggiungendo nuovi campioni; (b) sono stati osservati **più regimi diversi**, idealmente un ciclo completo bonaccia → vento → bonaccia. Oggi il campione è quasi tutto di un solo regime, ed è per questo che i giudizi automatici sono prematuri.
+**Quando si capisce che lo storico è "maturo"**: non è una data. Due criteri insieme — (a) il bias calcolato smette di spostarsi molto aggiungendo nuovi campioni; (b) sono stati osservati **più regimi diversi**, idealmente un ciclo completo bonaccia → vento → bonaccia. Oggi il campione è quasi tutto di un solo regime, ed è per questo che i giudizi automatici sono prematuri. **`bias_archive`/`predict_archive` (6.6) sono lo strumento per verificarlo quando arriva il momento** — controllare la diversità di date/regimi lì dentro, non solo la lunghezza dell'array.
 
 ---
 
@@ -149,21 +153,27 @@ Nasce da due scoperte di luglio: le previsioni non decadono come ci si aspettava
 | D6 | Come aumentare il dettaglio della griglia? (2026-07-25) | Ridurre il passo globale (0.25°→0.125°) **quadruplica** i punti (~400→~1600) e in passato ha bloccato la mappa: `action=grid` fa **una sola** chiamata OM per batch di 100 coordinate, quindi il collo di bottiglia è il peso della singola risposta e il timeout Vercel. Alternativa già collaudata: **punti extra mirati** in `GRID_EXTRA_POINTS` (28 attivi, nessun problema). Terza via discussa: caricamento progressivo a partire dalla vista corrente o dal punto cliccato | Non urgente — valutare quando serve davvero più dettaglio |
 | D7 | Quando riattivare il testo AI? | Tagliato in `predict` e `situazione` per la fase di raccolta dati. Riattivarlo costa (~$18/mese l'insieme, l'output pesa 5× l'input) | Quando lo storico sarà maturo (vedi criteri in Fase 6) |
 | D8 | Versione nel nome file vs link raw GitHub | La convenzione `METODOLOGIA-v1.4.md` rompe i link raw fissi usati a inizio sessione. Opzioni: (a) nomi fissi su GitHub, versione solo negli zip di lavoro; (b) versionare anche su GitHub aggiornando i link in CLAUDE.md a ogni rilascio | Da decidere |
+| D9 | Promuovere `mappa2.html` a sostituire `mappa.html`? (1/8) | mappa2 ha lo sfondo colorato bilineare (stile Windy) e un'interfaccia più semplice (2 tasti invece di 5). In prova affiancata dal 1/8, nessuna decisione presa. Se promossa, serve un passaggio esplicito (non una sovrascrittura silenziosa) — probabilmente rinominare i file e aggiornare tutti i riferimenti | Dopo un periodo d'uso reale |
+| D10 | Sostituire `populonia_cfr` con `canale_piombino` (tsc228) come `bias_station` del canale? (12/8) | tsc228 tornata a trasmettere vento reale dopo settimane muta, confermato stabile su 2 controlli lo stesso giorno. `canale_piombino` (zona) ha oggi il bias peggiore e più persistente di tutte le 25 zone — coerente con l'ipotesi che Populonia (164m) sia il riferimento sbagliato | Dopo 1-2 giorni di stabilità confermata di tsc228 — non decidere su un singolo test |
+| D11 | Verificare coordinate/quota di Orbetello e Bonifacio Cap Pertusato (12/8) | `bias_om` coincide esattamente con `mae_om` su 100 campioni per entrambe — firma statistica anomala (errore sempre stesso segno, mai un'eccezione), non tipica di un bias vero. `reliability_weight` già il più basso del sistema per entrambe (0.16 e 0.22) | Prossima sessione utile |
 
 ---
 
-## Prossimi passi immediati (aggiornato 27/07/2026)
+## Prossimi passi immediati (aggiornato 12/08/2026)
 
-1. **Deployare engine v2.14.9** — taglio AI su `situazione`, pronto ma non ancora in produzione
-2. **Populonia: staccare da `canale_piombino`** e **correggere le coordinate** (2b.5, 2b.6) — le due correzioni più concrete in coda
-3. **Decidere su Vada e Cap Pertusato** (D1, D2) — il target era fine luglio, è scaduto
-4. **Correggere il calcolo del trend in `forecast_stats`** — oggi include settimane con N=2 che falsano il verdetto "in peggioramento"
-5. **Risolvere il limite di `action=history`** (6.7) — prerequisito per tutte le analisi su finestre lunghe
-6. **Continuare la raccolta dati con vento sostenuto** — è la condizione che sblocca 6.1, 6.3 e 6.5
-7. **Verificare periodicamente `tsc228` e `tsc578`** con `action=mnw_test&k=mdi`
-8. Audit sicurezza — giro completo ancora da chiudere
-9. Integrare AROME come `base_model` in grid_rules (3.3)
-10. `punta_ala`: zona senza stazione reale entro 20km
+1. **Verificare stabilità di tsc228** (D10) — se resta stabile 1-2 giorni, sostituire `populonia_cfr` con `canale_piombino` come `bias_station` del canale di Piombino. È il caso più solido di tutti quelli aperti: ora ha sia la diagnosi qualitativa (164m, riferimento sbagliato) sia la controprova numerica (bias peggiore di tutte le 25 zone, sempre stesso segno) sia una stazione alternativa di quota corretta appena tornata viva
+2. **Verificare coordinate/quota di Orbetello e Bonifacio Cap Pertusato** (D11) — priorità alta, prima di qualunque altra azione su queste due zone
+3. **Non implementare ancora il selettore dinamico OM/AROME per cella** (Fase 6.8) — disegnato, deliberatamente rimandato finché `bias_archive` non avrà settimane di giorni/regimi diversi. **Promemoria esplicito da riverificare**: quando l'archivio sarà più maturo, controllare di nuovo le statistiche (non solo il numero di campioni, la diversità di date dietro quel numero) prima di scrivere codice
+4. **Populonia — coordinate sbagliate** (indipendente dal punto 1) — usa lat 42.987731 lon 10.537734 ma risulta troppo a est rispetto alla Livemap ufficiale. Diventa meno urgente se D10 porta a staccare del tutto Populonia dal canale
+5. **Aggiornare le liste hardcoded** in `mae_compare`/`bias_matrix`/`score_get` — mancano `populonia_cfr`, `livorno_porto`, `viareggio_cfr` (impatto solo diagnostico)
+6. **Decidere su Vada e Cap Pertusato** (D1, D2) — il target era fine luglio, è scaduto
+7. **Correggere il calcolo del trend in `forecast_stats`** — oggi include settimane con N=2 che falsano il verdetto "in peggioramento"
+8. **Chiarire le 3 zone senza predict** (`lido_camaiore`, `giglio_castello`, `quercianella`) — probabile mancanza nell'elenco del cron su cron-job.org (esterno al codice engine), confermato con dati reali il 12/8. **Non fondamentale adesso**, rivedere più avanti
+9. **Risolvere il limite di `action=history`** (6.7) — prerequisito per tutte le analisi su finestre lunghe
+10. **Continuare la raccolta dati con vento sostenuto** — è la condizione che sblocca 6.1, 6.3, 6.5 e ora anche 6.8. **Non riprovare** split-bias per slot, decadimento esponenziale, o il selettore AROME dinamico finché lo storico non è molto più ampio
+11. Audit sicurezza — giro completo ancora da chiudere
+12. `punta_ala`: zona senza stazione reale entro 20km
+13. **Decidere su `mappa2.html`** (D9) dopo un periodo d'uso reale affiancato a `mappa.html`
 
 ---
 

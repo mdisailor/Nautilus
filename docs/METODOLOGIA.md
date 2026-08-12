@@ -1,7 +1,7 @@
 # NAUTILUS — Metodologia di Calcolo (METODOLOGIA.md)
 
 Documento tecnico-scientifico sulle logiche di calcolo, fonti e assunzioni.
-Versione documento: v1.4 — Aggiornato: 2026-07-27 (bug cache popup mappa, analisi peggioramento accuratezza, architettura costi AI e taglio testo situazione)
+Versione documento: v1.8 — Aggiornato: 2026-08-12 (sezione 14 estesa con l'analisi completa su 25 zone: AROME vince in 9/25 stazioni non solo Alberese, anomalia bias=MAE su Orbetello/Bonifacio, conferma dati reali del fix forte_marmi, canale_piombino confermato il bias peggiore del sistema + scoperta che tsc228 è tornata a trasmettere)
 
 ---
 
@@ -414,6 +414,42 @@ Osservazione di M: "più passa il tempo e accumuliamo dati, più peggiorano le p
 
 ---
 
+## 9-ter. Bug naming, pattern mattina/pomeriggio quantificato, e due correzioni testate e scartate (31 luglio – 1 agosto 2026)
+
+Analisi ripresa con lo strumento `export.html` (estrae `forecast_stats`+`predict_history`+`mae_compare`+`bias_matrix`+`model_score`+`decadimento_by_slot` per tutte le zone in un colpo solo).
+
+### Bug naming: bias_station non combaciava con la chiave reale (forte_marmi, casotto_gr)
+
+`ZONES.forte_marmi.bias_station` valeva `'forte_marmi'` (== chiave zona) invece di `'forte_dei_marmi'` (la chiave reale scritta da `scrape_cfr`); stesso difetto su `casotto_gr` (`'casotto_pesc'` invece di `'casotto_pescatori'`). Risultato: `bias_samples:forte_marmi` era sempre vuota, quindi `forecast_stats`/`backfill_actuals` cadevano nel ramo di fallback su `snap:` (match esatto sullo slot da 30 min, senza tolleranza — meno preciso del match a finestra sui `bias_samples` dedicati). **Non era un bug isolato**: le stesse tre action diagnostiche (`mae_compare`, `bias_matrix`, `score_get`) condividono liste di stazioni hardcoded che **mancano ancora** `populonia_cfr`, `livorno_porto`, `viareggio_cfr` — per queste tre, la pipeline di correzione della zona è corretta (il `bias_station` combacia), ma i tre cruscotti diagnostici non li mostrano. Fix del naming vero e proprio: engine v2.14.10, mappa v1.6.88 (allineata anche la chiave locale `MNW_LIVE`/`GRID_EXTRA_POINTS` e la grid_rule `excluded_stations`).
+
+**Lezione**: quando una chiave-stazione appare in più punti del codice (ZONES, CFR_STATIONS, liste hardcoded dei cruscotti, alias in mappa.html), verificarne la coerenza in **tutti** i punti prima di correggerne uno solo — un fix parziale può rompere un punto che oggi funziona per coincidenza (caso mappa.html, dove `key` locale combaciava già col vecchio valore sbagliato).
+
+### Pattern mattina/pomeriggio: quantificato per orizzonte, non più solo qualitativo
+
+Confermando e affinando l'osservazione del 15/07 (sezione 6): il vantaggio non è "il pomeriggio è più accurato" in generale, è un **incrocio per orizzonte**. Media cross-zona (20 zone, n≥5 per cella):
+
+| Orizzonte | MAE mattina | MAE pomeriggio |
+|---|---|---|
+| H+1 | 1.66 | 2.50 (mattina vince) |
+| H+3 | 2.31 | 2.59 (mattina, leggero) |
+| H+6 | 2.58 | 2.64 (pareggio) |
+| H+9 | 2.80 | 2.36 (pomeriggio vince) |
+| H+12 | 2.68 | 2.16 (pomeriggio, netto) |
+
+Spiegazione fisica coerente: la previsione delle 07:15 a +1h descrive una mattina ancora calma (facile), a +9/+12h deve aver indovinato l'innesco della brezza pomeridiana (difficile). La previsione delle 13:15 a +1h cade nel pieno della brezza, spesso in transizione (difficile), a +9/+12h descrive la sera calma (facile).
+
+### Due correzioni più sofisticate testate con backtest rigoroso e SCARTATE
+
+Il pattern sopra aveva suggerito due possibili interventi sulla correzione. Entrambi testati con un backtest vero (leave-one-out: stimare il bias sui campioni precedenti, verificare sul più recente, ripetuto su più punti per zona) — non solo un confronto a due punti nel tempo.
+
+**Split del bias per slot (mattina/pomeriggio)**: il gap di **MAE** tra slot è grande a H+1 (0.84kn) ma il gap di **bias medio** (quello che una correzione additiva può davvero aggiustare) è quasi nullo li' (0.16kn) — il gap di MAE a H+1 è quasi tutto dispersione/rumore campionario, non un errore sistematico correggibile. Dove il bias medio differisce davvero (H+3: 0.63kn, H+9: 0.55kn) il beneficio potenziale è modesto. **Non implementato.**
+
+**Decadimento esponenziale del bias (λ=0.85, già in coda in roadmap "dopo 20-30 campioni")**: la soglia campioni era stata raggiunta (n=15-29/zona), quindi testato. Risultato del backtest: media pesata per recency **leggermente peggiore** della media semplice attuale (errore residuo 2.57kn vs 2.52kn su 160 test, su 20 zone). Vince solo in 7 zone su 20. Anche finestre fisse più corte (ultimi 8/10/12/15 campioni, senza pesatura) sono **tutte peggiori** della media su tutto lo storico disponibile. **Non implementato.**
+
+**Conclusione**: a n=15-30 campioni per zona il sistema è limitato dalla **varianza**, non dal bias — qualunque tentativo di "restringere la memoria" per essere più reattivi alla realtà che cambia peggiora le cose, perché il rumore statistico di un campione piccolo pesa più del guadagno di reattività. Vale lo stesso principio già scritto per la stratificazione da vento forte (Fase 6 roadmap: "non costruirlo ora, sintetizzerebbe rumore") — esteso qui a **qualunque** raffinamento della correzione, non solo quello. Non riprovare finché lo storico per zona non è sostanzialmente più ampio.
+
+---
+
 ## 10. Audit incrociato codice ↔ metodologia (11 luglio 2026)
 
 Un audit tecnico esterno (modello Fable, su engine v2.13.57, mappa v1.6.82, index v5.7.27 e questa metodologia) ha confermato che l'**architettura è corretta e va proseguita** — nessun cambio di strada, il design a livelli è adatto alla scala del progetto. Ha però individuato che il *circuito di apprendimento* (misura errore → correzione) era incoerente in più punti di giunzione: in ciascuno, il sistema misurava una cosa e ne correggeva un'altra. Finché non sistemati, i trend MAE non misuravano ciò che si credeva.
@@ -478,7 +514,7 @@ Causa del problema originale: `bias_history&limit=1` restituiva l'ultimo campion
 
 ---
 
-## 11. Pagine e URL del sistema (aggiornato 27 luglio 2026)
+## 11. Pagine e URL del sistema (aggiornato 1 agosto 2026)
 
 Base: `https://nautilus-red.vercel.app/` — tutti i file `.html` stanno nella **radice** del repo (`github.com/mdisailor/Nautilus`), l'engine in `api/engine.js`.
 
@@ -487,7 +523,10 @@ Base: `https://nautilus-red.vercel.app/` — tutti i file `.html` stanno nella *
 | URL | Cosa fa | Versione |
 |---|---|---|
 | `/` | App principale: schede previsione, situazione, bussole (3 zone + singola per località), matrice storica, stazioni reali vs OM (stazioni mute mostrano ultimo dato + età) | v5.7.39 |
-| `/mappa.html` | Mappa vento: griglia OI, flusso, marker stazioni reali | v1.6.87 |
+| `/mappa.html` | Mappa vento (produzione): griglia OI, flusso, marker stazioni reali | v1.6.88 |
+| `/mappa2.html` | **Nuovo, sperimentale** — fork di mappa.html per confronto affiancato. Sfondo colorato continuo (bilineare) al posto dei vecchi cerchi, solo 2 tasti (FLOW, OI). mappa.html originale non toccato | v1.2 |
+| `/previsioni.html` | **Nuovo** — mappa vento **futuro**, non solo presente. Bottoni a ore intere assolute, due orologi separati (OM sempre da adesso, nostra previsione dall'ultimo predict), sfondo colorato bilineare, FLOW, export XLS orario completo | v3.0 |
+| `/export.html` | **Nuovo, diagnostico** — un tasto estrae `forecast_stats`+`predict_history`+`mae_compare`+`bias_matrix`+`model_score`+`decadimento_by_slot` per tutte le zone in un unico JSON, da incollare in chat per analisi | v1.3 |
 | `/index2.html` | **Cruscotto**: indice di tutti gli strumenti + stato engine live (versione, zone attive, ora server) | v1.2 |
 | `/diag.html` | **Diagnostica strutturata** per zona: stato engine, continuità raccolta dati, IFS/wind_source, con semafori e spiegazioni (invece del JSON grezzo) | v1.3 |
 | `/stats.html` | Previsioni AI vs reale per orizzonte, trend MAE | — |
@@ -512,10 +551,16 @@ Le pagine `index2.html` e `diag.html` incapsulano le più usate; queste restano 
 | `?action=forecast_stats&zone=X&k=mdi` | `current_bias` per orizzonte (n, mean, mae, std) + `weekly_mae` + `trend`. Alimenta `/decadimento.html` |
 | `?action=predict_history&zone=X&k=mdi` | Record previsioni grezzi. Ogni item è `{prediction:{generated_at, slot, forecast_hN...}, actual_3h, actual_6h, actual_12h}` — **il record è annidato in `.prediction`, gli actual stanno al livello sopra** |
 | `?action=scrape_web2&station=X&k=mdi` | Forza lo scrape di una stazione web (Windfinder/Meteosystem) e mostra il campione estratto |
-| `?action=mnw_test&k=mdi` | Interroga direttamente l'API MeteoNetwork per le stazioni configurate: `status`/`ok` (connessione) + `wind_speed`/`wind_dir` se presenti. Distingue "licenza revocata" (errore) da "online ma senza vento" (200 ok, campi assenti) — usata il 19-20/07 per diagnosticare Piombino/tsc228 |
+| `?action=mnw_test&k=mdi` | Interroga direttamente l'API MeteoNetwork per le stazioni configurate: `status`/`ok` (connessione) + `wind_speed`/`wind_dir` se presenti. Distingue "licenza revocata" (errore) da "online ma senza vento" (200 ok, campi assenti) — usata il 19-20/07 per diagnosticare Piombino/tsc228. **Aggiornamento 12/8**: tsc228 (Piombino) ha ripreso a rispondere con vento reale, tsc578 (Capraia) resta muta |
 | `?action=triple_wind&zones=a,b,c` | Vento reale (o OM di ripiego) per le zone indicate. Legge `bias_samples` → veloce |
 | `?action=grid_rules_get` · `?action=grid_rules_init&k=mdi` | Lettura / inizializzazione regole griglia |
+| `?action=archive_check&station=X&zone=Y` | **Nuovo (12/8)** — sola lettura. Confronta finestra fissa (`bias_samples`/`predict_history`) e archivio persistente (`bias_archive`/`predict_archive`) fianco a fianco: lunghezza e data più vecchia di entrambi. Incapsulata nel tasto "Controlla archivio" di `index2.html` |
+| `?action=archive_backfill&k=mdi` | **Nuovo (12/8), una tantum** — unisce dentro `predict_archive` tutto quello già presente in `predict_history` (confronto per `generated_at`, non duplica). Serviva a salvare il pregresso di mesi prima che uscisse dalla finestra fissa di 30 senza mai essere stato archiviato. Già eseguita una volta il 12/8 |
 | `?action=diag` | Test connessione Redis (non mostra snapshot) |
+
+### Principio: la versione va sempre esposta in testata, a video
+
+Ogni pagina (cruscotto o app) deve mostrare il numero di versione **a schermo**, non solo nel commento del codice sorgente. È l'unico modo pratico per verificare se un deploy è andato a buon fine senza dover aprire il file su github.dev: si cambia la versione, si guarda la pagina, e se il numero non coincide il deploy non è (ancora) andato a buon fine — oppure è stato dimenticato uno dei punti dell'aggiornamento multi-punto elencati sotto. Vale anche per pagine nuove create ad hoc (es. `export.html`): un solo punto in meno rispetto alle pagine esistenti, ma **mai zero**.
 
 ### Convenzioni di versione — da rispettare a ogni rilascio
 
@@ -532,7 +577,7 @@ Il numero di versione non va solo *dentro* il file, va anche **nel nome del file
 
 | Tipo | Formato | Esempio |
 |---|---|---|
-| Documenti `.md` | `NOME-vX.Y.md` | `METODOLOGIA-v1.4.md` |
+| Documenti `.md` | `NOME-vX.Y.md` | `METODOLOGIA-v1.8.md` |
 | Engine | `engine-vXYYZZ.zip` | `engine-v21409.zip` (= v2.14.9) |
 | App | `index-vXYZZ.zip` | `index-v5739.zip` (= v5.7.39) |
 | Mappa | `mappa-vXYZZ.zip` | `mappa-v1687.zip` (= v1.6.87) |
@@ -572,3 +617,94 @@ Due tagli distinti, fatti in momenti diversi, entrambi per ridurre i token di ou
 Stima per 26 zone × 2 chiamate/giorno, prompt ~2200 token input e ~350 output: circa **$18/mese** con Sonnet 4.6. Il taglio del testo di `situazione` elimina una delle due voci; il taglio già attivo su `predict` ha ridotto l'output da ~300 a ~80 parole.
 
 Sul cambio modello: Sonnet 5 costa $2/$10 per MTok solo fino al **31 agosto 2026**, poi passa a $3/$15 — cioè uguale a Sonnet 4.6. Considerando che il tokenizer di Sonnet 5 può produrre 1.0-1.35× più token per lo stesso testo, **dopo quella data resterebbe leggermente più caro** di 4.6 a parità di prompt. Per ora la leva usata è stata tagliare il testo, non cambiare modello.
+
+---
+
+## 13. Sfondo colorato continuo (stile Windy) — interpolazione bilineare (1 agosto 2026)
+
+Tecnica sviluppata su `previsioni.html`, poi portata anche su `mappa2.html`. Utile riferimento se altre pagine avranno bisogno dello stesso tipo di visualizzazione.
+
+### Il problema: tre tentativi falliti prima di cambiare approccio
+
+Il primo istinto — un campo colorato costruito con **IDW (Inverse Distance Weighting)** su punti sparsi, come già fa `buildVectorField` per il flusso animato — non ha mai funzionato bene per un colore di sfondo, in tre iterazioni successive:
+
+1. **Punti pesati + decadimento quadratico con stop netto**: creava "isole" colorate intorno a ogni singola sorgente (specialmente le zone, poche e a peso alto), con salti netti al bordo dell'area di influenza — esattamente il difetto dei vecchi cerchi (`createRadialGradient`) che si voleva sostituire.
+2. **Decadimento più dolce (quasi lineare)**: risolveva le isole ma **ogni cella finiva per mediare su quasi tutti i ~400 punti griglia** — risultato quasi uniforme ovunque, la variazione locale del vento spariva.
+3. **Via di mezzo (quadratico con ammorbidimento piccolo)**: ancora isole visibili, perché il problema non era il singolo parametro — è strutturale: mescolare poche sorgenti a peso alto (zone/stazioni) con centinaia di sorgenti a peso normale (griglia OM) in un unico campo IDW produce sempre punti "caldi" isolati, qualunque decadimento si scelga.
+
+### La soluzione: interpolazione bilineare sulla griglia OM, non IDW su punti sparsi
+
+La griglia OM è **già regolare** (passo fisso 0.25°, non punti sparsi a caso). Una griglia regolare si interpola con la bilineare classica — matematicamente continua per costruzione, senza pesi né blur necessari per nascondere giunture:
+
+1. Si ricostruisce la struttura 2D `[latIdx][lonIdx]` della griglia dai punti restituiti da `action=grid` (che arrivano in ordine, lat esterno/lon interno)
+2. Per ogni pixel dell'area visibile, si converte in lat/lon (`map.containerPointToLatLng`), si trovano i 4 punti griglia che lo circondano, e si interpola linearmente prima lungo lon poi lungo lat (bilineare standard)
+3. **Le zone/stazioni non entrano nel colore di sfondo** — restano solo nelle frecce (che già funzionavano bene). È la differenza chiave rispetto ai tentativi IDW: niente sorgenti a peso alto sparse, niente isole possibili per costruzione
+
+Un blur leggero (4px) resta utile solo per smussare i pixel della griglia di disegno (6-8px), non per nascondere isole — differenza concettuale importante da questo punto in poi.
+
+### Un limite da ricordare: dipendenza dall'ordine e completezza dei punti
+
+La ricostruzione riga/colonna assume che `action=grid` restituisca **tutti** i punti richiesti, nello stesso ordine della richiesta. Se anche un solo punto venisse scartato (l'action ha un `.filter(p => p !== null)` che lo farebbe in caso di errore su quel punto specifico), l'allineamento righe/colonne si romperebbe silenziosamente. Non blindato per ora — se lo sfondo colorato mostrasse un giorno un pattern strano mentre le frecce sembrano normali, è il primo sospetto da controllare.
+
+Su `mappa2.html`, che ha punti extra non regolari (`GRID_EXTRA_POINTS`, dedicati a singole stazioni), la ricostruzione filtra questi punti tramite il flag `isStationPoint` (già esistente per altri scopi) prima di costruire la griglia regolare.
+
+### Parametri correnti
+
+| Parametro | previsioni.html | mappa2.html |
+|---|---|---|
+| Risoluzione cella disegno | 8px | 8px |
+| Blur CSS | 4px | 4px |
+| Opacità canvas | 0.4 (allineata a mappa2 il 12/8) | 0.4 |
+| Legato a un tasto? | No, sempre attivo (FLOW controlla solo le particelle) | Sì, insieme a FLOW (comportamento diverso, deciso esplicitamente il 1/8) |
+| Tetto di zoom | Nessuno | Nessuno (tolto in mappa2 v1.2, ereditato dal vecchio metodo più costoso, non più necessario) |
+
+Entrambe hanno anche un tasto **GRID** (12/8): nasconde solo la griglia OM generica di sfondo — le frecce delle zone/stazioni reali restano sempre visibili, il flusso animato non cambia (usa comunque tutti i dati della griglia per il calcolo, il tasto tocca solo il disegno).
+
+---
+
+## 14. Segnali emersi dall'analisi dati reali (12 agosto 2026) — verificati, alcuni ancora da agire
+
+Prima parte: analisi dei 3 punti pilota (`simulator.html`). Seconda parte: estesa a tutte le 25 zone attive con `export.html` (`forecast_stats`+`mae_compare`+`bias_matrix`), lo stesso giorno.
+
+### Possibile pattern: AROME meglio di OM al pomeriggio nel settore W, OM meglio al mattino
+
+Sulla "matrice celle" di tutti e 3 i punti pilota (Gorgona, Bocca d'Arno, Viareggio), lo stesso disegno si ripete con campioni non minuscoli (17-60):
+
+| Punto | Cella | N | Vince | MAE OM | MAE AROME |
+|---|---|---|---|---|---|
+| Gorgona | mattina, debole, S | 8 | AROME | 1.98 | 0.43 |
+| Gorgona | mattina, debole, W | 17 | AROME | 3.35 | 2.05 |
+| Bocca d'Arno | pomeriggio, debole, W | 37 | AROME | 1.83 | 1.61 |
+| Viareggio | pomeriggio, debole, W | 35 | AROME | 2.60 | 1.99 |
+| Viareggio | mattina, debole, W | 18 | OM | 2.68 | 3.28 |
+
+Nel settore **W** (libeccio/ponente) al **pomeriggio**, AROME batte OM in modo netto e ripetuto su tre punti indipendenti. Al mattino, spesso è l'opposto. **Confermato più ampio** dall'estrazione completa (`mae_compare` su 25 stazioni): AROME vince a livello globale (non solo per cella) in **9 stazioni su 25** — Alberese, Gorgona CFR, Montecristo, Orbetello, Venturina, Barcaggio, Luri, Svincenzo Porto, Capraia Monte — non solo Alberese come documentato finora (sezione Roadmap "Alberese: AROME come base_model" era scritta troppo ristretta).
+
+**Disegno condiviso per farlo diventare un vero selettore dinamico** (non ancora scritto): far leggere `action=predict` la matrice `model_score`/`bias_matrix` al momento del calcolo (nessuna cache separata da "far aggiornare" — legge sempre l'ultima disponibile, già così per come sono strutturate le due action); per gli orizzonti futuri, classificare la cella con la previsione OM stessa (unico dato disponibile in anticipo, stesso principio già usato altrove); soglia più prudente della semplice correzione bias, n≥10-15 non n≥5, perché cambiare modello è un intervento più grande che aggiustare un numero.
+
+**Perché non è stato scritto ora — lezione di metodo, non solo su questo caso**: `bias_samples` (la fonte di `model_score`) copre solo **~2 giorni**. Una cella con n=37 in quella finestra è quasi certamente **un solo episodio di vento** campionato ogni 30 minuti (es. un pomeriggio intero di libeccio), non 37 situazioni meteo diverse. Un n alto non implica diversità di regime — implica solo tanti campioni, che possono venire tutti dallo stesso evento. Scegliere il modello su quella base rischierebbe di decidere sulla base di un giorno, non di un pattern stagionale vero. **Riprendere solo quando `bias_archive`** (nuovo, sezione seguente e CLAUDE.md) avrà accumulato settimane con giorni/regimi genuinamente diversi — verificare le statistiche allora, non ora.
+
+### Possibile sospetto: bias di Livorno pesa a lunga distanza su altre zone
+
+Nel "dettaglio OI" dei punti pilota, la stazione `livorno` contribuisce sia a Gorgona (38km) sia a Bocca d'Arno (25km) con un bias di **+7.8 kt** e peso 0.37 — non trascurabile a quella distanza. Livorno Porto era già segnata come "da tenere sotto osservazione, sembra poco esposta" (sezione 5); un bias così ampio, che pesa su zone diverse a decine di km, merita una verifica — non è detto sia un errore (una stazione poco esposta può avere legittimamente un bias grande), ma è un sospetto concreto da controllare, non solo un'ipotesi.
+
+### Anomalia statistica netta: Orbetello e Bonifacio Cap Pertusato
+
+In `mae_compare` (100 campioni ciascuna), `bias_om` coincide **esattamente** con `mae_om`:
+
+| Stazione | mae_om | bias_om | reliability_weight |
+|---|---|---|---|
+| Orbetello | 5.41 | 5.41 | 0.16 |
+| Bonifacio Cap Pertusato | 3.48 | −3.48 | 0.22 |
+
+Bias = MAE significa che, su 100 campioni, l'errore ha **sempre lo stesso segno**, senza mai un'eccezione. Un bias vero (una stazione sistematicamente esposta in modo diverso da OM) oscilla comunque giorno per giorno — non è tipico che coincida esattamente con l'errore assoluto medio. È più probabile un problema di dati: coordinate, quota, o cella OM associata sbagliata. Il valore di Orbetello (5.41 kt) è inoltre il più alto di tutto il sistema, quasi doppio del successivo. Il sistema stesso lo segnala già indirettamente: `reliability_weight` è il più basso tra tutte le stazioni controllate — nessuno l'aveva ancora notato prima di questa analisi. **Da verificare (coordinate/quota) prima di qualunque altra azione su queste due zone.**
+
+### Confermato con dati reali: il fix di naming di forte_marmi ha funzionato
+
+Il MAE settimanale di Forte dei Marmi crolla da **4.6 kt** (settimana del 27/7, prima del fix) a **1.5 kt** (settimana successiva, dopo il fix del 31/7, engine v2.14.10) — esattamente in coincidenza temporale. Non è una scoperta di problema, è una controprova positiva: il fix ha funzionato come previsto, si vede nei numeri veri.
+
+### Confermato con dati reali: `canale_piombino` (zona) ha il bias peggiore e più persistente di tutte le 25
+
+Il bias è negativo su **tutti** gli orizzonti verificati, senza oscillare: H+1 −1.2, H+3 −1.6, H+6 −2.1, H+9 −2.1, H+12 −1.8 — la previsione sovrastima sempre, coerente con l'ipotesi di sempre (Populonia, 164m, riferimento sbagliato per un canale a livello mare). Prima quantificazione numerica di un sospetto qualitativo di settimane.
+
+**Sviluppo dello stesso giorno**: verificata via `action=mnw_test` (due controlli distanziati) che la stazione MNW `tsc228` (porto di Piombino, quota 8m — il riferimento giusto) **è tornata a trasmettere vento reale**, dopo settimane documentate come muta. `tsc578` (Capraia) resta muta, invariata. Ipotesi aperta: sostituire `populonia_cfr` con `canale_piombino` come `bias_station` della zona — **aspettare la conferma di stabilità su 1-2 giorni** prima di agire, non decidere su un singolo test (le stazioni MNW hanno già dato segnali di vita passeggeri in questo progetto).

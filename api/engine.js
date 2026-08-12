@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.15 - by mdisailor engine - v2.14.15: fix bias_archive mancava in 3 dei 4 punti di scrittura di bias_samples (scrape_cfr, scrape_web, scrape_web2) -- era stato aggiunto solo in scrape_stations (4 stazioni su ~25), per tutte le altre l archivio persistente non si riempiva mai da quando introdotto in v2.14.13. Stesso pattern in tutti e 4 i punti ora. Su base v2.14.14
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.16 - by mdisailor engine - v2.14.16: aggiunta action=archive_backfill (una tantum, richiede secret) -- unisce predict_history dentro predict_archive per zona, confronto per generated_at per non duplicare, cosi il pregresso di mesi non si perde quando escira dalla finestra fissa di 30 nelle prossime settimane. Puro salvataggio, nessun programma legge ancora predict_archive. Su base v2.14.15
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2044,7 +2044,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.15', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.16', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -4679,6 +4679,49 @@ if (action === 'reset_history_all') {
   return res.status(200).json({ ok: true, zones_cleared: rhaResults.length, results: rhaResults });
 }
 
+// action=archive_backfill -- una tantum, richiede secret. Unisce dentro
+// predict_archive tutto quello che c'e' oggi in predict_history (le previsioni
+// accumulate nei mesi prima del 9/8, prima che l'archivio esistesse) -- senza
+// questo, quelle ~25-30 previsioni per zona escono dalla finestra fissa di 30
+// nelle prossime settimane e sono perse per sempre, non sono mai state
+// salvate nell'archivio. Confronta per generated_at per non duplicare le
+// poche gia' presenti (quelle scritte da action=predict dal 9/8 in poi).
+// Puro salvataggio: non cambia nulla in predict_history, non tocca il
+// comportamento delle previsioni -- nessun programma legge predict_archive.
+if (action === 'archive_backfill') {
+  if (!requireSecret(req)) return res.status(401).json({ error: 'Unauthorized' });
+  var abZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled !== false; });
+  var abResults = [];
+  for (var abi = 0; abi < abZones.length; abi++) {
+    var abZk = abZones[abi];
+    try {
+      var abHist = await kvGet('predict_history:' + abZk, kvUrl, kvToken) || [];
+      var abArch = await kvGet('predict_archive:' + abZk, kvUrl, kvToken) || [];
+      abHist = Array.isArray(abHist) ? abHist : [];
+      abArch = Array.isArray(abArch) ? abArch : [];
+      var abSeen = {};
+      abArch.forEach(function(it){ if (it && it.generated_at) abSeen[it.generated_at] = true; });
+      var abAdded = 0;
+      abHist.forEach(function(it){
+        if (it && it.generated_at && !abSeen[it.generated_at]) {
+          abArch.push(it);
+          abSeen[it.generated_at] = true;
+          abAdded++;
+        }
+      });
+      abArch.sort(function(a,b){ return new Date(b.generated_at) - new Date(a.generated_at); });
+      if (abArch.length > 1000) abArch.length = 1000;
+      if (abAdded > 0) {
+        await kvSet('predict_archive:' + abZk, abArch, 31536000, kvUrl, kvToken);
+      }
+      abResults.push({ zone: abZk, added: abAdded, total_now: abArch.length });
+    } catch(e) {
+      abResults.push({ zone: abZk, error: e.message });
+    }
+  }
+  return res.status(200).json({ ok: true, zones_processed: abResults.length, results: abResults });
+}
+
 if (action === 'forecast_stats') {
   if (!zoneKey || !ZONES[zoneKey]) return res.status(404).json({ error: 'Zona non trovata' });
   try {
@@ -6015,7 +6058,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.15 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.16 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -6146,4 +6189,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.15
+// Fine codice - NAUTILUS ENGINE v2.14.16

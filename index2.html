@@ -1,11 +1,11 @@
-<!-- NAUTILUS INDEX2 v1.2 - mdisailor - 2026-07-15 - aggiunta card Decadimento, versione a video -->
+<!-- NAUTILUS INDEX2 v1.3 - mdisailor - 2026-08-12 - aggiunta card "Controlla archivio": un tasto, una tabella con conteggio e data piu vecchia per bias_archive/predict_archive (v2.14.14), per zona -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#020d1a">
-<title>NAUTILUS — Cruscotto v1.2</title>
+<title>NAUTILUS — Cruscotto v1.3</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Bebas+Neue&display=swap');
   :root {
@@ -34,13 +34,17 @@
   .card-desc{font-size:0.65rem;color:var(--muted);line-height:1.5;}
   .card-live{font-size:0.62rem;color:var(--accent);margin-top:4px;min-height:1em;}
   .section-label{font-size:0.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.12em;margin:20px 0 8px;}
+  #archiveResult table{width:100%;border-collapse:collapse;}
+  #archiveResult th, #archiveResult td{padding:6px 8px;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap;}
+  #archiveResult th{color:var(--accent);font-weight:500;}
+  #archiveResult .archloading{color:var(--muted);padding:10px 0;}
 </style>
 </head>
 <body>
 <header>
   <div class="logo">NAUTI<span>LUS</span></div>
   <div class="subtitle">Cruscotto — strumenti e diagnostica</div>
-  <div style="font-size:0.5rem;color:#fff;margin-top:2px;">v1.2</div>
+  <div style="font-size:0.5rem;color:#fff;margin-top:2px;">v1.3</div>
 </header>
 <div class="statusbar">
   <div class="status-item"><span class="dot" id="statusDot"></span> <span id="statusText">verifica...</span></div>
@@ -104,7 +108,12 @@
       <div class="card-title">Ping (grezzo) <span class="arrow">→</span></div>
       <div class="card-desc">Risposta JSON diretta dell'engine, per verifica rapida.</div>
     </a>
+    <div class="card" id="btnArchiveCheck" style="cursor:pointer;">
+      <div class="card-title">Controlla archivio <span class="arrow" id="archiveArrow">→</span></div>
+      <div class="card-desc">Quanti campioni/previsioni sono conservati e da quando, per ogni zona.</div>
+    </div>
   </div>
+  <div id="archiveResult" style="margin-top:14px;font-size:0.68rem;overflow-x:auto;"></div>
 </main>
 
 <script>
@@ -137,6 +146,44 @@ Promise.all(CLIMA_STATIONS.map(function(id){
 })).then(function(counts){
   var tot = counts.reduce(function(a,b){ return a+b; }, 0);
   document.getElementById('liveClima').textContent = tot + ' campioni reali raccolti';
+});
+
+// Controlla archivio -- un tasto, una tabella: quanti record e da quando, per
+// ogni zona con bias_station. Usa action=archive_check (sola lettura, v2.14.14).
+document.getElementById('btnArchiveCheck').addEventListener('click', function(){
+  var resultEl = document.getElementById('archiveResult');
+  var arrowEl = document.getElementById('archiveArrow');
+  resultEl.innerHTML = '<div class="archloading">Carico...</div>';
+  arrowEl.textContent = '...';
+  fetch(ENGINE_URL + '?action=zones', {cache:'no-store'})
+    .then(function(r){ return r.json(); })
+    .then(function(zd){
+      var zones = (zd.zones || []).filter(function(z){ return z.bias_station; });
+      return Promise.all(zones.map(function(z){
+        return fetch(ENGINE_URL + '?action=archive_check&station=' + encodeURIComponent(z.bias_station) + '&zone=' + encodeURIComponent(z.key), {cache:'no-store'})
+          .then(function(r){ return r.json(); })
+          .then(function(d){ return { name: z.name, key: z.key, data: d }; })
+          .catch(function(){ return { name: z.name, key: z.key, data: null }; });
+      }));
+    })
+    .then(function(rows){
+      var shortDate = function(s){ return s ? s.slice(0,10) : '--'; };
+      var html = '<table><tr><th>Zona</th><th>Bias arch. (n)</th><th>Bias più vecchio</th><th>Predict arch. (n)</th><th>Predict più vecchio</th></tr>';
+      rows.forEach(function(row){
+        var d = row.data || {};
+        var ba = d.bias_archive || {};
+        var pa = d.predict_archive || {};
+        html += '<tr><td>' + row.name + '</td><td>' + (ba.length != null ? ba.length : '--') + '</td><td>' + shortDate(ba.oldest_ts) +
+          '</td><td>' + (pa.length != null ? pa.length : '--') + '</td><td>' + shortDate(pa.oldest_gen) + '</td></tr>';
+      });
+      html += '</table>';
+      resultEl.innerHTML = html;
+      arrowEl.textContent = '✓';
+    })
+    .catch(function(e){
+      resultEl.innerHTML = '<div class="archloading">Errore: ' + e.message + '</div>';
+      arrowEl.textContent = '→';
+    });
 });
 </script>
 </body>

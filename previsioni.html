@@ -1,4 +1,4 @@
-<!-- NAUTILUS PREVISIONI v3.1 - mdisailor - 2026-08-12 - v3.1: opacita campo colorato allineata a mappa2 (0.5->0.4). Aggiunto tasto GRID on/off per nascondere/mostrare le frecce della griglia OM di sfondo -- le frecce zona (AI/stazione reale/fallback) restano sempre visibili, tasto tocca solo il ciclo background. Su base v3.0. -->
+<!-- NAUTILUS PREVISIONI v3.2 - mdisailor - 2026-08-12 - v3.2: rimossa la legenda in basso a sinistra (e il CSS #legend ora orfano). Su base v3.1. -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Previsioni Vento v3.1</title>
+<title>NAUTILUS Previsioni Vento v3.2</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -53,12 +53,6 @@
   }
   #btn-flow.active{color:var(--accent);border-color:var(--accent);box-shadow:0 0 14px rgba(0,240,255,0.3);}
   #btn-grid-toggle.active{color:var(--accent);border-color:var(--accent);}
-  #legend{
-    position:absolute;bottom:14px;left:14px;z-index:900;background:rgba(10,26,46,0.92);
-    border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:11px;
-    color:var(--muted);line-height:1.6;max-width:230px;
-  }
-  #legend b{color:var(--text);}
   #status{
     position:absolute;top:10px;right:10px;z-index:900;background:rgba(10,26,46,0.92);
     border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:11px;color:var(--muted);
@@ -70,7 +64,7 @@
 
 <header>
   <h1>NAUTILUS &mdash; Previsioni Vento</h1>
-  <span class="ver">v3.1</span>
+  <span class="ver">v3.2</span>
   <a class="back" href="/index2.html">&larr; cruscotto</a>
 </header>
 
@@ -84,13 +78,6 @@
   <button id="btn-flow" title="Animazione flusso vento">&#x1F300; FLOW</button>
   <button id="btn-xls" title="Esporta tutti i dati orari in Excel" style="position:absolute;top:10px;left:110px;z-index:900;background:rgba(10,26,46,0.92);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;">&#128202; XLS</button>
   <button id="btn-grid-toggle" title="Mostra/nasconde le frecce della griglia OM di sfondo" class="active" style="position:absolute;top:10px;left:200px;z-index:900;background:rgba(10,26,46,0.92);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;">&#9750; GRID</button>
-  <div id="legend">
-    <div><b>═══▶▶</b> doppia freccia = nostra previsione, dall'ultimo predict</div>
-    <div><b>─▶</b> freccia singola = OM, sempre ricalcolato da adesso</div>
-    <div style="margin-top:6px;">Bottone "ora": sempre dato reale stazioni, mai previsione</div>
-    <div style="margin-top:6px;">Frecce: colore = intensità (scala Beaufort)</div>
-    <div style="margin-top:4px;">Sfondo colorato: campo interpolato continuo, sempre attivo</div>
-  </div>
   <div id="status"></div>
 </div>
 
@@ -806,4 +793,4 @@ setInterval(loadAll, REFRESH_MS);
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS PREVISIONI v3.1 -->
+<!-- Fine codice - NAUTILUS PREVISIONI v3.2 -->

@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.14 - by mdisailor engine - v2.14.14: aggiunta action=archive_check (sola lettura, nessuna scrittura) -- confronta finestra fissa (bias_samples/predict_history) e archivio persistente (bias_archive/predict_archive, introdotti v2.14.13) fianco a fianco, per verificare da URL che l accumulo stia davvero avvenendo. Su base v2.14.13
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.15 - by mdisailor engine - v2.14.15: fix bias_archive mancava in 3 dei 4 punti di scrittura di bias_samples (scrape_cfr, scrape_web, scrape_web2) -- era stato aggiunto solo in scrape_stations (4 stazioni su ~25), per tutte le altre l archivio persistente non si riempiva mai da quando introdotto in v2.14.13. Stesso pattern in tutti e 4 i punti ora. Su base v2.14.14
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2044,7 +2044,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.14', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.15', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -2515,6 +2515,18 @@ if (action === 'scrape_cfr') {
         var list = Array.isArray(existing) ? existing : [];
         list.unshift(scfSample);
         if (list.length > 100) list.length = 100;
+        // fix 2026-08-12: archivio persistente (bias_archive) -- mancava in
+        // scrape_cfr, l'unica scrittura reale di bias_samples per 18 delle
+        // stazioni CFR (Populonia, Viareggio CFR, Capraia CFR, Forte dei Marmi,
+        // Casotto, Follonica, ecc.). Stesso pattern di scrape_stations, in
+        // parallelo, non blocca il ritorno principale, errori ignorati.
+        var scfBaKey = 'bias_archive:' + st.id;
+        kvGet(scfBaKey, kvUrl, kvToken).then(function(baExisting){
+          var baList = Array.isArray(baExisting) ? baExisting : [];
+          baList.unshift(scfSample);
+          if (baList.length > 3000) baList.length = 3000;
+          return kvSet(scfBaKey, baList, 31536000, kvUrl, kvToken);
+        }).catch(function(){});
         return kvSet(scfKey2, list, 31536000, kvUrl, kvToken).then(function() {
           return { id: st.id, name: st.name, ok: true, wind_kt: scfData.wind_kt, dir: scfData.dir_deg, delta: scfSample.delta };
         });
@@ -2705,6 +2717,17 @@ if (action === 'scrape_web') {
         swList.unshift(swSample);
         if (swList.length > 100) swList.length = 100;
         await kvSet(swKey, swList, 31536000, kvUrl, kvToken);
+        // fix 2026-08-12: archivio persistente (bias_archive) -- mancava in
+        // scrape_web (Alberese e le altre stazioni MeteoNetwork sito). Stesso
+        // pattern di scrape_stations.
+        try {
+          var swBaKey = 'bias_archive:' + swSt.id;
+          var swBaExisting = await kvGet(swBaKey, kvUrl, kvToken);
+          var swBaList = Array.isArray(swBaExisting) ? swBaExisting : [];
+          swBaList.unshift(swSample);
+          if (swBaList.length > 3000) swBaList.length = 3000;
+          await kvSet(swBaKey, swBaList, 31536000, kvUrl, kvToken);
+        } catch(swBaErr) {}
         return { id: swSt.id, name: swSt.name, ok: swKn !== null, sample: swSample };
       } catch(swE) {
         return { id: swSt.id, name: swSt.name, ok: false, error: swE.message };
@@ -2842,6 +2865,18 @@ if (action === 'scrape_web2') {
         swList.unshift(swSample);
         if (swList.length > 100) swList.length = 100;
         await kvSet(swKey, swList, 31536000, kvUrl, kvToken);
+        // fix 2026-08-12: archivio persistente (bias_archive) -- mancava in
+        // scrape_web2 (Livorno Porto, Barcaggio, Bonifacio Cap Pertusato, Vada
+        // da Windfinder/Meteosystem). Dopo il controllo anti-duplicato: se e'
+        // un duplicato non si scrive nemmeno qui, stessa logica del principale.
+        try {
+          var sw2BaKey = 'bias_archive:' + swSt.id;
+          var sw2BaExisting = await kvGet(sw2BaKey, kvUrl, kvToken);
+          var sw2BaList = Array.isArray(sw2BaExisting) ? sw2BaExisting : [];
+          sw2BaList.unshift(swSample);
+          if (sw2BaList.length > 3000) sw2BaList.length = 3000;
+          await kvSet(sw2BaKey, sw2BaList, 31536000, kvUrl, kvToken);
+        } catch(sw2BaErr) {}
         return { id: swSt.id, name: swSt.name, ok: swKn !== null, sample: swSample };
       } catch(swE) {
         return { id: swSt.id, name: swSt.name, ok: false, error: swE.message };
@@ -5980,7 +6015,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.14 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.15 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -6111,4 +6146,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.14
+// Fine codice - NAUTILUS ENGINE v2.14.15

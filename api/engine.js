@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.17 - by mdisailor engine - v2.14.17: fix archive_backfill rispondeva Unauthorized con k=mdi -- usava requireSecret() (solo Authorization header, per i cron), sostituito col controllo ibrido k=mdi/secret di bias_reset/grid_rules_init, chiamabile a mano da browser. Su base v2.14.16
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.19 - by mdisailor engine - v2.14.19: ottimizzata getWindHistory -- da N chiamate kvGet separate (una per slot 30min, fino a 672 per una singola action=predict) a UNA chiamata batch kvMGet. Causa principale esaurimento quota Redis (avviso 12/8, 733K letture/mese oltre il limite 500K). Stesso dato restituito, stesso ordine -- cambia solo come viene letto. Aggiunto controllo di consistenza automatico (history_check:zona, atteso vs trovato) e action=history_check_get (sola lettura, batch) per verificarlo. Su base v2.14.18
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -1219,25 +1219,45 @@ async function getWindHistory(zoneKey, restUrl, restToken, hours) {
 if (!restUrl || !restToken) return [];
 if (!hours) hours = 24;
 var now = new Date();
-var snapshots = [];
-var promises = [];
-// Fetch every 30 min slots (2x per hour)
+// fix 2026-08-12: era un ciclo di N chiamate kvGet separate (una per ogni
+// slot da 30min) -- per action=predict (hours=336) sono 672 letture Redis in
+// UNA sola chiamata a questa funzione, x2/giorno x ~20 zone: la causa
+// principale dell'esaurimento quota comandi Upstash (avviso 12/8, 733K letture
+// in un mese, ben oltre il limite 500K). Sostituito con kvMGet (una chiamata
+// batch sola, gia' usata altrove nel progetto -- situazione_get, backfill_actuals
+// -- non e' una tecnica nuova). Stesso identico dato restituito, stesso ordine,
+// stesso filtro sui null -- cambia solo COME viene letto da Redis, non COSA
+// viene restituito a previsioni/situazioni/mappa.
 var slots = hours * 2;
+var slotList = []; // {h, key} nello stesso ordine del vecchio ciclo (s da slots-1 a 0)
 for (var s = slots - 1; s >= 0; s = s - 1) {
-(function(ss) {
-var d = new Date(now.getTime() - ss * 1800000);
+var d = new Date(now.getTime() - s * 1800000);
 var mins = d.getMinutes() < 30 ? '00' : '30';
 var slotKey = d.toISOString().slice(0, 13) + '-' + mins;
-var key = 'snap:' + zoneKey + ':' + slotKey;
-promises.push(kvGet(key, restUrl, restToken).then(function(snap) {
-return snap ? { h: ss / 2, snap: snap } : null;
-}));
-})(s);
+slotList.push({ h: s / 2, key: 'snap:' + zoneKey + ':' + slotKey });
 }
-var results = await Promise.all(promises);
-// Sort by time ascending
+var rawValues = await kvMGet(slotList.map(function(sl){ return sl.key; }), restUrl, restToken);
+var results = slotList.map(function(sl, idx){
+var snap = rawValues[idx];
+return snap ? { h: sl.h, snap: snap } : null;
+});
 results = results.filter(function(r) { return r !== null; });
 results.sort(function(a, b) { return b.h - a.h; });
+// Controllo di consistenza automatico (2026-08-12): confronta quanti slot
+// erano attesi vs quanti trovati davvero, salva solo l'ultimo esito per zona
+// (non uno storico). Verde se >=30% degli slot attesi sono presenti (soglia
+// larga apposta: buchi normali per zone con poco storico o stazioni giovani
+// non devono accendere falsi allarmi), rosso sotto. Costa 1 scrittura in piu'
+// per chiamata, trascurabile rispetto alle centinaia tolte da kvMGet sopra.
+try {
+var hcFound = results.length;
+var hcRatio = slots > 0 ? Math.round((hcFound / slots) * 100) / 100 : null;
+var hcOk = hcRatio !== null && hcRatio >= 0.3;
+await kvSet('history_check:' + zoneKey, {
+zone: zoneKey, hours_requested: hours, slots_expected: slots,
+slots_found: hcFound, ratio: hcRatio, ok: hcOk, checked_at: now.toISOString()
+}, 604800, restUrl, restToken); // 7 giorni, si autoaggiorna ad ogni chiamata
+} catch(hcErr) {}
 return results.map(function(r) { return r.snap; });
 }
 
@@ -2044,7 +2064,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.17', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.19', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -2520,9 +2540,19 @@ if (action === 'scrape_cfr') {
         // stazioni CFR (Populonia, Viareggio CFR, Capraia CFR, Forte dei Marmi,
         // Casotto, Follonica, ecc.). Stesso pattern di scrape_stations, in
         // parallelo, non blocca il ritorno principale, errori ignorati.
+        // fix 2026-08-12 (stesso giorno): rallentato a ~1/ora invece di ogni
+        // ciclo (~ogni 30min) -- l'archivio serve alla diversita' di giorni,
+        // non alla granularita' fine, e la scrittura raddoppiata su ~18
+        // stazioni ha contribuito a esaurire la quota comandi Redis del piano
+        // gratuito (500K/mese). Salta se l'ultimo campione archiviato ha meno
+        // di 50 minuti.
         var scfBaKey = 'bias_archive:' + st.id;
         kvGet(scfBaKey, kvUrl, kvToken).then(function(baExisting){
           var baList = Array.isArray(baExisting) ? baExisting : [];
+          if (baList.length > 0 && baList[0] && baList[0].ts &&
+              (Date.now() - new Date(baList[0].ts).getTime()) < 50 * 60000) {
+            return null; // troppo recente, salta questo giro
+          }
           baList.unshift(scfSample);
           if (baList.length > 3000) baList.length = 3000;
           return kvSet(scfBaKey, baList, 31536000, kvUrl, kvToken);
@@ -2719,14 +2749,20 @@ if (action === 'scrape_web') {
         await kvSet(swKey, swList, 31536000, kvUrl, kvToken);
         // fix 2026-08-12: archivio persistente (bias_archive) -- mancava in
         // scrape_web (Alberese e le altre stazioni MeteoNetwork sito). Stesso
-        // pattern di scrape_stations.
+        // pattern di scrape_stations. Rallentato a ~1/ora (stesso giorno):
+        // salta se l'ultimo campione archiviato ha meno di 50 minuti -- vedi
+        // nota estesa in scrape_cfr sul motivo (quota comandi Redis).
         try {
           var swBaKey = 'bias_archive:' + swSt.id;
           var swBaExisting = await kvGet(swBaKey, kvUrl, kvToken);
           var swBaList = Array.isArray(swBaExisting) ? swBaExisting : [];
-          swBaList.unshift(swSample);
-          if (swBaList.length > 3000) swBaList.length = 3000;
-          await kvSet(swBaKey, swBaList, 31536000, kvUrl, kvToken);
+          var swBaTooRecent = swBaList.length > 0 && swBaList[0] && swBaList[0].ts &&
+            (Date.now() - new Date(swBaList[0].ts).getTime()) < 50 * 60000;
+          if (!swBaTooRecent) {
+            swBaList.unshift(swSample);
+            if (swBaList.length > 3000) swBaList.length = 3000;
+            await kvSet(swBaKey, swBaList, 31536000, kvUrl, kvToken);
+          }
         } catch(swBaErr) {}
         return { id: swSt.id, name: swSt.name, ok: swKn !== null, sample: swSample };
       } catch(swE) {
@@ -2869,13 +2905,18 @@ if (action === 'scrape_web2') {
         // scrape_web2 (Livorno Porto, Barcaggio, Bonifacio Cap Pertusato, Vada
         // da Windfinder/Meteosystem). Dopo il controllo anti-duplicato: se e'
         // un duplicato non si scrive nemmeno qui, stessa logica del principale.
+        // Rallentato a ~1/ora (stesso giorno) -- vedi nota estesa in scrape_cfr.
         try {
           var sw2BaKey = 'bias_archive:' + swSt.id;
           var sw2BaExisting = await kvGet(sw2BaKey, kvUrl, kvToken);
           var sw2BaList = Array.isArray(sw2BaExisting) ? sw2BaExisting : [];
-          sw2BaList.unshift(swSample);
-          if (sw2BaList.length > 3000) sw2BaList.length = 3000;
-          await kvSet(sw2BaKey, sw2BaList, 31536000, kvUrl, kvToken);
+          var sw2BaTooRecent = sw2BaList.length > 0 && sw2BaList[0] && sw2BaList[0].ts &&
+            (Date.now() - new Date(sw2BaList[0].ts).getTime()) < 50 * 60000;
+          if (!sw2BaTooRecent) {
+            sw2BaList.unshift(swSample);
+            if (sw2BaList.length > 3000) sw2BaList.length = 3000;
+            await kvSet(sw2BaKey, sw2BaList, 31536000, kvUrl, kvToken);
+          }
         } catch(sw2BaErr) {}
         return { id: swSt.id, name: swSt.name, ok: swKn !== null, sample: swSample };
       } catch(swE) {
@@ -5401,13 +5442,20 @@ if (action === 'scrape_stations') {
         // senza questo, un cambio di regime di vento che rientra nella calma dopo
         // pochi giorni non resta mai visibile tutto insieme. Nessun campo nuovo,
         // stesso bsSample gia' calcolato sopra -- solo una seconda scrittura.
+        // fix 2026-08-12: rallentato a ~1/ora -- vedi nota estesa in scrape_cfr
+        // (quota comandi Redis piano gratuito esaurita, contributo di questa
+        // scrittura raddoppiata su ogni ciclo).
         try {
           var baKey = 'bias_archive:' + bsSt.id;
           var baExisting = await kvGet(baKey, kvUrl, kvToken);
           var baList = Array.isArray(baExisting) ? baExisting : [];
-          baList.unshift(bsSample);
-          if (baList.length > 3000) baList.length = 3000;
-          await kvSet(baKey, baList, 31536000, kvUrl, kvToken);
+          var baTooRecent = baList.length > 0 && baList[0] && baList[0].ts &&
+            (Date.now() - new Date(baList[0].ts).getTime()) < 50 * 60000;
+          if (!baTooRecent) {
+            baList.unshift(bsSample);
+            if (baList.length > 3000) baList.length = 3000;
+            await kvSet(baKey, baList, 31536000, kvUrl, kvToken);
+          }
         } catch(baErr) {}
         bsResults.push({ id: bsSt.id, name: bsSt.name, ok: !!bsStation, mnw_error: bsMnwErr || undefined, sample: bsSample });
       } catch(bsE) {
@@ -5487,6 +5535,30 @@ if (action === 'archive_check') {
       acResult.predict_archive = { length: acPa.length, newest_gen: acPa[0] ? acPa[0].generated_at : null, oldest_gen: acPa[acPa.length-1] ? acPa[acPa.length-1].generated_at : null };
     }
     return res.status(200).json(acResult);
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+// /api/engine?action=history_check_get -- sola lettura. Legge l'ultimo esito
+// del controllo di consistenza scritto da getWindHistory per ogni zona
+// (2026-08-12, insieme all'ottimizzazione kvMGet). Una chiamata batch sola
+// (kvMGet), non una per zona.
+if (action === 'history_check_get') {
+  try {
+    var hcgZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled !== false; });
+    var hcgKeys = hcgZones.map(function(zk){ return 'history_check:' + zk; });
+    var hcgValues = await kvMGet(hcgKeys, kvUrl, kvToken);
+    var hcgResults = hcgZones.map(function(zk, idx){
+      var v = hcgValues[idx];
+      if (!v) return { zone: zk, name: ZONES[zk].name, checked: false };
+      return {
+        zone: zk, name: ZONES[zk].name, checked: true,
+        hours_requested: v.hours_requested, slots_expected: v.slots_expected,
+        slots_found: v.slots_found, ratio: v.ratio, ok: v.ok, checked_at: v.checked_at
+      };
+    });
+    return res.status(200).json({ results: hcgResults, generated_at: new Date().toISOString() });
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }
@@ -6064,7 +6136,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.17 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.19 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -6195,4 +6267,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.17
+// Fine codice - NAUTILUS ENGINE v2.14.19

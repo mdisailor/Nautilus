@@ -1,0 +1,135 @@
+<!-- NAUTILUS HISTORY-CHECK v1.0 - mdisailor - 2026-08-12 - un tasto, una tabella: verifica se getWindHistory (ottimizzata a kvMGet in engine v2.14.19) trova quanti dati si aspettava per zona. Pallino verde/rosso, estraibile per incollare in chat. -->
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#020d1a">
+<title>NAUTILUS — Controllo storico v1.0</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Bebas+Neue&display=swap');
+  :root {
+    --bg:#020d1a; --card:#071828; --border:rgba(0,180,220,0.15);
+    --accent:#00f0ff; --warn:#ffaa00; --danger:#ff4444; --safe:#22dd88;
+    --muted:rgba(255,255,255,0.6); --text:rgba(255,255,255,0.9);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;padding:0 0 40px;}
+  header{padding:18px 20px;border-bottom:1px solid var(--border);}
+  .logo{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:0.09em;color:#fff;}
+  .logo span{color:var(--accent);}
+  .subtitle{font-size:0.7rem;color:var(--muted);letter-spacing:0.14em;text-transform:uppercase;margin-top:2px;}
+  main{padding:20px;max-width:900px;margin:0 auto;}
+  button{
+    background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:8px;
+    padding:10px 18px;font-family:'DM Mono',monospace;font-size:0.85rem;cursor:pointer;
+  }
+  button:active{background:var(--accent);color:#020d1a;}
+  button.secondary{background:var(--card);border:1px solid var(--border);}
+  #status{font-size:0.65rem;color:var(--muted);margin-top:10px;min-height:1.2em;}
+  table{width:100%;border-collapse:collapse;margin-top:16px;font-size:0.75rem;}
+  th, td{padding:8px 10px;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap;}
+  th{color:var(--accent);font-weight:500;text-transform:uppercase;font-size:0.65rem;letter-spacing:0.06em;}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle;}
+  .dot.ok{background:var(--safe);box-shadow:0 0 6px var(--safe);}
+  .dot.bad{background:var(--danger);box-shadow:0 0 6px var(--danger);}
+  .dot.na{background:var(--muted);}
+  textarea{
+    width:100%;height:160px;margin-top:16px;background:var(--card);color:var(--text);
+    border:1px solid var(--border);border-radius:8px;padding:10px;font-family:'DM Mono',monospace;
+    font-size:0.65rem;resize:vertical;
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">NAUTI<span>LUS</span></div>
+  <div class="subtitle">Controllo storico — getWindHistory</div>
+  <div style="font-size:0.5rem;color:#fff;margin-top:2px;">v1.0</div>
+</header>
+<main>
+  <p style="font-size:0.75rem;color:var(--muted);line-height:1.6;">
+    Verifica se <code>getWindHistory</code> (ottimizzata a una chiamata batch il 12/8) trova ancora
+    quanti dati si aspettava, per ogni zona. Verde = dati trovati in linea con l'atteso (soglia 30%,
+    larga apposta per non dare falsi allarmi su zone con poco storico). Rosso = sotto soglia, da controllare.
+    Il controllo si aggiorna da solo ogni volta che l'engine chiama <code>getWindHistory</code> per quella zona
+    (previsioni, situazioni, mappa) — questa pagina legge solo l'ultimo esito, non lo forza.
+  </p>
+  <div style="margin-top:16px;">
+    <button id="btnRun">Controlla stato</button>
+    <button id="btnCopy" class="secondary" style="display:none;margin-left:8px;">Copia negli appunti</button>
+  </div>
+  <div id="status"></div>
+  <table id="resultTable" style="display:none;">
+    <thead>
+      <tr><th></th><th>Zona</th><th>Atteso</th><th>Trovato</th><th>Rapporto</th><th>Ultimo controllo</th></tr>
+    </thead>
+    <tbody id="resultBody"></tbody>
+  </table>
+  <textarea id="output" readonly style="display:none;"></textarea>
+</main>
+
+<script>
+var ENGINE_URL = '/api/engine';
+
+function fmtDate(s){
+  if (!s) return '--';
+  try { return new Date(s).toLocaleString('it-IT', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }); }
+  catch(e) { return s; }
+}
+
+document.getElementById('btnRun').addEventListener('click', function(){
+  var statusEl = document.getElementById('status');
+  var tableEl = document.getElementById('resultTable');
+  var bodyEl = document.getElementById('resultBody');
+  var outputEl = document.getElementById('output');
+  var copyBtn = document.getElementById('btnCopy');
+  statusEl.textContent = 'Carico...';
+  tableEl.style.display = 'none';
+  outputEl.style.display = 'none';
+  copyBtn.style.display = 'none';
+
+  fetch(ENGINE_URL + '?action=history_check_get', { cache: 'no-store' })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var rows = d.results || [];
+      bodyEl.innerHTML = '';
+      var okCount = 0, badCount = 0, naCount = 0;
+      rows.forEach(function(row){
+        var tr = document.createElement('tr');
+        var dotClass = !row.checked ? 'na' : (row.ok ? 'ok' : 'bad');
+        if (!row.checked) naCount++; else if (row.ok) okCount++; else badCount++;
+        var ratioTxt = row.ratio != null ? Math.round(row.ratio * 100) + '%' : '--';
+        tr.innerHTML =
+          '<td><span class="dot ' + dotClass + '"></span></td>' +
+          '<td>' + row.name + '</td>' +
+          '<td>' + (row.slots_expected != null ? row.slots_expected : '--') + '</td>' +
+          '<td>' + (row.slots_found != null ? row.slots_found : '--') + '</td>' +
+          '<td>' + ratioTxt + '</td>' +
+          '<td>' + fmtDate(row.checked_at) + '</td>';
+        bodyEl.appendChild(tr);
+      });
+      tableEl.style.display = '';
+      statusEl.textContent = okCount + ' ok · ' + badCount + ' da controllare · ' + naCount + ' mai verificate (' + d.generated_at + ')';
+      outputEl.value = JSON.stringify(d, null, 2);
+      outputEl.style.display = '';
+      copyBtn.style.display = '';
+    })
+    .catch(function(e){
+      statusEl.textContent = 'Errore: ' + e.message;
+    });
+});
+
+document.getElementById('btnCopy').addEventListener('click', function(){
+  var outputEl = document.getElementById('output');
+  outputEl.select();
+  document.execCommand('copy');
+  var btn = document.getElementById('btnCopy');
+  var orig = btn.textContent;
+  btn.textContent = 'Copiato!';
+  setTimeout(function(){ btn.textContent = orig; }, 1500);
+});
+</script>
+</body>
+</html>
+<!-- Fine codice - NAUTILUS HISTORY-CHECK v1.0 -->

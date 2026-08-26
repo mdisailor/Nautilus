@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.19 - by mdisailor engine - v2.14.19: ottimizzata getWindHistory -- da N chiamate kvGet separate (una per slot 30min, fino a 672 per una singola action=predict) a UNA chiamata batch kvMGet. Causa principale esaurimento quota Redis (avviso 12/8, 733K letture/mese oltre il limite 500K). Stesso dato restituito, stesso ordine -- cambia solo come viene letto. Aggiunto controllo di consistenza automatico (history_check:zona, atteso vs trovato) e action=history_check_get (sola lettura, batch) per verificarlo. Su base v2.14.18
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.20 - by mdisailor engine - v2.14.20: aggiunta action=windfinder_raw_check (sola lettura, nessuna scrittura) -- confronta il valore "ws" usato in produzione da scrape_web2 con tutti gli altri campi w* trovati nella pagina Windfinder, per verificare il sospetto che Livorno Porto mostri una media smussata invece del vento istantaneo (notte 24-25/8: OM+AROME confermavano vento forte, la stazione restava piatta 2-4kn). Su base v2.14.19
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2064,7 +2064,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.19', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.20', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -2926,6 +2926,68 @@ if (action === 'scrape_web2') {
 
     var sw2Results = await Promise.all(sw2Stations.map(sw2ProcessStation));
     return res.status(200).json({ ts: sw2Ts, results: sw2Results });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+// /api/engine?action=windfinder_raw_check&station=livorno_porto -- sola
+// lettura, nessuna scrittura. Aggiunta 2026-08-26 dopo il sospetto che il
+// campo "ws" letto oggi da scrape_web2 per Livorno Porto sia una media
+// smussata invece del valore istantaneo (durante una notte di vento forte
+// confermato da OM+AROME, la stazione e' rimasta piatta 2-4kn con un solo
+// picco isolato sparito subito dopo). Fa lo STESSO identico parsing di
+// scrape_web2 (stessi regex, per confronto diretto) MA in piu' cerca tutti
+// gli altri campi che iniziano con "w" nella pagina, nel caso Windfinder
+// esponga un valore diverso (media/istantaneo/max) che oggi ignoriamo.
+// Uso: chiamarla nello STESSO momento in cui si apre la pagina nel browser,
+// durante un episodio di vento forte, e confrontare production_parsed.wind_kt
+// con quello che si vede a video in quell'istante.
+if (action === 'windfinder_raw_check') {
+  try {
+    var wrcStations = {
+      livorno_porto: 'https://www.windfinder.com/report/porto-di-livorno',
+      barcaggio: 'https://www.windfinder.com/report/barcaggio_corse',
+      bonifacio_pertusato: 'https://www.windfinder.com/report/bonifacio'
+    };
+    var wrcStation = req.query.station || 'livorno_porto';
+    var wrcUrl = req.query.url || wrcStations[wrcStation];
+    if (!wrcUrl) return res.status(400).json({ error: 'stazione non riconosciuta', available: Object.keys(wrcStations) });
+    var wrcHtml = await fetch(wrcUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'text/html' },
+      signal: AbortSignal.timeout ? AbortSignal.timeout(10000) : undefined
+    }).then(function(r){ return r.text(); });
+
+    // Stesso identico parsing di scrape_web2 -- per confronto diretto col dato che va in produzione
+    var wrcProdSpeed = wrcHtml.match(/&quot;ws&quot;:\[0,([\d.]+)\]/);
+    var wrcProdDir = wrcHtml.match(/&quot;wd&quot;:\[0,([\d.]+)\]/);
+    var wrcProdGust = wrcHtml.match(/&quot;wg&quot;:\[0,([\d.]+)\]/);
+    var wrcProdDtl = wrcHtml.match(/&quot;dtl&quot;:\[0,&quot;([^&]+)&quot;\]/);
+
+    // Tutti gli altri campi che iniziano con "w" (array-like), per scovare
+    // eventuali campi non usati oggi (es. media vs istantaneo vs max)
+    var wrcAllWFields = [];
+    var wrcRe = /&quot;(w[a-z0-9]*)&quot;:\[[^\]]*\]/g;
+    var wrcSeen = {};
+    var wrcM;
+    while ((wrcM = wrcRe.exec(wrcHtml)) !== null) {
+      if (!wrcSeen[wrcM[0]]) { wrcSeen[wrcM[0]] = true; wrcAllWFields.push(wrcM[0].replace(/&quot;/g, '"')); }
+    }
+
+    return res.status(200).json({
+      ts: new Date().toISOString(),
+      station: wrcStation,
+      url: wrcUrl,
+      production_parsed: {
+        wind_kt: wrcProdSpeed ? parseFloat(wrcProdSpeed[1]) : null,
+        direction: wrcProdDir ? Math.round(parseFloat(wrcProdDir[1])) : null,
+        gust_kt: wrcProdGust ? parseFloat(wrcProdGust[1]) : null,
+        obs_time_text: wrcProdDtl ? wrcProdDtl[1] : null
+      },
+      all_w_fields_found: wrcAllWFields,
+      html_length: wrcHtml.length,
+      note: 'Confronta production_parsed.wind_kt con quello mostrato APRENDO ' + wrcUrl + ' nel browser nello stesso momento. Se diversi, "ws" non e\' il valore istantaneo visualizzato -- controllare in all_w_fields_found se c\'e\' un campo alternativo piu\' vicino a quello mostrato a video.'
+    });
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }
@@ -6136,7 +6198,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.19 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.20 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -6267,4 +6329,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.19
+// Fine codice - NAUTILUS ENGINE v2.14.20

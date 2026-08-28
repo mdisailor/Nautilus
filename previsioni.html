@@ -1,4 +1,4 @@
-<!-- NAUTILUS PREVISIONI v3.2 - mdisailor - 2026-08-12 - v3.2: rimossa la legenda in basso a sinistra (e il CSS #legend ora orfano). Su base v3.1. -->
+<!-- NAUTILUS PREVISIONI v3.3 - mdisailor - 2026-08-27 - v3.3: aggiunta chiave API CARTO alla URL delle tile di sfondo (?key=...) -- CARTO ha reso obbligatoria la chiave sulle basemap raster dal 26/8. Chiave gratuita, 5 milioni di richieste/mese. Su base v3.2. -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Previsioni Vento v3.2</title>
+<title>NAUTILUS Previsioni Vento v3.3</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -64,7 +64,7 @@
 
 <header>
   <h1>NAUTILUS &mdash; Previsioni Vento</h1>
-  <span class="ver">v3.2</span>
+  <span class="ver">v3.3</span>
   <a class="back" href="/index2.html">&larr; cruscotto</a>
 </header>
 
@@ -492,7 +492,7 @@ var map, canvas, ctx;
 
 function initMap(){
   map = L.map('map', { zoomControl: true, attributionControl: false }).setView([43.2, 10.0], 8);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=cb1_2aye_1_6aa06c5e5eb9da4db55be03f', {
     subdomains: 'abcd', maxZoom: 12
   }).addTo(map);
   canvas = document.createElement('canvas');
@@ -793,4 +793,4 @@ setInterval(loadAll, REFRESH_MS);
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS PREVISIONI v3.2 -->
+<!-- Fine codice - NAUTILUS PREVISIONI v3.3 -->

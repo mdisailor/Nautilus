@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA v1.6.89 - mdisailor - 2026-08-27 - v1.6.89: aggiunta chiave API CARTO alla URL delle tile di sfondo (?key=...) -- CARTO ha reso obbligatoria la chiave sulle basemap raster dal 26/8, senza le tile mostravano il testo "API KEY REQUIRED" al posto della mappa. Chiave gratuita, 5 milioni di richieste/mese. Su base v1.6.88. -->
+<!-- NAUTILUS MAPPA v1.6.89 -  mdisailor - 2026-08-27 - v1.6.89: aggiunta chiave API CARTO alla URL delle tile di sfondo (?key=...) -- CARTO ha reso obbligatoria la chiave sulle basemap raster dal 26/8, senza le tile mostravano il testo "API KEY REQUIRED" al posto della mappa. Chiave gratuita, 5 milioni di richieste/mese. Su base v1.6.88. -->
 <!DOCTYPE html>
 <html lang="it">
 <head>

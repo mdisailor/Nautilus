@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.21 - by mdisailor engine - v2.14.21: riscritta action=windfinder_raw_check -- il primo ws/wd della pagina si e confermato essere un widget di conversione unita di esempio, non il dato reale. Ora cerca tutte le occorrenze di dtl (orario) e il ws/wd piu vicino a ciascuna nel testo, poi sceglie il record con orario piu vicino ad adesso (closest_to_now). Sola lettura, nessuna scrittura, nessun impatto su scrape_web2/produzione. Su base v2.14.20
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.22 - by mdisailor engine - v2.14.22: risolto il bug Windfinder -- il campo "ws"/"wg" (vento/raffica) usato per Livorno Porto, Barcaggio, Bonifacio Cap Pertusato era in m/s, non in nodi come si credeva dal 18 giugno. Confermato con 3 confronti indipendenti in giorni diversi (rapporto sempre ~1.94, il fattore esatto m/s->nodi). Corretto in scrape_web2 (produzione) e station_refresh (refresh manuale) -- moltiplicato per 1.94384. Su base v2.14.21
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2064,7 +2064,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.21', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.22', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -2256,13 +2256,15 @@ if (action === 'station_refresh') {
     } else if (srSt.parser === 'windfinder' || srSt.parser === 'meteosystem') {
       var srHtml2 = await fetch(srSt.url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'text/html' }, signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined }).then(function(r){ return r.text(); });
       if (srSt.parser === 'windfinder') {
+        // fix 2026-08-28: stesso bug di scrape_web2 -- il campo "ws"/"wg" di
+        // Windfinder e' in m/s, non gia' in nodi. Vedi nota estesa in scrape_web2.
         var srWfSpeedMatch = srHtml2.match(/&quot;ws&quot;:\[0,([\d.]+)\]/);
         var srWfDirMatch = srHtml2.match(/&quot;wd&quot;:\[0,([\d.]+)\]/);
         var srWfGustMatch = srHtml2.match(/&quot;wg&quot;:\[0,([\d.]+)\]/);
-        var srWfKn = srWfSpeedMatch ? parseFloat(srWfSpeedMatch[1]) : null;
+        var srWfKn = srWfSpeedMatch ? Math.round(parseFloat(srWfSpeedMatch[1]) * 1.94384 * 10) / 10 : null;
         var srWfDir = srWfDirMatch ? Math.round(parseFloat(srWfDirMatch[1])) : null;
         if (srWfKn !== null) {
-          srStation_data = { wind_kt: srWfKn, gust_kt: srWfGustMatch ? parseFloat(srWfGustMatch[1]) : null, direction: srWfDir, direction_txt: srWfDir !== null ? degToCardEngine(srWfDir) : null, pressure_mb: null, source: 'mnw_web' };
+          srStation_data = { wind_kt: srWfKn, gust_kt: srWfGustMatch ? Math.round(parseFloat(srWfGustMatch[1]) * 1.94384 * 10) / 10 : null, direction: srWfDir, direction_txt: srWfDir !== null ? degToCardEngine(srWfDir) : null, pressure_mb: null, source: 'mnw_web' };
         }
       } else {
         var srMsSpeedMatch = srHtml2.match(/Velocit&agrave;\s*attuale:?[\s\S]{0,200}?class="temp">([\d.]+)</i);
@@ -2828,15 +2830,22 @@ if (action === 'scrape_web2') {
         var swKn, swDirTxt, swDir, swGustKn;
         if (swSt.parser === 'windfinder') {
           // Formato reale confermato 18 giugno su pagina /report/: JSON embedded astro-island con initCC: {"wd":[0,11],"ws":[0,1],"wg":[0,...]}
-          // wd/ws sono numerici diretti (gradi e kt), nessuna mappa testo->gradi necessaria. wg assente se vento debole/nessuna raffica registrata.
+          // fix 2026-08-28: il commento originale diceva "ws/wg gia' in nodi,
+          // nessuna conversione necessaria" -- FALSO, mai verificato. Confermato
+          // con 3 confronti indipendenti in giorni diversi (Livorno Porto e
+          // Bonifacio Cap Pertusato) che il valore di Windfinder mostrato a
+          // video e' sempre ~1.94x il valore che leggevamo -- il campo e' in
+          // m/s, non in nodi. Corretto qui: moltiplicato per 1.94384 (fattore
+          // esatto m/s->nodi), sia per il vento medio sia per la raffica
+          // (stesso campo "wg", stessa unita' presunta).
           var swWfSpeedMatch = swHtml.match(/&quot;ws&quot;:\[0,([\d.]+)\]/);
           var swWfDirMatch = swHtml.match(/&quot;wd&quot;:\[0,([\d.]+)\]/);
           var swWfGustMatch = swHtml.match(/&quot;wg&quot;:\[0,([\d.]+)\]/);
           var swWfDtlMatch = swHtml.match(/&quot;dtl&quot;:\[0,&quot;([^&]+)&quot;\]/);
-          swKn = swWfSpeedMatch ? parseFloat(swWfSpeedMatch[1]) : null;
+          swKn = swWfSpeedMatch ? Math.round(parseFloat(swWfSpeedMatch[1]) * 1.94384 * 10) / 10 : null;
           swDir = swWfDirMatch ? Math.round(parseFloat(swWfDirMatch[1])) : null;
           swDirTxt = (swDir !== null) ? degToCardEngine(swDir) : null;
-          swGustKn = swWfGustMatch ? parseFloat(swWfGustMatch[1]) : null;
+          swGustKn = swWfGustMatch ? Math.round(parseFloat(swWfGustMatch[1]) * 1.94384 * 10) / 10 : null;
           var swObsTime = swWfDtlMatch ? swWfDtlMatch[1] : null;
         } else if (swSt.parser === 'meteosystem') {
           // Formato reale confermato 18 giugno: 'Velocit&agrave; attuale:<br /><strong><span class="temp">2.6</span></strong>... <span class="valor2">kt <strong>SSE</strong></span>'
@@ -2947,7 +2956,11 @@ if (action === 'scrape_web2') {
 // senza vedere il sorgente pagina con strumenti sviluppatore, non disponibili
 // da iPad) -- e' un tentativo di ricostruzione, da verificare a occhio
 // confrontando closest_to_now con quello che si vede aprendo la pagina nello
-// stesso momento.
+// stesso momento. RISOLTO 2026-08-28: confermato con 3 confronti indipendenti
+// in giorni diversi che il campo e' in m/s, non in nodi -- fix applicato in
+// scrape_web2/station_refresh (moltiplicato per 1.94384). Questa diagnostica
+// resta invariata (valori grezzi, non convertiti) per poter continuare a fare
+// confronti diretti in futuro se servisse.
 if (action === 'windfinder_raw_check') {
   try {
     var wrcStations = {
@@ -6224,7 +6237,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.21 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.22 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -6355,4 +6368,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.21
+// Fine codice - NAUTILUS ENGINE v2.14.22

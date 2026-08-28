@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA2 v1.3 - mdisailor - 2026-08-12 - v1.3: aggiunto tasto GRID on/off per nascondere/mostrare la griglia generica di sfondo -- i punti dedicati a stazioni reali (isStationPoint) e le zone restano sempre visibili, il tasto filtra solo la griglia densa. Su base v1.2. -->
+<!-- NAUTILUS MAPPA2 v1.4 - mdisailor - 2026-08-27 - v1.4: aggiunta chiave API CARTO alla URL delle tile di sfondo (?key=...) -- CARTO ha reso obbligatoria la chiave sulle basemap raster dal 26/8. Chiave gratuita, 5 milioni di richieste/mese. Su base v1.3. -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa2 Vento v1.3</title>
+<title>NAUTILUS Mappa2 Vento v1.4</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -229,7 +229,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa2 v1.3</span>
+    <span id="nav-ver">mappa2 v1.4</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -291,11 +291,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA2 v1.3 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA2 v1.4 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA2 v1.3
+// NAUTILUS MAPPA2 v1.4
 
 var ENGINE_URL = '/api/engine';
 
@@ -431,7 +431,7 @@ var map = L.map('map', {
   center:[43.5, 10.2], zoom:8,
   zoomControl:true, attributionControl:false,
 });
-L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=cb1_2aye_1_6aa06c5e5eb9da4db55be03f',{
   attribution:'CartoDB',maxZoom:19,subdomains:'abcd'
 }).addTo(map);
 L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png',{opacity:0.7,maxZoom:18}).addTo(map);

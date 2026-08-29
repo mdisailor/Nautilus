@@ -1,0 +1,187 @@
+<!-- NAUTILUS CONFRONTO-MODELLI v1.2 - mdisailor - 2026-08-29 - v1.2: riscritto il prompt generato -- istruzioni precise su come leggere il grafico livornometeo (linea chiara=direzione, linea rossa=velocita, il numero dopo @ nel popup e un id sequenziale non gradi, leggere solo agli stessi orari della tabella nostra). Su base v1.1. -->
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#020d1a">
+<title>NAUTILUS — Confronto modelli v1.0</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Bebas+Neue&display=swap');
+<title>NAUTILUS Confronto modelli v1.2</title>
+    --bg:#020d1a; --card:#071828; --border:rgba(0,180,220,0.15);
+    --accent:#00f0ff; --warn:#ffaa00; --danger:#ff4444; --safe:#22dd88;
+    --muted:rgba(255,255,255,0.6); --text:rgba(255,255,255,0.9);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;padding:0 0 40px;}
+  header{padding:18px 20px;border-bottom:1px solid var(--border);}
+  .logo{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:0.09em;color:#fff;}
+  .logo span{color:var(--accent);}
+  .subtitle{font-size:0.7rem;color:var(--muted);letter-spacing:0.14em;text-transform:uppercase;margin-top:2px;}
+  main{padding:20px;max-width:900px;margin:0 auto;}
+  .note{font-size:0.72rem;color:var(--muted);line-height:1.6;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:16px;}
+  .note b{color:var(--warn);}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:14px;}
+  select, button{
+    background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:8px;
+    padding:9px 14px;font-family:'DM Mono',monospace;font-size:0.8rem;cursor:pointer;
+  }
+  button:active{background:var(--accent);color:#020d1a;}
+  #status{font-size:0.65rem;color:var(--muted);margin-bottom:10px;min-height:1.2em;}
+  table{width:100%;border-collapse:collapse;font-size:0.75rem;}
+  th, td{padding:7px 9px;border-bottom:1px solid var(--border);text-align:right;white-space:nowrap;}
+  th:first-child, td:first-child{text-align:left;}
+  th{color:var(--accent);font-weight:500;text-transform:uppercase;font-size:0.6rem;letter-spacing:0.05em;}
+  td.our{color:var(--safe);font-weight:500;}
+  td.recent{background:rgba(0,240,255,0.06);}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">NAUTI<span>LUS</span></div>
+  <div class="subtitle">Confronto modelli — stazioni Windfinder</div>
+  <div style="font-size:0.5rem;color:#fff;margin-top:2px;">v1.2</div>
+</header>
+<main>
+  <div class="note">
+    Mostra lo storico <b>nostro / OM / AROME</b> per una stazione letta da Windfinder (vento già corretto dal fix del 28/8).
+    <br><br>
+    <b>Limite</b>: livornometeo.it non è leggibile in automatico (blocco esplicito del sito) — apri il suo grafico
+    in un'altra scheda e confronta a occhio gli stessi orari con questa tabella. Livornometeo mostra circa le
+    ultime 3 ore: le righe più recenti qui sotto sono evidenziate.
+  </div>
+  <div class="controls">
+    <select id="stationSel">
+      <option value="livorno_porto">Livorno Porto</option>
+      <option value="barcaggio">Barcaggio</option>
+      <option value="bonifacio_pertusato">Bonifacio Cap Pertusato</option>
+    </select>
+    <button id="btnRun">Aggiorna tabella</button>
+    <button id="btnCopy" style="display:none;">Copia negli appunti</button>
+    <button id="btnPrompt" style="display:none;">Genera prompt per confronto</button>
+  </div>
+  <div id="status"></div>
+  <table id="resultTable" style="display:none;">
+    <thead>
+      <tr><th>Ora</th><th>Nostro (kn)</th><th>Dir.</th><th>OM (kn)</th><th>AROME (kn)</th></tr>
+    </thead>
+    <tbody id="resultBody"></tbody>
+  </table>
+  <textarea id="promptOutput" readonly style="display:none;width:100%;height:280px;margin-top:14px;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;font-family:'DM Mono',monospace;font-size:0.65rem;resize:vertical;"></textarea>
+</main>
+
+<script>
+var ENGINE_URL = '/api/engine';
+var lastRecentSamples = []; // ultime 3h, riempita da loadTable, usata dal tasto prompt
+
+function fmtTime(s){
+  if (!s) return '--';
+  try { return new Date(s).toLocaleString('it-IT', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }); }
+  catch(e) { return s; }
+}
+
+function loadTable(){
+  var station = document.getElementById('stationSel').value;
+  var statusEl = document.getElementById('status');
+  var tableEl = document.getElementById('resultTable');
+  var bodyEl = document.getElementById('resultBody');
+  var copyBtn = document.getElementById('btnCopy');
+  statusEl.textContent = 'Carico...';
+  tableEl.style.display = 'none';
+  copyBtn.style.display = 'none';
+
+  fetch(ENGINE_URL + '?action=bias_history&station=' + encodeURIComponent(station) + '&limit=40', { cache: 'no-store' })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var samples = d.samples || [];
+      var nowMs = Date.now();
+      bodyEl.innerHTML = '';
+      lastRecentSamples = [];
+      var stationLabel = document.getElementById('stationSel').selectedOptions[0].textContent;
+      samples.forEach(function(s){
+        var tr = document.createElement('tr');
+        var ageMin = (nowMs - new Date(s.ts).getTime()) / 60000;
+        var isRecent = ageMin <= 180;
+        if (isRecent) { tr.classList.add('recent'); lastRecentSamples.push(s); }
+        var st = s.station || {};
+        var om = s.om || {};
+        var ar = s.arome || {};
+        tr.innerHTML =
+          '<td>' + fmtTime(s.ts) + '</td>' +
+          '<td class="our">' + (st.wind_kt != null ? st.wind_kt : '--') + '</td>' +
+          '<td>' + (st.direction != null ? st.direction + '°' : '--') + '</td>' +
+          '<td>' + (om.wind_kt != null ? om.wind_kt : '--') + '</td>' +
+          '<td>' + (ar.wind_kt != null ? ar.wind_kt : '--') + '</td>';
+        bodyEl.appendChild(tr);
+      });
+      tableEl.style.display = '';
+      statusEl.textContent = samples.length + ' campioni · righe evidenziate = ultime 3h (confrontabili con livornometeo.it)';
+      copyBtn.style.display = '';
+      document.getElementById('btnPrompt').style.display = '';
+      document.getElementById('btnPrompt').setAttribute('data-station-label', stationLabel);
+      copyBtn.onclick = function(){
+        var lines = ['Ora\tNostro(kn)\tDir\tOM(kn)\tAROME(kn)'];
+        samples.forEach(function(s){
+          var st = s.station || {}, om = s.om || {}, ar = s.arome || {};
+          lines.push([fmtTime(s.ts), st.wind_kt, st.direction, om.wind_kt, ar.wind_kt].join('\t'));
+        });
+        var ta = document.createElement('textarea');
+        ta.value = lines.join('\n');
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        var orig = copyBtn.textContent;
+        copyBtn.textContent = 'Copiato!';
+        setTimeout(function(){ copyBtn.textContent = orig; }, 1500);
+      };
+    })
+    .catch(function(e){
+      statusEl.textContent = 'Errore: ' + e.message;
+    });
+}
+
+document.getElementById('btnRun').addEventListener('click', loadTable);
+
+document.getElementById('btnPrompt').addEventListener('click', function(){
+  var stationLabel = this.getAttribute('data-station-label') || 'stazione';
+  var lines = [];
+  lines.push('Sei un assistente che confronta dati di vento. Non hai bisogno di sapere altro sul progetto: ti servono solo i dati che seguono.');
+  lines.push('');
+  lines.push('DATI NOSTRI (stazione "' + stationLabel + '", ultime ' + lastRecentSamples.length + ' osservazioni, ogni 30 min circa):');
+  lines.push('Ora | Nostro vento (nodi) | Direzione | Previsione modello OM (nodi) | Previsione modello AROME (nodi)');
+  lastRecentSamples.forEach(function(s){
+    var st = s.station || {}, om = s.om || {}, ar = s.arome || {};
+    lines.push(fmtTime(s.ts) + ' | ' + (st.wind_kt != null ? st.wind_kt : '--') + ' | ' +
+      (st.direction != null ? st.direction + '°' : '--') + ' | ' +
+      (om.wind_kt != null ? om.wind_kt : '--') + ' | ' +
+      (ar.wind_kt != null ? ar.wind_kt : '--'));
+  });
+  lines.push('');
+  lines.push('COME LEGGERE IL GRAFICO CHE L\'UTENTE STA PER CARICARE (screenshot da livornometeo.it, "Wind speed and direction", ultime 3 ore):');
+  lines.push('- Ci sono DUE linee sovrapposte. La linea ROSSA/marcata è la VELOCITA\' del vento (scala a destra, in nodi). La linea CHIARA/tenue (viola pallido) è la DIREZIONE del vento (scala a sinistra: N, NW, W, SW, S, SE, E, NE, N) -- leggi la direzione SOLO da questa linea chiara, mai dalla rossa.');
+  lines.push('- Se nello screenshot compare un riquadro popup con scritto tipo "Speed: 16.5 kn @ 65" -- quel numero dopo la @ NON è una direzione in gradi, è un id sequenziale interno del punto dati, IGNORALO SEMPRE. La direzione si legge solo dalla posizione della linea chiara rispetto all\'asse N/NW/W/SW/S/SE/E/NE a sinistra.');
+  lines.push('- Il popup con le cifre esatte compare solo se l\'utente tocca il grafico live punto per punto (impossibile da uno screenshot statico) -- quindi leggi i valori A OCCHIO dalla posizione della curva rispetto alla scala, con una stima ragionevole (es. "circa 17 kn", non serve il decimale esatto).');
+  lines.push('- LEGGI IL GRAFICO SOLO IN CORRISPONDENZA DEGLI STESSI ORARI presenti nella tabella "DATI NOSTRI" qui sopra -- non altri punti a piacere. Se un orario della tabella cade fuori dall\'intervallo visibile nello screenshot, scrivi "fuori intervallo" per quella riga invece di inventare un valore.');
+  lines.push('');
+  lines.push('ISTRUZIONI OUTPUT:');
+  lines.push('1. Produci un report scritto in italiano, con una tabella: Ora | Nostro | OM | AROME | Livornometeo velocità (letto dal grafico) | Livornometeo direzione (letto dal grafico) | Nota (se c\'è un divario grande, indicalo, altrimenti scrivi "coerente").');
+  lines.push('2. Alla fine, una riga di sintesi: quale fonte sembra più vicina a livornometeo in questo episodio, se emerge un pattern chiaro. Se i dati sono troppo pochi o incoerenti per dirlo, scrivilo onestamente invece di forzare una conclusione.');
+  lines.push('3. Sii sintetico -- l\'utente porterà questo report a un\'altra conversazione per l\'analisi finale, non serve altro contesto o spiegazione del progetto.');
+
+  var promptEl = document.getElementById('promptOutput');
+  promptEl.value = lines.join('\n');
+  promptEl.style.display = '';
+  promptEl.select();
+  document.execCommand('copy');
+  var orig = this.textContent;
+  this.textContent = 'Copiato! Incollalo nella nuova chat';
+  var btn = this;
+  setTimeout(function(){ btn.textContent = orig; }, 2500);
+});
+document.getElementById('stationSel').addEventListener('change', loadTable);
+</script>
+</body>
+</html>
+<!-- Fine codice - NAUTILUS CONFRONTO-MODELLI v1.2 -->

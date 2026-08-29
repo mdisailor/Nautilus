@@ -1,4 +1,4 @@
-<!-- NAUTILUS CONFRONTO-MODELLI v1.3 - mdisailor - 2026-08-29 - v1.3: aggiunta istruzione esplicita perche il report generato dalla chat separata includa subito un file di testo scaricabile, senza doverlo richiedere a parte. Su base v1.2. -->
+<!-- NAUTILUS CONFRONTO-MODELLI v1.4 - mdisailor - 2026-08-29 - v1.4: il prompt generato ora spiega anche come leggere il secondo grafico opzionale (Windfinder stesso, "Velocita e direzione attuali del vento") -- diverso da livornometeo (una sola curva velocita, frecce = solo direzione, selettore giorni). Tabella di output estesa a 3 fonti confrontate. Su base v1.3. -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <title>NAUTILUS — Confronto modelli v1.0</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Bebas+Neue&display=swap');
-<title>NAUTILUS Confronto modelli v1.3</title>
+<title>NAUTILUS Confronto modelli v1.4</title>
     --bg:#020d1a; --card:#071828; --border:rgba(0,180,220,0.15);
     --accent:#00f0ff; --warn:#ffaa00; --danger:#ff4444; --safe:#22dd88;
     --muted:rgba(255,255,255,0.6); --text:rgba(255,255,255,0.9);
@@ -41,7 +41,7 @@
 <header>
   <div class="logo">NAUTI<span>LUS</span></div>
   <div class="subtitle">Confronto modelli — stazioni Windfinder</div>
-  <div style="font-size:0.5rem;color:#fff;margin-top:2px;">v1.3</div>
+  <div style="font-size:0.5rem;color:#fff;margin-top:2px;">v1.4</div>
 </header>
 <main>
   <div class="note">
@@ -50,6 +50,9 @@
     <b>Limite</b>: livornometeo.it non è leggibile in automatico (blocco esplicito del sito) — apri il suo grafico
     in un'altra scheda e confronta a occhio gli stessi orari con questa tabella. Livornometeo mostra circa le
     ultime 3 ore: le righe più recenti qui sotto sono evidenziate.
+    <br><br>
+    Il prompt generato accetta anche un secondo screenshot facoltativo, dal grafico di Windfinder stesso
+    (utile per capire se un'anomalia nei nostri dati è già presente nella fonte, o no).
   </div>
   <div class="controls">
     <select id="stationSel">
@@ -165,9 +168,16 @@ document.getElementById('btnPrompt').addEventListener('click', function(){
   lines.push('- Il popup con le cifre esatte compare solo se l\'utente tocca il grafico live punto per punto (impossibile da uno screenshot statico) -- quindi leggi i valori A OCCHIO dalla posizione della curva rispetto alla scala, con una stima ragionevole (es. "circa 17 kn", non serve il decimale esatto).');
   lines.push('- LEGGI IL GRAFICO SOLO IN CORRISPONDENZA DEGLI STESSI ORARI presenti nella tabella "DATI NOSTRI" qui sopra -- non altri punti a piacere. Se un orario della tabella cade fuori dall\'intervallo visibile nello screenshot, scrivi "fuori intervallo" per quella riga invece di inventare un valore.');
   lines.push('');
+  lines.push('L\'UTENTE POTREBBE CARICARE ANCHE UN SECONDO SCREENSHOT, DAL SITO WINDFINDER.COM (grafico "Velocità e direzione attuali del vento", stazione Porto di Livorno) -- stessa fonte da cui leggiamo i nostri dati, utile per vedere se un\'anomalia nei nostri dati è già presente nella fonte originale o no. Questo grafico è DIVERSO da quello di livornometeo:');
+  lines.push('- Asse orizzontale: ore in formato 24h, copre più giorni (in alto ci sono schede tipo "Oggi", "ven 28 ago", ecc -- usa quella evidenziata in rosso per sapere a quale giorno si riferisce il grafico). Una linea verticale grigia col nome del giorno (es. "sabato") segna la mezzanotte tra un giorno e il successivo.');
+  lines.push('- C\'è UNA SOLA linea (blu), la VELOCITA\' del vento in nodi (scala a sinistra "kts", non a destra "bft" che è la scala Beaufort equivalente, ignorala).');
+  lines.push('- Le frecce in alto indicano solo la DIREZIONE del vento (dove punta la freccia), non un valore numerico -- leggile a occhio come punto cardinale approssimativo (N/NE/E/ecc), non serve il grado esatto.');
+  lines.push('- Se la legenda mostra anche "Raffica di vento" ma non vedi una seconda curva distinguibile nel grafico, scrivi "raffica non distinguibile" invece di inventare un valore.');
+  lines.push('- Stesso principio di prima: leggi SOLO agli stessi orari della tabella "DATI NOSTRI", scrivendo "fuori intervallo" se un orario non è coperto dallo screenshot.');
+  lines.push('');
   lines.push('ISTRUZIONI OUTPUT:');
-  lines.push('1. Produci un report scritto in italiano, con una tabella: Ora | Nostro | OM | AROME | Livornometeo velocità (letto dal grafico) | Livornometeo direzione (letto dal grafico) | Nota (se c\'è un divario grande, indicalo, altrimenti scrivi "coerente").');
-  lines.push('2. Alla fine, una riga di sintesi: quale fonte sembra più vicina a livornometeo in questo episodio, se emerge un pattern chiaro. Se i dati sono troppo pochi o incoerenti per dirlo, scrivilo onestamente invece di forzare una conclusione.');
+  lines.push('1. Produci un report scritto in italiano, con una tabella: Ora | Nostro | OM | AROME | Livornometeo velocità (letto dal grafico) | Livornometeo direzione (letto dal grafico) | Windfinder velocità (letto dal grafico, se lo screenshot è stato caricato) | Windfinder direzione (letta dalle frecce, se caricato) | Nota (se c\'è un divario grande, indicalo, altrimenti scrivi "coerente").');
+  lines.push('2. Alla fine, una riga di sintesi: quale fonte sembra più vicina alle altre in questo episodio, se emerge un pattern chiaro. Se i dati sono troppo pochi o incoerenti per dirlo, scrivilo onestamente invece di forzare una conclusione.');
   lines.push('3. IMPORTANTE: genera SUBITO, senza che l\'utente te lo chieda a parte, questo stesso report anche come file di testo scaricabile (.txt o .md) -- l\'utente deve poter scaricare il file e incollarlo altrove senza un secondo giro di richieste.');
   lines.push('4. Sii sintetico -- l\'utente porterà questo report a un\'altra conversazione per l\'analisi finale, non serve altro contesto o spiegazione del progetto.');
 
@@ -185,4 +195,4 @@ document.getElementById('stationSel').addEventListener('change', loadTable);
 </script>
 </body>
 </html>
-<!-- Fine codice - NAUTILUS CONFRONTO-MODELLI v1.3 -->
+<!-- Fine codice - NAUTILUS CONFRONTO-MODELLI v1.4 -->

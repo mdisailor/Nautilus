@@ -1,4 +1,4 @@
-<!-- NAUTILUS CONFRONTO-MODELLI v1.2 - mdisailor - 2026-08-29 - v1.2: riscritto il prompt generato -- istruzioni precise su come leggere il grafico livornometeo (linea chiara=direzione, linea rossa=velocita, il numero dopo @ nel popup e un id sequenziale non gradi, leggere solo agli stessi orari della tabella nostra). Su base v1.1. -->
+<!-- NAUTILUS CONFRONTO-MODELLI v1.3 - mdisailor - 2026-08-29 - v1.3: aggiunta istruzione esplicita perche il report generato dalla chat separata includa subito un file di testo scaricabile, senza doverlo richiedere a parte. Su base v1.2. -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <title>NAUTILUS — Confronto modelli v1.0</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Bebas+Neue&display=swap');
-<title>NAUTILUS Confronto modelli v1.2</title>
+<title>NAUTILUS Confronto modelli v1.3</title>
     --bg:#020d1a; --card:#071828; --border:rgba(0,180,220,0.15);
     --accent:#00f0ff; --warn:#ffaa00; --danger:#ff4444; --safe:#22dd88;
     --muted:rgba(255,255,255,0.6); --text:rgba(255,255,255,0.9);
@@ -41,7 +41,7 @@
 <header>
   <div class="logo">NAUTI<span>LUS</span></div>
   <div class="subtitle">Confronto modelli — stazioni Windfinder</div>
-  <div style="font-size:0.5rem;color:#fff;margin-top:2px;">v1.2</div>
+  <div style="font-size:0.5rem;color:#fff;margin-top:2px;">v1.3</div>
 </header>
 <main>
   <div class="note">
@@ -168,7 +168,8 @@ document.getElementById('btnPrompt').addEventListener('click', function(){
   lines.push('ISTRUZIONI OUTPUT:');
   lines.push('1. Produci un report scritto in italiano, con una tabella: Ora | Nostro | OM | AROME | Livornometeo velocità (letto dal grafico) | Livornometeo direzione (letto dal grafico) | Nota (se c\'è un divario grande, indicalo, altrimenti scrivi "coerente").');
   lines.push('2. Alla fine, una riga di sintesi: quale fonte sembra più vicina a livornometeo in questo episodio, se emerge un pattern chiaro. Se i dati sono troppo pochi o incoerenti per dirlo, scrivilo onestamente invece di forzare una conclusione.');
-  lines.push('3. Sii sintetico -- l\'utente porterà questo report a un\'altra conversazione per l\'analisi finale, non serve altro contesto o spiegazione del progetto.');
+  lines.push('3. IMPORTANTE: genera SUBITO, senza che l\'utente te lo chieda a parte, questo stesso report anche come file di testo scaricabile (.txt o .md) -- l\'utente deve poter scaricare il file e incollarlo altrove senza un secondo giro di richieste.');
+  lines.push('4. Sii sintetico -- l\'utente porterà questo report a un\'altra conversazione per l\'analisi finale, non serve altro contesto o spiegazione del progetto.');
 
   var promptEl = document.getElementById('promptOutput');
   promptEl.value = lines.join('\n');
@@ -184,4 +185,4 @@ document.getElementById('stationSel').addEventListener('change', loadTable);
 </script>
 </body>
 </html>
-<!-- Fine codice - NAUTILUS CONFRONTO-MODELLI v1.2 -->
+<!-- Fine codice - NAUTILUS CONFRONTO-MODELLI v1.3 -->

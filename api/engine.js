@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.22 - by mdisailor engine - v2.14.22: risolto il bug Windfinder -- il campo "ws"/"wg" (vento/raffica) usato per Livorno Porto, Barcaggio, Bonifacio Cap Pertusato era in m/s, non in nodi come si credeva dal 18 giugno. Confermato con 3 confronti indipendenti in giorni diversi (rapporto sempre ~1.94, il fattore esatto m/s->nodi). Corretto in scrape_web2 (produzione) e station_refresh (refresh manuale) -- moltiplicato per 1.94384. Su base v2.14.21
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.23 - by mdisailor engine - v2.14.23: aggiunte action=note_save (POST, k=mdi), action=note_get&id=X (lettura pubblica, text/plain) e action=note_list -- permettono di salvare report/dati grezzi sul server invece di incollarli in chat, poi darne l URL a Claude (legge URL forniti direttamente da chi scrive). Tetto 200KB per nota, indice separato tetto 200 voci. Su base v2.14.22
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2064,7 +2064,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.22', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.23', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -3027,6 +3027,72 @@ if (action === 'windfinder_raw_check') {
       html_length: wrcHtml.length,
       note: 'Confronta closest_to_now con quello mostrato APRENDO ' + wrcUrl + ' nel browser nello stesso momento (tocca il grafico sul punto piu recente). Se ancora diverso, guardare a occhio in all_records quale voce (per orario) corrisponde meglio.'
     });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+// /api/engine?action=note_save -- POST, richiede k=mdi o secret. Salva un
+// blocco di testo libero (report, dati grezzi, appunti) sotto un id a scelta,
+// leggibile poi con action=note_get&id=X. Aggiunta 2026-09-14: invece di
+// incollare ogni report in chat, M lo salva qui e da' l'URL di lettura a
+// Claude (che puo' leggere URL forniti direttamente dall'utente). Corpo
+// JSON richiesto: {"id":"nome-breve", "text":"..."}. Tetto 200KB per nota
+// (stesso ordine di grandezza delle altre chiavi grandi del progetto, non
+// rischia di ripetere l'incidente quota Redis di agosto). Indice separato
+// (note_index, tetto 200 voci, le piu' vecchie escono) per action=note_list.
+if (action === 'note_save') {
+  try {
+    var nsK = req.query.k || '';
+    var nsSecret = req.query.secret || '';
+    var nsCronSecret = process.env.CRON_SECRET || '';
+    if (nsK !== 'mdi' && (!nsCronSecret || nsSecret !== nsCronSecret)) return res.status(401).json({ error: 'Unauthorized' });
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Serve POST con corpo JSON {id, text}' });
+    var nsBody = req.body || {};
+    var nsId = (nsBody.id || '').toString().trim().slice(0, 64).replace(/[^a-zA-Z0-9_-]/g, '-');
+    var nsText = (nsBody.text || '').toString();
+    if (!nsId) return res.status(400).json({ error: 'Manca id' });
+    if (!nsText) return res.status(400).json({ error: 'Manca text' });
+    if (nsText.length > 200000) return res.status(400).json({ error: 'Testo troppo lungo (tetto 200KB), spezzalo in piu note' });
+    var nsSavedAt = new Date().toISOString();
+    await kvSet('note:' + nsId, { id: nsId, text: nsText, saved_at: nsSavedAt, size: nsText.length }, 15552000, kvUrl, kvToken); // 180 giorni
+    // Aggiorna indice
+    var nsIndex = await kvGet('note_index', kvUrl, kvToken);
+    nsIndex = Array.isArray(nsIndex) ? nsIndex : [];
+    nsIndex = nsIndex.filter(function(n){ return n.id !== nsId; }); // rimuove vecchia voce se sovrascritta
+    nsIndex.unshift({ id: nsId, saved_at: nsSavedAt, size: nsText.length });
+    if (nsIndex.length > 200) nsIndex.length = 200;
+    await kvSet('note_index', nsIndex, 15552000, kvUrl, kvToken);
+    return res.status(200).json({ ok: true, id: nsId, saved_at: nsSavedAt, size: nsText.length, read_url: '/api/engine?action=note_get&id=' + encodeURIComponent(nsId) });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+// /api/engine?action=note_get&id=X -- sola lettura, pubblica (nessun secret
+// -- sono report diagnostici del progetto, non dati sensibili). Restituisce
+// il testo grezzo (text/plain), cosi' e' leggibile direttamente senza
+// disincartare JSON.
+if (action === 'note_get') {
+  try {
+    var ngId = (req.query.id || '').toString().trim().slice(0, 64).replace(/[^a-zA-Z0-9_-]/g, '-');
+    if (!ngId) return res.status(400).json({ error: 'Manca id' });
+    var ngNote = await kvGet('note:' + ngId, kvUrl, kvToken);
+    if (!ngNote) return res.status(404).json({ error: 'Nota non trovata: ' + ngId });
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    return res.status(200).send('[' + ngNote.saved_at + ' -- id: ' + ngNote.id + ']\n\n' + ngNote.text);
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+// /api/engine?action=note_list -- sola lettura, pubblica. Elenca tutte le
+// note salvate (id, data, dimensione), piu' recenti prima.
+if (action === 'note_list') {
+  try {
+    var nlIndex = await kvGet('note_index', kvUrl, kvToken);
+    nlIndex = Array.isArray(nlIndex) ? nlIndex : [];
+    return res.status(200).json({ count: nlIndex.length, notes: nlIndex });
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }
@@ -6237,7 +6303,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.22 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.23 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -6368,4 +6434,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.22
+// Fine codice - NAUTILUS ENGINE v2.14.23

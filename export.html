@@ -1,4 +1,4 @@
-<!-- NAUTILUS EXPORT v1.3 - mdisailor - 2026-07-31 - v1.3: aggiunta computeBySlot() copiata identica da decadimento.html v1.2 (stesse coppie forecast/actual, stesso fallback slot su ora UTC, stessa std campionaria) -- calcola mattina/pomeriggio per orizzonte per ogni zona e lo aggiunge come decadimento_by_slot, cosi il JSON porta gia il dato pronto invece di doverlo ricalcolare fuori. Su base v1.2. -->
+<!-- NAUTILUS EXPORT v1.4 - mdisailor - 2026-09-14 - v1.4: aggiunto tasto "Salva per Claude" -- salva il JSON generato tramite action=note_save (engine v2.14.24+) e mostra il link di lettura, da scrivere manualmente nel messaggio a Claude invece di incollare tutto il testo in chat. Su base v1.3. -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Export Diagnostica v1.3</title>
+<title>NAUTILUS Export Diagnostica v1.4</title>
 <style>
   :root{
     --bg:#020e1c; --panel:#0a1a2e; --panel2:#0e2338; --border:#1c3a54;
@@ -66,7 +66,7 @@
 
 <header>
   <h1>NAUTILUS &mdash; Export Diagnostica</h1>
-  <span class="ver">v1.3</span>
+  <span class="ver">v1.4</span>
 </header>
 
 <main>
@@ -81,7 +81,9 @@
   <div class="actions">
     <button id="btnRun">Estrai tutto</button>
     <button id="btnCopy" class="secondary" style="display:none;">Copia negli appunti</button>
+    <button id="btnSaveNote" class="secondary" style="display:none;">Salva per Claude</button>
   </div>
+  <div id="saveNoteStatus" style="display:none;font-size:0.75rem;margin-top:10px;"></div>
 
   <div id="status"></div>
 
@@ -146,6 +148,8 @@ function computeBySlot(records) {
 (function(){
   var btnRun = document.getElementById('btnRun');
   var btnCopy = document.getElementById('btnCopy');
+  var btnSaveNote = document.getElementById('btnSaveNote');
+  var saveNoteStatus = document.getElementById('saveNoteStatus');
   var statusEl = document.getElementById('status');
   var summaryEl = document.getElementById('summary');
   var outputEl = document.getElementById('output');
@@ -169,6 +173,8 @@ function computeBySlot(records) {
   async function run(){
     btnRun.disabled = true;
     btnCopy.style.display = 'none';
+    btnSaveNote.style.display = 'none';
+    saveNoteStatus.style.display = 'none';
     outputEl.style.display = 'none';
     summaryEl.style.display = 'none';
     statusEl.innerHTML = '';
@@ -251,6 +257,8 @@ function computeBySlot(records) {
       outputEl.value = jsonStr;
       outputEl.style.display = 'block';
       btnCopy.style.display = 'inline-block';
+      btnSaveNote.style.display = 'inline-block';
+      saveNoteStatus.style.display = 'none';
 
       var sizeKb = Math.round(new Blob([jsonStr]).size / 1024 * 10) / 10;
       summaryEl.style.display = 'block';
@@ -288,10 +296,37 @@ function computeBySlot(records) {
     }
   });
 
+  btnSaveNote.addEventListener('click', function(){
+    var idVal = 'export-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+    saveNoteStatus.style.display = 'block';
+    saveNoteStatus.style.color = '';
+    saveNoteStatus.textContent = 'Salvo...';
+    fetch('/api/engine?action=note_save&k=mdi', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: idVal, text: outputEl.value })
+    })
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if (!d.ok) {
+          saveNoteStatus.style.color = '#ff4444';
+          saveNoteStatus.textContent = 'Errore: ' + (d.error || 'sconosciuto');
+          return;
+        }
+        var fullUrl = location.origin + d.read_url;
+        saveNoteStatus.style.color = '#22dd88';
+        saveNoteStatus.innerHTML = 'Salvato. Scrivi o incolla tu stesso questo link nel messaggio a Claude:<br><b>' + fullUrl + '</b>';
+      })
+      .catch(function(e){
+        saveNoteStatus.style.color = '#ff4444';
+        saveNoteStatus.textContent = 'Errore: ' + e.message;
+      });
+  });
+
   btnRun.addEventListener('click', run);
 })();
 </script>
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS EXPORT v1.3 -->
+<!-- Fine codice - NAUTILUS EXPORT v1.4 -->

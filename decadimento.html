@@ -1,11 +1,11 @@
-<!-- NAUTILUS DECADIMENTO v1.2 - mdisailor - 2026-07-15 - fix lettura predict_history: record annidato in .prediction, actual al livello item (le curve mattina/pomeriggio erano vuote) -->
+<!-- NAUTILUS DECADIMENTO v1.3 - mdisailor - 2026-09-15 - v1.3: aggiunto tasto "Salva tutte le stazioni per Claude" -- scorre tutte le zone (stesso calcolo di load(), riusa computeBySlot/judge), raccoglie i risultati e li salva con action=note_save invece di doverli guardare una zona alla volta. Su base v1.2. -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="theme-color" content="#020d1a">
-<title>NAUTILUS — Decadimento previsioni v1.2</title>
+<title>NAUTILUS — Decadimento previsioni v1.3</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -47,14 +47,16 @@
 <header>
   <div class="logo">NAUTI<span>LUS</span></div>
   <div class="subtitle">Decadimento previsioni</div>
-  <div class="ver">v1.2</div>
+  <div class="ver">v1.3</div>
   <button class="btn" onclick="exportXLS()">↓ XLS</button>
 </header>
 <main>
   <div class="controls">
     <label>Zona:</label>
     <select id="zoneSel"><option value="bocca_arno">caricamento...</option></select>
+    <button class="btn" id="btnSaveAll">Salva tutte le stazioni per Claude</button>
   </div>
+  <div id="saveAllStatus" style="display:none;font-size:0.75rem;margin:10px 0;"></div>
   <div id="out"><div class="empty">Caricamento...</div></div>
 </main>
 <script>
@@ -317,8 +319,72 @@ function exportXLS() {
   XLSX.writeFile(wb, 'nautilus_decadimento_' + currentZone + '_' + new Date().toISOString().slice(0,10) + '.xlsx');
 }
 
+// fix 2026-09-15: scorre tutte le zone (stesso identico calcolo di load(),
+// riusa computeBySlot/judge), raccoglie i risultati e li salva in un colpo
+// solo tramite action=note_save -- invece di dover selezionare una zona alla
+// volta e incollare i dati manualmente. Il link risultante va scritto/incollato
+// dall'utente stesso a Claude (che legge solo URL fornite direttamente).
+async function saveAllZonesForClaude(){
+  var statusEl = document.getElementById('saveAllStatus');
+  var btn = document.getElementById('btnSaveAll');
+  btn.disabled = true;
+  statusEl.style.display = 'block';
+  statusEl.style.color = '';
+  statusEl.textContent = 'Carico elenco zone...';
+  try {
+    var zd = await fetch(ENGINE_URL + '?action=zones', {cache:'no-store'}).then(function(r){ return r.json(); });
+    var zones = (zd.zones||[]).slice().sort(function(a,b){ return (a.name||a.key).localeCompare(b.name||b.key); });
+    var results = {};
+    for (var i = 0; i < zones.length; i++) {
+      var z = zones[i];
+      statusEl.textContent = 'Zona ' + (i+1) + '/' + zones.length + ': ' + (z.name||z.key) + '...';
+      try {
+        var both = await Promise.all([
+          fetch(ENGINE_URL + '?action=forecast_stats&zone=' + z.key + '&k=' + SECRET, {cache:'no-store'}).then(function(x){ return x.json(); }),
+          fetch(ENGINE_URL + '?action=predict_history&zone=' + z.key + '&k=' + SECRET, {cache:'no-store'}).then(function(x){ return x.json(); }).catch(function(){ return null; })
+        ]);
+        var d = both[0];
+        var phRaw = both[1];
+        var phList = phRaw ? (phRaw.predictions || phRaw.history || phRaw.list || (Array.isArray(phRaw) ? phRaw : [])) : [];
+        var slots = computeBySlot(phList);
+        var cb = d.current_bias || {};
+        var rows = HOR.filter(function(h){ return cb[h] && cb[h].n; }).map(function(h){
+          var c = cb[h];
+          return { h: h, lbl: HOR_LBL[h], n: c.n, mae: c.mae, std: c.std, mean: c.mean, judge: judge(c.n, c.mae, c.std) };
+        });
+        results[z.key] = { name: z.name || z.key, verified: d.verified || 0, rows: rows, slots: slots };
+      } catch(e) {
+        results[z.key] = { name: z.name || z.key, error: String(e) };
+      }
+    }
+    statusEl.textContent = 'Salvo...';
+    var idVal = 'decadimento-all-' + new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+    var payload = { generated_at: new Date().toISOString(), zones: results };
+    var saveRes = await fetch('/api/engine?action=note_save&k=mdi', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: idVal, text: JSON.stringify(payload, null, 2) })
+    }).then(function(r){ return r.json(); });
+    if (!saveRes.ok) {
+      statusEl.style.color = '#ff4444';
+      statusEl.textContent = 'Errore: ' + (saveRes.error || 'sconosciuto');
+      return;
+    }
+    var fullUrl = location.origin + saveRes.read_url;
+    statusEl.style.color = '#22dd88';
+    statusEl.innerHTML = 'Salvato (' + zones.length + ' zone). Scrivi o incolla tu stesso questo link nel messaggio a Claude:<br><b>' + fullUrl + '</b>';
+  } catch(e) {
+    statusEl.style.color = '#ff4444';
+    statusEl.textContent = 'Errore: ' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+document.getElementById('btnSaveAll').addEventListener('click', saveAllZonesForClaude);
 document.getElementById('zoneSel').addEventListener('change', load);
 loadZones().then(load);
 </script>
 </body>
 </html>
+<!-- Fine codice - NAUTILUS DECADIMENTO v1.3 -->

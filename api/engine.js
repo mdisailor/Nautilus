@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.25 - by mdisailor engine - v2.14.25: alzato ulteriormente il tetto di action=note_save da 1MB a 5MB -- il JSON completo di export.html superava anche 1MB. Verificato il vero limite Upstash (10MB/richiesta, 100MB/valore, non 500K comandi/mese -- quello e un conteggio diverso, il tetto sui comandi non riguarda la dimensione di un singolo comando), 5MB lascia margine ampio. Su base v2.14.24
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.26 - by mdisailor engine - v2.14.26: aggiunta correzione di riferimento verso Livornometeo per la zona livorno (D16) -- +4.2kn ai forecast_hN finali, valore calcolato su 22 punti raccolti a mano (4 episodi, vento SW/NE/NW). Provvisorio, da monitorare con confronto-modelli.html e rivedere quando arriva vento forte. Non tocca mai bias_samples/Windfinder grezzo, solo la previsione finale, tracciato nel testo come la correzione bias esistente. Include anche il riallineamento del tetto note_save a 5MB gia consegnato in precedenza. Su base v2.14.25
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2064,7 +2064,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.25', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.26', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -4665,6 +4665,36 @@ if (action === 'predict') {
         }
       } catch(bpErr) {}
     }
+    // fix 2026-09-15 (D16): correzione di riferimento verso Livornometeo --
+    // applicata SOLO alla zona 'livorno', in aggiunta (non al posto) della
+    // correzione bias sopra. Livornometeo (imboccatura del porto) e' il
+    // punto di riferimento vero per chi e' in mare; Windfinder (la fonte di
+    // bias_station per questa zona) legge sistematicamente piu' basso --
+    // confermato su 22 punti raccolti a mano in 4 episodi (vento SW/NE/NW),
+    // delta medio +4.2kn (range 0.8-7.6, vedi METODOLOGIA sezione 17-18).
+    // Valore PROVVISORIO: nessun dato ancora con vento forte, nessun backtest
+    // formale -- da monitorare con confronto-modelli.html e rivedere quando
+    // arrivano piu' dati (specialmente vento sostenuto). Non tocca mai
+    // bias_samples/il dato Windfinder grezzo -- principio del progetto, mai
+    // manipolare silenziosamente il dato di una fonte esterna -- si applica
+    // solo qui, sulla previsione finale, in modo dichiarato e tracciabile.
+    if (zoneKey === 'livorno') {
+      var LIVORNOMETEO_OFFSET_KT = 4.2;
+      var refApplied = [];
+      ['h1','h3','h6','h9','h12'].forEach(function(rh) {
+        var rVal = predRecord['forecast_' + rh];
+        if (rVal === null || rVal === undefined) return;
+        var rCorr = Math.round((rVal + LIVORNOMETEO_OFFSET_KT) * 10) / 10;
+        refApplied.push('H+' + rh.slice(1) + ': ' + rVal + ' -> ' + rCorr + ' kn (+' + LIVORNOMETEO_OFFSET_KT + ' rif. Livornometeo, provvisorio)');
+        predRecord['forecast_' + rh] = rCorr;
+      });
+      if (refApplied.length > 0) {
+        predRecord.reference_corrected = true;
+        predRecord.reference_offset_kt = LIVORNOMETEO_OFFSET_KT;
+        predRecord.prediction_text = aiText + '\n\nCORREZIONE DI RIFERIMENTO (Livornometeo, provvisoria, D16):\n- ' + refApplied.join('\n- ');
+        aiText = predRecord.prediction_text;
+      }
+    }
     if (kvUrl && kvToken) {
       var saveOk = await kvSet(predKey, predRecord, 2592000, kvUrl, kvToken); // 30 days TTL
       if (!saveOk) console.error('predict: kvSet failed for key', predKey);
@@ -6305,7 +6335,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.25 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.26 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -6436,4 +6466,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.25
+// Fine codice - NAUTILUS ENGINE v2.14.26

@@ -1,0 +1,163 @@
+<!-- NAUTILUS NOTE-UPLOAD v1.0 - mdisailor - 2026-09-14 - un campo id, una casella di testo, un tasto salva. Manda il testo a action=note_save, restituisce l'URL di lettura da dare a Claude (che legge URL forniti direttamente dall'utente). Nato per non dover piu' incollare report/dati grezzi direttamente in chat. -->
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#020d1a">
+<title>NAUTILUS — Salva report v1.0</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Bebas+Neue&display=swap');
+  :root {
+    --bg:#020d1a; --card:#071828; --border:rgba(0,180,220,0.15);
+    --accent:#00f0ff; --warn:#ffaa00; --danger:#ff4444; --safe:#22dd88;
+    --muted:rgba(255,255,255,0.6); --text:rgba(255,255,255,0.9);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;padding:0 0 40px;}
+  header{padding:18px 20px;border-bottom:1px solid var(--border);}
+  .logo{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:0.09em;color:#fff;}
+  .logo span{color:var(--accent);}
+  .subtitle{font-size:0.7rem;color:var(--muted);letter-spacing:0.14em;text-transform:uppercase;margin-top:2px;}
+  main{padding:20px;max-width:900px;margin:0 auto;}
+  .note{font-size:0.72rem;color:var(--muted);line-height:1.6;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:16px;}
+  label{display:block;font-size:0.65rem;color:var(--accent);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;margin-top:14px;}
+  input, textarea{
+    width:100%;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:8px;
+    padding:10px;font-family:'DM Mono',monospace;font-size:0.85rem;
+  }
+  textarea{height:320px;resize:vertical;font-size:0.72rem;}
+  button{
+    background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:8px;
+    padding:11px 20px;font-family:'DM Mono',monospace;font-size:0.85rem;cursor:pointer;margin-top:16px;
+  }
+  button:active{background:var(--accent);color:#020d1a;}
+  #status{font-size:0.72rem;margin-top:14px;line-height:1.6;}
+  #status.ok{color:var(--safe);}
+  #status.err{color:var(--danger);}
+  .result-box{
+    background:var(--card);border:1px solid var(--safe);border-radius:8px;padding:14px;margin-top:12px;
+  }
+  .result-url{font-size:0.75rem;color:var(--accent);word-break:break-all;margin:8px 0;}
+  #listBox{margin-top:30px;}
+  table{width:100%;border-collapse:collapse;font-size:0.7rem;margin-top:10px;}
+  th, td{padding:6px 8px;border-bottom:1px solid var(--border);text-align:left;}
+  th{color:var(--accent);text-transform:uppercase;font-size:0.6rem;}
+  td a{color:var(--accent);}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">NAUTI<span>LUS</span></div>
+  <div class="subtitle">Salva report — per farli leggere a Claude</div>
+  <div style="font-size:0.5rem;color:#fff;margin-top:2px;">v1.0</div>
+</header>
+<main>
+  <div class="note">
+    Incolla qui un report o dati grezzi, dai un nome breve, premi Salva. Ottieni un link — <b>scrivilo o incollalo
+    tu stesso nel messaggio a Claude</b> (non basta che Claude lo suggerisca: deve essere l'utente a fornirlo,
+    è una regola dell'ambiente in cui lavora). Claude potrà aprirlo direttamente, senza che tu debba incollare
+    di nuovo il testo in chat.
+  </div>
+
+  <label for="idField">Nome breve (es. confronto-livornometeo-14set)</label>
+  <input type="text" id="idField" placeholder="nome-report">
+
+  <label for="textField">Testo / dati da salvare</label>
+  <textarea id="textField" placeholder="Incolla qui il report, il JSON, o qualunque testo..."></textarea>
+
+  <button id="btnSave">Salva</button>
+  <div id="status"></div>
+
+  <div id="listBox">
+    <label>Report già salvati</label>
+    <button id="btnRefreshList" style="margin-top:6px;">Aggiorna elenco</button>
+    <div id="listStatus" style="font-size:0.65rem;color:var(--muted);margin-top:8px;"></div>
+    <table id="listTable" style="display:none;">
+      <thead><tr><th>Nome</th><th>Data</th><th>Dimensione</th><th>Link</th></tr></thead>
+      <tbody id="listBody"></tbody>
+    </table>
+  </div>
+</main>
+
+<script>
+var ENGINE_URL = '/api/engine';
+
+function fmtDate(s){
+  if (!s) return '--';
+  try { return new Date(s).toLocaleString('it-IT', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }); }
+  catch(e) { return s; }
+}
+function fmtSize(n){
+  if (n == null) return '--';
+  if (n < 1024) return n + ' B';
+  return Math.round(n / 1024) + ' KB';
+}
+
+document.getElementById('btnSave').addEventListener('click', function(){
+  var idVal = document.getElementById('idField').value.trim();
+  var textVal = document.getElementById('textField').value;
+  var statusEl = document.getElementById('status');
+  statusEl.className = '';
+  if (!idVal) { statusEl.className = 'err'; statusEl.textContent = 'Dai un nome al report prima di salvare.'; return; }
+  if (!textVal) { statusEl.className = 'err'; statusEl.textContent = 'Il testo è vuoto.'; return; }
+
+  statusEl.textContent = 'Salvo...';
+  fetch(ENGINE_URL + '?action=note_save&k=mdi', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: idVal, text: textVal })
+  })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (!d.ok) {
+        statusEl.className = 'err';
+        statusEl.textContent = 'Errore: ' + (d.error || 'sconosciuto');
+        return;
+      }
+      var fullUrl = location.origin + d.read_url;
+      statusEl.className = 'ok';
+      statusEl.innerHTML = '<div class="result-box">Salvato (' + fmtSize(d.size) + ').<br>' +
+        'Copia questo link e scrivilo tu stesso nel messaggio a Claude:<br>' +
+        '<div class="result-url">' + fullUrl + '</div></div>';
+      document.getElementById('textField').value = '';
+      document.getElementById('idField').value = '';
+      loadList();
+    })
+    .catch(function(e){
+      statusEl.className = 'err';
+      statusEl.textContent = 'Errore: ' + e.message;
+    });
+});
+
+function loadList(){
+  var listStatus = document.getElementById('listStatus');
+  var listTable = document.getElementById('listTable');
+  var listBody = document.getElementById('listBody');
+  listStatus.textContent = 'Carico...';
+  fetch(ENGINE_URL + '?action=note_list', { cache: 'no-store' })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var notes = d.notes || [];
+      listBody.innerHTML = '';
+      notes.forEach(function(n){
+        var url = location.origin + '/api/engine?action=note_get&id=' + encodeURIComponent(n.id);
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td>' + n.id + '</td><td>' + fmtDate(n.saved_at) + '</td><td>' + fmtSize(n.size) + '</td>' +
+          '<td><a href="' + url + '" target="_blank">apri</a></td>';
+        listBody.appendChild(tr);
+      });
+      listTable.style.display = notes.length ? '' : 'none';
+      listStatus.textContent = notes.length + ' report salvati';
+    })
+    .catch(function(e){
+      listStatus.textContent = 'Errore: ' + e.message;
+    });
+}
+
+document.getElementById('btnRefreshList').addEventListener('click', loadList);
+loadList();
+</script>
+</body>
+</html>
+<!-- Fine codice - NAUTILUS NOTE-UPLOAD v1.0 -->

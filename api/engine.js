@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.23 - by mdisailor engine - v2.14.23: aggiunte action=note_save (POST, k=mdi), action=note_get&id=X (lettura pubblica, text/plain) e action=note_list -- permettono di salvare report/dati grezzi sul server invece di incollarli in chat, poi darne l URL a Claude (legge URL forniti direttamente da chi scrive). Tetto 200KB per nota, indice separato tetto 200 voci. Su base v2.14.22
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.24 - by mdisailor engine - v2.14.24: alzato il tetto di action=note_save da 200KB a 1MB -- il JSON completo di export.html puo superare 200KB, e il limite sui comandi Redis (incidente di agosto) riguardava il NUMERO di comandi, non la dimensione di uno singolo, quindi alzarlo non rischia di ripetere quel problema. Su base v2.14.23
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2064,7 +2064,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.23', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.24', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -3037,7 +3037,7 @@ if (action === 'windfinder_raw_check') {
 // leggibile poi con action=note_get&id=X. Aggiunta 2026-09-14: invece di
 // incollare ogni report in chat, M lo salva qui e da' l'URL di lettura a
 // Claude (che puo' leggere URL forniti direttamente dall'utente). Corpo
-// JSON richiesto: {"id":"nome-breve", "text":"..."}. Tetto 200KB per nota
+// JSON richiesto: {"id":"nome-breve", "text":"..."}. Tetto 1MB per nota
 // (stesso ordine di grandezza delle altre chiavi grandi del progetto, non
 // rischia di ripetere l'incidente quota Redis di agosto). Indice separato
 // (note_index, tetto 200 voci, le piu' vecchie escono) per action=note_list.
@@ -3053,7 +3053,7 @@ if (action === 'note_save') {
     var nsText = (nsBody.text || '').toString();
     if (!nsId) return res.status(400).json({ error: 'Manca id' });
     if (!nsText) return res.status(400).json({ error: 'Manca text' });
-    if (nsText.length > 200000) return res.status(400).json({ error: 'Testo troppo lungo (tetto 200KB), spezzalo in piu note' });
+    if (nsText.length > 1000000) return res.status(400).json({ error: 'Testo troppo lungo (tetto 1MB), spezzalo in piu note' });
     var nsSavedAt = new Date().toISOString();
     await kvSet('note:' + nsId, { id: nsId, text: nsText, saved_at: nsSavedAt, size: nsText.length }, 15552000, kvUrl, kvToken); // 180 giorni
     // Aggiorna indice
@@ -6303,7 +6303,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.23 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.24 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -6434,4 +6434,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.23
+// Fine codice - NAUTILUS ENGINE v2.14.24

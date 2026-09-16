@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.7.40 -- 2026-09-16 - bussola Livorno (singola e tripla) mostra direttamente il valore corretto (Windfinder +4.2kn, rif. Livornometeo, provvisorio D16) al posto del dato grezzo, con etichetta fonte "STIMA". Il dato reale sottostante (bias_samples) non viene mai toccato, solo il numero mostrato a video per questa zona -->
+<!-- NAUTILUS v5.7.41 -- 2026-09-17 - aggiunto cache:no-store a tutte le 27 chiamate fetch verso ENGINE_URL (predict, predict_history, bias_history, triple_wind, situazione, zone, history, agent, route_grid, ecc) -- il browser poteva mostrare risposte vecchie dalla cache anche dopo un deploy nuovo del server, causa nota dei "numeri vecchi" gia diagnosticata (D18). Stesso bug gia risolto in mappa.html il 22/7, mai applicato qui prima. Su base v5.7.40 -->
 
 <html lang="it">
 <head>
@@ -600,7 +600,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.40  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.41  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -2011,7 +2011,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.40  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.41  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -3092,7 +3092,7 @@ async function loadSingleCompass() {
       // come fa triple_wind. E' istantaneo: prima usava station_refresh che fa
       // scraping dal vivo (2-3s per alcune stazioni), e le lente perdevano la
       // corsa col fallback OM restando rosse. Ora il dato reale c'e' subito.
-      var res = await fetch(ENGINE_URL + '?action=bias_history&station=' + cfrId + '&limit=5');
+      var res = await fetch(ENGINE_URL + '?action=bias_history&station=' + cfrId + '&limit=5', { cache: 'no-store' });
       var json = await res.json();
       var samples = json && json.samples ? json.samples : [];
       var realS = null;
@@ -3210,7 +3210,7 @@ window.addEventListener('load', () => {
   fetchAll();
   showTripleMeteo();
   // Mostra versione engine
-  fetch(ENGINE_URL + '?action=ping').then(function(r){ return r.json(); }).then(function(d){
+  fetch(ENGINE_URL + '?action=ping', { cache: 'no-store' }).then(function(r){ return r.json(); }).then(function(d){
     var el = document.getElementById('engine-ver-display');
     if (el && d.v) el.textContent = 'engine v' + d.v;
   }).catch(function(){ });
@@ -3357,7 +3357,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (fbDone) return;
         if (container) container.innerHTML = renderSituazionePanel(z.key, null);
       }, 7000);
-      fetch(ENGINE_URL + '?action=situazione_get&zone=' + z.key)
+      fetch(ENGINE_URL + '?action=situazione_get&zone=' + z.key, { cache: 'no-store' })
         .then(function(r){ return r.json(); })
         .then(function(data) {
           fbDone = true;
@@ -3700,7 +3700,7 @@ async function runEngine() {
     cont.innerHTML = '<div class="engine-empty">Calcolo diagnosi per ' + selectedZones.length + ' zona/e...<br><div class="loading" style="margin-top:16px"><div class="spinner"></div></div></div>';
 
     const promises = selectedZones.map(function(zk) {
-      var fetchOpts = { method: 'GET' };
+      var fetchOpts = { method: 'GET', cache: 'no-store' };
       if (state.weatherData) {
         try {
           var h = state.weatherData.hourly;
@@ -3722,7 +3722,7 @@ async function runEngine() {
             swell_wave_period: h.swell_wave_period || [],
             swell_wave_direction: h.swell_wave_direction || []
           }};
-          fetchOpts = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ weatherData: slim }) };
+          fetchOpts = { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ weatherData: slim }) };
         } catch(e) {}
       }
       return fetch(ENGINE_URL + '?action=zone&zone=' + zk, fetchOpts)
@@ -3871,7 +3871,7 @@ async function loadHistory(zoneKey) {
   container.innerHTML = '<div class="history-empty"><div class="loading"><div class="spinner"></div></div></div>';
 
   try {
-    var res = await fetch(ENGINE_URL + '?action=history&zone=' + zoneKey + '&hours=24');
+    var res = await fetch(ENGINE_URL + '?action=history&zone=' + zoneKey + '&hours=24', { cache: 'no-store' });
     var data = await res.json();
 
     if (!data.snapshots || data.snapshots.length === 0) {
@@ -4680,7 +4680,7 @@ async function loadVerify(zoneKey) {
   content.innerHTML = '<div class="verify-empty"><div class="loading" style="display:inline-flex;margin-right:6px"><div class="spinner"></div></div>Carico dati verifica...</div>';
 
   try {
-    var res = await fetch(ENGINE_URL + '?action=predict_history&zone=' + zoneKey);
+    var res = await fetch(ENGINE_URL + '?action=predict_history&zone=' + zoneKey, { cache: 'no-store' });
     var data = await res.json();
 
     if (data.error) {
@@ -4845,7 +4845,7 @@ async function loadCompare(zoneKey) {
   el.innerHTML = '<div class="verify-empty"><div class="loading" style="display:inline-flex;margin-right:6px"><div class="spinner"></div></div>Carico dati...</div>';
 
   try {
-    var res = await fetch(ENGINE_URL + '?action=history&zone=' + zoneKey + '&hours=24');
+    var res = await fetch(ENGINE_URL + '?action=history&zone=' + zoneKey + '&hours=24', { cache: 'no-store' });
     var data = await res.json();
 
     if (data.error) {
@@ -4968,7 +4968,7 @@ async function exportData() {
   btn.textContent = ' Export...';
   btn.disabled = true;
   try {
-    var res = await fetch(ENGINE_URL + '?action=export');
+    var res = await fetch(ENGINE_URL + '?action=export', { cache: 'no-store' });
     var data = await res.json();
     if (data.error) throw new Error(data.error);
 
@@ -5032,7 +5032,7 @@ async function runBackfill() {
     var zk = zones[i];
     btn.textContent = ' ' + zk + ' (' + (i+1) + '/' + zones.length + ')';
     try {
-      var res = await fetch(ENGINE_URL + '?action=backfill&zone=' + zk + '&days=14&secret=' + encodeURIComponent(secret));
+      var res = await fetch(ENGINE_URL + '?action=backfill&zone=' + zk + '&days=14&secret=' + encodeURIComponent(secret), { cache: 'no-store' });
       var data = await res.json();
       if (data.ok) {
         results.push(zk + ': ' + data.written + ' snapshot scritti');
@@ -5226,6 +5226,7 @@ async function agentSend() {
       try {
         var gridRes = await fetch(ENGINE_URL + '?action=route_grid', {
           method: 'POST',
+          cache: 'no-store',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ waypoints: routeWaypoints[routeKey2] })
         });
@@ -5253,7 +5254,7 @@ async function agentSend() {
         for (var zi = 0; zi < zonesToFetch.length; zi++) {
           var zk2 = zonesToFetch[zi];
           try {
-            var zRes2 = await fetch(ENGINE_URL + '?action=zone&zone=' + zk2);
+            var zRes2 = await fetch(ENGINE_URL + '?action=zone&zone=' + zk2, { cache: 'no-store' });
             var zData2 = await zRes2.json();
             if (zData2 && zData2.raw) {
               var r2 = zData2.raw;
@@ -5274,7 +5275,7 @@ async function agentSend() {
           // Scheda situazione zona partenza
           if (zonesToFetch[0]) {
             try {
-              var sRes2 = await fetch(ENGINE_URL + '?action=situazione_get&zone=' + zonesToFetch[0]);
+              var sRes2 = await fetch(ENGINE_URL + '?action=situazione_get&zone=' + zonesToFetch[0], { cache: 'no-store' });
               var sData2 = await sRes2.json();
               if (sData2.found && sData2.situazione && sData2.situazione.text) {
                 contextData += '\n\nSCHEDA ' + (agentZoneMap[zonesToFetch[0]]||zonesToFetch[0]).toUpperCase() + ':\n' +
@@ -5288,7 +5289,7 @@ async function agentSend() {
     if (false) { // vecchio blocco disabilitato
     if (agentZone) {
       try {
-        var zRes = await fetch(ENGINE_URL + '?action=zone&zone=' + agentZone);
+        var zRes = await fetch(ENGINE_URL + '?action=zone&zone=' + agentZone, { cache: 'no-store' });
         var zData = await zRes.json();
         if (zData && zData.raw) {
           var r = zData.raw;
@@ -5303,7 +5304,7 @@ async function agentSend() {
             contextData += '\nVento 850hPa: ' + r.wind_speed_850.toFixed(0) + 'kn da ' + dirs16a[Math.round(r.wind_dir_850/22.5)%16];
           }
           try {
-            var sRes = await fetch(ENGINE_URL + '?action=situazione_get&zone=' + agentZone);
+            var sRes = await fetch(ENGINE_URL + '?action=situazione_get&zone=' + agentZone, { cache: 'no-store' });
             var sData = await sRes.json();
             if (sData.found && sData.situazione && sData.situazione.text) {
               contextData += '\n\nSCHEDA SITUAZIONE:\n' + sData.situazione.text.replace(/\*\*/g,'').slice(0,600);
@@ -5321,6 +5322,7 @@ async function agentSend() {
     });
     var res = await fetch(ENGINE_URL + '?action=agent', {
       method: 'POST',
+      cache: 'no-store',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         system: AGENT_SYSTEM,
@@ -5391,7 +5393,7 @@ async function loadSitPredictHistory(zoneKey) {
     }
   }, 6000);
   try {
-    var res = await fetch(ENGINE_URL + '?action=predict_history&zone=' + zoneKey);
+    var res = await fetch(ENGINE_URL + '?action=predict_history&zone=' + zoneKey, { cache: 'no-store' });
     var data = await res.json();
     done = true;
     var btnsEl = getEl();
@@ -5496,7 +5498,7 @@ async function loadSituazioneVerify(zoneKey) {
   try {
     var controller = new AbortController();
     setTimeout(function(){ controller.abort(); }, 5000);
-    var res = await fetch(ENGINE_URL + '?action=predict_history&zone=' + zoneKey, { signal: controller.signal });
+    var res = await fetch(ENGINE_URL + '?action=predict_history&zone=' + zoneKey, { signal: controller.signal, cache: 'no-store' });
     var data = await res.json();
     if (!data.predictions || data.predictions.length === 0) return '';
     var verifs = data.predictions.filter(function(item) {
@@ -5535,7 +5537,7 @@ async function loadSituazione(zoneKey) {
   var container = document.getElementById('sit-container-' + zoneKey);
   if (container) container.innerHTML = '<div class="sit-panel"><div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--card);border:1px solid var(--border);border-radius:10px"><span style="font-family:DM Mono,monospace;font-size:0.55rem;color:var(--white)">Ricerca dati in corso, attendere...</span><span style="width:12px;height:12px;border:2px solid rgba(0,240,255,0.3);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;flex-shrink:0;display:inline-block"></span></div></div>';
   try {
-    var res = await fetch(ENGINE_URL + '?action=situazione_get&zone=' + zoneKey);
+    var res = await fetch(ENGINE_URL + '?action=situazione_get&zone=' + zoneKey, { cache: 'no-store' });
     var data = await res.json();
     sitDone = true;
     state.situazione[zoneKey] = data;
@@ -5564,7 +5566,7 @@ async function generateSituazione(zoneKey) {
   var container = document.getElementById('sit-container-' + zoneKey);
   if (container) container.innerHTML = '<div style="font-family:DM Mono,monospace;font-size:0.5rem;color:var(--accent);padding:10px 20px">Generazione scheda in corso...</div>';
   try {
-    var res = await fetch(ENGINE_URL + '?action=situazione&zone=' + zoneKey);
+    var res = await fetch(ENGINE_URL + '?action=situazione&zone=' + zoneKey, { cache: 'no-store' });
     var data = await res.json();
     if (data.text) {
       state.situazione[zoneKey] = { found: true, situazione: data };
@@ -5598,7 +5600,7 @@ async function loadPredict(zoneKey) {
   var el = document.getElementById('predict-content');
   el.innerHTML = '<div class="verify-empty"><div class="loading" style="display:inline-flex;margin-right:6px"><div class="spinner"></div></div>Analisi dati storici e previsione AI in corso...</div>';
   try {
-    var res = await fetch(ENGINE_URL + '?action=predict&zone=' + zoneKey);
+    var res = await fetch(ENGINE_URL + '?action=predict&zone=' + zoneKey, { cache: 'no-store' });
     var data = await res.json();
     if (data.error) {
       el.innerHTML = '<div class="verify-empty" style="color:var(--danger)">' + data.error + '</div>';
@@ -5612,7 +5614,7 @@ async function loadPredict(zoneKey) {
 
 async function loadPredictMini(zoneKey) {
   try {
-    var res = await fetch(ENGINE_URL + '?action=predict_history&zone=' + zoneKey);
+    var res = await fetch(ENGINE_URL + '?action=predict_history&zone=' + zoneKey, { cache: 'no-store' });
     var data = await res.json();
     var btnsEl = document.getElementById('predict-history-btns');
     if (!btnsEl || !data.predictions || data.predictions.length === 0) {
@@ -5762,7 +5764,7 @@ async function loadPredictHistory(zoneKey) {
   var el = document.getElementById('predict-history-content');
   el.innerHTML = '<div class="verify-empty"><div class="loading" style="display:inline-flex;margin-right:6px"><div class="spinner"></div></div>Caricamento storico...</div>';
   try {
-    var res = await fetch(ENGINE_URL + '?action=predict_history&zone=' + zoneKey);
+    var res = await fetch(ENGINE_URL + '?action=predict_history&zone=' + zoneKey, { cache: 'no-store' });
     var data = await res.json();
     if (data.error) {
       el.innerHTML = '<div class="verify-empty" style="color:var(--danger)">' + data.error + '</div>';
@@ -5895,7 +5897,7 @@ async function biasSample(stationId, sfx) {
   out.innerHTML = '';
 
   try {
-    const r = await fetch(ENGINE_URL + '?action=station_refresh&station=' + stationId);
+    const r = await fetch(ENGINE_URL + '?action=station_refresh&station=' + stationId, { cache: 'no-store' });
     const data = await r.json();
     if (!data.ok) throw new Error(data.error || 'Errore server');
     const sd = data.data;
@@ -5967,7 +5969,7 @@ async function biasLoadHistory(selectedStation, sfx) {
   for (const st of allStations) {
     try {
     const limit = (selectedStation && st.id === selectedStation) ? 10 : 5;
-    const r = await fetch(ENGINE_URL + '?action=bias_history&station=' + st.id + '&limit=' + limit);
+    const r = await fetch(ENGINE_URL + '?action=bias_history&station=' + st.id + '&limit=' + limit, { cache: 'no-store' });
     const data = await r.json();
     const allSamples = data.samples || [];
     const valid = allSamples.filter(function(s){ return s.station && s.station.wind_kt !== null; });
@@ -5993,7 +5995,7 @@ async function biasLoadHistory(selectedStation, sfx) {
       var lastOld = valid.length ? valid[0] : null;
       if (!lastOld) {
         try {
-          const rDeep = await fetch(ENGINE_URL + '?action=bias_history&station=' + st.id + '&limit=200');
+          const rDeep = await fetch(ENGINE_URL + '?action=bias_history&station=' + st.id + '&limit=200', { cache: 'no-store' });
           const dDeep = await rDeep.json();
           const deepValid = (dDeep.samples || []).filter(function(s){ return s.station && s.station.wind_kt !== null; });
           if (deepValid.length) lastOld = deepValid[0];
@@ -6082,7 +6084,7 @@ async function biasWebSample(stationId, sfx) {
   status.style.color = 'var(--accent)';
   out.innerHTML = '';
   try {
-    const r = await fetch(ENGINE_URL + '?action=station_refresh&station=' + stationId);
+    const r = await fetch(ENGINE_URL + '?action=station_refresh&station=' + stationId, { cache: 'no-store' });
     const data = await r.json();
     if (!data.ok) throw new Error(data.error || 'Errore server');
     const sd = data.data;
@@ -6202,7 +6204,7 @@ function selectTripleCompass(idx) {
 
 async function loadTripleCompasses() {
   try {
-    var res = await fetch(ENGINE_URL + '?action=triple_wind&zones=' + TC_ZONES.join(','));
+    var res = await fetch(ENGINE_URL + '?action=triple_wind&zones=' + TC_ZONES.join(','), { cache: 'no-store' });
     var data = await res.json();
     if (data.ok && data.results) {
       data.results.forEach(function(r, idx) { updateTripleCompass(idx, r); });
@@ -6228,4 +6230,4 @@ async function loadTripleCompasses() {
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS v5.7.40 -->
+<!-- Fine codice - NAUTILUS v5.7.41 -->

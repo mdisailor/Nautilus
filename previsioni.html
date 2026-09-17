@@ -1,4 +1,4 @@
-<!-- NAUTILUS PREVISIONI v3.5 - mdisailor - 2026-09-17 - v3.5 (D20, seconda iterazione): tolto il pallino dal canvas (troppo piccolo, colori mai rassicuranti senza contesto) -- sostituito con un marker Leaflet invisibile per zona, tocco/clic apre un popup con orario, dato, e il giudizio di affidabilita per intero (colore + testo), stesso stile dei popup di mappa2.html. Il bottone "ora" non mostra piu giudizio (era ambiguo, sembrava sempre verde) -- e' dato reale stazione, non previsione. Su base v3.4 -->
+<!-- NAUTILUS PREVISIONI v3.6 - mdisailor - 2026-09-17 - v3.6: risolto bug mobile segnalato da M -- toccare un secondo marker faceva sparire il colore di sfondo e rendeva tutti i marker non cliccabili, serviva riavviare la pagina. Causa: resizeCanvas() svuota fCanvas (side-effect del browser nel ridimensionare un canvas) ma il gestore "move" non lo ridipingeva mai -- bastava l'autoPan di un popup (che sposta la mappa per farlo entrare in vista, piu' frequente su schermi piccoli) a scatenarlo. Aggiunta chiamata a drawField() nel gestore, e disattivato autoPan sui popup zona (non serve spostare la mappa per un popup piccolo). Su base v3.5 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Previsioni Vento v3.5</title>
+<title>NAUTILUS Previsioni Vento v3.6</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -64,7 +64,7 @@
 
 <header>
   <h1>NAUTILUS &mdash; Previsioni Vento</h1>
-  <span class="ver">v3.5</span>
+  <span class="ver">v3.6</span>
   <a class="back" href="/index2.html">&larr; cruscotto</a>
 </header>
 
@@ -524,7 +524,18 @@ function initMap(){
     L.DomUtil.setPosition(canvas, topLeft);
     resizeParticleCanvas();
   }
-  map.on('move resize zoom', function(){ resizeCanvas(); drawAll(); });
+  map.on('move resize zoom', function(){
+    resizeCanvas();
+    // fix 2026-09-17: resizeCanvas() svuota fCanvas (ridimensionare un canvas
+    // lo pulisce sempre, anche a parita' di dimensione -- comportamento del
+    // browser, non un bug nostro) ma qui non veniva mai ridipinto: bastava
+    // un "move" (anche l'autoPan di un popup) per far sparire il colore di
+    // sfondo, lasciando solo le frecce. drawField() ridipinge da colorField.data
+    // gia' calcolato, non serve ricalcolarlo (rebuildAndAnimate() completo,
+    // piu' pesante, resta per quando i dati vanno davvero ricalcolati).
+    drawField();
+    drawAll();
+  });
   map.on('moveend zoomend', function(){ rebuildAndAnimate(); });
   resizeCanvas();
 }
@@ -722,7 +733,7 @@ function ensureZoneMarkers(){
     var mk = L.circleMarker([z.lat, z.lon], {
       radius: 14, fillOpacity: 0.001, opacity: 0, weight: 0, interactive: true, pane: 'markerPane'
     }).addTo(map);
-    mk.bindPopup('<div style="font-family:\'DM Mono\',monospace;font-size:0.7rem;min-width:180px">Caricamento...</div>');
+    mk.bindPopup('<div style="font-family:\'DM Mono\',monospace;font-size:0.7rem;min-width:180px">Caricamento...</div>', { autoPan: false });
     state.zoneMarkers[z.key] = mk;
   });
 }
@@ -882,4 +893,4 @@ setInterval(loadAll, REFRESH_MS);
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS PREVISIONI v3.5 -->
+<!-- Fine codice - NAUTILUS PREVISIONI v3.6 -->

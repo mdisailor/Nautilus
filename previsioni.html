@@ -1,4 +1,4 @@
-<!-- NAUTILUS PREVISIONI v3.4 - mdisailor - 2026-09-17 - v3.4 (D20): aggiunto un pallino colorato accanto a ogni freccia nostra -- verde/giallo/rosso, stessa soglia di affidabilita di decadimento.html (funzione judge, identica), letta da forecast_stats per lorizzonte effettivamente usato. Nessun pallino sulle frecce OM di sfondo (solo isZone). D19 (correzione Livornometeo) risultava gia propagata qui, nessun codice necessario: legge forecast_hN da predict_history, che ha gia il +4.2 applicato lato server. Su base v3.3 -->
+<!-- NAUTILUS PREVISIONI v3.5 - mdisailor - 2026-09-17 - v3.5 (D20, seconda iterazione): tolto il pallino dal canvas (troppo piccolo, colori mai rassicuranti senza contesto) -- sostituito con un marker Leaflet invisibile per zona, tocco/clic apre un popup con orario, dato, e il giudizio di affidabilita per intero (colore + testo), stesso stile dei popup di mappa2.html. Il bottone "ora" non mostra piu giudizio (era ambiguo, sembrava sempre verde) -- e' dato reale stazione, non previsione. Su base v3.4 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Previsioni Vento v3.4</title>
+<title>NAUTILUS Previsioni Vento v3.5</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -64,7 +64,7 @@
 
 <header>
   <h1>NAUTILUS &mdash; Previsioni Vento</h1>
-  <span class="ver">v3.4</span>
+  <span class="ver">v3.5</span>
   <a class="back" href="/index2.html">&larr; cruscotto</a>
 </header>
 
@@ -251,6 +251,7 @@ var state = {
   hourButtons: [],       // [{ offset, date }] ricostruito ad ogni loadAll
   currentOffset: 0,      // quale bottone e' selezionato -- persiste tra i refresh
   showGridArrows: true,  // tasto on/off frecce griglia OM di sfondo
+  zoneMarkers: {},        // D20 (17/9): marker Leaflet invisibili per zona, con popup dettagliato
   lastFetch: null
 };
 
@@ -662,7 +663,7 @@ function drawAll(){
   var drawn = [];
   var offset = state.currentOffset;
 
-  function tryDraw(lat, lon, dir, spd, gust, isZone, judgeInfo){
+  function tryDraw(lat, lon, dir, spd, gust, isZone){
     if (!bounds.contains([lat, lon])) return;
     var pt = map.latLngToContainerPoint([lat, lon]);
     for (var i = 0; i < drawn.length; i++){
@@ -671,19 +672,6 @@ function drawAll(){
     }
     drawn.push(pt);
     drawArrow(ctx, pt.x, pt.y, dir, spd, gust, 0.95, isZone, zoom);
-    // fix 2026-09-17 (D20): pallino di affidabilita' -- solo per le nostre
-    // frecce (isZone), stessa soglia/colore di decadimento.html. In alto a
-    // destra dell'origine della freccia, piccolo, non copre nulla.
-    if (judgeInfo) {
-      var jCol = judgeInfo.c === 'g' ? '#22cc66' : judgeInfo.c === 'y' ? '#ffaa00' : '#ff4444';
-      ctx.beginPath();
-      ctx.arc(pt.x + 9, pt.y - 9, 4, 0, Math.PI * 2);
-      ctx.fillStyle = jCol;
-      ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-      ctx.lineWidth = 1;
-      ctx.fill();
-      ctx.stroke();
-    }
   }
 
   // Zone nostre per prime (vincono lo spazio)
@@ -702,7 +690,7 @@ function drawAll(){
     }
     var v = ourValueForOffset(z, offset);
     if (v) {
-      tryDraw(z.lat, z.lon, v.dir, v.speed, null, true, v.judge);
+      tryDraw(z.lat, z.lon, v.dir, v.speed, null, true);
     } else {
       var g = nearestGridPoint(z.lat, z.lon);
       if (g) {
@@ -720,6 +708,69 @@ function drawAll(){
       tryDraw(g.lat, g.lon, gv.dir, gv.speed, gv.gust, false);
     });
   }
+
+  updateZoneMarkerPopups();
+}
+
+// D20 (17/9): un marker Leaflet invisibile per zona (solo per il tocco, non
+// per la vista -- la freccia disegnata sul canvas resta l'unica cosa visibile),
+// con un popup che si aggiorna ad ogni cambio di orario. Creati una volta sola,
+// il contenuto del popup viene aggiornato ogni volta che drawAll() ridisegna.
+function ensureZoneMarkers(){
+  state.zonePoints.forEach(function(z){
+    if (state.zoneMarkers[z.key]) return;
+    var mk = L.circleMarker([z.lat, z.lon], {
+      radius: 14, fillOpacity: 0.001, opacity: 0, weight: 0, interactive: true, pane: 'markerPane'
+    }).addTo(map);
+    mk.bindPopup('<div style="font-family:\'DM Mono\',monospace;font-size:0.7rem;min-width:180px">Caricamento...</div>');
+    state.zoneMarkers[z.key] = mk;
+  });
+}
+
+// Contenuto del popup -- stessa logica di scelta usata in drawAll per decidere
+// cosa mostrare (dato reale stazione / nostra previsione / ripiego OM), ma qui
+// in forma testuale con il giudizio di affidabilita' per intero (colore + testo),
+// non solo un pallino piccolo sulla mappa.
+function updateZoneMarkerPopups(){
+  var offset = state.currentOffset;
+  state.zonePoints.forEach(function(z){
+    var mk = state.zoneMarkers[z.key];
+    if (!mk) return;
+    var html;
+    if (offset === 0) {
+      var st = state.stationsNow[z.biasStation];
+      if (st && st.wind_kt != null && st.direction != null) {
+        html = '<div style="font-family:\'DM Mono\',monospace;font-size:0.7rem;min-width:180px">' +
+          '<div style="font-weight:bold;color:#00cc66;margin-bottom:4px">' + z.name + '</div>' +
+          '<div style="color:#fff;font-size:0.62rem;margin-bottom:4px">Dato reale stazione, adesso</div>' +
+          '<div><b>' + st.wind_kt + ' kn</b> da ' + st.direction + '&deg;</div></div>';
+      } else {
+        html = '<div style="font-family:\'DM Mono\',monospace;font-size:0.7rem;min-width:180px">' +
+          '<div style="font-weight:bold;color:#00cc66;margin-bottom:4px">' + z.name + '</div>' +
+          '<div style="color:#bbb;font-size:0.62rem">Nessun dato reale recente</div></div>';
+      }
+    } else {
+      var v = ourValueForOffset(z, offset);
+      var btn = state.hourButtons[offset];
+      var oraLabel = btn ? romeHourLabel(btn.date) : ('+' + offset + 'h');
+      if (v) {
+        var jCol = !v.judge ? '#888' : v.judge.c === 'g' ? '#22cc66' : v.judge.c === 'y' ? '#ffaa00' : '#ff4444';
+        var jTxt = v.judge ? v.judge.t : 'affidabilit\u00e0 ignota';
+        html = '<div style="font-family:\'DM Mono\',monospace;font-size:0.7rem;min-width:180px">' +
+          '<div style="font-weight:bold;color:#00cc66;margin-bottom:4px">' + z.name + '</div>' +
+          '<div style="color:#fff;font-size:0.62rem;margin-bottom:4px">Nostra previsione, ore ' + oraLabel + '</div>' +
+          '<div style="margin-bottom:4px"><b>' + v.speed + ' kn</b> da ' + v.dir + '&deg;</div>' +
+          '<div style="display:flex;align-items:center;gap:6px">' +
+          '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + jCol + '"></span>' +
+          '<span style="font-size:0.6rem;color:#fff">' + jTxt + '</span></div></div>';
+      } else {
+        html = '<div style="font-family:\'DM Mono\',monospace;font-size:0.7rem;min-width:180px">' +
+          '<div style="font-weight:bold;color:#00cc66;margin-bottom:4px">' + z.name + '</div>' +
+          '<div style="color:#bbb;font-size:0.62rem">Nessuna previsione nostra per ore ' + oraLabel + ' (mostrato dato modello OM)</div></div>';
+      }
+    }
+    mk.setPopupContent(html);
+  });
 }
 
 function updateFreshness(){
@@ -737,6 +788,7 @@ async function loadAll(){
   try {
     await Promise.all([loadGrid(), loadZones(), loadStationsSnapshot()]);
     buildHourButtons();
+    ensureZoneMarkers();
     state.lastFetch = new Date();
     updateFreshness();
     statusEl.textContent = state.zonePoints.length + ' zone, ' + state.gridPoints.length + ' punti griglia';
@@ -830,4 +882,4 @@ setInterval(loadAll, REFRESH_MS);
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS PREVISIONI v3.4 -->
+<!-- Fine codice - NAUTILUS PREVISIONI v3.5 -->

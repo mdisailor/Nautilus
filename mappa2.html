@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA2 v1.4 - mdisailor - 2026-08-27 - v1.4: aggiunta chiave API CARTO alla URL delle tile di sfondo (?key=...) -- CARTO ha reso obbligatoria la chiave sulle basemap raster dal 26/8. Chiave gratuita, 5 milioni di richieste/mese. Su base v1.3. -->
+<!-- NAUTILUS MAPPA2 v1.5 - mdisailor - 2026-09-17 - v1.5: aggiunta la correzione di riferimento Livornometeo (Windfinder +4.2kn, D16) al marker "Livorno Porto" -- popup principale, popup di ripiego, ripiego rate-limit, tasto Aggiorna, e flusso particelle animate (5 punti in tutto, stessa correzione applicata su mappa.html v1.6.90). Non toccata la griglia colorata (usa livorno_cfr, gia limitata da STATION_TRUST_CAP, questione diversa). Corretto anche il commento di chiusura, che diceva ancora "MAPPA v1.6.82" (nome sbagliato, versione vecchia -- residuo del fork mai aggiornato). Su base v1.4 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa2 Vento v1.4</title>
+<title>NAUTILUS Mappa2 Vento v1.5</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -229,7 +229,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa2 v1.4</span>
+    <span id="nav-ver">mappa2 v1.5</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -291,11 +291,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA2 v1.4 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA2 v1.5 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA2 v1.4
+// NAUTILUS MAPPA2 v1.5
 
 var ENGINE_URL = '/api/engine';
 
@@ -834,11 +834,18 @@ async function fetchStationData(){
         }
         if (!s || !s.station || s.station.wind_kt == null) return null;
         if (s.station.direction == null) return null;
+        // fix 2026-09-17: stessa correzione dei popup, applicata anche qui --
+        // il flusso animato delle particelle e' comunque qualcosa che l'utente
+        // percepisce come "il vento a Livorno", non un meccanismo di
+        // autocorrezione interno (a differenza di bias_samples) -- nessun
+        // rischio di doppia correzione, e' solo rendering locale della mappa.
+        var fsSpeed = Number(s.station.wind_kt);
+        if (st.sid === 'livorno_porto') fsSpeed = Math.round((fsSpeed + 4.2) * 10) / 10;
         return {
           lat: st.lat,
           lon: st.lon,
           key: st.key,
-          speed: Number(s.station.wind_kt),
+          speed: fsSpeed,
           dir:   Number(s.station.direction),
           ts:    s.ts
         };
@@ -2007,12 +2014,18 @@ MNW_LIVE.forEach(function(st) {
               var dir2 = s2.station.direction;
               var dt2 = new Date(s2.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
               var dw2 = s2.delta && s2.delta.wind_kt !== null ? s2.delta.wind_kt : null;
+              var mkNameSuffix2 = '';
+              // fix 2026-09-17: stessa correzione del percorso principale, vedi nota estesa sopra.
+              if (st.sid === 'livorno_porto' && wkt2 !== null && wkt2 !== undefined) {
+                wkt2 = Math.round((wkt2 + 4.2) * 10) / 10;
+                mkNameSuffix2 = ' <span style="font-size:0.55rem;color:#ffaa00;font-weight:normal">(stima rif. Livornometeo)</span>';
+              }
               var windCol2 = wkt2 < 15 ? '#4cff91' : wkt2 < 25 ? '#ffd700' : '#ff6060';
               var dirTxt2 = dir2 !== null ? degToCard(dir2) + ' ' + dir2 + '°' : '--';
               var arrowSvg2 = dir2 !== null
                 ? '<svg width="22" height="22" viewBox="-11 -11 22 22" style="display:inline-block;vertical-align:middle"><g transform="rotate(' + (dir2+180) + ')"><line x1="0" y1="9" x2="0" y2="-6" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><polygon points="0,-10 -4,-4 4,-4" fill="#fff"/></g></svg>'
                 : '';
-              el2.innerHTML = '<div style="font-weight:bold;color:#00cc66;font-size:0.78rem;margin-bottom:6px">' + st.name + '</div>' +
+              el2.innerHTML = '<div style="font-weight:bold;color:#00cc66;font-size:0.78rem;margin-bottom:6px">' + st.name + mkNameSuffix2 + '</div>' +
                 '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">' +
                 '<span style="font-size:1.5rem;font-weight:bold;color:' + windCol2 + '">' + wkt2 + '</span>' +
                 '<span style="font-size:0.65rem;color:#fff;font-weight:bold">kn</span>' +
@@ -2029,6 +2042,17 @@ MNW_LIVE.forEach(function(st) {
         var dt = new Date(s.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
         var dw = (s.om_wind_kt !== null && s.om_wind_kt !== undefined) ? Math.round((s.wind_kt - s.om_wind_kt)*10)/10 : null;
         var wkt = s.wind_kt;
+        var mkNameSuffix = '';
+        // fix 2026-09-17: su richiesta di M, il marker Livorno Porto mostra
+        // direttamente il valore corretto (Windfinder +4.2kn, rif.
+        // Livornometeo, provvisorio D16) -- stesso principio gia' applicato
+        // alla bussola in index.html e al marker in mappa.html. Non e' la
+        // stessa cosa della griglia colorata (quella usa livorno_cfr, pesata
+        // separatamente, gia' limitata da STATION_TRUST_CAP -- non toccata qui).
+        if (st.sid === 'livorno_porto' && wkt !== null && wkt !== undefined) {
+          wkt = Math.round((wkt + 4.2) * 10) / 10;
+          mkNameSuffix = ' <span style="font-size:0.55rem;color:#ffaa00;font-weight:normal">(stima rif. Livornometeo)</span>';
+        }
         var windCol = wkt < 15 ? '#4cff91' : wkt < 25 ? '#ffd700' : '#ff6060';
         var deltaCol = dw === null ? '#bbb' : Math.abs(dw) > 5 ? '#ff6060' : '#4cff91';
         var dirTxt = (s.direction !== null ? degToCard(s.direction) + ' ' + s.direction + '°' : '--');
@@ -2041,7 +2065,7 @@ MNW_LIVE.forEach(function(st) {
             '</g></svg>'
           : '';
         var ageStr = s.age_min !== undefined ? s.age_min + 'min fa' : '';
-        el.innerHTML = '<div style="font-weight:bold;color:#00cc66;font-size:0.78rem;margin-bottom:6px">' + st.name + '</div>' +
+        el.innerHTML = '<div style="font-weight:bold;color:#00cc66;font-size:0.78rem;margin-bottom:6px">' + st.name + mkNameSuffix + '</div>' +
           '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">' +
           '<span style="font-size:1.5rem;font-weight:bold;color:' + windCol + '">' + wkt + '</span>' +
           '<span style="font-size:0.65rem;color:#fff;font-weight:bold">kn</span>' +
@@ -2163,9 +2187,12 @@ function refreshMnwStation(sid, popupId, name) {
               if (snap && snap.stations && snap.stations[sid]) {
                 var s = snap.stations[sid];
                 var ageStr = s.age_min !== undefined ? s.age_min + 'min fa' : '';
+                var rlWkt = s.wind_kt;
+                // fix 2026-09-17: stessa correzione degli altri punti Livorno.
+                if (sid === 'livorno_porto' && rlWkt !== null && rlWkt !== undefined) rlWkt = Math.round((rlWkt + 4.2) * 10) / 10;
                 var rld = el.querySelector('.rl-msg');
                 if (!rld) { rld = document.createElement('div'); rld.className = 'rl-msg'; rld.style.cssText = 'font-size:0.55rem;color:#ffaa00;margin-top:4px'; el.appendChild(rld); }
-                rld.innerHTML = 'Scraping non disponibile — ultimo dato Redis: <b>' + (s.wind_kt||'—') + 'kt ' + (s.direction||'—') + '°</b> ' + ageStr;
+                rld.innerHTML = 'Scraping non disponibile — ultimo dato Redis: <b>' + (rlWkt||'—') + 'kt ' + (s.direction||'—') + '°</b> ' + ageStr;
               }
             }).catch(function(){});
         }
@@ -2174,6 +2201,13 @@ function refreshMnwStation(sid, popupId, name) {
       // Aggiornamento riuscito — ricarica popup
       var d = res.data;
       var wkt = d.wind_kt;
+      var rmNameSuffix = '';
+      // fix 2026-09-17: stessa correzione degli altri 4 punti (popup principale,
+      // popup di ripiego, particelle animate, ripiego rate-limit).
+      if (sid === 'livorno_porto' && wkt !== null && wkt !== undefined) {
+        wkt = Math.round((wkt + 4.2) * 10) / 10;
+        rmNameSuffix = ' <span style=\"font-size:0.55rem;color:#ffaa00;font-weight:normal\">(stima rif. Livornometeo)</span>';
+      }
       var windCol = !wkt ? '#bbb' : wkt < 15 ? '#4cff91' : wkt < 25 ? '#ffd700' : '#ff6060';
       var dirTxt = (d.dir_deg !== null && d.dir_deg !== undefined ? degToCard(d.dir_deg) + ' ' + d.dir_deg + '°' : '--');
       var dirDeg = d.dir_deg !== null && d.dir_deg !== undefined ? Number(d.dir_deg) : null;
@@ -2184,7 +2218,7 @@ function refreshMnwStation(sid, popupId, name) {
           '<polygon points=\"0,-10 -4,-4 4,-4\" fill=\"#fff\"/>' +
           '</g></svg>' : '';
       var dt = new Date(d.timestamp).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-      el.innerHTML = '<div style=\"font-weight:bold;color:#00cc66;font-size:0.78rem;margin-bottom:6px\">' + name + '</div>' +
+      el.innerHTML = '<div style=\"font-weight:bold;color:#00cc66;font-size:0.78rem;margin-bottom:6px\">' + name + rmNameSuffix + '</div>' +
         '<div style=\"display:flex;align-items:center;gap:8px;margin-bottom:5px\">' +
         (wkt ? '<span style=\"font-size:1.5rem;font-weight:bold;color:' + windCol + '\">' + wkt + '</span><span style=\"font-size:0.65rem;color:#fff;font-weight:bold\">kn</span>' : '<span style=\"color:#bbb\">--</span>') +
         arrowSvg +
@@ -2200,7 +2234,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine codice - NAUTILUS MAPPA v1.6.82
+// Fine script - NAUTILUS MAPPA2 v1.5 (segue markup HTML pannello osservazioni, non altro codice)
 </script>
 <!-- Pannello inserimento osservazione manuale -->
 <div id="obs-panel">
@@ -2239,3 +2273,5 @@ function refreshMnwStation(sid, popupId, name) {
 
 </body>
 </html>
+
+<!-- Fine codice - NAUTILUS MAPPA2 v1.5 -->

@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.7.41 -- 2026-09-17 - aggiunto cache:no-store a tutte le 27 chiamate fetch verso ENGINE_URL (predict, predict_history, bias_history, triple_wind, situazione, zone, history, agent, route_grid, ecc) -- il browser poteva mostrare risposte vecchie dalla cache anche dopo un deploy nuovo del server, causa nota dei "numeri vecchi" gia diagnosticata (D18). Stesso bug gia risolto in mappa.html il 22/7, mai applicato qui prima. Su base v5.7.40 -->
+<!-- NAUTILUS v5.7.42 -- 2026-09-17 - corretto il bottone "Livorno Porto" (vista Meteo ed Engine): chiamava ancora biasWebSample('livorno_cfr',...) -- id abbandonato da luglio quando quella stazione (un mareografo) fu sostituita da livorno_porto (Windfinder). Il bottone era rimasto etichettato Livorno Porto ma puntava ancora al vecchio id, residuo mai pulito della migrazione -- indipendente dal fix engine v2.14.27 di ieri (quello copriva station_refresh, ma il bottone non arrivava nemmeno a chiamarlo con l'id giusto). Aggiornata anche STATION_QUOTAS (livorno_cfr->livorno_porto, quota 0). Su base v5.7.41 -->
 
 <html lang="it">
 <head>
@@ -600,7 +600,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.41  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.42  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1080,7 +1080,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
       <button class="btn-history" onclick="biasWebSample('alberese','m')">📡 Alberese</button>
       <button class="btn-history" onclick="biasWebSample('luri','m')">📡 Luri</button>
       <div style="width:100%;font-family:DM Mono,monospace;font-size:0.6rem;color:var(--accent);letter-spacing:0.1em;text-transform:uppercase;margin:10px 0 4px;border-top:1px solid rgba(0,240,255,0.25);padding-top:8px">CFR Toscana — Costa</div>
-      <button class="btn-history" onclick="biasWebSample('livorno_cfr','m')">📡 Livorno Porto</button>
+      <button class="btn-history" onclick="biasWebSample('livorno_porto','m')">📡 Livorno Porto</button>
       <button class="btn-history" onclick="biasWebSample('bocca_arno_cfr','m')">📡 Bocca d'Arno</button>
       <button class="btn-history" onclick="biasWebSample('viareggio_cfr','m')">📡 Viareggio CFR</button>
       <button class="btn-history" onclick="biasWebSample('lido_camaiore','m')">📡 Lido Camaiore</button>
@@ -2011,7 +2011,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.41  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.42  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -2094,7 +2094,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
       <button class="btn-history" onclick="biasWebSample('alberese',undefined)">📡 Alberese</button>
       <button class="btn-history" onclick="biasWebSample('luri',undefined)">📡 Luri</button>
       <div style="width:100%;font-family:DM Mono,monospace;font-size:0.6rem;color:var(--accent);letter-spacing:0.1em;text-transform:uppercase;margin:10px 0 4px;border-top:1px solid rgba(0,240,255,0.25);padding-top:8px">CFR Toscana — Costa</div>
-      <button class="btn-history" onclick="biasWebSample('livorno_cfr',undefined)">📡 Livorno Porto</button>
+      <button class="btn-history" onclick="biasWebSample('livorno_porto',undefined)">📡 Livorno Porto</button>
       <button class="btn-history" onclick="biasWebSample('bocca_arno_cfr',undefined)">📡 Bocca d'Arno</button>
       <button class="btn-history" onclick="biasWebSample('viareggio_cfr',undefined)">📡 Viareggio CFR</button>
       <button class="btn-history" onclick="biasWebSample('lido_camaiore',undefined)">📡 Lido Camaiore</button>
@@ -5957,7 +5957,7 @@ async function biasLoadHistory(selectedStation, sfx) {
   ];
   // Quota stazioni (m slm) -- >100m = bias non affidabile per navigazione
   var STATION_QUOTAS = {
-    livorno:244, livorno_cfr:2, canale_piombino:8, viareggio:25, viareggio_cfr:2, populonia_cfr:164, capraia_w:274, populonia:164,
+    livorno:244, livorno_porto:0, canale_piombino:8, viareggio:25, viareggio_cfr:2, populonia_cfr:164, capraia_w:274, populonia:164,
     portoferraio:368, alberese:1, luri:50,
     gorgona_cfr:230, capraia_cfr:274, giglio_porto:0, giglio_castello:470,
     montecristo:85, portoferraio_cfr:10, orbetello:0, svincenzo_porto:1,
@@ -6230,4 +6230,4 @@ async function loadTripleCompasses() {
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS v5.7.41 -->
+<!-- Fine codice - NAUTILUS v5.7.42 -->

@@ -1,4 +1,4 @@
-<!-- NAUTILUS PREVISIONI v3.3 - mdisailor - 2026-08-27 - v3.3: aggiunta chiave API CARTO alla URL delle tile di sfondo (?key=...) -- CARTO ha reso obbligatoria la chiave sulle basemap raster dal 26/8. Chiave gratuita, 5 milioni di richieste/mese. Su base v3.2. -->
+<!-- NAUTILUS PREVISIONI v3.4 - mdisailor - 2026-09-17 - v3.4 (D20): aggiunto un pallino colorato accanto a ogni freccia nostra -- verde/giallo/rosso, stessa soglia di affidabilita di decadimento.html (funzione judge, identica), letta da forecast_stats per lorizzonte effettivamente usato. Nessun pallino sulle frecce OM di sfondo (solo isZone). D19 (correzione Livornometeo) risultava gia propagata qui, nessun codice necessario: legge forecast_hN da predict_history, che ha gia il +4.2 applicato lato server. Su base v3.3 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Previsioni Vento v3.3</title>
+<title>NAUTILUS Previsioni Vento v3.4</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -64,7 +64,7 @@
 
 <header>
   <h1>NAUTILUS &mdash; Previsioni Vento</h1>
-  <span class="ver">v3.3</span>
+  <span class="ver">v3.4</span>
   <a class="back" href="/index2.html">&larr; cruscotto</a>
 </header>
 
@@ -234,6 +234,16 @@ function drawArrow(ctx, cx, cy, dir, spd, gust, alpha, isZone, zoom){
 }
 
 // ==================== Stato ====================
+// Stessa identica funzione di decadimento.html -- copiata, non reinventata,
+// per usare la stessa soglia di affidabilita' in tutto il progetto (D20, 17/9).
+function judge(n, mae, std) {
+  if (!n || n < 5) return { c:'r', t:'dati insufficienti' };
+  if (std == null) return { c:'y', t:'dispersione ignota' };
+  if (std > 3) return { c:'r', t:'troppo disperso' };
+  if (std > 1.8 || n < 10) return { c:'y', t:'indicativo' };
+  return { c:'g', t:'affidabile' };
+}
+
 var state = {
   gridPoints: [],       // da action=grid (con .forecast.h1..h12)
   zonePoints: [],       // { lat, lon, name, key, biasStation, genDate, h1..h12:{speed,dir} }
@@ -541,18 +551,26 @@ async function loadZones(){
   var zd = await fetchJson(ENGINE_URL + '?action=zones');
   var zones = (zd.zones || []).filter(function(z){ return z.bias_station; });
   var results = await Promise.allSettled(zones.map(function(z){
-    return fetchJson(ENGINE_URL + '?action=predict_history&zone=' + encodeURIComponent(z.key) + '&limit=1')
-      .then(function(ph){
-        var item = (ph.predictions || [])[0];
-        var p = item ? (item.prediction || item) : null;
-        return { zone: z, p: p };
-      });
+    // fix 2026-09-17 (D20): aggiunta forecast_stats in parallelo a
+    // predict_history -- serve current_bias per calcolare l'affidabilita'
+    // (stessa soglia di decadimento.html, funzione judge sopra) da mostrare
+    // vicino a ogni freccia nostra.
+    return Promise.all([
+      fetchJson(ENGINE_URL + '?action=predict_history&zone=' + encodeURIComponent(z.key) + '&limit=1'),
+      fetchJson(ENGINE_URL + '?action=forecast_stats&zone=' + encodeURIComponent(z.key)).catch(function(){ return null; })
+    ]).then(function(both){
+      var ph = both[0], fs = both[1];
+      var item = (ph.predictions || [])[0];
+      var p = item ? (item.prediction || item) : null;
+      return { zone: z, p: p, fs: fs };
+    });
   }));
   var zonePoints = [];
   results.forEach(function(r){
     if (r.status !== 'fulfilled' || !r.value.p) return;
-    var z = r.value.zone, p = r.value.p;
+    var z = r.value.zone, p = r.value.p, fs = r.value.fs;
     var text = p.prediction_text || '';
+    var cb = (fs && fs.current_bias) ? fs.current_bias : {};
     var entry = {
       lat: z.lat, lon: z.lon, name: z.name, key: z.key,
       biasStation: z.bias_station,
@@ -562,6 +580,8 @@ async function loadZones(){
       var speedField = p['forecast_h' + h]; // gia' corretto (bias applicato)
       var parsed = parseForecastFromText(text, h);
       entry['h' + h] = (speedField != null && parsed) ? { speed: speedField, dir: parsed.dir } : null;
+      var c = cb['h' + h];
+      entry['judge_h' + h] = c ? judge(c.n, c.mae, c.std) : null;
     });
     zonePoints.push(entry);
   });
@@ -587,7 +607,11 @@ function ourValueForOffset(zoneEntry, offset){
   var genFloored = floorToHour(zoneEntry.genDate);
   var offsetFromPredict = Math.round((btn.date.getTime() - genFloored.getTime()) / 3600000);
   if ([1,3,6,9,12].indexOf(offsetFromPredict) === -1) return null;
-  return zoneEntry['h' + offsetFromPredict] || null;
+  var v = zoneEntry['h' + offsetFromPredict];
+  if (!v) return null;
+  // fix 2026-09-17 (D20): porta con se' anche il giudizio di affidabilita'
+  // per QUESTO specifico orizzonte -- serve a drawAll per il pallino colorato.
+  return { speed: v.speed, dir: v.dir, judge: zoneEntry['judge_h' + offsetFromPredict] || null };
 }
 
 // OM per questo bottone -- sempre relativo ad "adesso" (l'"orologio OM"), mai al predict.
@@ -638,7 +662,7 @@ function drawAll(){
   var drawn = [];
   var offset = state.currentOffset;
 
-  function tryDraw(lat, lon, dir, spd, gust, isZone){
+  function tryDraw(lat, lon, dir, spd, gust, isZone, judgeInfo){
     if (!bounds.contains([lat, lon])) return;
     var pt = map.latLngToContainerPoint([lat, lon]);
     for (var i = 0; i < drawn.length; i++){
@@ -647,6 +671,19 @@ function drawAll(){
     }
     drawn.push(pt);
     drawArrow(ctx, pt.x, pt.y, dir, spd, gust, 0.95, isZone, zoom);
+    // fix 2026-09-17 (D20): pallino di affidabilita' -- solo per le nostre
+    // frecce (isZone), stessa soglia/colore di decadimento.html. In alto a
+    // destra dell'origine della freccia, piccolo, non copre nulla.
+    if (judgeInfo) {
+      var jCol = judgeInfo.c === 'g' ? '#22cc66' : judgeInfo.c === 'y' ? '#ffaa00' : '#ff4444';
+      ctx.beginPath();
+      ctx.arc(pt.x + 9, pt.y - 9, 4, 0, Math.PI * 2);
+      ctx.fillStyle = jCol;
+      ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+      ctx.lineWidth = 1;
+      ctx.fill();
+      ctx.stroke();
+    }
   }
 
   // Zone nostre per prime (vincono lo spazio)
@@ -665,7 +702,7 @@ function drawAll(){
     }
     var v = ourValueForOffset(z, offset);
     if (v) {
-      tryDraw(z.lat, z.lon, v.dir, v.speed, null, true);
+      tryDraw(z.lat, z.lon, v.dir, v.speed, null, true, v.judge);
     } else {
       var g = nearestGridPoint(z.lat, z.lon);
       if (g) {
@@ -793,4 +830,4 @@ setInterval(loadAll, REFRESH_MS);
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS PREVISIONI v3.3 -->
+<!-- Fine codice - NAUTILUS PREVISIONI v3.4 -->

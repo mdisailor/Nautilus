@@ -1,7 +1,7 @@
 # NAUTILUS — Metodologia di Calcolo (METODOLOGIA.md)
 
 Documento tecnico-scientifico sulle logiche di calcolo, fonti e assunzioni.
-Versione documento: v1.8 — Aggiornato: 2026-08-12 (sezione 14 estesa con l'analisi completa su 25 zone: AROME vince in 9/25 stazioni non solo Alberese, anomalia bias=MAE su Orbetello/Bonifacio, conferma dati reali del fix forte_marmi, canale_piombino confermato il bias peggiore del sistema + scoperta che tsc228 è tornata a trasmettere)
+Versione documento: v2.4 — Aggiornato: 2026-09-17 (nuova sezione 19: propagare la correzione Livorno su bussola/mappa/mappa2/previsioni — due bug indipendenti sullo stesso sintomo, ogni pagina va letta non assunta uguale, un bug di canvas preesistente reso visibile da una funzionalità nuova)
 
 ---
 
@@ -524,10 +524,11 @@ Base: `https://nautilus-red.vercel.app/` — tutti i file `.html` stanno nella *
 |---|---|---|
 | `/` | App principale: schede previsione, situazione, bussole (3 zone + singola per località), matrice storica, stazioni reali vs OM (stazioni mute mostrano ultimo dato + età) | v5.7.39 |
 | `/mappa.html` | Mappa vento (produzione): griglia OI, flusso, marker stazioni reali | v1.6.88 |
-| `/mappa2.html` | **Nuovo, sperimentale** — fork di mappa.html per confronto affiancato. Sfondo colorato continuo (bilineare) al posto dei vecchi cerchi, solo 2 tasti (FLOW, OI). mappa.html originale non toccato | v1.2 |
-| `/previsioni.html` | **Nuovo** — mappa vento **futuro**, non solo presente. Bottoni a ore intere assolute, due orologi separati (OM sempre da adesso, nostra previsione dall'ultimo predict), sfondo colorato bilineare, FLOW, export XLS orario completo | v3.0 |
-| `/export.html` | **Nuovo, diagnostico** — un tasto estrae `forecast_stats`+`predict_history`+`mae_compare`+`bias_matrix`+`model_score`+`decadimento_by_slot` per tutte le zone in un unico JSON, da incollare in chat per analisi | v1.3 |
-| `/index2.html` | **Cruscotto**: indice di tutti gli strumenti + stato engine live (versione, zone attive, ora server) | v1.2 |
+| `/mappa2.html` | Fork di mappa.html per confronto affiancato. Sfondo colorato continuo (bilineare), tasti FLOW/OI/GRID. mappa.html originale non toccato | v1.3 |
+| `/previsioni.html` | Mappa vento **futuro**, non solo presente. Bottoni a ore intere assolute, due orologi separati (OM sempre da adesso, nostra previsione dall'ultimo predict), sfondo colorato bilineare, tasti FLOW/GRID, export XLS orario completo | v3.2 |
+| `/export.html` | Diagnostico — un tasto estrae `forecast_stats`+`predict_history`+`mae_compare`+`bias_matrix`+`model_score`+`decadimento_by_slot` per tutte le zone in un unico JSON, da incollare in chat per analisi | v1.3 |
+| `/index2.html` | **Cruscotto**: indice di tutti gli strumenti + stato engine live + tasto "Controlla archivio" | v1.4 |
+| `/history-check.html` | **Nuovo (26/8)** — un tasto, una tabella con semaforo verde/rosso per zona: verifica se `getWindHistory` trova quanti dati si aspettava. Nato dall'incidente quota Redis del 26/8 | v1.0 |
 | `/diag.html` | **Diagnostica strutturata** per zona: stato engine, continuità raccolta dati, IFS/wind_source, con semafori e spiegazioni (invece del JSON grezzo) | v1.3 |
 | `/stats.html` | Previsioni AI vs reale per orizzonte, trend MAE | — |
 | `/mae.html` | Confronto errore OM vs AROME per stazione (dati grezzi, nessuna correzione) | — |
@@ -555,7 +556,9 @@ Le pagine `index2.html` e `diag.html` incapsulano le più usate; queste restano 
 | `?action=triple_wind&zones=a,b,c` | Vento reale (o OM di ripiego) per le zone indicate. Legge `bias_samples` → veloce |
 | `?action=grid_rules_get` · `?action=grid_rules_init&k=mdi` | Lettura / inizializzazione regole griglia |
 | `?action=archive_check&station=X&zone=Y` | **Nuovo (12/8)** — sola lettura. Confronta finestra fissa (`bias_samples`/`predict_history`) e archivio persistente (`bias_archive`/`predict_archive`) fianco a fianco: lunghezza e data più vecchia di entrambi. Incapsulata nel tasto "Controlla archivio" di `index2.html` |
-| `?action=archive_backfill&k=mdi` | **Nuovo (12/8), una tantum** — unisce dentro `predict_archive` tutto quello già presente in `predict_history` (confronto per `generated_at`, non duplica). Serviva a salvare il pregresso di mesi prima che uscisse dalla finestra fissa di 30 senza mai essere stato archiviato. Già eseguita una volta il 12/8 |
+| `?action=archive_backfill&k=mdi` | **Una tantum** — unisce dentro `predict_archive` tutto quello già presente in `predict_history` (confronto per `generated_at`, non duplica). Serviva a salvare il pregresso di mesi prima che uscisse dalla finestra fissa di 30 senza mai essere stato archiviato. Già eseguita una volta il 12/8 |
+| `?action=history_check_get` | **Sola lettura** — legge l'ultimo esito del controllo di consistenza scritto da `getWindHistory` per ogni zona (atteso vs trovato, verde/rosso). Una chiamata batch (`kvMGet`), non una per zona. Incapsulata nel tasto di `history-check.html` |
+| `?action=windfinder_raw_check&station=X` | **Sola lettura, invariata apposta**. Mostra il valore grezzo (non convertito) letto dalla pagina Windfinder di una stazione (`livorno_porto`/`barcaggio`/`bonifacio_pertusato`), per confronto diretto col valore mostrato a video — usata per scoprire e confermare il bug m/s-vs-nodi risolto il 28/8 (sezione 16). Resta utile per futuri controlli simili, non applica mai la correzione |
 | `?action=diag` | Test connessione Redis (non mostra snapshot) |
 
 ### Principio: la versione va sempre esposta in testata, a video
@@ -577,7 +580,7 @@ Il numero di versione non va solo *dentro* il file, va anche **nel nome del file
 
 | Tipo | Formato | Esempio |
 |---|---|---|
-| Documenti `.md` | `NOME-vX.Y.md` | `METODOLOGIA-v1.8.md` |
+| Documenti `.md` | `NOME-vX.Y.md` | `METODOLOGIA-v2.4.md` |
 | Engine | `engine-vXYYZZ.zip` | `engine-v21409.zip` (= v2.14.9) |
 | App | `index-vXYZZ.zip` | `index-v5739.zip` (= v5.7.39) |
 | Mappa | `mappa-vXYZZ.zip` | `mappa-v1687.zip` (= v1.6.87) |
@@ -708,3 +711,159 @@ Il MAE settimanale di Forte dei Marmi crolla da **4.6 kt** (settimana del 27/7, 
 Il bias è negativo su **tutti** gli orizzonti verificati, senza oscillare: H+1 −1.2, H+3 −1.6, H+6 −2.1, H+9 −2.1, H+12 −1.8 — la previsione sovrastima sempre, coerente con l'ipotesi di sempre (Populonia, 164m, riferimento sbagliato per un canale a livello mare). Prima quantificazione numerica di un sospetto qualitativo di settimane.
 
 **Sviluppo dello stesso giorno**: verificata via `action=mnw_test` (due controlli distanziati) che la stazione MNW `tsc228` (porto di Piombino, quota 8m — il riferimento giusto) **è tornata a trasmettere vento reale**, dopo settimane documentate come muta. `tsc578` (Capraia) resta muta, invariata. Ipotesi aperta: sostituire `populonia_cfr` con `canale_piombino` come `bias_station` della zona — **aspettare la conferma di stabilità su 1-2 giorni** prima di agire, non decidere su un singolo test (le stazioni MNW hanno già dato segnali di vita passeggeri in questo progetto).
+
+---
+
+## 15. Incidente quota Redis e ottimizzazione `getWindHistory` (26 agosto 2026)
+
+### Cosa è successo
+
+Il database Redis (Upstash, piano gratuito, tetto 500.000 comandi/mese) ha raggiunto il limite ed è stato bloccato per un paio d'ore. Durante il blocco, ogni scrittura falliva silenziosamente (il codice ha sempre `try/catch` attorno a `kvSet`/`kvGet`, non crasha — semplicemente non salva nulla). Passato al piano a consumo (Pay as You Go, $0.2 ogni 100K comandi) per sbloccare subito — costo reale trascurabile (~$0.05 nei primi minuti).
+
+### La causa: non l'ultima cosa aggiunta, ma la più vecchia e meno vistosa
+
+Il sospetto naturale è stato prima l'archivio persistente (`bias_archive`, introdotto il 9/8, che raddoppia le scritture per ogni campione stazione) — ma il conto della console Upstash mostrava **733.838 letture contro 128.385 scritture**: le letture dominavano di 5.7 volte. L'archivio non spiegava questo squilibrio.
+
+La causa vera era in `getWindHistory`, funzione presente da mesi, usata da `predict`, `situazione`, `history`, `calcZone`: per ricostruire lo storico vento di una zona, faceva **una chiamata Redis separata per ogni singolo slot da 30 minuti** dell'intervallo richiesto — non una lettura, tante quante le mezz'ore. Per `action=predict` (che chiede sempre le ultime 336 ore = 14 giorni), sono **672 letture singole per una sola chiamata**. Con `predict` che gira 2 volte/giorno per ~20 zone: **~27.000 letture al giorno da questa funzione sola**, che su un mese fanno oltre 800.000 — da sole abbastanza a spiegare quasi tutto lo sforamento, senza bisogno di tirare in ballo l'archivio.
+
+### La correzione
+
+Sostituito il ciclo di N chiamate `kvGet` separate con **una singola chiamata `kvMGet`** (già esistente nel codice, già usata altrove nel progetto — `situazione_get`, `backfill_actuals` — non una tecnica nuova da inventare). Stesso identico dato restituito, nello stesso ordine: cambia solo *come* viene letto da Redis, non *cosa* arriva a previsioni/situazioni/mappa. Una chiamata batch a N chiavi conta come **un solo comando** per Upstash, non N — è la ragione stessa per cui riduce il conteggio.
+
+In parallelo, rallentata anche la scrittura di `bias_archive` (da ogni ciclo di scraping, ~ogni 30 min, a ~1 volta l'ora) — contributo minore rispetto a `getWindHistory`, ma coerente con lo stesso principio.
+
+### Il controllo aggiunto per non ripetere l'errore alla cieca
+
+Non basta ottimizzare una funzione e sperare che funzioni ancora uguale — serve un modo per **verificarlo con un dato, non a occhio**. Aggiunto un controllo di consistenza automatico dentro `getWindHistory` stessa: ogni chiamata confronta quanti slot si aspettava con quanti ne ha trovati davvero, e salva l'ultimo esito per zona (`history_check:<zona>`, non uno storico — si autoaggiorna). Nuova pagina `history-check.html`: un tasto, una tabella con pallino verde/rosso per zona, estraibile per incollare in chat — stesso principio di `export.html`, applicato alla verifica invece che all'analisi.
+
+**Segnato per il futuro, non ancora fatto**: estendere questo tipo di controllo automatico ad altre parti del sistema, non solo `getWindHistory` — l'idea è nata da un incidente specifico ma la logica ("il sistema stesso segnala se sta trovando meno dati del previsto") è generale.
+
+### Lezione di metodo
+
+**Il problema più grande non era l'ultima cosa toccata** — era una funzione vecchia di mesi, mai riguardata perché "funzionava". L'incidente è arrivato non perché qualcosa si sia rotto quel giorno, ma perché un limite esterno (il tetto mensile Upstash) ha reso visibile un'inefficienza strutturale che il sistema si portava dietro da sempre, senza sintomi fino al giorno in cui il conto è arrivato tutto insieme. **Non aggiungere scritture/letture Redis extra senza controllare il budget comandi prima** — l'archivio persistente del 9/8, per quanto giustificato, è stato aggiunto senza quella verifica.
+
+### Un secondo mistero emerso durante la verifica, non ancora risolto
+
+`history-check.html`, il giorno del deploy, mostra quasi tutte le zone (a richiesta 336h) con solo **~20% degli slot attesi** trovati (es. 137 su 672) — un numero che si ripete troppo simile su zone indipendenti per essere casuale. **Barcaggio e Alberese mostrano invece 0 su 672**, diverso dal resto. La spiegazione "colpa del blocco Redis" non regge: il blocco è durato ~2 ore, il traffico del giorno prima (23/8) era nella norma — non spiega un buco di giorni. Nessuna ipotesi solida ancora formulata. Da riprendere quando ci sono un paio di giorni di dati puliti dopo il fix, confrontando gli slot mancanti di una zona col ~20% contro lo stesso periodo di una stazione che li ha tutti — stesso metodo di verifica per confronto già usato altrove in questo progetto (vedi sezione 9-ter, sezione 14).
+
+---
+
+## 16. Due bug esterni, un incidente di deploy (27-28 agosto 2026)
+
+### CARTO rende obbligatoria la chiave API sulle basemap
+
+Il 26/8 CARTO (fornitore dello sfondo cartografico "Voyager" usato da `mappa.html`, `mappa2.html`, `previsioni.html`) ha smesso di servire le sue mappe raster senza una chiave — cambiamento del fornitore esterno, non nostro (segnalato lo stesso giorno da molti progetti indipendenti). Senza chiave, ogni tassello mostra il testo "API KEY REQUIRED" al posto della mappa vera.
+
+**Correzione**: chiave gratuita (5 milioni di richieste/mese, nessuna partita IVA richiesta per un privato), aggiunta come `?key=...` all'URL delle tile — una riga per pagina, tre pagine coinvolte.
+
+**Nota per la memoria organizzativa**: registrandosi per la sola chiave basemap, CARTO crea comunque un account sulla piattaforma completa (Builder, analisi dati) con un **trial di 14 giorni** — irrilevante per il nostro uso, riguarda funzionalità che non useremo mai. La chiave basemap resta gratuita e permanente indipendentemente da quel trial. Non farsi allarmare dal conto alla rovescia mostrato nel pannello.
+
+### Bug Windfinder: un'unità di misura mai verificata, per mesi
+
+**Le tre stazioni coinvolte**: `livorno_porto`, `barcaggio`, `bonifacio_pertusato` — tutte lette dalla stessa pagina-tipo Windfinder (`scrape_web2`), stesso parser, in produzione dal 18 giugno.
+
+**Come è stato scoperto**: durante un controllo di routine su Livorno Porto, il vento letto dal nostro sistema restava piatto e basso (2-4 kn) anche durante una notte in cui OM e AROME concordavano su un episodio di vento forte. Il sospetto iniziale era una media smussata o un valore congelato — nessuno dei due si è rivelato vero.
+
+**Il percorso di verifica, passo per passo** (utile per il metodo, non solo per il risultato):
+1. Costruita una diagnostica di sola lettura (`action=windfinder_raw_check`) per confrontare il valore letto dal nostro codice con quello mostrato a video su Windfinder, nello stesso istante
+2. Primi confronti: rapporto vicino a **1.94** tra il valore mostrato a video e quello letto da noi — coincide quasi esattamente con il fattore di conversione **m/s → nodi** (1.94384)
+3. **Un confronto è andato storto** (direzione diversa, rapporto diverso da 1.94) — invece di forzarlo a incastrarsi nell'ipotesi, è stato scartato come test non valido, e da lì è emerso un secondo problema, indipendente: la pagina Windfinder contiene un'**intera tabella di valori** (probabilmente uno storico/previsione oraria), non un dato singolo — e il parsing originale prendeva "il primo che capita" nella pagina, che si è rivelato essere un valore di esempio di un widget di conversione unità di misura, non l'osservazione vera
+4. Tentata una correlazione automatica per orario (cercare tutti i timestamp nella pagina e il vento più vicino a ciascuno) — ha rivelato che nella pagina ce n'è **uno solo**, non tanti come ipotizzato: la struttura presunta era sbagliata
+5. **Solo dopo 3 confronti indipendenti in giorni diversi**, tutti con lo stesso rapporto ~1.94, l'ipotesi originale (unità di misura) è stata considerata sufficientemente confermata da giustificare una correzione nel codice
+
+**La correzione**: moltiplicare il campo `ws`/`wg` per 1.94384 in `scrape_web2` e `station_refresh` — il campo era sempre stato m/s, mai nodi come il commento originale (di giugno) affermava senza averlo mai verificato.
+
+**Cosa NON è stato fatto**: lo storico già raccolto da giugno per queste 3 stazioni in `bias_samples`/`bias_archive` resta con l'errore (sottostimato di circa la metà). Nessuna decisione presa su una correzione retroattiva — punto aperto in ROADMAP.
+
+### Lezione di metodo: un'ipotesi scartata per un confronto anomalo non va abbandonata, va isolata
+
+Il punto 3 sopra è il passaggio più istruttivo: un singolo confronto che non torna **non falsifica automaticamente** un'ipotesi che altrove è già confermata con precisione — ma nemmeno va ignorato. Il modo corretto è stato chiedersi *perché* quel confronto specifico non tornava (risposta: non era comparabile, orari diversi, o un secondo problema strutturale non ancora scoperto) invece di scartare l'ipotesi originale o forzarla a spiegare anche il caso anomalo. In questo caso ha portato a scoprire un secondo problema reale (la tabella di valori multipli), non a invalidare il primo.
+
+### Incidente di deploy — non tecnico, ma reale
+
+Durante il caricamento del fix CARTO su GitHub, la sessione di login è scaduta; al rientro, un incollaggio pensato per `mappa.html` è finito nel file `api/engine.js`, sovrascrivendolo con contenuto HTML invece di codice. L'engine è andato in crash totale (500, `FUNCTION_INVOCATION_FAILED`) — non un bug di logica, un file sbagliato al posto giusto. **Lezione**: `action=ping` va controllato dopo *ogni* deploy, non solo quando qualcosa sembra già non funzionare — è l'unico modo per sapere con certezza che il file caricato sia quello giusto, senza fare affidamento sulla sensazione che "il caricamento è andato bene".
+
+---
+
+## 17. Confronto manuale con Livornometeo — obiettivo, metodo, e una lezione sul tempo (29 agosto - 13 settembre 2026)
+
+### L'obiettivo, chiarito solo dopo un fraintendimento
+
+Il primo istinto era trattare Livornometeo come "un'altra stazione da confrontare, tanto per curiosità". **Non è così**: Livornometeo (imboccatura del porto) è il punto di riferimento vero per chi è in mare davanti a Livorno — quello che chi naviga sente e vede. Windfinder (quello che leggiamo, più riparato nel bacino portuale) è solo un modo indiretto per **stimare** quel punto, dato che Livornometeo non è accessibile (`robots.txt` lo vieta, nessuna risposta alle email). Lo scopo finale, non ancora raggiunto, è calcolare un fattore di correzione per avvicinare la stima al punto vero — non far combaciare due stazioni indipendenti per il gusto di farlo.
+
+### Il metodo: confronto manuale, delegato a una chat separata per non consumare immagini
+
+Costruito `confronto-modelli.html` — tabella storico nostro/OM/AROME (da `bias_history`, nessun dato nuovo). Uno screenshot del grafico Livornometeo (letto da M o da Claude, mai in automatico) fornisce il termine di paragone. Per non appesantire la conversazione principale con troppe immagini in sequenza, un tasto genera un prompt autosufficiente da incollare in una chat separata (anche con un modello più economico): quella chat legge lo screenshot e produce un report testuale, che torna nella conversazione principale come testo, non come immagine.
+
+**Lezione su come scrivere istruzioni per un'altra IA senza contesto condiviso**: il prompt generato deve essere completamente autosufficiente — specificare esplicitamente quali linee del grafico leggere (in un caso, "linea chiara = direzione, linea rossa = velocità" ha dovuto essere precisato perché altrimenti ambiguo), correggere equivoci noti in anticipo (un numero in un popup che sembra un grado ma è un id sequenziale), e vietare letture fuori dagli orari richiesti invece di lasciare libertà di interpretazione.
+
+### Un bug scoperto durante l'uso: due orologi diversi con la stessa etichetta
+
+I primi confronti mostravano divari di velocità enormi e sospetti tra noi e il grafico di Windfinder stesso (es. nostro 11.9kn contro il loro grafico a 6-7kn, sulla "stessa" ora) — abbastanza da far pensare a un bug di lettura serio. La causa vera: la tabella etichettava ogni riga con `ts` (quando il nostro cron aveva interrogato la pagina), non con `obs_time` (l'orario che Windfinder stessa dichiara per quell'osservazione) — i due campi divergono sempre di **20-30 minuti**. Su un grafico che cambia rapidamente, uno scarto di mezz'ora tra l'etichetta e il dato reale basta a far sembrare sbagliato un confronto che in realtà stava semplicemente guardando due istanti diversi. **Corretto in v1.5**: la tabella ora usa `obs_time`. Dopo il fix, nostro e Windfinder mostrano lo stesso andamento in modo coerente.
+
+**Lezione generale**: quando un sistema salva più di un campo-orario per lo stesso evento (qui: quando l'abbiamo letto vs quando è successo davvero), va sempre chiarito esplicitamente quale dei due si sta usando per un confronto — un'etichetta sbagliata può produrre un falso allarme identico nella forma a un vero bug di dato, ma con una causa e una correzione completamente diverse.
+
+### Un limite scoperto per esclusione, poi confermato con più forza: le frecce di direzione lette dall'IA leggera sono inaffidabili in un modo specifico
+
+Nei primi due confronti, la lettura della direzione dalle frecce del grafico Windfinder aveva dato sempre lo stesso risultato (NW), mentre sia M sia Claude, guardando lo stesso screenshot, leggevano chiaramente SW, confermato anche da Livornometeo. **Esteso a 4 episodi (13/9)**: la direzione vera è cambiata — SW, poi NE, poi di nuovo NW — ma la lettura delle frecce ha detto **"NW" tutte e 4 le volte**, indipendentemente da quale fosse la direzione reale nello screenshot. Non è un errore casuale che a volte va bene: sembra un'ancora fissa nella lettura di piccoli elementi direzionali da un'immagine, che ignora il contenuto reale dell'immagine. L'unica volta che ha azzeccato (13/9, dove la direzione vera era per l'appunto NW) è coincidenza, non un segno di miglioramento. **Quella colonna resta nel prompt ma va sempre scartata.**
+
+**Un'eccezione importante, distinta dalle frecce**: quando lo screenshot cattura un **tooltip con un numero esatto** (non solo la freccia), la lettura è risultata affidabile — in due occasioni (01/09 alle 10:41, 13/09 alle 17:11) un tooltip preciso sul grafico Windfinder ha confermato il nostro dato quasi alla cifra esatta. La distinzione da tenere: **numero con tooltip = fidarsi, freccia stimata a occhio = scartare sempre**, sono due affidabilità completamente diverse anche nello stesso screenshot.
+
+### Stato attuale (13/9): pattern consolidato, correzione ancora non applicata
+
+Su **4 episodi, in 3 direzioni di vento diverse (SW, NE, NW)**, Livornometeo legge sistematicamente più alto di Windfinder — scarto tipico +3/+7 nodi, mai il contrario. Non è più un'osservazione da un solo giorno: si è ripetuta cambiando condizioni, ed è ormai da trattare come un fatto documentato, coerente con l'ipotesi fisica (imboccatura esposta vs Windfinder riparato).
+
+**Nonostante questo, nessuna correzione ancora applicata** — per due motivi specifici, non per prudenza generica:
+1. **Manca un episodio di vento sostenuto/forte.** Tutto raccolto finora è debole-moderato. L'effetto di riparo di una baia spesso si riduce quando il vento supera un certo valore (gli ostacoli "si saturano") — un fattore tarato solo su vento leggero potrebbe sbagliare di grosso proprio quando conta di più (vento forte, dove un errore di stima pesa sulla sicurezza)
+2. **Non è stato fatto un vero backtest.** Stimare un fattore sugli stessi punti che useremmo per verificarlo è l'errore già scartato altre volte in questo progetto (sezione 9-ter) — serve dividere i dati, stimare su una parte, controllare sull'altra
+
+I dati grezzi restano in CLAUDE.md, organizzati per episodio. Deciso di non salvarli nel database insieme ai dati automatici: sono letture visive approssimative, qualità diversa dai campioni precisi di `bias_samples` — mescolarli comprometterebbe la distinzione tra le due qualità di dato, principio già seguito altrove nel progetto. Se in futuro emergerà un fattore di correzione verificato, quello sì andrà scritto nel DB come singolo valore calcolato, non i punti grezzi che hanno portato a calcolarlo.
+
+---
+
+## 18. Un giudizio "affidabile" può essere circolare senza sembrarlo (15 settembre 2026)
+
+### Cosa è successo
+
+`decadimento.html`, esteso a tutte le zone tramite il nuovo tasto "Salva tutte le stazioni per Claude", mostrava Livorno con giudizio **verde ("affidabile") su tutti e 5 gli orizzonti** — il record migliore di tutto il sistema insieme a Lido di Camaiore. Prima di accettarlo come una buona notizia, il dato è stato messo in discussione: *"Livorno credo che non sia attendibile in quanto Windfinder non è corretto"*.
+
+### Perché il giudizio era circolare, non falso
+
+Il motore corregge la previsione OM usando come riferimento `bias_station: 'livorno_porto'` (Windfinder). `decadimento.html` verifica quanto la previsione corretta si avvicina... allo stesso dato reale usato per correggerla. Il ciclo si chiude su se stesso: un punteggio alto dice solo *"il sistema replica fedelmente la fonte a cui è stato tarato"*, non *"il sistema rappresenta bene il vento vero di quella zona"*. Sono due affermazioni diverse, e la seconda richiederebbe un termine di paragone **indipendente** dalla correzione stessa — che qui non c'è (Livornometeo, il termine di paragone vero, resta inaccessibile in automatico).
+
+Il problema è aggravato dal fatto che sappiamo già, dalla sezione 17, che questa specifica fonte (Windfinder/Livorno Porto) è sistematicamente più bassa del punto di riferimento vero — quindi il "verde" qui non è neutro, rischia di nascondere proprio l'errore che stiamo cercando di misurare altrove.
+
+### Quanto è esteso il problema — controllato, non solo sospettato
+
+Verificato leggendo `bias_station` per tutte le 26 zone in `engine.txt`: solo **3** usano una fonte Windfinder (`livorno`→`livorno_porto`, `barcaggio`→`barcaggio`, `bonifacio`→`bonifacio_pertusato`). Le altre ~22 usano CFR o MeteoNetwork, fonti indipendenti dal problema — il giudizio di `decadimento.html` resta valido per quelle. Interessante: **Barcaggio era già "rosso"** nel giudizio nonostante lo stesso problema di circolarità — il suo problema è quindi un altro, non ancora capito, aggravato ma non causato da questo.
+
+### Lezione di metodo
+
+**Uno strumento di verifica che usa (anche indirettamente) la stessa fonte usata per la correzione non sta misurando l'accuratezza — sta misurando l'autoconsistenza.** Le due cose sembrano identiche quando lo strumento dà un giudizio "buono", ed è proprio lì che l'errore passa inosservato più facilmente: un punteggio alto non genera il sospetto che un punteggio basso genererebbe. Vale la pena, per ogni nuovo controllo di qualità costruito in futuro, chiedersi esplicitamente: *la fonte con cui sto verificando è la stessa (o deriva dalla stessa) di quella con cui ho corretto?* — prima di fidarsi di un risultato positivo.
+
+**Non è stata scritta nessuna correzione di codice per questo** — la scoperta cambia come *interpretare* un giudizio esistente, non richiede con urgenza un intervento. Il percorso per migliorare davvero l'accuratezza di Livorno resta quello già aperto con Livornometeo (sezione 17, D16) — non un fix nuovo e separato.
+
+---
+
+## 19. Propagare una correzione: due lezioni dal giro su bussola/mappa/previsioni (17 settembre 2026)
+
+### Stesso sintomo, due bug completamente indipendenti
+
+Dopo aver applicato la correzione di riferimento Livorno (+4.2kn) nell'engine, il bottone "Aggiorna" della stazione in `index.html` continuava a non funzionare. La prima ipotesi (e il primo fix, in `station_refresh`) era corretta ma **insufficiente**: `livorno_porto` mancava davvero dalla lista delle stazioni conosciute da quell'action. Ma dopo il deploy, il bottone continuava a non rispondere. La causa vera era un secondo bug, scollegato dal primo: il bottone nell'interfaccia chiamava ancora l'id abbandonato `livorno_cfr` — un residuo della migrazione di luglio (quando Livorno CFR, un mareografo, fu sostituita da Livorno Porto/Windfinder) mai ripulito dal codice del bottone, nonostante l'etichetta a video fosse già stata aggiornata allora.
+
+**Lezione**: quando un fix non risolve il sintomo, non significa che il fix fosse sbagliato — può semplicemente non essere l'unica causa. Vale la pena verificare il fix isolatamente (qui: la action da riga di comando rispondeva correttamente) prima di concludere che l'ipotesi originale fosse falsa.
+
+### Propagare una correzione non è mai "cercare lo stesso pattern ovunque" — ogni pagina va letta, non assunta
+
+La stessa correzione (mostrare il valore Livorno aggiustato) ha richiesto risposte diverse in pagine diverse, scoperte solo leggendo il codice di ciascuna, non presumendole uguali:
+- **`previsioni.html`**: zero codice necessario — leggeva già il campo corretto lato server
+- **`mappa.html`**: 5 punti diversi (popup principale, di ripiego, rate-limit, tasto Aggiorna, particelle animate) — nessuno di questi collegato agli altri, ognuno con la propria copia della logica di visualizzazione
+- **`mappa2.html`**: stessi 5 punti di `mappa.html` (fork quasi identico), ma verificati uno per uno anziché assunti identici — utile, perché il commento di chiusura del file si è rivelato diverso (un secondo bug di lunga data, mai notato: diceva "MAPPA" invece di "MAPPA2")
+
+**Lezione**: "propagare una correzione" è un'attività di lettura del codice esistente, non di applicazione meccanica dello stesso pattern — ogni pagina/percorso va aperto e verificato, anche quando sembra ovvio che debba comportarsi come un'altra.
+
+### Un effetto collaterale del browser, non un bug nostro, ma comunque nostra responsabilità gestirlo
+
+Aggiungere marker interattivi a `previsioni.html` (per D20) ha esposto un bug preesistente e mai notato: ridimensionare un elemento `<canvas>` lo svuota sempre, anche quando le dimensioni non cambiano — è un comportamento del browser, non un errore di programmazione. Il codice di `previsioni.html` ridimensionava il canvas del colore di sfondo a ogni spostamento della mappa, ma non lo ridipingeva più. Prima dei marker, gli spostamenti della mappa erano relativamente rari (solo quando l'utente pan/zoomava attivamente); dopo, ogni tocco su un marker faceva spostare automaticamente la mappa per far entrare il popup in vista (comportamento di default di Leaflet), moltiplicando le occasioni in cui il bug si manifestava — da "raro, mai segnalato" a "capita al secondo tocco".
+
+**Lezione**: una funzionalità nuova può rendere visibile un bug vecchio senza averlo causato — il fatto che il sintomo sia comparso "dopo" una modifica non implica che la modifica ne sia la causa diretta, vale la pena controllare se il nuovo codice ha solo reso più frequente un problema di innesco già presente.

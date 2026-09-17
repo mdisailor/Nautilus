@@ -1,7 +1,7 @@
 # NAUTILUS — Roadmap Attività (ROADMAP.md)
 
 Scaletta ordinata con dipendenze, stato e decisioni aperte.
-Aggiornato: 2026-08-12
+Aggiornato: 2026-09-17
 
 ---
 
@@ -122,7 +122,7 @@ Nasce da due scoperte di luglio: le previsioni non decadono come ci si aspettava
 | 6.3 | Affidabilità per **fascia di intensità del vento** | 🔒 | Dipende da: più storico con vento sostenuto. È la dimensione mancante emersa dall'analisi del 25/07 |
 | 6.4 | Filtrare i casi storici simili per **slot** nel prompt | ❓ | Oggi i casi sono scelti per *stessa tendenza barica* senza filtrare l'ora: una previsione delle 07 può ricevere casi delle 16. Due strade: (a) filtrare per slot — più solido ma dimezza i casi disponibili; (b) dichiarare lo slot nel prompt — più debole. Prima verificare quanti casi vengono trovati oggi in media |
 | 6.5 | **Sistema di sintesi automatico** | 🔒 | *Non un altro cruscotto*: un controllo che gira col cron e dà un **verdetto secco**. Confronta settimana corrente vs precedente per ogni orizzonte su tutte le zone, **scarta gli outlier isolati** (es. il 17/07 con errore 4× la norma), incrocia col vento reale per distinguere "regime cambiato" da "errore non spiegato", ed esce con "tutto normale" oppure "Zona X orizzonte Y in peggioramento, da controllare". **Non costruirlo ora**: con un solo regime osservato sintetizzerebbe rumore |
-| 6.6 | Archivio storico separato oltre la rotazione FIFO | ✅ **fatto (9-12/8)** | `bias_archive`/`predict_archive`, tetto molto più alto (3000/1000 invece di 100/30). Prerequisito per 6.1/6.3/6.5 e per il nuovo 6.8 — **oggi sola scrittura, nessuna action legge ancora da qui per calcolare/correggere** |
+| 6.6 | Archivio storico separato oltre la rotazione FIFO | ✅ **fatto (9-12/8)**, rallentato (26/8) | `bias_archive`/`predict_archive`, tetto molto più alto (3000/1000 invece di 100/30). Prerequisito per 6.1/6.3/6.5 e per il nuovo 6.8 — **oggi sola scrittura, nessuna action legge ancora da qui per calcolare/correggere**. **26/8**: la scrittura di `bias_archive` è stata rallentata a ~1/ora (era ogni 30 min) — ha contribuito, insieme a un problema più vecchio in `getWindHistory`, all'esaurimento della quota comandi Redis mensile |
 | 6.7 | Risolvere il limite di `action=history` | ⏳ **prerequisito** | Il 25/07 restituiva 136 ore anche chiedendone 240. Senza, non si possono fare analisi su finestre lunghe né alimentare 6.5 |
 | 6.8 | **Selettore dinamico OM/AROME per cella** (vento×settore×slot) | 🔒 — disegnato (12/8), deliberatamente non scritto | `model_score`/`bias_matrix` calcolano già la matrice ogni ora, ma leggono solo `bias_samples` (~2gg): un n alto in quella finestra è quasi certamente un solo episodio di vento, non diversità di regime. Dati reali del 12/8 mostrano un pattern netto (AROME meglio pomeriggio+settore W, OM meglio mattina, su 3 punti pilota) e che AROME vince oggi in 9/25 stazioni — non solo Alberese. **Riprendere solo quando `bias_archive` (6.6) avrà settimane di giorni/regimi diversi**, verificando di nuovo le statistiche allora — stesso criterio di maturità di 6.5, non prima |
 
@@ -146,7 +146,7 @@ Nasce da due scoperte di luglio: le previsioni non decadono come ci si aspettava
 | ID | Decisione | Contesto | Target |
 |---|---|---|---|
 | D1 | Declassare Vada a punto giallo? | Direzione sistematicamente opposta a stazioni vicine, sospetto sensore mal orientato | ⚠️ **Target scaduto** (era fine luglio 2026) |
-| D2 | Declassare Cap Pertusato a punto giallo? | Windfinder aggiorna raramente, valori fissi per ore, anti-duplicato obs_time attivo | ⚠️ **Target scaduto** (era fine luglio 2026) |
+| D2 | Declassare Cap Pertusato a punto giallo? | Windfinder aggiorna raramente, valori fissi per ore, anti-duplicato obs_time attivo. **Nota 28/8**: il vento era comunque sottostimato ~50% per il bug unità di misura, risolto — rivalutare con dati puliti prima di decidere il declassamento | ⚠️ **Target scaduto** (era fine luglio 2026), ora da rivalutare coi dati corretti |
 | D3 | Passo griglia per OI: 0.1° o 0.05°? | 0.1° (~11km) è più leggero su Vercel piano Hobby; 0.05° (~5km) più preciso ma rischio timeout. Nota: attualmente in produzione il passo è 0.25° | Da rivalutare |
 | D4 | Libreria Kriging: @sakitam-gis/kriging o implementazione custom? | @sakitam-gis è MIT license ma non testata su Vercel Edge; custom più controllabile. Nota: attualmente in uso reliability_weight custom (1/(1+MAE)), non una vera libreria Kriging | Da rivalutare |
 | D5 | Soglia minima vento per peso direzione OI (2026-07-01) | Sotto quale velocità stazione la direzione letta è troppo rumorosa per comandare al peso nominale pieno? Casi noti: Viareggio 0.8-1.2kn (Δdir -88°), Populonia 1.4kn (Δdir -103°) | Dopo aver raccolto altri 2-3 casi simili |
@@ -154,26 +154,42 @@ Nasce da due scoperte di luglio: le previsioni non decadono come ci si aspettava
 | D7 | Quando riattivare il testo AI? | Tagliato in `predict` e `situazione` per la fase di raccolta dati. Riattivarlo costa (~$18/mese l'insieme, l'output pesa 5× l'input) | Quando lo storico sarà maturo (vedi criteri in Fase 6) |
 | D8 | Versione nel nome file vs link raw GitHub | La convenzione `METODOLOGIA-v1.4.md` rompe i link raw fissi usati a inizio sessione. Opzioni: (a) nomi fissi su GitHub, versione solo negli zip di lavoro; (b) versionare anche su GitHub aggiornando i link in CLAUDE.md a ogni rilascio | Da decidere |
 | D9 | Promuovere `mappa2.html` a sostituire `mappa.html`? (1/8) | mappa2 ha lo sfondo colorato bilineare (stile Windy) e un'interfaccia più semplice (2 tasti invece di 5). In prova affiancata dal 1/8, nessuna decisione presa. Se promossa, serve un passaggio esplicito (non una sovrascrittura silenziosa) — probabilmente rinominare i file e aggiornare tutti i riferimenti | Dopo un periodo d'uso reale |
-| D10 | Sostituire `populonia_cfr` con `canale_piombino` (tsc228) come `bias_station` del canale? (12/8) | tsc228 tornata a trasmettere vento reale dopo settimane muta, confermato stabile su 2 controlli lo stesso giorno. `canale_piombino` (zona) ha oggi il bias peggiore e più persistente di tutte le 25 zone — coerente con l'ipotesi che Populonia (164m) sia il riferimento sbagliato | Dopo 1-2 giorni di stabilità confermata di tsc228 — non decidere su un singolo test |
-| D11 | Verificare coordinate/quota di Orbetello e Bonifacio Cap Pertusato (12/8) | `bias_om` coincide esattamente con `mae_om` su 100 campioni per entrambe — firma statistica anomala (errore sempre stesso segno, mai un'eccezione), non tipica di un bias vero. `reliability_weight` già il più basso del sistema per entrambe (0.16 e 0.22) | Prossima sessione utile |
+| D10 | Sostituire `populonia_cfr` con `canale_piombino` (tsc228) come `bias_station` del canale? (12/8) | tsc228 tornata a trasmettere vento reale dopo settimane muta, confermato stabile su 2 controlli lo stesso giorno. `canale_piombino` (zona) ha oggi il bias peggiore e più persistente di tutte le 25 zone — coerente con l'ipotesi che Populonia (164m) sia il riferimento sbagliato | Non riverificato dopo il 12/8 — controllare stabilità prima di decidere |
+| D11 | Verificare coordinate/quota di Orbetello e Bonifacio Cap Pertusato (12/8) | `bias_om` coincide esattamente con `mae_om` su 100 campioni per entrambe — firma statistica anomala (errore sempre stesso segno, mai un'eccezione), non tipica di un bias vero. `reliability_weight` già il più basso del sistema per entrambe (0.16 e 0.22). **Nota 28/8**: Bonifacio Pertusato usa lo stesso parser Windfinder appena corretto (bug unità di misura) — riverificare l'anomalia con dati puliti post-fix, potrebbe essere in parte o del tutto spiegata da questo, non da coordinate/quota | Prossima sessione utile, con dati successivi al 28/8 |
+| D12 | Cosa spiega il pattern ~20% slot trovati (`history-check.html`, 26/8)? | Quasi tutte le zone a richiesta 336h mostrano ~137/672 slot — troppo simile su zone indipendenti per essere caso. Non spiegato dal blocco Redis (durato ~2 ore, traffico del 23/8 normale). Barcaggio e Alberese diverse: 0/672 assoluto | Tra qualche giorno, con dati puliti dopo il fix `getWindHistory` |
+| D13 | Correggere `bias_station` di `quercianella` (punta a `'livorno'` invece che a una stazione propria)? | Bug noto dal 31/7, lasciato perché dormiente (quercianella non aveva cron predict). **Dal 26/8 ha un cron predict dedicato — il bug ora ha effetto reale**, non più solo teorico | Da decidere alla prossima sessione, non più rimandabile senza conseguenze |
+| D14 | Correggere retroattivamente lo storico Windfinder (livorno_porto/barcaggio/bonifacio_pertusato) sottostimato da giugno? (28/8) | Il bug unità di misura (m/s letto come nodi) è risolto solo per i dati nuovi da v2.14.22 in poi. Tutto lo storico già in `bias_samples`/`bias_archive` resta con l'errore (~metà del valore vero) — potrebbe falsare bias/MAE calcolati su quel periodo per queste 3 stazioni | Non ancora affrontato, nessuna proposta ancora fatta |
+| D15 | Correggere il commento di chiusura sbagliato in `mappa.html` (dice v1.6.82 invece di v1.6.89)? | ✅ **Risolto 17/9**, trovato per caso mentre si lavorava sulla correzione Livorno. Stesso problema trovato anche in `mappa2.html` (diceva addirittura "MAPPA" invece di "MAPPA2") — corretto anche quello | Chiuso |
+| D16 | Applicare un fattore di correzione per avvicinare `livorno_porto` (Windfinder) al vero punto di riferimento (Livornometeo, imboccatura del porto)? | ✅ **Deciso e applicato (15-16/9)**: M ha scelto di agire ora ("la precisione si raggiunge a piccoli passi") invece di aspettare ancora. Correzione **+4.2kn** (media di 22 punti, 4 episodi) applicata a `forecast_hN` finale per la zona `livorno` (engine v2.14.26), confermata live il 16/9. Provvisoria — nessun dato ancora con vento forte, nessun backtest formale | **Monitorare con `confronto-modelli.html`** nelle prossime settimane, specialmente se arriva vento forte. Rivedere il valore +4.2 se il pattern cambia |
+| D17 | Correggere `decadimento.html` per non giudicare in modo circolare le zone Windfinder? | Scoperto 15/9: `livorno`/`barcaggio`/`bonifacio` verificano la previsione contro la stessa fonte (`bias_station`) usata per correggerla. Nessun fix di codice necessario con urgenza — basta interpretare con cautela il giudizio di quelle 3 zone. Un fix vero richiederebbe una fonte di verifica indipendente (es. Livornometeo, se mai accessibile) | Non urgente, segnato per consapevolezza. **Aggiornamento 16/9**: per Livorno il giudizio peggiorerà (non migliorerà) a causa di D16 — effetto atteso, non un bug, non serve intervenire |
+| D18 | Aggiungere `cache:'no-store'` alle chiamate fetch di `index.html` verso predict/bias? | ✅ **Risolto 17/9** (index v5.7.41) — tutte le 27 chiamate fetch dell'engine, non solo le 6 iniziali. Confermato in pratica: il "solo 1 riga" nel bottone Stazioni Reali vs OM era proprio questo bug, cambiando browser il dato tornava giusto | Chiuso |
+| D19 | Propagare la correzione di riferimento Livorno anche a `previsioni.html`? | ✅ **Risolto 17/9 — nessun codice necessario.** `previsioni.html` legge `forecast_hN` da `predict_history`, già corretto lato server (v2.14.26) — la propagazione era già completa, bastava verificarlo leggendo il codice | Chiuso |
+| D20 | Mostrare in `previsioni.html` quanto è "valida"/affidabile una previsione? | ✅ **Costruito 17/9** (previsioni v3.4→v3.6) — prima versione con un pallino sul canvas, scartata dopo test reale (troppo piccolo, colori "mai rassicuranti" senza contesto). Riprogettato: marker Leaflet invisibile per zona, tocco apre un popup con orario/dato/giudizio per intero (colore+testo), stesso stile di `mappa2.html`. Durante il test emerso e risolto anche un bug mobile preesistente (canvas del colore che si svuotava al movimento della mappa senza ridipingersi) | Chiuso, monitorare l'uso pratico |
+| D21 | Viareggio ha lo stesso doppio Livorno/Livornometeo (stazione esposta vs riparata)? | Notato 17/9 da M: "Viareggio" (MeteoNetwork, non quella usata come `bias_station`) è posizionata sulla mappa all'ingresso del porto — stesso schema fisico di Livorno/Livornometeo. **Accantonato su richiesta esplicita**, non indagato | Da riprendere se si vuole approfondire, nessuna urgenza |
 
 ---
 
-## Prossimi passi immediati (aggiornato 12/08/2026)
+## Prossimi passi immediati (aggiornato 17/09/2026)
 
-1. **Verificare stabilità di tsc228** (D10) — se resta stabile 1-2 giorni, sostituire `populonia_cfr` con `canale_piombino` come `bias_station` del canale di Piombino. È il caso più solido di tutti quelli aperti: ora ha sia la diagnosi qualitativa (164m, riferimento sbagliato) sia la controprova numerica (bias peggiore di tutte le 25 zone, sempre stesso segno) sia una stazione alternativa di quota corretta appena tornata viva
-2. **Verificare coordinate/quota di Orbetello e Bonifacio Cap Pertusato** (D11) — priorità alta, prima di qualunque altra azione su queste due zone
-3. **Non implementare ancora il selettore dinamico OM/AROME per cella** (Fase 6.8) — disegnato, deliberatamente rimandato finché `bias_archive` non avrà settimane di giorni/regimi diversi. **Promemoria esplicito da riverificare**: quando l'archivio sarà più maturo, controllare di nuovo le statistiche (non solo il numero di campioni, la diversità di date dietro quel numero) prima di scrivere codice
-4. **Populonia — coordinate sbagliate** (indipendente dal punto 1) — usa lat 42.987731 lon 10.537734 ma risulta troppo a est rispetto alla Livemap ufficiale. Diventa meno urgente se D10 porta a staccare del tutto Populonia dal canale
-5. **Aggiornare le liste hardcoded** in `mae_compare`/`bias_matrix`/`score_get` — mancano `populonia_cfr`, `livorno_porto`, `viareggio_cfr` (impatto solo diagnostico)
-6. **Decidere su Vada e Cap Pertusato** (D1, D2) — il target era fine luglio, è scaduto
-7. **Correggere il calcolo del trend in `forecast_stats`** — oggi include settimane con N=2 che falsano il verdetto "in peggioramento"
-8. **Chiarire le 3 zone senza predict** (`lido_camaiore`, `giglio_castello`, `quercianella`) — probabile mancanza nell'elenco del cron su cron-job.org (esterno al codice engine), confermato con dati reali il 12/8. **Non fondamentale adesso**, rivedere più avanti
-9. **Risolvere il limite di `action=history`** (6.7) — prerequisito per tutte le analisi su finestre lunghe
-10. **Continuare la raccolta dati con vento sostenuto** — è la condizione che sblocca 6.1, 6.3, 6.5 e ora anche 6.8. **Non riprovare** split-bias per slot, decadimento esponenziale, o il selettore AROME dinamico finché lo storico non è molto più ampio
-11. Audit sicurezza — giro completo ancora da chiudere
-12. `punta_ala`: zona senza stazione reale entro 20km
-13. **Decidere su `mappa2.html`** (D9) dopo un periodo d'uso reale affiancato a `mappa.html`
+1. **Barcaggio e Alberese** (0/672 assoluto in `history-check.html`) — `action=snap_debug&zone=X&k=mdi`, ancora mai fatto
+2. **Riverificare Orbetello e Bonifacio Pertusato con dati puliti post-fix Windfinder** (D11) — priorità alta, il bug unità di misura potrebbe spiegare parte o tutta l'anomalia di agosto
+3. **Continuare a monitorare la correzione Livorno con `confronto-modelli.html`** (D16) — cercare specificamente un episodio di vento forte
+4. **Decidere su una correzione retroattiva dello storico Windfinder** (D14) — non affrontato
+5. **Verificare il pattern ~20% slot in `history-check.html`** (D12) — appena ci sono dati puliti
+6. **Decidere su `bias_station` di quercianella** (D13) — non più rimandabile ora che genera previsioni reali
+7. **Verificare stabilità di tsc228** (D10) — non riverificato dal 12/8
+8. **Rivalutare D1/D2 (Vada, Cap Pertusato)** con i dati Windfinder ora corretti
+9. **Non implementare ancora il selettore dinamico OM/AROME per cella** (Fase 6.8) — invariato, aspettare maturità di `bias_archive`
+10. **Populonia — coordinate sbagliate** (indipendente da D10)
+11. **Aggiornare le liste hardcoded** in `mae_compare`/`bias_matrix`/`score_get`
+12. **Correggere il calcolo del trend in `forecast_stats`** (N=2)
+13. **Risolvere il limite di `action=history`** (6.7)
+14. **Continuare la raccolta dati con vento sostenuto** — sblocca 6.1, 6.3, 6.5, 6.8. **Non riprovare** split-bias, decadimento esponenziale, o selettore AROME finché lo storico non è molto più ampio
+15. Audit sicurezza — giro completo ancora da chiudere
+16. `punta_ala`: zona senza stazione reale entro 20km
+17. **Decidere su `mappa2.html`** (D9) dopo un periodo d'uso reale
+18. **Estendere il monitoraggio automatico oltre `getWindHistory`** — non urgente
+19. **Riprendere D21 (Viareggio)** se si vuole approfondire — non urgente
 
 ---
 

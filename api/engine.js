@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.26 - by mdisailor engine - v2.14.26: aggiunta correzione di riferimento verso Livornometeo per la zona livorno (D16) -- +4.2kn ai forecast_hN finali, valore calcolato su 22 punti raccolti a mano (4 episodi, vento SW/NE/NW). Provvisorio, da monitorare con confronto-modelli.html e rivedere quando arriva vento forte. Non tocca mai bias_samples/Windfinder grezzo, solo la previsione finale, tracciato nel testo come la correzione bias esistente. Include anche il riallineamento del tetto note_save a 5MB gia consegnato in precedenza. Su base v2.14.25
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.27 - by mdisailor engine - v2.14.27: aggiunta livorno_porto a srAllStations (station_refresh) -- mancava dalla lista, causava "Stazione non trovata" quando il tasto refresh in index.html la chiamava (barcaggio e bonifacio_pertusato erano gia presenti, solo livorno_porto era stata dimenticata). Il parser windfinder esisteva gia in station_refresh, corretto per il bug m/s in precedenza -- bastava la voce nella lista. Su base v2.14.26
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2064,7 +2064,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.26', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.27', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -2207,6 +2207,7 @@ if (action === 'station_refresh') {
       bocca_arno_cfr:    { lat: 43.680, lon: 10.270, api: false, cfr: 'TOS01005251' },
       follonica:         { lat: 42.919, lon: 10.765, api: false, cfr: 'TOS03002459' },
       capalbio:          { lat: 42.459, lon: 11.269, api: false, cfr: 'TOS11000006' },
+      livorno_porto:      { lat: 43.5525, lon: 10.3014, api: false, url: 'https://www.windfinder.com/report/porto-di-livorno', parser: 'windfinder' },
       barcaggio:          { lat: 43.0058, lon: 9.4045, api: false, url: 'https://www.windfinder.com/report/barcaggio_corse', parser: 'windfinder' },
       bonifacio_pertusato:{ lat: 41.3739, lon: 9.1783, api: false, url: 'https://www.windfinder.com/report/bonifacio', parser: 'windfinder' },
       vada:               { lat: 43.3550, lon: 10.4280, api: false, url: 'http://www.meteosystem.com/wlip/vada/', parser: 'meteosystem' },
@@ -6335,7 +6336,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.26 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.27 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -6466,4 +6467,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.26
+// Fine codice - NAUTILUS ENGINE v2.14.27

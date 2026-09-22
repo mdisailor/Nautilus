@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.27 - by mdisailor engine - v2.14.27: aggiunta livorno_porto a srAllStations (station_refresh) -- mancava dalla lista, causava "Stazione non trovata" quando il tasto refresh in index.html la chiamava (barcaggio e bonifacio_pertusato erano gia presenti, solo livorno_porto era stata dimenticata). Il parser windfinder esisteva gia in station_refresh, corretto per il bug m/s in precedenza -- bastava la voce nella lista. Su base v2.14.26
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.28 - by mdisailor engine - v2.14.28: aggiunta livorno_porto alla lista ssStations di action=stations_snapshot -- mancava, stessa causa del bug station_refresh di ieri (v2.14.27), una lista diversa pero -- quarta lista di stazioni indipendente trovata incompleta in una settimana (dopo srAllStations, mae_compare, bias_matrix). Causava previsioni.html a mostrare popup vuoto per Livorno quando lorario coincide con adesso (quel branch legge proprio stations_snapshot). Su base v2.14.27
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2064,7 +2064,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.27', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.28', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -2102,6 +2102,7 @@ if (action === 'stations_snapshot') {
   try {
     var ssStations = [
       { id:'livorno',          lat:43.465, lon:10.347 },
+      { id:'livorno_porto',    lat:43.5525, lon:10.3014 },
       { id:'canale_piombino',  lat:42.920, lon:10.530 },
       { id:'viareggio',        lat:43.870, lon:10.230 },
       { id:'viareggio_cfr',    lat:43.875, lon:10.236 },
@@ -6336,7 +6337,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.27 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.28 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -6467,4 +6468,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.27
+// Fine codice - NAUTILUS ENGINE v2.14.28

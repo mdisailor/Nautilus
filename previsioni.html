@@ -1,4 +1,4 @@
-<!-- NAUTILUS PREVISIONI v3.6 - mdisailor - 2026-09-17 - v3.6: risolto bug mobile segnalato da M -- toccare un secondo marker faceva sparire il colore di sfondo e rendeva tutti i marker non cliccabili, serviva riavviare la pagina. Causa: resizeCanvas() svuota fCanvas (side-effect del browser nel ridimensionare un canvas) ma il gestore "move" non lo ridipingeva mai -- bastava l'autoPan di un popup (che sposta la mappa per farlo entrare in vista, piu' frequente su schermi piccoli) a scatenarlo. Aggiunta chiamata a drawField() nel gestore, e disattivato autoPan sui popup zona (non serve spostare la mappa per un popup piccolo). Su base v3.5 -->
+<!-- NAUTILUS PREVISIONI v3.7 - mdisailor - 2026-09-17 - v3.7: aggiunto lo scostamento medio storico (current_bias.mean, stesso dato gia' mostrato in decadimento.html) nel popup delle zone, tra il dato previsto e il giudizio di affidabilita'. Su base v3.6 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Previsioni Vento v3.6</title>
+<title>NAUTILUS Previsioni Vento v3.7</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -64,7 +64,7 @@
 
 <header>
   <h1>NAUTILUS &mdash; Previsioni Vento</h1>
-  <span class="ver">v3.6</span>
+  <span class="ver">v3.7</span>
   <a class="back" href="/index2.html">&larr; cruscotto</a>
 </header>
 
@@ -594,6 +594,9 @@ async function loadZones(){
       entry['h' + h] = (speedField != null && parsed) ? { speed: speedField, dir: parsed.dir } : null;
       var c = cb['h' + h];
       entry['judge_h' + h] = c ? judge(c.n, c.mae, c.std) : null;
+      // fix 2026-09-17: scostamento medio (current_bias.mean) -- stesso dato
+      // gia' mostrato in decadimento.html, richiesto da M anche qui nei popup.
+      entry['bias_h' + h] = (c && c.mean != null) ? c.mean : null;
     });
     zonePoints.push(entry);
   });
@@ -623,7 +626,7 @@ function ourValueForOffset(zoneEntry, offset){
   if (!v) return null;
   // fix 2026-09-17 (D20): porta con se' anche il giudizio di affidabilita'
   // per QUESTO specifico orizzonte -- serve a drawAll per il pallino colorato.
-  return { speed: v.speed, dir: v.dir, judge: zoneEntry['judge_h' + offsetFromPredict] || null };
+  return { speed: v.speed, dir: v.dir, judge: zoneEntry['judge_h' + offsetFromPredict] || null, bias: zoneEntry['bias_h' + offsetFromPredict] };
 }
 
 // OM per questo bottone -- sempre relativo ad "adesso" (l'"orologio OM"), mai al predict.
@@ -767,10 +770,19 @@ function updateZoneMarkerPopups(){
       if (v) {
         var jCol = !v.judge ? '#888' : v.judge.c === 'g' ? '#22cc66' : v.judge.c === 'y' ? '#ffaa00' : '#ff4444';
         var jTxt = v.judge ? v.judge.t : 'affidabilit\u00e0 ignota';
+        // fix 2026-09-17: scostamento medio storico per questo orizzonte --
+        // stesso dato gia' mostrato in decadimento.html (current_bias.mean),
+        // richiesto da M anche qui. Segno esplicito (+ o -), omesso se manca.
+        var biasLine = '';
+        if (v.bias != null) {
+          var biasTxt = (v.bias >= 0 ? '+' : '') + v.bias.toFixed(1) + ' kn';
+          biasLine = '<div style="font-size:0.6rem;color:#bbb;margin-bottom:4px">Scostamento medio storico: ' + biasTxt + '</div>';
+        }
         html = '<div style="font-family:\'DM Mono\',monospace;font-size:0.7rem;min-width:180px">' +
           '<div style="font-weight:bold;color:#00cc66;margin-bottom:4px">' + z.name + '</div>' +
           '<div style="color:#fff;font-size:0.62rem;margin-bottom:4px">Nostra previsione, ore ' + oraLabel + '</div>' +
           '<div style="margin-bottom:4px"><b>' + v.speed + ' kn</b> da ' + v.dir + '&deg;</div>' +
+          biasLine +
           '<div style="display:flex;align-items:center;gap:6px">' +
           '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + jCol + '"></span>' +
           '<span style="font-size:0.6rem;color:#fff">' + jTxt + '</span></div></div>';
@@ -893,4 +905,4 @@ setInterval(loadAll, REFRESH_MS);
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS PREVISIONI v3.6 -->
+<!-- Fine codice - NAUTILUS PREVISIONI v3.7 -->

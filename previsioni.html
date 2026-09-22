@@ -1,4 +1,4 @@
-<!-- NAUTILUS PREVISIONI v3.7 - mdisailor - 2026-09-17 - v3.7: aggiunto lo scostamento medio storico (current_bias.mean, stesso dato gia' mostrato in decadimento.html) nel popup delle zone, tra il dato previsto e il giudizio di affidabilita'. Su base v3.6 -->
+<!-- NAUTILUS PREVISIONI v3.9 - mdisailor - 2026-09-17 - v3.9: risolto popup vuoto per Livorno sul bottone dell'ora corrente -- causa vera in engine v2.14.28 (livorno_porto mancava da stations_snapshot, quarta lista di stazioni trovata incompleta in una settimana). Aggiunta anche la correzione di riferimento (+4.2kn) ai 3 punti che leggono stationsNow per Livorno (frecce, popup, export XLS) -- mancava qui, gia presente su bussola/mappa/mappa2. Su base v3.8 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Previsioni Vento v3.7</title>
+<title>NAUTILUS Previsioni Vento v3.9</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -64,7 +64,7 @@
 
 <header>
   <h1>NAUTILUS &mdash; Previsioni Vento</h1>
-  <span class="ver">v3.7</span>
+  <span class="ver">v3.9</span>
   <a class="back" href="/index2.html">&larr; cruscotto</a>
 </header>
 
@@ -694,7 +694,13 @@ function drawAll(){
       // bottone "ora": dato reale stazione, mai AI
       var st = state.stationsNow[z.biasStation];
       if (st && st.wind_kt != null && st.direction != null) {
-        tryDraw(z.lat, z.lon, st.direction, st.wind_kt, st.gust_kt, true);
+        // fix 2026-09-17: stessa correzione di riferimento gia' applicata a
+        // bussola/mappa/mappa2 -- qui mancava, trovata dopo che M ha segnalato
+        // il popup vuoto per Livorno (causa vera: livorno_porto mancava da
+        // stations_snapshot, v2.14.28 -- ma la correzione di visualizzazione
+        // andava comunque aggiunta anche qui, per coerenza).
+        var stSpd = (z.biasStation === 'livorno_porto') ? Math.round((st.wind_kt + 4.2) * 10) / 10 : st.wind_kt;
+        tryDraw(z.lat, z.lon, st.direction, stSpd, st.gust_kt, true);
         return;
       }
       // nessuna lettura reale recente -- cade sull'OM del punto griglia piu' vicino
@@ -754,10 +760,12 @@ function updateZoneMarkerPopups(){
     if (offset === 0) {
       var st = state.stationsNow[z.biasStation];
       if (st && st.wind_kt != null && st.direction != null) {
+        // fix 2026-09-17: stessa correzione di riferimento (vedi nota estesa in drawAll).
+        var stSpd = (z.biasStation === 'livorno_porto') ? Math.round((st.wind_kt + 4.2) * 10) / 10 : st.wind_kt;
         html = '<div style="font-family:\'DM Mono\',monospace;font-size:0.7rem;min-width:180px">' +
           '<div style="font-weight:bold;color:#00cc66;margin-bottom:4px">' + z.name + '</div>' +
           '<div style="color:#fff;font-size:0.62rem;margin-bottom:4px">Dato reale stazione, adesso</div>' +
-          '<div><b>' + st.wind_kt + ' kn</b> da ' + st.direction + '&deg;</div></div>';
+          '<div><b>' + stSpd + ' kn</b> da ' + st.direction + '&deg;</div></div>';
       } else {
         html = '<div style="font-family:\'DM Mono\',monospace;font-size:0.7rem;min-width:180px">' +
           '<div style="font-weight:bold;color:#00cc66;margin-bottom:4px">' + z.name + '</div>' +
@@ -776,7 +784,7 @@ function updateZoneMarkerPopups(){
         var biasLine = '';
         if (v.bias != null) {
           var biasTxt = (v.bias >= 0 ? '+' : '') + v.bias.toFixed(1) + ' kn';
-          biasLine = '<div style="font-size:0.6rem;color:#bbb;margin-bottom:4px">Scostamento medio storico: ' + biasTxt + '</div>';
+          biasLine = '<div style="margin-bottom:4px"><b>Scostamento medio: ' + biasTxt + '</b></div>';
         }
         html = '<div style="font-family:\'DM Mono\',monospace;font-size:0.7rem;min-width:180px">' +
           '<div style="font-weight:bold;color:#00cc66;margin-bottom:4px">' + z.name + '</div>' +
@@ -851,7 +859,9 @@ function exportXLS(){
         if (hb.offset === 0) {
           var st = state.stationsNow[z.biasStation];
           if (st && st.wind_kt != null) {
-            rows.push(['zona', z.name, z.lat, z.lon, 'stazione reale (' + (st.age_min != null ? st.age_min + 'min fa' : '?') + ')', st.wind_kt, st.direction, st.gust_kt]);
+            // fix 2026-09-17: stessa correzione di riferimento (vedi nota estesa in drawAll).
+            var stSpd = (z.biasStation === 'livorno_porto') ? Math.round((st.wind_kt + 4.2) * 10) / 10 : st.wind_kt;
+            rows.push(['zona', z.name, z.lat, z.lon, 'stazione reale (' + (st.age_min != null ? st.age_min + 'min fa' : '?') + ')', stSpd, st.direction, st.gust_kt]);
           } else {
             var g0 = nearestGridPoint(z.lat, z.lon);
             var gv0 = g0 ? omValueForOffset(g0, 0) : null;
@@ -905,4 +915,4 @@ setInterval(loadAll, REFRESH_MS);
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS PREVISIONI v3.7 -->
+<!-- Fine codice - NAUTILUS PREVISIONI v3.9 -->

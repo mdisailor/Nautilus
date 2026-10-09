@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.28 - by mdisailor engine - v2.14.28: aggiunta livorno_porto alla lista ssStations di action=stations_snapshot -- mancava, stessa causa del bug station_refresh di ieri (v2.14.27), una lista diversa pero -- quarta lista di stazioni indipendente trovata incompleta in una settimana (dopo srAllStations, mae_compare, bias_matrix). Causava previsioni.html a mostrare popup vuoto per Livorno quando lorario coincide con adesso (quel branch legge proprio stations_snapshot). Su base v2.14.27
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.30 - by mdisailor engine - v2.14.30: aggiunta action=livornometeo_submit (POST, k=mdi) -- salva una lettura manuale di Livornometeo (velocita+direzione, estratta da M con un bookmarklet dal sito reale) sotto un id SEPARATO (livornometeo_porto), mai dentro livorno_porto (Windfinder) -- stesso schema di bias_samples con OM/AROME inclusi, cosi funziona subito con bias_history/confronto-modelli.html senza modifiche. Aggiunto anche POST ai metodi CORS permessi (prima solo GET/OPTIONS) -- necessario perche il bookmarklet, in esecuzione sul dominio di livornometeo.it, possa chiamare la nostra API da un altro sito. Su base v2.14.29
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2001,7 +2001,7 @@ module.exports = async function handler(req, res) {
 // getNowRome spostata a livello modulo (audit A6) — vedi definizione sopra fetchECMWF
 
 res.setHeader('Access-Control-Allow-Origin', '*');
-res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
 res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 if (req.method === 'OPTIONS') return res.status(204).end();
 
@@ -2064,7 +2064,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.28', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.30', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -3102,6 +3102,88 @@ if (action === 'note_list') {
   }
 }
 
+// /api/engine?action=livornometeo_submit -- POST, richiede k=mdi. Aggiunta
+// 2026-10-09: salva una lettura MANUALE di Livornometeo (velocita+direzione),
+// estratta da M con un bookmarklet direttamente dal sito (mai scraping
+// automatico -- il bookmarklet legge solo cio' che il browser di M ha gia'
+// ricevuto per la sua visita, nessuna richiesta nuova al sito). Salvata sotto
+// un id SEPARATO ('livornometeo_porto'), mai dentro 'livorno_porto'
+// (Windfinder) -- principio del progetto: non mescolare mai due fonti fisiche
+// diverse nello stesso contenitore. Stesso schema/forma di bias_samples usato
+// da scrape_web2 e le altre fonti (station+om+arome+delta), cosi' questo nuovo
+// "finto scraper manuale" si comporta come una fonte vera per tutti gli
+// strumenti gia' esistenti (bias_history, confronto-modelli.html, ecc) --
+// nessun ricalcolo necessario altrove per leggerlo.
+if (action === 'livornometeo_submit') {
+  try {
+    var lsK = req.query.k || '';
+    if (lsK !== 'mdi') return res.status(401).json({ error: 'Unauthorized' });
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Serve POST con corpo JSON {speed, direction}' });
+    var lsBody = req.body || {};
+    var lsSpeed = parseFloat(lsBody.speed);
+    var lsDir = parseFloat(lsBody.direction);
+    if (isNaN(lsSpeed) || isNaN(lsDir)) return res.status(400).json({ error: 'speed e direction richiesti, numerici' });
+    var LS_LAT = 43.5497, LS_LON = 10.2950; // Livornometeo Porto -- stesse coordinate gia' usate in mappa.html/mappa2.html (BUOYS: lv_porto)
+
+    var lsOmUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + LS_LAT + '&longitude=' + LS_LON + '&current=wind_speed_10m,wind_gusts_10m,wind_direction_10m,surface_pressure&wind_speed_unit=kn';
+    var lsAromeUrl = 'https://api.open-meteo.com/v1/meteofrance?latitude=' + LS_LAT + '&longitude=' + LS_LON + '&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m&wind_speed_unit=kn&models=arome_france&forecast_days=1';
+    var lsOmPromise = fetch(lsOmUrl).then(function(r){ return r.json(); }).catch(function(){ return null; });
+    var lsAromePromise = fetch(lsAromeUrl).then(function(r){ return r.json(); }).catch(function(){ return null; });
+    var lsParallel = await Promise.all([lsOmPromise, lsAromePromise]);
+    var lsOmJson = lsParallel[0], lsAromeJson = lsParallel[1];
+    var lsOm = {
+      wind_kt:     (lsOmJson && lsOmJson.current) ? Math.round(lsOmJson.current.wind_speed_10m  * 10) / 10 : null,
+      gust_kt:     (lsOmJson && lsOmJson.current) ? Math.round(lsOmJson.current.wind_gusts_10m  * 10) / 10 : null,
+      direction:   (lsOmJson && lsOmJson.current) ? lsOmJson.current.wind_direction_10m : null,
+      pressure_mb: (lsOmJson && lsOmJson.current) ? Math.round(lsOmJson.current.surface_pressure * 10) / 10 : null
+    };
+    var lsArome = { wind_kt: null, gust_kt: null, direction: null };
+    if (lsAromeJson && lsAromeJson.hourly && Array.isArray(lsAromeJson.hourly.time)) {
+      var lsNowMs = Date.now();
+      var lsBestIdx = -1, lsBestDiff = Infinity;
+      for (var lsJ = 0; lsJ < lsAromeJson.hourly.time.length; lsJ++) {
+        var lsDiff = Math.abs(new Date(lsAromeJson.hourly.time[lsJ] + 'Z').getTime() - lsNowMs);
+        if (lsDiff < lsBestDiff) { lsBestDiff = lsDiff; lsBestIdx = lsJ; }
+      }
+      if (lsBestIdx !== -1) {
+        var lsW = lsAromeJson.hourly.wind_speed_10m ? lsAromeJson.hourly.wind_speed_10m[lsBestIdx] : null;
+        var lsG = lsAromeJson.hourly.wind_gusts_10m ? lsAromeJson.hourly.wind_gusts_10m[lsBestIdx] : null;
+        var lsD = lsAromeJson.hourly.wind_direction_10m ? lsAromeJson.hourly.wind_direction_10m[lsBestIdx] : null;
+        lsArome = {
+          wind_kt: (lsW !== null && lsW !== undefined) ? Math.round(lsW * 10) / 10 : null,
+          gust_kt: (lsG !== null && lsG !== undefined) ? Math.round(lsG * 10) / 10 : null,
+          direction: (lsD !== null && lsD !== undefined) ? Math.round(lsD) : null
+        };
+      }
+    }
+    var lsSample = {
+      ts: new Date().toISOString(),
+      station: { wind_kt: lsSpeed, gust_kt: null, direction: lsDir, direction_txt: null, source: 'livornometeo_manual' },
+      om: lsOm,
+      arome: lsArome,
+      delta: lsOm.wind_kt !== null ? { wind_kt: Math.round((lsSpeed - lsOm.wind_kt) * 10) / 10 } : null,
+      delta_arome: lsArome.wind_kt !== null ? { wind_kt: Math.round((lsSpeed - lsArome.wind_kt) * 10) / 10 } : null
+    };
+    var lsKey = 'bias_samples:livornometeo_porto';
+    var lsExisting = await kvGet(lsKey, kvUrl, kvToken);
+    var lsList = Array.isArray(lsExisting) ? lsExisting : [];
+    lsList.unshift(lsSample);
+    if (lsList.length > 100) lsList.length = 100;
+    await kvSet(lsKey, lsList, 31536000, kvUrl, kvToken);
+    // Archivio persistente -- nessun throttle (a differenza dei cron ogni 30
+    // min): qui i campioni sono manuali e rari, ogni invio e' prezioso.
+    var lsBaKey = 'bias_archive:livornometeo_porto';
+    var lsBaExisting = await kvGet(lsBaKey, kvUrl, kvToken);
+    var lsBaList = Array.isArray(lsBaExisting) ? lsBaExisting : [];
+    lsBaList.unshift(lsSample);
+    if (lsBaList.length > 3000) lsBaList.length = 3000;
+    await kvSet(lsBaKey, lsBaList, 31536000, kvUrl, kvToken);
+    return res.status(200).json({ ok: true, saved: lsSample });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
 if (action === 'mnw_web_test') {
   // Testa fetch pagine pubbliche MeteoNetwork per stazioni senza licenza API
   try {
@@ -3966,7 +4048,7 @@ if (action === 'agent') {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: 'claude-haiku-5-5',
         max_tokens: 1800,
         system: agSystem,
         messages: agMessages
@@ -4595,7 +4677,7 @@ if (action === 'predict') {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: req.query.fast === '1' ? 'claude-haiku-4-5-20251001' : 'claude-sonnet-4-6',
+        model: req.query.fast === '1' ? 'claude-haiku-5-5' : 'claude-sonnet-4-6',
         max_tokens: req.query.fast === '1' ? 300 : 600,
         system: req.query.fast === '1' ? systemPromptFast : systemPrompt,
         messages: [{ role: 'user', content: prompt }]
@@ -6337,7 +6419,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.28 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.30 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -6468,4 +6550,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.28
+// Fine codice - NAUTILUS ENGINE v2.14.30

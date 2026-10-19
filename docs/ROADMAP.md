@@ -1,7 +1,7 @@
 # NAUTILUS — Roadmap Attività (ROADMAP.md)
 
 Scaletta ordinata con dipendenze, stato e decisioni aperte.
-Aggiornato: 2026-09-17
+Aggiornato: 2026-10-17
 
 ---
 
@@ -153,7 +153,7 @@ Nasce da due scoperte di luglio: le previsioni non decadono come ci si aspettava
 | D6 | Come aumentare il dettaglio della griglia? (2026-07-25) | Ridurre il passo globale (0.25°→0.125°) **quadruplica** i punti (~400→~1600) e in passato ha bloccato la mappa: `action=grid` fa **una sola** chiamata OM per batch di 100 coordinate, quindi il collo di bottiglia è il peso della singola risposta e il timeout Vercel. Alternativa già collaudata: **punti extra mirati** in `GRID_EXTRA_POINTS` (28 attivi, nessun problema). Terza via discussa: caricamento progressivo a partire dalla vista corrente o dal punto cliccato | Non urgente — valutare quando serve davvero più dettaglio |
 | D7 | Quando riattivare il testo AI? | Tagliato in `predict` e `situazione` per la fase di raccolta dati. Riattivarlo costa (~$18/mese l'insieme, l'output pesa 5× l'input) | Quando lo storico sarà maturo (vedi criteri in Fase 6) |
 | D8 | Versione nel nome file vs link raw GitHub | La convenzione `METODOLOGIA-v1.4.md` rompe i link raw fissi usati a inizio sessione. Opzioni: (a) nomi fissi su GitHub, versione solo negli zip di lavoro; (b) versionare anche su GitHub aggiornando i link in CLAUDE.md a ogni rilascio | Da decidere |
-| D9 | Promuovere `mappa2.html` a sostituire `mappa.html`? (1/8) | mappa2 ha lo sfondo colorato bilineare (stile Windy) e un'interfaccia più semplice (2 tasti invece di 5). In prova affiancata dal 1/8, nessuna decisione presa. Se promossa, serve un passaggio esplicito (non una sovrascrittura silenziosa) — probabilmente rinominare i file e aggiornare tutti i riferimenti | Dopo un periodo d'uso reale |
+| D9 | Promuovere `mappa2.html` a sostituire `mappa.html`? (1/8) | **Deciso di fatto (17/10)**: M ha confermato di non usare più `mappa.html` — tutto il lavoro nuovo va solo su `mappa2.html` (confermato: `mappa.html` ferma dal 17/9, nessun lavoro ulteriore). M vorrebbe anche unificare gli URL (mappa2 "brutto" come nome) ma ha detto esplicitamente di rimandare, non è urgente | Uso reale già in corso. **Resta da fare**: l'unificazione vera e propria (nome URL, confronto riga-per-riga per verificare che mappa2 sia un superset, aggiornare index2.html) — rimandata su richiesta di M |
 | D10 | Sostituire `populonia_cfr` con `canale_piombino` (tsc228) come `bias_station` del canale? (12/8) | tsc228 tornata a trasmettere vento reale dopo settimane muta, confermato stabile su 2 controlli lo stesso giorno. `canale_piombino` (zona) ha oggi il bias peggiore e più persistente di tutte le 25 zone — coerente con l'ipotesi che Populonia (164m) sia il riferimento sbagliato | Non riverificato dopo il 12/8 — controllare stabilità prima di decidere |
 | D11 | Verificare coordinate/quota di Orbetello e Bonifacio Cap Pertusato (12/8) | `bias_om` coincide esattamente con `mae_om` su 100 campioni per entrambe — firma statistica anomala (errore sempre stesso segno, mai un'eccezione), non tipica di un bias vero. `reliability_weight` già il più basso del sistema per entrambe (0.16 e 0.22). **Nota 28/8**: Bonifacio Pertusato usa lo stesso parser Windfinder appena corretto (bug unità di misura) — riverificare l'anomalia con dati puliti post-fix, potrebbe essere in parte o del tutto spiegata da questo, non da coordinate/quota | Prossima sessione utile, con dati successivi al 28/8 |
 | D12 | Cosa spiega il pattern ~20% slot trovati (`history-check.html`, 26/8)? | Quasi tutte le zone a richiesta 336h mostrano ~137/672 slot — troppo simile su zone indipendenti per essere caso. Non spiegato dal blocco Redis (durato ~2 ore, traffico del 23/8 normale). Barcaggio e Alberese diverse: 0/672 assoluto | Tra qualche giorno, con dati puliti dopo il fix `getWindHistory` |
@@ -166,14 +166,19 @@ Nasce da due scoperte di luglio: le previsioni non decadono come ci si aspettava
 | D19 | Propagare la correzione di riferimento Livorno anche a `previsioni.html`? | ✅ **Risolto 17/9 — nessun codice necessario.** `previsioni.html` legge `forecast_hN` da `predict_history`, già corretto lato server (v2.14.26) — la propagazione era già completa, bastava verificarlo leggendo il codice | Chiuso |
 | D20 | Mostrare in `previsioni.html` quanto è "valida"/affidabile una previsione? | ✅ **Costruito 17/9** (previsioni v3.4→v3.6) — prima versione con un pallino sul canvas, scartata dopo test reale (troppo piccolo, colori "mai rassicuranti" senza contesto). Riprogettato: marker Leaflet invisibile per zona, tocco apre un popup con orario/dato/giudizio per intero (colore+testo), stesso stile di `mappa2.html`. Durante il test emerso e risolto anche un bug mobile preesistente (canvas del colore che si svuotava al movimento della mappa senza ridipingersi) | Chiuso, monitorare l'uso pratico |
 | D21 | Viareggio ha lo stesso doppio Livorno/Livornometeo (stazione esposta vs riparata)? | Notato 17/9 da M: "Viareggio" (MeteoNetwork, non quella usata come `bias_station`) è posizionata sulla mappa all'ingresso del porto — stesso schema fisico di Livorno/Livornometeo. **Accantonato su richiesta esplicita**, non indagato | Da riprendere se si vuole approfondire, nessuna urgenza |
+| D22 | Come correggere Livorno per il vento sostenuto, visto che +4.2kn fisso non basta? | Confermato con un secondo episodio (12/10: Livornometeo 16.5kn, OM 2.5, AROME 6.2) — anche i modelli, non solo Windfinder, faticano col vento forte qui. 10 giorni di dati veri raccolti via segnalibro (9-17/10) | **Nessun fix ancora** — continuare a raccogliere, specialmente episodi di vento forte |
+| D23 | Costruire un avviso "dati da verificare" per vento sostenuto a Livorno? | **Molto rafforzato (17/10)**: su 10 punti, AROME ha scarto medio assoluto 2.4kn contro OM 4.1kn (1.5 vs 3.0 escludendo l'episodio di vento forte) — OM sottostima sempre (10/10 punti), AROME quasi non distorto. Il quadro per AROME come innesco è ormai solido | Non ancora costruito — il dato supporta la scelta, manca solo la decisione di procedere |
+| D24 | Sistema di raccolta Livornometeo: segnalibro + stazione separata | ✅ **Costruito (9-10/10)**: bookmarklet su iPhone/iPad (legge Highcharts via DOM, nessuno scraping — M visita il sito, lo script legge solo cio' che il browser ha gia' ricevuto) invia a `action=livornometeo_submit` (engine v2.14.30), salvato sotto `livornometeo_porto`, separato da Windfinder. 4 promemoria giornalieri (07:05/13:05/16:15/19:15) impostati sul telefono di M. Propagato come valore "principale quando fresco" (soglia 30min) su index/mappa2/previsioni (16-17/10) | Chiuso come sistema — resta solo continuare a usarlo e accumulare dati |
 
 ---
 
-## Prossimi passi immediati (aggiornato 17/09/2026)
+## Prossimi passi immediati (aggiornato 17/10/2026)
 
-1. **Barcaggio e Alberese** (0/672 assoluto in `history-check.html`) — `action=snap_debug&zone=X&k=mdi`, ancora mai fatto
-2. **Riverificare Orbetello e Bonifacio Pertusato con dati puliti post-fix Windfinder** (D11) — priorità alta, il bug unità di misura potrebbe spiegare parte o tutta l'anomalia di agosto
-3. **Continuare a monitorare la correzione Livorno con `confronto-modelli.html`** (D16) — cercare specificamente un episodio di vento forte
+1. **Continuare a raccogliere con il segnalibro Livornometeo** (D22/D23) — priorità del momento, ormai un sistema rodato (4 letture/giorno). Specialmente cercare altri episodi di vento sostenuto
+2. **Decidere se costruire l'avviso D23** (AROME come innesco) — il dato ormai lo supporta bene, manca solo la decisione di procedere
+3. **Chiarire il mistero di `action=situazione`** (isFast, Haiku ancora presente nonostante la documentazione dicesse che non chiama più l'AI dal v2.14.9) — segnalato 9/10, mai approfondito
+2. **Barcaggio e Alberese** (0/672 assoluto in `history-check.html`) — `action=snap_debug&zone=X&k=mdi`, ancora mai fatto
+3. **Riverificare Orbetello e Bonifacio Pertusato con dati puliti post-fix Windfinder** (D11) — priorità alta, il bug unità di misura potrebbe spiegare parte o tutta l'anomalia di agosto
 4. **Decidere su una correzione retroattiva dello storico Windfinder** (D14) — non affrontato
 5. **Verificare il pattern ~20% slot in `history-check.html`** (D12) — appena ci sono dati puliti
 6. **Decidere su `bias_station` di quercianella** (D13) — non più rimandabile ora che genera previsioni reali
@@ -187,7 +192,7 @@ Nasce da due scoperte di luglio: le previsioni non decadono come ci si aspettava
 14. **Continuare la raccolta dati con vento sostenuto** — sblocca 6.1, 6.3, 6.5, 6.8. **Non riprovare** split-bias, decadimento esponenziale, o selettore AROME finché lo storico non è molto più ampio
 15. Audit sicurezza — giro completo ancora da chiudere
 16. `punta_ala`: zona senza stazione reale entro 20km
-17. **Decidere su `mappa2.html`** (D9) dopo un periodo d'uso reale
+17. **Unificare `mappa.html`/`mappa2.html`** (D9) — M ha già deciso di usare solo mappa2, resta solo l'unificazione tecnica (nome URL, verifica riga-per-riga, index2.html) — rimandata su richiesta esplicita, non urgente
 18. **Estendere il monitoraggio automatico oltre `getWindHistory`** — non urgente
 19. **Riprendere D21 (Viareggio)** se si vuole approfondire — non urgente
 

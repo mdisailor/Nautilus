@@ -1,7 +1,31 @@
 # NAUTILUS — Metodologia di Calcolo (METODOLOGIA.md)
 
 Documento tecnico-scientifico sulle logiche di calcolo, fonti e assunzioni.
-Versione documento: v2.4 — Aggiornato: 2026-09-17 (nuova sezione 19: propagare la correzione Livorno su bussola/mappa/mappa2/previsioni — due bug indipendenti sullo stesso sintomo, ogni pagina va letta non assunta uguale, un bug di canvas preesistente reso visibile da una funzionalità nuova)
+Versione documento: v2.7 — Aggiornato: 2026-10-17 (aggiunta una CHECKLIST OPERATIVA in cima al documento, prima della sezione 1 — controlli da fare sempre su ogni file, non la cronaca di un bug specifico come le sezioni numerate. Risposta alla domanda di M su cosa serva registrare perché una sessione futura lavori con la stessa precisione fin dal primo colpo)
+
+---
+
+## CHECKLIST OPERATIVA — leggere prima di modificare o consegnare qualunque file
+
+Non è la cronaca di un bug specifico (quella è nelle sezioni numerate sotto) — è l'elenco dei controlli da fare **sempre**, su ogni file, indipendentemente da cosa ha scatenato la modifica di oggi. Maturati a forza di errori reali ripetuti più volte in sessioni precedenti (17/9-17/10 2026), mai scritti prima come procedura, solo come racconto del singolo bug che li aveva causati.
+
+**Prima di modificare un file:**
+- Leggere la prima riga per confermare la versione caricata — non presumere di sapere cosa contiene da conversazioni precedenti
+- Se due file sembrano simili (es. un fork come `mappa.html`/`mappa2.html`), verificarli riga per riga sul punto specifico da modificare, non presumerli identici solo perché "dovrebbero esserlo"
+
+**Durante la modifica:**
+- Dopo 2 tentativi falliti nel capire una struttura sconosciuta (dati, HTML, comportamento di una pagina esterna), smettere di indovinare un terzo tentativo — costruire invece uno strumento diagnostico che mostri la struttura vera, poi agire su quello
+- Quando si aggiunge una logica che richiede `await`/`async` dentro un ciclo su un array, verificare se è un `forEach` — non lo aspetta correttamente, va convertito in un `for` tradizionale
+
+**Prima di consegnare un file:**
+- Validare la sintassi JavaScript (estrarre ogni blocco `<script>`, eseguire `node --check`) — sempre, anche per modifiche piccole
+- Verificare che il commento di chiusura ("Fine codice") sia davvero sull'ultima riga del file (`wc -l` + `tail -1`) prima di aggiornarlo per numero di riga — più volte si è rivelato un commento vecchio, non alla fine vera del file
+- Contare con `grep` tutti i punti dove compare il numero di versione (di solito 3-4: commento iniziale, `<title>`, un'etichetta a video, il commento di chiusura) prima di affermare che sono coerenti — non fidarsi a memoria
+- Se il testo da inserire contiene apostrofi o virgolette (frequente in italiano), preferire uno script Python a `sed` — `sed` si è rotto più volte proprio su questo
+- Verificare che ogni ID HTML referenziato in JavaScript (`getElementById`, `querySelector`) esista davvero nel markup, e viceversa — un conteggio incrociato con `grep` basta
+
+**Quando si propaga una modifica su più file** (es. la stessa correzione su più pagine):
+- Non presumere che la stessa modifica vada bene identica ovunque — leggere ogni file, verificare come legge/mostra il dato in questione, prima di copiare la stessa patch
 
 ---
 
@@ -580,7 +604,7 @@ Il numero di versione non va solo *dentro* il file, va anche **nel nome del file
 
 | Tipo | Formato | Esempio |
 |---|---|---|
-| Documenti `.md` | `NOME-vX.Y.md` | `METODOLOGIA-v2.4.md` |
+| Documenti `.md` | `NOME-vX.Y.md` | `METODOLOGIA-v2.7.md` |
 | Engine | `engine-vXYYZZ.zip` | `engine-v21409.zip` (= v2.14.9) |
 | App | `index-vXYZZ.zip` | `index-v5739.zip` (= v5.7.39) |
 | Mappa | `mappa-vXYZZ.zip` | `mappa-v1687.zip` (= v1.6.87) |
@@ -867,3 +891,45 @@ La stessa correzione (mostrare il valore Livorno aggiustato) ha richiesto rispos
 Aggiungere marker interattivi a `previsioni.html` (per D20) ha esposto un bug preesistente e mai notato: ridimensionare un elemento `<canvas>` lo svuota sempre, anche quando le dimensioni non cambiano — è un comportamento del browser, non un errore di programmazione. Il codice di `previsioni.html` ridimensionava il canvas del colore di sfondo a ogni spostamento della mappa, ma non lo ridipingeva più. Prima dei marker, gli spostamenti della mappa erano relativamente rari (solo quando l'utente pan/zoomava attivamente); dopo, ogni tocco su un marker faceva spostare automaticamente la mappa per far entrare il popup in vista (comportamento di default di Leaflet), moltiplicando le occasioni in cui il bug si manifestava — da "raro, mai segnalato" a "capita al secondo tocco".
 
 **Lezione**: una funzionalità nuova può rendere visibile un bug vecchio senza averlo causato — il fatto che il sintomo sia comparso "dopo" una modifica non implica che la modifica ne sia la causa diretta, vale la pena controllare se il nuovo codice ha solo reso più frequente un problema di innesco già presente.
+
+---
+
+## 20. Il primo episodio di vento forte mette in crisi la correzione fissa — e un innesco quasi circolare scoperto per tempo (8 ottobre 2026)
+
+### Una correzione tarata su un regime non si estende automaticamente a un altro
+
+La correzione di riferimento Livorno (+4.2kn) era stata calcolata su 22 punti raccolti con vento debole-moderato — esplicitamente provvisoria, con l'avviso scritto fin dall'inizio che mancava un episodio di vento sostenuto per confermarla. Il primo episodio vero (8/10) ha confermato esattamente il rischio previsto: lo scarto reale saliva a una media di ~15kn (non 4.2), e il rapporto tra i due non era nemmeno costante (1.6×-4× a seconda del momento) — scartando anche l'ipotesi più semplice di ripiego (un moltiplicatore fisso al posto di un addendo fisso).
+
+**Non si tratta solo di un numero da aggiustare**: la stessa identica correzione automatica già esistente da mesi (`predict_bias`) è tarata sulla stessa fonte (Windfinder) che ora sappiamo attenuare il segnale proprio quando il vento sale — quindi il problema non è isolato al dato "live" mostrato in bussola/mappa, probabilmente riguarda anche le previsioni stesse generate per quella zona.
+
+### Un innesco per un avviso rischiava la stessa circolarità già vista altrove
+
+Proposto un avviso "vento forte, dati da verificare" per Livorno, con OM come innesco (sembrava un segnale indipendente dal problema che stiamo misurando). Controllando contro gli stessi dati dell'episodio appena raccolto, **OM si è rivelato soffrire dello stesso problema di sottostima nello stesso momento** — un avviso tarato su OM non sarebbe mai scattato proprio quando serviva di più. Stessa famiglia di errore già vista nella sezione 18 (uno strumento di verifica che condivide la fonte con quello che sta verificando non misura quello che sembra) — qui per fortuna **controllato prima di costruire**, non scoperto dopo.
+
+**AROME è emerso, nello stesso episodio, come segnale preliminarmente più vicino alla realtà** (21-22kn calcolati dai dati raccolti, contro Livornometeo che segnava 25-30 nello stesso momento) — ma resta un solo episodio, non ancora una base per decidere con sicurezza.
+
+### Lezione di metodo
+
+**Prima di scegliere un innesco/segnale per qualcosa, controllarlo contro gli stessi dati che ha motivato la domanda** — non presumere che una fonte "diversa" sia automaticamente indipendente dal problema. OM sembrava un'alternativa ovvia a Windfinder, ma condivideva lo stesso punto cieco nello stesso momento. Il controllo è costato un confronto in più con dati già raccolti, non una nuova raccolta — un controllo economico che ha evitato di costruire uno strumento inutile.
+
+**Deciso di non agire su un solo episodio**, né per la correzione né per l'avviso — stesso principio applicato in tutto questo progetto fin dall'inizio (split mattina/pomeriggio, decadimento esponenziale, il +4.2 stesso). Un episodio netto e chiaro resta comunque un solo punto dati.
+
+---
+
+## 21. "Chi visita il sito" conta più di "quanto è automatico lo script" — la distinzione che ha sbloccato Livornometeo (9-10 ottobre 2026)
+
+### La domanda che sembrava la stessa di sempre, e non lo era
+
+Per settimane, ogni proposta di leggere Livornometeo in automatico era stata rifiutata con lo stesso principio: il sito vieta esplicitamente l'accesso automatico (`robots.txt`), e questo non cambia a seconda della tecnica usata (testo o immagine, scraper semplice o un'IA che "guarda lo schermo" — anche quest'ultima, proposta e scartata il 9/10, resta comunque un programma che visita il sito senza una persona davanti allo schermo in quel momento).
+
+M ha proposto una variante che sembrava la stessa cosa in superficie — "uno script che estrae dati premendo un tasto" — ma con un dettaglio decisivo mai messo a fuoco prima: **lui avrebbe già avuto il sito aperto, nel suo browser, come persona**. Lo script sarebbe girato *dopo*, sulla pagina già caricata per la sua visita — non una nuova richiesta al sito, nessuna "visita" che il sito stesso non avesse già concesso.
+
+### La distinzione tecnica che separa i due casi
+
+Il `robots.txt` regola **chi può chiedere la pagina al server** (nuove richieste HTTP — crawler, scraper, bot). Un **bookmarklet** (uno script eseguito nel browser, su una pagina già caricata da una visita umana) non fa nessuna richiesta nuova — legge solo quello che il browser ha già ricevuto. Stesso principio per cui "ispeziona elemento" o un lettore per non vedenti non violano nulla: leggono quello che è già arrivato sullo schermo della persona, non vanno a prenderlo da soli.
+
+**La domanda giusta da farsi, generalizzabile oltre questo caso**: *la richiesta al server l'ha fatta una persona, in un momento in cui c'era davvero davanti allo schermo?* Se sì, qualunque script giri *dopo*, sulla pagina già lì, resta dalla parte giusta — indipendentemente da quanto sia automatizzata o sofisticata la lettura che segue (fino a includere un'IA capace di leggere un grafico). Se la richiesta stessa parte da un programma senza una persona a monte, nessuna tecnica di lettura successiva lo rende accettabile.
+
+### Perché vale la pena scriverlo come principio, non solo come eccezione
+
+Il rischio concreto era opposto a quello affrontato finora: non "cedere per comodità" (scartato subito, giustamente, nelle proposte precedenti), ma **continuare a rifiutare qualcosa di legittimo** per non aver distinto con abbastanza precisione *cosa* rendeva problematiche le proposte precedenti. Il principio corretto non era "mai nessuno script su Livornometeo" — era "mai uno script che visita il sito al posto di una persona". Una volta isolato il principio vero, la soluzione corretta (il bookmarklet) è diventata ovvia, e ha sbloccato un intero filone di lavoro (D24) che era rimasto fermo per settimane.

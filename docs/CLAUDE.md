@@ -1,11 +1,79 @@
 # NAUTILUS — Contesto Sessione (CLAUDE.md)
 
+> **Prima di modificare o consegnare qualunque file**: leggere la CHECKLIST OPERATIVA in cima a METODOLOGIA.md (prima della sezione 1) — controlli da fare sempre, non la cronaca di un bug specifico. Aggiunta il 17/10 dopo una domanda esplicita di M su cosa serva registrare perché una sessione futura lavori con la stessa precisione fin dal primo colpo.
 
-## PUNTO DI RIPRESA — 2026-09-17
+## PUNTO DI RIPRESA — 2026-10-17
 
-**Versioni in produzione**: engine **v2.14.27** · index **v5.7.42** · mappa **v1.6.90** · mappa2 **v1.5** · previsioni **v3.6** · index2 **v1.4** · history-check **v1.0** · confronto-modelli **v1.5** · export **v1.4** · decadimento **v1.3**
+**Versioni in produzione**: engine **v2.14.30** · index **v5.7.43** · mappa **v1.6.90 (non più aggiornata, M non la usa più)** · mappa2 **v1.6** · previsioni **v3.10** · index2 **v1.4** · history-check **v1.0** · confronto-modelli **v1.5** · export **v1.4** · decadimento **v1.3**
 
-### Fase attuale (17/9): la correzione Livorno propagata ovunque, due bug di lunga data trovati per strada, D20 costruito
+### Fase attuale (9-17/10): Livornometeo diventa una fonte vera — segnalibro, stazione separata, propagazione ovunque, primi 10 giorni di dati
+
+**La svolta della settimana**: costruito un modo per avere letture **vere** di Livornometeo nel sistema, non più solo screenshot letti a occhio. Percorso in tre tappe, con un chiarimento etico importante nel mezzo.
+
+**1. Il chiarimento etico** (9/10): M ha chiesto uno script che estraesse dati da Livornometeo al tocco di un tasto. Il primo istinto è stato rifiutare (stesso principio di sempre: niente accesso automatico, il `robots.txt` lo vieta). Ma M ha precisato un dettaglio che cambia tutto: **lui stesso apre il sito nel suo browser** — nessuna nuova richiesta al server, solo uno script che legge quello che il browser ha già ricevuto per quella visita umana. Distinzione netta: un **bookmarklet** (segnalibro che esegue codice sulla pagina già aperta) non è scraping, è equivalente a "ispeziona elemento" o un lettore per non vedenti. Approvato su questa base, non aggirato.
+
+**2. Costruito il bookmarklet, per tentativi guidati dal riscontro reale** (9/10): Livornometeo usa Highcharts per i suoi grafici. Primi tentativi hanno fallito in vari modi istruttivi: cercava la pagina sbagliata (home page invece del grafico vento), poi cercava solo un grafico quando ce n'erano due (velocità + direzione, quadranti "gauge" separati), poi la direzione si è rivelata non essere nei dati Highcharts del tutto ma un testo disegnato a parte (classe `highcharts-data-label`). Versione finale: legge quel testo direttamente dal DOM, funziona in modo affidabile.
+
+**3. Il bookmarklet finale invia direttamente, un tocco solo** (9/10): esteso per fare anche il `POST` alla nostra API (`action=livornometeo_submit`, nuova, engine v2.14.30) — apri Livornometeo, tocchi il segnalibro, ricevi conferma "Salvato!" a schermo. Nessun copia-incolla, nessun passaggio da chat separate.
+
+**Decisioni di disegno prese insieme, prima di costruire**:
+- **Stazione separata** (`livornometeo_porto`), mai dentro `livorno_porto` (Windfinder) — stesso principio di sempre, non mescolare due fonti fisiche diverse
+- **Stesso schema di `bias_samples`** usato da tutte le altre fonti (con OM/AROME già confrontati automaticamente) — funziona subito con `bias_history`/`confronto-modelli.html` senza modifiche
+- **Soglia di freschezza: 30 minuti.** Quando esiste una lettura più recente di 30 minuti, diventa il valore **principale** mostrato (velocità E direzione vere) al posto della stima +4.2 (D16); oltre i 30 minuti, si torna alla stima come prima
+- **Promemoria, non automazione**: 4 sveglie giornaliere impostate sul telefono di M (07:05, 13:05, 16:15, 19:15) — le prime due per costruire il dataset generale, le ultime due scelte apposta per cadere esattamente su un orizzonte di previsione (H+9/H+3 alle 16:15, H+12/H+6 alle 19:15), per confrontare previsione vs realtà, non solo stima vs realtà
+
+**Propagazione completata** (16-17/10): `index.html` (v5.7.43, nuova stazione nella lista "Stazioni Reali vs OM"), `mappa2.html` (v1.6, stessi 5 punti toccati a settembre, nuova funzione condivisa `getLivornometeoOverride()`), `previsioni.html` (v3.10, stessi 3 punti, stessa funzione — ha richiesto convertire due cicli `forEach` in `for` tradizionale per poter aspettare la risposta prima di continuare). **`mappa.html` lasciata ferma deliberatamente** — M ha detto chiaramente di non usarla più, nessun lavoro sprecato lì.
+
+**Haiku 5.5** (9/10, engine v2.14.29): aggiornato da Haiku 4.5 a 5.5 in `action=predict` (percorso `fast=1`, produzione) e `action=agent` — taglio di prezzo del 90% confermato sulla pagina ufficiale Anthropic, risparmio assoluto piccolo (si usava già Haiku, non Sonnet) ma gratis da ottenere. **Lasciata intatta una terza occorrenza in `action=situazione`** (variabile `isFast`) — mistero non ancora chiarito: la documentazione diceva che `situazione` non chiama più l'AI dal v2.14.9, ma il codice per farlo c'è ancora. Da investigare quando capita.
+
+**Primi 10 giorni di dati Livornometeo veri (9-17/10) — risultato netto**: AROME batte OM in modo consistente, non più solo un sospetto da un episodio.
+
+| | OM | AROME |
+|---|---|---|
+| Scarto medio (con segno) | +3.9 kn | +1.4 kn |
+| Scarto medio assoluto | 4.1 kn | 2.4 kn |
+| Scarto medio assoluto, **senza** l'episodio di vento forte del 12/10 | 3.0 kn | **1.5 kn** |
+
+OM sottostima **sempre**, su tutti e 10 i punti, mai una volta al contrario — un bias sistematico, non rumore. AROME oscilla sopra e sotto, quasi non distorto una volta tolto l'episodio di vento forte. **Un secondo episodio di vento forte** (12/10: Livornometeo 16.5kn, OM solo 2.5, AROME 6.2) conferma che il problema del vento forte è più ampio di Windfinder soltanto — anche i modelli faticano parecchio su questo punto specifico.
+
+**Deciso**: continuare a raccogliere, nessuna decisione presa ancora su D22 (correzione) o D23 (avviso) — ma il quadro per D23 (AROME come innesco invece di OM) si è rafforzato parecchio con questi dati.
+
+---
+
+### Retrospettiva (8/10): il primo episodio di vento forte mette in crisi la correzione fissa
+
+**Completati, dopo il 17/9, due piccoli giri su `previsioni.html`/engine** (v3.7→v3.9, engine v2.14.28): lo scostamento medio nel popup zona reso leggibile (era piccolo e grigio); una **quarta** lista di stazioni trovata incompleta in `action=stations_snapshot` (`livorno_porto` mancava, stesso schema di `station_refresh` il giorno prima) — causava il popup vuoto per Livorno quando l'orario del bottone coincide con l'ora corrente; aggiunta anche lì la correzione +4.2 che mancava (bussola/mappa/mappa2 già la avevano, qui no).
+
+**Il primo vero episodio di vento sostenuto a Livorno (8/10, pomeriggio-sera) rivela un problema serio**: il nostro dato grezzo (Windfinder) oscillava 5.8-15.9kn, Livornometeo nello stesso periodo mostrava **19-32kn** — uno scarto medio vicino a **+15kn**, non i +4.2kn su cui è tarata la correzione attuale (calcolata solo su vento debole-moderato). Il rapporto tra i due non è nemmeno costante (varia da ~1.6× a oltre 4× a seconda del momento) — non basta un semplice moltiplicatore al posto del numero fisso, serve capire meglio la forma del problema.
+
+**Conseguenza più seria del previsto**: la correzione `predict_bias` esistente (quella automatica, da mesi) è tarata sulla stessa fonte Windfinder che ora sappiamo attenuare il segnale proprio quando il vento sale — **le previsioni stesse per Livorno sono probabilmente sottostimate con vento sostenuto**, non solo il dato "live" mostrato in bussola/mappa. Non ancora quantificato con precisione, ma il meccanismo è chiaro.
+
+**Deciso**: nessun fix ora. Un solo episodio non basta a scegliere la forma giusta della correzione (fissa, proporzionale, a soglia) — stesso principio applicato sempre in questo progetto. **Si continua a raccogliere dati**, cercando specificamente altri episodi di vento sostenuto.
+
+**Un'idea di avviso discussa ma non ancora costruita**: mostrare un avviso quando il vento previsto per Livorno supera una soglia ("dati da verificare", non "vento forte" — M ha corretto giustamente l'etichetta, è un'ipotesi di innesco, non una certezza). **OM scartato come innesco**: nello stesso episodio, OM era anche lui troppo basso (stesso problema di Windfinder nei momenti di picco) — non avrebbe mai fatto scattare l'avviso proprio quando serviva. **AROME preliminarmente più promettente**: ricavato dai dati raccolti, segnava 21-22kn negli stessi momenti in cui Livornometeo ne mostrava 25-30 — molto più vicino di OM. **Solo un episodio**, non ancora una regola — da verificare con più dati prima di costruire qualunque cosa.
+
+### Dati grezzi dell'episodio (8/10, pomeriggio-sera) — da consultare quando si deciderà la forma della correzione
+
+| Ora | Nostro (grezzo, Windfinder) | Vs OM | Vs AROME | Livornometeo (dal grafico, a occhio) |
+|---|---|---|---|---|
+| 17:41 | 7.6 | -2.9 | -10.8 | ~19-20 |
+| 18:11 | 7.6 | -3.3 | -12.7 | ~22-23 |
+| 18:41 | 5.8 | -5.4 | -16.7 | ~26-27 |
+| 19:11 | 13.8 | +2.4 | -8.7 | ~30-32 |
+| 19:41 | 15.9 | +4.8 | -5.5 | ~25-28 |
+| 20:11 | 13.0 | +1.3 | -8.4 | ~24-25 |
+| 20:41 | 9.3 | -0.5 | -9.9 | ~23-24 |
+| 20:49 | 9.3 | +0 | -- | fuori intervallo grafico |
+| 21:11 | 11.1 | +3.3 | -8.7 | fuori intervallo grafico |
+| 21:21 | 11.1 | +4.4 | -- | fuori intervallo grafico |
+
+**Direzione**: concorde tra noi e Livornometeo in tutto l'episodio (SW/SSW, 198-234°) — nessun problema di direzione qui, solo di intensità.
+
+**Nota a margine su Capraia**: M ha confermato che le nostre 3 stazioni Capraia concordano tutte tra loro sulla direzione — il disaccordo notato con Capraiameteo (esterna, inaccessibile) è quindi specifico a quella fonte, non un problema nostro interno. Solo un'osservazione, nessuna azione.
+
+---
+
+### Retrospettiva (17/9): la correzione Livorno propagata ovunque, due bug di lunga data trovati per strada, D20 costruito
 
 **Obiettivo della giornata completato**: la correzione di riferimento Livornometeo (+4.2kn, D16) ora appare coerente in **tutti** i punti dove un utente guarda il vento di Livorno — bussola (singola e tripla) in `index.html`, marker sulla mappa in `mappa.html` e `mappa2.html` (5 punti diversi in ciascuna: popup principale, popup di ripiego, ripiego rate-limit, tasto Aggiorna, flusso particelle), e le frecce doppie in `previsioni.html` (qui **nessun codice necessario** — leggeva già `forecast_hN` da `predict_history`, già corretto lato server). Il dato grezzo Windfinder in `bias_samples` resta intatto ovunque, come deciso.
 
@@ -260,6 +328,8 @@ Dai dati emerge che AROME vince in **9 zone su 25** (non solo Alberese come docu
 
 | Problema | Stato |
 |---|---|
+| **Correzione Livorno fissa (+4.2kn) non regge col vento sostenuto** | Scoperto 8/10, confermato con un secondo episodio il 12/10 (Livornometeo 16.5kn, OM solo 2.5, AROME 6.2). Ora 10 giorni di dati veri (via segnalibro) a supporto. **Nessun fix ancora, si continua a raccogliere dati** prima di scegliere la forma giusta |
+| **Avviso "dati da verificare" per vento sostenuto a Livorno** | Discusso 8/10. **Rafforzato 17/10**: su 10 punti, AROME ha scarto medio assoluto 2.4kn contro OM 4.1kn (1.5 vs 3.0 escludendo l'episodio di vento forte) — OM sottostima sempre, AROME quasi non distorto. Il quadro per usare AROME come innesco è solido, non ancora costruito |
 | **Viareggio ha lo stesso doppio Livorno/Livornometeo?** | Idea emersa 17/9, **accantonata su richiesta esplicita di M** — non indagata. "Viareggio" (MeteoNetwork) è posizionata sulla mappa all'ingresso del porto, "Viareggio CFR" (quella usata come `bias_station` della zona) è quella più riparata — stesso schema fisico di Livorno/Livornometeo. Da riprendere se un giorno si vuole approfondire |
 | **Giudizio "affidabile" di `decadimento.html` è circolare per 3 zone (Windfinder)** | Scoperto 15/9. `livorno`, `barcaggio`, `bonifacio` correggono la previsione con la stessa fonte con cui poi la verificano — il "verde" misura fedeltà alla fonte, non accuratezza vera. Tutte le altre ~22 zone usano fonti CFR/MeteoNetwork indipendenti, non hanno questo problema. Per Livorno, dal 16/9 ci si aspetta l'opposto — il giudizio peggiora per via della correzione di riferimento, effetto atteso non un bug |
 | **Correzione verso Livornometeo (imboccatura porto, punto di riferimento vero)** | Pattern consolidato (29/8-13/09, 4 episodi, 3 direzioni: SW/NE/NW): LM sistematicamente +3/+7kn sopra Windfinder. **Applicata il 15-16/9** (+4.2kn, provvisoria) — vedi sopra. Manca ancora un episodio di vento forte per confermarla su quel regime, e un backtest formale. Dati grezzi in questo stesso file, sopra |
@@ -292,7 +362,7 @@ Dai dati emerge che AROME vince in **9 zone su 25** (non solo Alberese come docu
 ---
 
 Documento di contesto persistente per sessioni di lavoro con Claude.
-Aggiornato: 2026-09-17 | Versioni riferimento: engine v2.14.27 · index v5.7.42 · mappa v1.6.90 · previsioni v3.6 · mappa2 v1.5 · index2 v1.4 · history-check v1.0 · confronto-modelli v1.5 · export v1.4 · decadimento v1.3
+Aggiornato: 2026-10-17 | Versioni riferimento: engine v2.14.30 · index v5.7.43 · mappa v1.6.90 (ferma) · previsioni v3.10 · mappa2 v1.6 · index2 v1.4 · history-check v1.0 · confronto-modelli v1.5 · export v1.4 · decadimento v1.3
 
 
 ---
@@ -334,11 +404,11 @@ https://raw.githubusercontent.com/mdisailor/Nautilus/refs/heads/main/mappa.html
 | File | Versione | Note |
 |---|---|---|
 | *(nota: i `.html` stanno nella **radice** del repo, non in `public/`)* | | |
-| `api/engine.js` | **v2.14.27** | Engine principale. v2.14.13-19: archivio persistente + ottimizzazione `getWindHistory`. v2.14.20-22: diagnostica Windfinder + fix bug unità di misura. v2.14.23-25 (14-15/9): sistema `note_save`/`note_get`/`note_list`. v2.14.26 (15-16/9): correzione di riferimento Livornometeo per la zona `livorno` (+4.2kn su `forecast_hN` finali, D16) — provvisoria, monitorare con `confronto-modelli.html`. **v2.14.27 (17/9)**: aggiunta `livorno_porto` a `srAllStations` (`station_refresh`) — mancava dalla lista, dava "Stazione non trovata" |
-| `index.html` | **v5.7.42** | App principale. Stazioni mute mostrano ultimo dato + età. **v5.7.41 (17/9)**: `cache:'no-store'` su tutte le 27 chiamate fetch verso l'engine — risolve i dati vecchi mostrati dopo un deploy (stesso bug già risolto in mappa.html il 22/7). **v5.7.42 (17/9)**: bussola Livorno (singola e tripla) mostra il valore corretto invece del grezzo; corretto anche il bottone "Livorno Porto" che chiamava ancora l'id abbandonato `livorno_cfr` (residuo della migrazione di luglio) |
-| `mappa.html` | **v1.6.90** | Mappa vento (produzione). **v1.6.90 (17/9)**: marker "Livorno Porto" mostra il valore corretto in 5 punti (popup principale, di ripiego, rate-limit, tasto Aggiorna, flusso particelle). Corretto anche il commento di chiusura (diceva ancora v1.6.82 da settimane) |
-| `mappa2.html` | **v1.5** | Sperimentale — fork di mappa.html per confronto affiancato. Sfondo colorato bilineare, tasti FLOW/OI/GRID. **v1.5 (17/9)**: stessa correzione Livorno di mappa.html, stessi 5 punti. Corretto anche il commento di chiusura (diceva ancora "MAPPA v1.6.82", nome sbagliato oltre a versione vecchia) |
-| `previsioni.html` | **v3.6** | Mappa vento futuro. Bottoni a ore intere, due orologi separati, FLOW/GRID, XLS, sfondo colorato bilineare. **v3.4-3.6 (17/9, D20)**: marker Leaflet invisibile per zona, tocco apre un popup con orario/dato/giudizio di affidabilità (stesso metodo di `decadimento.html`). La correzione Livorno era già propagata qui senza bisogno di codice (legge `forecast_hN` già corretto). **v3.6**: risolto un bug mobile — toccare un secondo marker faceva sparire il colore di sfondo e bloccava tutti i marker, causa un canvas che si svuotava al movimento della mappa senza mai ridipingersi |
+| `api/engine.js` | **v2.14.30** | Engine principale. v2.14.13-19: archivio persistente + ottimizzazione `getWindHistory`. v2.14.20-22: diagnostica Windfinder + fix bug unità di misura. v2.14.23-25 (14-15/9): sistema `note_save`/`note_get`/`note_list`. v2.14.26 (15-16/9): correzione di riferimento Livornometeo per la zona `livorno` (+4.2kn, D16) — rivelatasi insufficiente con vento sostenuto. v2.14.27 (17/9): aggiunta `livorno_porto` a `srAllStations`. v2.14.28 (17/9): aggiunta anche a `ssStations`. **v2.14.29 (9/10)**: modello Haiku 4.5→5.5 in `action=predict` (fast=1) e `action=agent` — taglio prezzo 90%. **v2.14.30 (9/10)**: nuova `action=livornometeo_submit` (POST, k=mdi) — salva letture manuali di Livornometeo (dal segnalibro) sotto la stazione separata `livornometeo_porto`, con OM/AROME già confrontati. Aggiunto POST ai metodi CORS permessi |
+| `index.html` | **v5.7.43** | App principale. Stazioni mute mostrano ultimo dato + età. v5.7.41 (17/9): `cache:'no-store'` su tutte le chiamate fetch. v5.7.42 (17/9): bussola Livorno mostra il valore corretto; corretto il bottone "Livorno Porto" (id abbandonato `livorno_cfr`). **v5.7.43 (17/10)**: aggiunta `livornometeo_porto` alla lista "Stazioni Reali vs OM" |
+| `mappa.html` | **v1.6.90** | Mappa vento. **Ferma dal 17/9 — M non la usa più, nessun lavoro ulteriore previsto lì** (vedi `mappa2.html` per il lavoro equivalente) |
+| `mappa2.html` | **v1.6** | Sperimentale, ora la mappa di riferimento vera per M (M ha smesso di usare `mappa.html`). v1.5 (17/9): correzione Livorno nei 5 punti marker. **v1.6 (17/10)**: il marker Livorno Porto preferisce una lettura Livornometeo fresca (≤30min, dal segnalibro) come valore principale — velocità e direzione vere, non solo la stima +4.2 — tramite nuova funzione condivisa `getLivornometeoOverride()` |
+| `previsioni.html` | **v3.10** | Mappa vento futuro. v3.4-3.9 (17/9): marker Leaflet per zona con popup (D20), vari piccoli fix. **v3.10 (17/10)**: stessa logica "fresco/stima" di `mappa2.html` sui 3 punti Livorno (frecce, popup, export XLS) — stessa funzione condivisa. Richiesta la conversione di 2 cicli `forEach`→`for` per supportare l'attesa della risposta |
 | `export.html` | **v1.4** | Un tasto estrae `forecast_stats`+`predict_history`+`mae_compare`+`bias_matrix`+`model_score`+`decadimento_by_slot` per tutte le zone in un unico JSON. **v1.4 (15/9)**: tasto "Salva per Claude" (usa `note_save`) |
 | `index2.html` | **v1.4** | Cruscotto: indice strumenti + stato engine live + tasto "Controlla archivio" + link a previsioni/mappa2/export |
 | `history-check.html` | **v1.0** | Un tasto, una tabella con semaforo verde/rosso per zona: verifica se `getWindHistory` trova quanti dati si aspettava. Nato dall'incidente quota Redis del 26/8. Estraibile per incollare in chat |

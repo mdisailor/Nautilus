@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA2 v1.6 - mdisailor - 2026-10-16 - v1.6: il marker Livorno Porto ora preferisce una lettura Livornometeo fresca (<=30min, inviata da M via segnalibro, action=livornometeo_submit) come valore PRINCIPALE -- velocita' E direzione vere, non piu' solo la stima +4.2 (D16). La stima resta come ripiego quando non c'e' nulla di fresco. Applicato negli stessi 5 punti gia' toccati il 17/9 (popup principale, popup di ripiego, ripiego rate-limit, tasto Aggiorna, particelle animate), tramite una nuova funzione condivisa getLivornometeoOverride(). mappa.html NON aggiornata su richiesta esplicita di M (non la usa piu'). Su base v1.5 -->
+<!-- NAUTILUS MAPPA2 v1.7 - mdisailor - 2026-10-19 - v1.7: scambiate le posizioni dei due marker Livorno su richiesta di M (Livornometeo sta sull'imboccatura del porto). All'imboccatura (43.5525/10.3014) ora c'e' "Livornometeo Porto" (lettura vera se <=30min, altrimenti stima, logica invariata); nell'altro punto (43.5497/10.2950) c'e' "Livorno Porto (Windfinder)" col dato grezzo della stazione, marker nuovo con flag raw (stesso sid, niente override, non alimenta le particelle). Rimosso il vecchio marker informativo lv_porto (nota "accesso non disponibile" ormai falsa). refreshMnwStation distingue i due marker dal popupId. Su base v1.6 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa2 Vento v1.6</title>
+<title>NAUTILUS Mappa2 Vento v1.7</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -229,7 +229,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa2 v1.6</span>
+    <span id="nav-ver">mappa2 v1.7</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -291,11 +291,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA2 v1.6 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA2 v1.7 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA2 v1.6
+// NAUTILUS MAPPA2 v1.7
 
 var ENGINE_URL = '/api/engine';
 
@@ -337,13 +337,28 @@ var BUOYS = [
   { key:'giannutri',   name:'Boa Giannutri',            lat:42.2500, lon:11.1200, type:'boa',      note:'CFR Toscana - onda + vento - accesso in richiesta' },
   { key:'gombo',       name:'Correntometro Gombo',      lat:43.6900, lon:10.2800, type:'corr',     note:'CFR Toscana - foce Arno - accesso in richiesta' },
   { key:'castiglione', name:'Correntometro Castiglione',lat:42.7700, lon:10.8800, type:'corr',     note:'CFR Toscana - accesso in richiesta' },
-  { key:'lv_porto',    name:'Livornometeo Porto',       lat:43.5497, lon:10.2950, type:'stazione', note:'Spostato su shipinfo.it a pagamento (maggio 2026). Accesso non disponibile.' },
+  // 2026-10-19: RIMOSSO il marker informativo 'lv_porto' (Livornometeo Porto,
+  // 43.5497/10.2950, nota "a pagamento, accesso non disponibile"). Motivo: la
+  // nota non e' piu' vera -- dal 9/10 abbiamo letture manuali di Livornometeo
+  // (segnalibro di M) -- e M ha chiesto di scambiare le posizioni dei due
+  // marker Livorno, perche' Livornometeo sta sull'imboccatura del porto, dove
+  // era messo il marker "Livorno Porto". Ora Livornometeo e' un marker vivo in
+  // MNW_LIVE (key 'livorno_porto', all'imboccatura) e la stazione Windfinder
+  // e' un marker a parte (key 'livorno_porto_wf') nell'altro punto.
   { key:'capraia_st',  name:'Capraiameteo',             lat:43.0527, lon:9.8410,  type:'stazione', note:'Spostato su shipinfo.it a pagamento (maggio 2026). Accesso non disponibile.' },
 ];
 
 var MNW_LIVE = [
   { key:'livorno',          name:'Quercianella',   lat:43.465,  lon:10.347, sid:'livorno' },
-  { key:'livorno_porto',    name:'Livorno Porto', lat:43.5525, lon:10.3014, sid:'livorno_porto' },
+  // 2026-10-19: all'imboccatura del porto c'e' Livornometeo (lettura vera se
+  // <=30min, altrimenti stima Windfinder+4.2 -- logica invariata, solo il nome
+  // e il ruolo: la key e il sid restano 'livorno_porto').
+  { key:'livorno_porto',    name:'Livornometeo Porto', lat:43.5525, lon:10.3014, sid:'livorno_porto' },
+  // Stazione Windfinder, nell'altro punto (ex posizione del marker informativo
+  // Livornometeo). raw:true = mostra SOLO il dato grezzo della stazione: niente
+  // lettura Livornometeo ne' +4.2, e non alimenta le particelle (il campo di
+  // vento usa gia' il valore di Livornometeo/stima dal marker all'imboccatura).
+  { key:'livorno_porto_wf', name:'Livorno Porto (Windfinder)', lat:43.5497, lon:10.2950, sid:'livorno_porto', raw:true },
   { key:'canale_piombino',  name:'Piombino',       lat:42.920,  lon:10.530, sid:'canale_piombino' },
   { key:'viareggio_cfr',    name:'Viareggio CFR',  lat:43.875,  lon:10.236, sid:'viareggio_cfr' },
   { key:'capraia_mnw',      name:'Capraia Monte',  lat:43.058,  lon:9.822,  sid:'capraia_w' },
@@ -840,6 +855,7 @@ async function fetchGridData(){
 async function fetchStationData(){
   // Carica ultimo campione per ogni stazione MNW - stessa API del popup
   var promises = MNW_LIVE.map(function(st){
+    if (st.raw) return Promise.resolve(null); // 2026-10-19: marker Windfinder grezzo, non alimenta il campo (vedi MNW_LIVE)
     return fetch(ENGINE_URL + '?action=bias_history&station=' + st.sid + '&limit=5', {cache:'no-store'})
       .then(function(r){ return r.json(); })
       .then(async function(data){
@@ -2046,7 +2062,7 @@ MNW_LIVE.forEach(function(st) {
               var dw2 = s2.delta && s2.delta.wind_kt !== null ? s2.delta.wind_kt : null;
               var mkNameSuffix2 = '';
               // fix 2026-10-16: stessa logica fresco/stima del percorso principale, vedi nota estesa sopra.
-              if (st.sid === 'livorno_porto') {
+              if (st.sid === 'livorno_porto' && !st.raw) {
                 var lmOv2 = await getLivornometeoOverride();
                 if (lmOv2) {
                   wkt2 = lmOv2.speed;
@@ -2087,7 +2103,7 @@ MNW_LIVE.forEach(function(st) {
         // Solo se non c'e' niente di fresco si ricade sulla stima +4.2 di
         // prima (D16, 15/9) -- stesso principio gia' su bussola/mappa/mappa2,
         // ora raffinato con la fonte vera quando disponibile.
-        if (st.sid === 'livorno_porto') {
+        if (st.sid === 'livorno_porto' && !st.raw) {
           var lmOv = await getLivornometeoOverride();
           if (lmOv) {
             wkt = lmOv.speed;
@@ -2208,6 +2224,10 @@ function degToCard(d) {
 }
 
 function refreshMnwStation(sid, popupId, name) {
+  // 2026-10-19: due marker condividono sid 'livorno_porto' (Livornometeo e
+  // Windfinder grezzo): li distinguo dal popupId ('mnwpop_' + key).
+  var rmDef = MNW_LIVE.filter(function(x){ return 'mnwpop_' + x.key === popupId; })[0];
+  var rmIsRaw = !!(rmDef && rmDef.raw);
   var el = document.getElementById(popupId);
   if (!el) return;
   var btn = el.querySelector('button');
@@ -2235,7 +2255,7 @@ function refreshMnwStation(sid, popupId, name) {
                 var rlWkt = s.wind_kt;
                 var rlDir = s.direction;
                 // fix 2026-10-16: stessa logica fresco/stima degli altri punti Livorno.
-                if (sid === 'livorno_porto') {
+                if (sid === 'livorno_porto' && !rmIsRaw) {
                   var lmOv5 = await getLivornometeoOverride();
                   if (lmOv5) {
                     rlWkt = lmOv5.speed;
@@ -2259,7 +2279,7 @@ function refreshMnwStation(sid, popupId, name) {
       var rmNameSuffix = '';
       // fix 2026-10-16: stessa logica fresco/stima degli altri 4 punti (popup
       // principale, popup di ripiego, particelle animate, ripiego rate-limit).
-      if (sid === 'livorno_porto') {
+      if (sid === 'livorno_porto' && !rmIsRaw) {
         var lmOv4 = await getLivornometeoOverride();
         if (lmOv4) {
           wkt = lmOv4.speed;
@@ -2296,7 +2316,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine script - NAUTILUS MAPPA2 v1.6 (segue markup HTML pannello osservazioni, non altro codice)
+// Fine script - NAUTILUS MAPPA2 v1.7 (segue markup HTML pannello osservazioni, non altro codice)
 </script>
 <!-- Pannello inserimento osservazione manuale -->
 <div id="obs-panel">
@@ -2336,4 +2356,4 @@ function refreshMnwStation(sid, popupId, name) {
 </body>
 </html>
 
-<!-- Fine codice - NAUTILUS MAPPA2 v1.6 -->
+<!-- Fine codice - NAUTILUS MAPPA2 v1.7 -->

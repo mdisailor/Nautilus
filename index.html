@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.7.43 -- 2026-10-16 - aggiunta livornometeo_porto alla lista stazioni (vista "Stazioni Reali vs OM") e a STATION_QUOTAS (0m, livello mare) -- le 4 letture manuali giornaliere (segnalibro) ora visibili anche qui, stesso meccanismo delle altre stazioni. Su base v5.7.42 -->
+<!-- NAUTILUS v5.7.44 -- 2026-10-19 - (1) la bussola di Livorno (singola e tripla) usa la lettura Livornometeo se piu' recente di 30 minuti (velocita', direzione e orario veri, etichetta LIVORNOMETEO), altrimenti la stima Windfinder +4.2 come prima -- era una richiesta di M che avevo letto male (frase ambigua "lasciamo la correzione") e escluso per errore dalla bussola; stessa funzione e soglia di mappa2/previsioni. (2) nuovo bottone "Livornometeo (manuale)" accanto a Livorno Porto: non puo' forzare una lettura (la fa M col segnalibro, di persona), apre il sito in una nuova scheda e al ritorno ricarica l'elenco con la stazione selezionata. Su base v5.7.43 -->
 
 <html lang="it">
 <head>
@@ -600,7 +600,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.43  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.44  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1081,6 +1081,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
       <button class="btn-history" onclick="biasWebSample('luri','m')">📡 Luri</button>
       <div style="width:100%;font-family:DM Mono,monospace;font-size:0.6rem;color:var(--accent);letter-spacing:0.1em;text-transform:uppercase;margin:10px 0 4px;border-top:1px solid rgba(0,240,255,0.25);padding-top:8px">CFR Toscana — Costa</div>
       <button class="btn-history" onclick="biasWebSample('livorno_porto','m')">📡 Livorno Porto</button>
+      <button class="btn-history" onclick="openLivornometeo('m')">🌐 Livornometeo (manuale)</button>
       <button class="btn-history" onclick="biasWebSample('bocca_arno_cfr','m')">📡 Bocca d'Arno</button>
       <button class="btn-history" onclick="biasWebSample('viareggio_cfr','m')">📡 Viareggio CFR</button>
       <button class="btn-history" onclick="biasWebSample('lido_camaiore','m')">📡 Lido Camaiore</button>
@@ -2011,7 +2012,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.43  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.44  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -2095,6 +2096,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
       <button class="btn-history" onclick="biasWebSample('luri',undefined)">📡 Luri</button>
       <div style="width:100%;font-family:DM Mono,monospace;font-size:0.6rem;color:var(--accent);letter-spacing:0.1em;text-transform:uppercase;margin:10px 0 4px;border-top:1px solid rgba(0,240,255,0.25);padding-top:8px">CFR Toscana — Costa</div>
       <button class="btn-history" onclick="biasWebSample('livorno_porto',undefined)">📡 Livorno Porto</button>
+      <button class="btn-history" onclick="openLivornometeo(undefined)">🌐 Livornometeo (manuale)</button>
       <button class="btn-history" onclick="biasWebSample('bocca_arno_cfr',undefined)">📡 Bocca d'Arno</button>
       <button class="btn-history" onclick="biasWebSample('viareggio_cfr',undefined)">📡 Viareggio CFR</button>
       <button class="btn-history" onclick="biasWebSample('lido_camaiore',undefined)">📡 Lido Camaiore</button>
@@ -3109,13 +3111,25 @@ async function loadSingleCompass() {
         // com'e': nessun dato per correggerla, un solo confronto disponibile
         // (16/9, vento debole) non basta a giustificare una modifica -- vedi
         // METODOLOGIA sezione 17-18.
+        // 2026-10-19: se esiste una lettura Livornometeo fresca (<=30min)
+        // vince su tutto (velocita' e direzione vere); altrimenti stima come prima.
         var scDisplaySpd = realS.station.wind_kt;
+        var scDisplayDir = realS.station.direction;
+        var scDisplayGust = realS.station.gust_kt;
         var scDisplaySrc = 'CFR';
-        if (cfrId === 'livorno_porto' && realS.station.wind_kt !== null && realS.station.wind_kt !== undefined) {
-          scDisplaySpd = Math.round((realS.station.wind_kt + 4.2) * 10) / 10;
-          scDisplaySrc = 'STIMA';
+        if (cfrId === 'livorno_porto') {
+          var scLm = await getLivornometeoOverride();
+          if (scLm) {
+            scDisplaySpd = scLm.speed;
+            scDisplayDir = scLm.direction;
+            scDisplayGust = null;
+            scDisplaySrc = 'LIVORNOMETEO';
+          } else if (realS.station.wind_kt !== null && realS.station.wind_kt !== undefined) {
+            scDisplaySpd = Math.round((realS.station.wind_kt + 4.2) * 10) / 10;
+            scDisplaySrc = 'STIMA';
+          }
         }
-        updateSingleCompass(scDisplaySpd, realS.station.direction, realS.station.gust_kt, scDisplaySrc);
+        updateSingleCompass(scDisplaySpd, scDisplayDir, scDisplayGust, scDisplaySrc);
         scCfrLoaded = true;
         return;
       }
@@ -3404,6 +3418,26 @@ function buildSimpleList(containerId, items) {
 // -- ENGINE -------------------------------------------------------------------------------
 
 const ENGINE_URL = 'https://nautilus-red.vercel.app/api/engine';
+
+// fix 2026-10-19: letture manuali di Livornometeo (segnalibro di M, action=
+// livornometeo_submit, stazione separata 'livornometeo_porto'). Se l'ultima e'
+// piu' recente di 30 minuti (soglia decisa da M) diventa il valore MOSTRATO
+// per Livorno -- velocita' E direzione vere -- altrimenti si ricade sulla
+// stima (Windfinder +4.2kn). Stessa funzione e stessa soglia gia' usate in
+// mappa2.html e previsioni.html. Per la bussola avevo letto male una frase di
+// M ("lasciamo la correzione") e l'avevo esclusa: M voleva la stessa logica.
+var LIVORNOMETEO_FRESH_MIN = 30;
+async function getLivornometeoOverride(){
+  try {
+    var r = await fetch(ENGINE_URL + '?action=bias_history&station=livornometeo_porto&limit=1', {cache:'no-store'});
+    var d = await r.json();
+    var s = d.samples && d.samples[0];
+    if (!s || !s.station || s.station.wind_kt == null || s.station.direction == null) return null;
+    var ageMin = (Date.now() - new Date(s.ts).getTime()) / 60000;
+    if (ageMin > LIVORNOMETEO_FRESH_MIN) return null;
+    return { speed: s.station.wind_kt, direction: s.station.direction, ageMin: Math.round(ageMin), ts: s.ts };
+  } catch(e) { return null; }
+}
 
 const ALL_ZONES = [
 
@@ -6074,6 +6108,22 @@ async function biasLoadHistory(selectedStation, sfx) {
   if (spinner) spinner.style.display = 'none';
 }
 
+// 2026-10-19: bottone "Livornometeo (manuale)". A differenza delle altre
+// stazioni NON puo' forzare una lettura da solo (la lettura la fa M col
+// segnalibro, visitando il sito di persona: nessuno scraping automatico).
+// Apre il sito in una nuova scheda; quando M torna a questa scheda, ricarica
+// l'elenco con la stazione selezionata, cosi' vede subito la lettura appena inviata.
+function openLivornometeo(sfx) {
+  window.open('https://www.livornometeo.it/', '_blank');
+  var onBack = function() {
+    if (document.visibilityState === 'visible') {
+      document.removeEventListener('visibilitychange', onBack);
+      setTimeout(function(){ biasLoadHistory('livornometeo_porto', sfx); }, 1500);
+    }
+  };
+  document.addEventListener('visibilitychange', onBack);
+}
+
 async function biasWebSample(stationId, sfx) {
   const sfxId = sfx ? '-' + sfx : '';
   const out = document.getElementById('bias-result' + sfxId);
@@ -6128,8 +6178,17 @@ function updateTripleCompass(idx, r) {
   var displaySpd = spd;
   var displaySrcLabel = src.toUpperCase().replace('MNW_API','MNW').replace('MNW_WEB','MNW');
   if (TC_ZONES[idx] === 'livorno' && spd !== null) {
-    displaySpd = Math.round((spd + 4.2) * 10) / 10;
-    displaySrcLabel = 'STIMA';
+    if (tcLmOverride) {
+      // 2026-10-19: lettura Livornometeo fresca (<=30min) -- velocita', direzione e orario veri
+      displaySpd = tcLmOverride.speed;
+      dir = tcLmOverride.direction;
+      gust = null;
+      ts = new Date(tcLmOverride.ts).toLocaleString('it-IT',{timeZone:'Europe/Rome',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+      displaySrcLabel = 'LIVORNOMETEO';
+    } else {
+      displaySpd = Math.round((spd + 4.2) * 10) / 10;
+      displaySrcLabel = 'STIMA';
+    }
   }
   tcData[idx] = { spd: displaySpd !== null ? Math.round(displaySpd) : null, dir: dir, gust: gust !== null ? Math.round(gust) : null, src: displaySrcLabel, ts: ts, name: TC_NAMES[idx] };
   var needle = document.getElementById('tc-needle-' + idx);
@@ -6139,7 +6198,7 @@ function updateTripleCompass(idx, r) {
   // stazione CFR non ha risposto). CFR = dato reale, colore normale.
   // 2026-09-16: 'STIMA' (Livorno corretto) trattata come dato reale ai fini
   // del colore -- stessa lettura reale, solo +4.2kn.
-  var isOm = src && src.toLowerCase().indexOf('om') === 0 && displaySrcLabel !== 'STIMA';
+  var isOm = src && src.toLowerCase().indexOf('om') === 0 && displaySrcLabel !== 'STIMA' && displaySrcLabel !== 'LIVORNOMETEO';
   var tcColor = (displaySpd !== null && isOm) ? '#ff4444' : 'var(--accent)';
   if (sEl) { sEl.textContent = displaySpd !== null ? Math.round(displaySpd) : '--'; sEl.style.color = tcColor; }
   var dEl = document.getElementById('tc-dir-' + idx);
@@ -6203,10 +6262,12 @@ function selectTripleCompass(idx) {
   }
 }
 
+var tcLmOverride = null; // 2026-10-19: lettura Livornometeo fresca (o null), presa una volta per ciclo
 async function loadTripleCompasses() {
   try {
     var res = await fetch(ENGINE_URL + '?action=triple_wind&zones=' + TC_ZONES.join(','), { cache: 'no-store' });
     var data = await res.json();
+    tcLmOverride = await getLivornometeoOverride();
     if (data.ok && data.results) {
       data.results.forEach(function(r, idx) { updateTripleCompass(idx, r); });
     }
@@ -6231,4 +6292,4 @@ async function loadTripleCompasses() {
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS v5.7.43 -->
+<!-- Fine codice - NAUTILUS v5.7.44 -->

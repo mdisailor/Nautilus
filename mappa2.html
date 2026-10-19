@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA2 v1.5 - mdisailor - 2026-09-17 - v1.5: aggiunta la correzione di riferimento Livornometeo (Windfinder +4.2kn, D16) al marker "Livorno Porto" -- popup principale, popup di ripiego, ripiego rate-limit, tasto Aggiorna, e flusso particelle animate (5 punti in tutto, stessa correzione applicata su mappa.html v1.6.90). Non toccata la griglia colorata (usa livorno_cfr, gia limitata da STATION_TRUST_CAP, questione diversa). Corretto anche il commento di chiusura, che diceva ancora "MAPPA v1.6.82" (nome sbagliato, versione vecchia -- residuo del fork mai aggiornato). Su base v1.4 -->
+<!-- NAUTILUS MAPPA2 v1.6 - mdisailor - 2026-10-16 - v1.6: il marker Livorno Porto ora preferisce una lettura Livornometeo fresca (<=30min, inviata da M via segnalibro, action=livornometeo_submit) come valore PRINCIPALE -- velocita' E direzione vere, non piu' solo la stima +4.2 (D16). La stima resta come ripiego quando non c'e' nulla di fresco. Applicato negli stessi 5 punti gia' toccati il 17/9 (popup principale, popup di ripiego, ripiego rate-limit, tasto Aggiorna, particelle animate), tramite una nuova funzione condivisa getLivornometeoOverride(). mappa.html NON aggiornata su richiesta esplicita di M (non la usa piu'). Su base v1.5 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa2 Vento v1.5</title>
+<title>NAUTILUS Mappa2 Vento v1.6</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -229,7 +229,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa2 v1.5</span>
+    <span id="nav-ver">mappa2 v1.6</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -291,13 +291,34 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA2 v1.5 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA2 v1.6 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA2 v1.5
+// NAUTILUS MAPPA2 v1.6
 
 var ENGINE_URL = '/api/engine';
+
+// fix 2026-10-16: letture manuali di Livornometeo (segnalibro, action=
+// livornometeo_submit, stazione separata 'livornometeo_porto') -- quando
+// abbastanza fresca (soglia decisa da M: 30 minuti), diventa il valore
+// MOSTRATO per il marker Livorno Porto al posto della stima +4.2 (velocita'
+// E direzione, non solo la velocita' -- qui e' un dato vero, non serve
+// correggere nulla). Oltre i 30 minuti, ricade sulla stima come prima.
+// Una sola funzione condivisa, richiamata da ognuno dei punti che mostrano
+// il marker, cosi' la soglia si cambia in un punto solo se serve.
+var LIVORNOMETEO_FRESH_MIN = 30;
+async function getLivornometeoOverride(){
+  try {
+    var r = await fetch(ENGINE_URL + '?action=bias_history&station=livornometeo_porto&limit=1', {cache:'no-store'});
+    var d = await r.json();
+    var s = d.samples && d.samples[0];
+    if (!s || !s.station || s.station.wind_kt == null || s.station.direction == null) return null;
+    var ageMin = (Date.now() - new Date(s.ts).getTime()) / 60000;
+    if (ageMin > LIVORNOMETEO_FRESH_MIN) return null;
+    return { speed: s.station.wind_kt, direction: s.station.direction, ageMin: Math.round(ageMin) };
+  } catch(e) { return null; }
+}
 
 var ZONES = [
   { key:'livorno',          name:'Livorno',            lat:43.5497, lon:10.2950 },
@@ -821,7 +842,7 @@ async function fetchStationData(){
   var promises = MNW_LIVE.map(function(st){
     return fetch(ENGINE_URL + '?action=bias_history&station=' + st.sid + '&limit=5', {cache:'no-store'})
       .then(function(r){ return r.json(); })
-      .then(function(data){
+      .then(async function(data){
         // Trova il primo campione con dato stazione valido (non null)
         var s = null;
         if (data.samples) {
@@ -834,19 +855,28 @@ async function fetchStationData(){
         }
         if (!s || !s.station || s.station.wind_kt == null) return null;
         if (s.station.direction == null) return null;
-        // fix 2026-09-17: stessa correzione dei popup, applicata anche qui --
-        // il flusso animato delle particelle e' comunque qualcosa che l'utente
-        // percepisce come "il vento a Livorno", non un meccanismo di
-        // autocorrezione interno (a differenza di bias_samples) -- nessun
-        // rischio di doppia correzione, e' solo rendering locale della mappa.
+        // fix 2026-10-16: stessa logica fresco/stima dei popup -- il flusso
+        // animato delle particelle e' comunque qualcosa che l'utente percepisce
+        // come "il vento a Livorno", non un meccanismo di autocorrezione
+        // interno (a differenza di bias_samples) -- nessun rischio di doppia
+        // correzione, e' solo rendering locale della mappa.
         var fsSpeed = Number(s.station.wind_kt);
-        if (st.sid === 'livorno_porto') fsSpeed = Math.round((fsSpeed + 4.2) * 10) / 10;
+        var fsDir = Number(s.station.direction);
+        if (st.sid === 'livorno_porto') {
+          var lmOv3 = await getLivornometeoOverride();
+          if (lmOv3) {
+            fsSpeed = lmOv3.speed;
+            fsDir = lmOv3.direction;
+          } else {
+            fsSpeed = Math.round((fsSpeed + 4.2) * 10) / 10;
+          }
+        }
         return {
           lat: st.lat,
           lon: st.lon,
           key: st.key,
           speed: fsSpeed,
-          dir:   Number(s.station.direction),
+          dir:   fsDir,
           ts:    s.ts
         };
       })
@@ -1982,7 +2012,7 @@ MNW_LIVE.forEach(function(st) {
   mk.on('popupopen', function() {
     fetch(ENGINE_URL + '?action=stations_snapshot&k=mdi', {cache: 'no-store'})
       .then(function(r){ return r.json(); })
-      .then(function(data) {
+      .then(async function(data) {
         var el = document.getElementById(popupId);
         if (!el) return;
         var s = data.stations && (data.stations[st.key] || data.stations[st.sid]);
@@ -1994,7 +2024,7 @@ MNW_LIVE.forEach(function(st) {
           // Fallback a bias_history
           fetch(ENGINE_URL + '?action=bias_history&station=' + st.sid + '&limit=10', {cache:'no-store'})
             .then(function(r2){ return r2.json(); })
-            .then(function(d2){
+            .then(async function(d2){
               var el2 = document.getElementById(popupId);
               if (!el2) return;
               var s2 = null;
@@ -2015,10 +2045,17 @@ MNW_LIVE.forEach(function(st) {
               var dt2 = new Date(s2.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
               var dw2 = s2.delta && s2.delta.wind_kt !== null ? s2.delta.wind_kt : null;
               var mkNameSuffix2 = '';
-              // fix 2026-09-17: stessa correzione del percorso principale, vedi nota estesa sopra.
-              if (st.sid === 'livorno_porto' && wkt2 !== null && wkt2 !== undefined) {
-                wkt2 = Math.round((wkt2 + 4.2) * 10) / 10;
-                mkNameSuffix2 = ' <span style="font-size:0.55rem;color:#ffaa00;font-weight:normal">(stima rif. Livornometeo)</span>';
+              // fix 2026-10-16: stessa logica fresco/stima del percorso principale, vedi nota estesa sopra.
+              if (st.sid === 'livorno_porto') {
+                var lmOv2 = await getLivornometeoOverride();
+                if (lmOv2) {
+                  wkt2 = lmOv2.speed;
+                  dir2 = lmOv2.direction;
+                  mkNameSuffix2 = ' <span style="font-size:0.55rem;color:#22cc66;font-weight:normal">(Livornometeo diretto, ' + lmOv2.ageMin + 'min fa)</span>';
+                } else if (wkt2 !== null && wkt2 !== undefined) {
+                  wkt2 = Math.round((wkt2 + 4.2) * 10) / 10;
+                  mkNameSuffix2 = ' <span style="font-size:0.55rem;color:#ffaa00;font-weight:normal">(stima rif. Livornometeo)</span>';
+                }
               }
               var windCol2 = wkt2 < 15 ? '#4cff91' : wkt2 < 25 ? '#ffd700' : '#ff6060';
               var dirTxt2 = dir2 !== null ? degToCard(dir2) + ' ' + dir2 + '°' : '--';
@@ -2042,21 +2079,29 @@ MNW_LIVE.forEach(function(st) {
         var dt = new Date(s.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
         var dw = (s.om_wind_kt !== null && s.om_wind_kt !== undefined) ? Math.round((s.wind_kt - s.om_wind_kt)*10)/10 : null;
         var wkt = s.wind_kt;
+        var dispDir = s.direction;
         var mkNameSuffix = '';
-        // fix 2026-09-17: su richiesta di M, il marker Livorno Porto mostra
-        // direttamente il valore corretto (Windfinder +4.2kn, rif.
-        // Livornometeo, provvisorio D16) -- stesso principio gia' applicato
-        // alla bussola in index.html e al marker in mappa.html. Non e' la
-        // stessa cosa della griglia colorata (quella usa livorno_cfr, pesata
-        // separatamente, gia' limitata da STATION_TRUST_CAP -- non toccata qui).
-        if (st.sid === 'livorno_porto' && wkt !== null && wkt !== undefined) {
-          wkt = Math.round((wkt + 4.2) * 10) / 10;
-          mkNameSuffix = ' <span style="font-size:0.55rem;color:#ffaa00;font-weight:normal">(stima rif. Livornometeo)</span>';
+        // fix 2026-10-16: se esiste una lettura Livornometeo fresca (<=30min,
+        // M via segnalibro), quella diventa il valore PRINCIPALE mostrato --
+        // velocita' E direzione, dato vero, nessuna correzione da applicare.
+        // Solo se non c'e' niente di fresco si ricade sulla stima +4.2 di
+        // prima (D16, 15/9) -- stesso principio gia' su bussola/mappa/mappa2,
+        // ora raffinato con la fonte vera quando disponibile.
+        if (st.sid === 'livorno_porto') {
+          var lmOv = await getLivornometeoOverride();
+          if (lmOv) {
+            wkt = lmOv.speed;
+            dispDir = lmOv.direction;
+            mkNameSuffix = ' <span style="font-size:0.55rem;color:#22cc66;font-weight:normal">(Livornometeo diretto, ' + lmOv.ageMin + 'min fa)</span>';
+          } else if (wkt !== null && wkt !== undefined) {
+            wkt = Math.round((wkt + 4.2) * 10) / 10;
+            mkNameSuffix = ' <span style="font-size:0.55rem;color:#ffaa00;font-weight:normal">(stima rif. Livornometeo)</span>';
+          }
         }
         var windCol = wkt < 15 ? '#4cff91' : wkt < 25 ? '#ffd700' : '#ff6060';
         var deltaCol = dw === null ? '#bbb' : Math.abs(dw) > 5 ? '#ff6060' : '#4cff91';
-        var dirTxt = (s.direction !== null ? degToCard(s.direction) + ' ' + s.direction + '°' : '--');
-        var dirDeg = (s.direction !== undefined && s.direction !== null) ? Number(s.direction) : null;
+        var dirTxt = (dispDir !== null ? degToCard(dispDir) + ' ' + dispDir + '°' : '--');
+        var dirDeg = (dispDir !== undefined && dispDir !== null) ? Number(dispDir) : null;
         var arrowSvg = dirDeg !== null
           ? '<svg width="22" height="22" viewBox="-11 -11 22 22" style="display:inline-block;vertical-align:middle">' +
             '<g transform="rotate(' + (dirDeg + 180) + ')">' +
@@ -2172,7 +2217,7 @@ function refreshMnwStation(sid, popupId, name) {
   }
   fetch(ENGINE_URL + '?action=station_refresh&station=' + sid, {cache: 'no-store'})
     .then(function(r){ return r.json(); })
-    .then(function(res) {
+    .then(async function(res) {
       if (!res.ok || !res.data) {
         if (btn) { btn.disabled = false; btn.innerHTML = '&#8635; Aggiorna'; }
         if (res.error && res.error.indexOf('Rate limit') >= 0) {
@@ -2183,16 +2228,25 @@ function refreshMnwStation(sid, popupId, name) {
           // Fallback: mostra ultimo dato da Redis bias_samples
           fetch(ENGINE_URL + '?action=stations_snapshot&k=mdi', {cache: 'no-store'})
             .then(function(r2){ return r2.json(); })
-            .then(function(snap){
+            .then(async function(snap){
               if (snap && snap.stations && snap.stations[sid]) {
                 var s = snap.stations[sid];
                 var ageStr = s.age_min !== undefined ? s.age_min + 'min fa' : '';
                 var rlWkt = s.wind_kt;
-                // fix 2026-09-17: stessa correzione degli altri punti Livorno.
-                if (sid === 'livorno_porto' && rlWkt !== null && rlWkt !== undefined) rlWkt = Math.round((rlWkt + 4.2) * 10) / 10;
+                var rlDir = s.direction;
+                // fix 2026-10-16: stessa logica fresco/stima degli altri punti Livorno.
+                if (sid === 'livorno_porto') {
+                  var lmOv5 = await getLivornometeoOverride();
+                  if (lmOv5) {
+                    rlWkt = lmOv5.speed;
+                    rlDir = lmOv5.direction;
+                  } else if (rlWkt !== null && rlWkt !== undefined) {
+                    rlWkt = Math.round((rlWkt + 4.2) * 10) / 10;
+                  }
+                }
                 var rld = el.querySelector('.rl-msg');
                 if (!rld) { rld = document.createElement('div'); rld.className = 'rl-msg'; rld.style.cssText = 'font-size:0.55rem;color:#ffaa00;margin-top:4px'; el.appendChild(rld); }
-                rld.innerHTML = 'Scraping non disponibile — ultimo dato Redis: <b>' + (rlWkt||'—') + 'kt ' + (s.direction||'—') + '°</b> ' + ageStr;
+                rld.innerHTML = 'Scraping non disponibile — ultimo dato Redis: <b>' + (rlWkt||'—') + 'kt ' + (rlDir||'—') + '°</b> ' + ageStr;
               }
             }).catch(function(){});
         }
@@ -2201,16 +2255,24 @@ function refreshMnwStation(sid, popupId, name) {
       // Aggiornamento riuscito — ricarica popup
       var d = res.data;
       var wkt = d.wind_kt;
+      var dispDirRm = d.dir_deg;
       var rmNameSuffix = '';
-      // fix 2026-09-17: stessa correzione degli altri 4 punti (popup principale,
-      // popup di ripiego, particelle animate, ripiego rate-limit).
-      if (sid === 'livorno_porto' && wkt !== null && wkt !== undefined) {
-        wkt = Math.round((wkt + 4.2) * 10) / 10;
-        rmNameSuffix = ' <span style=\"font-size:0.55rem;color:#ffaa00;font-weight:normal\">(stima rif. Livornometeo)</span>';
+      // fix 2026-10-16: stessa logica fresco/stima degli altri 4 punti (popup
+      // principale, popup di ripiego, particelle animate, ripiego rate-limit).
+      if (sid === 'livorno_porto') {
+        var lmOv4 = await getLivornometeoOverride();
+        if (lmOv4) {
+          wkt = lmOv4.speed;
+          dispDirRm = lmOv4.direction;
+          rmNameSuffix = ' <span style=\"font-size:0.55rem;color:#22cc66;font-weight:normal\">(Livornometeo diretto, ' + lmOv4.ageMin + 'min fa)</span>';
+        } else if (wkt !== null && wkt !== undefined) {
+          wkt = Math.round((wkt + 4.2) * 10) / 10;
+          rmNameSuffix = ' <span style=\"font-size:0.55rem;color:#ffaa00;font-weight:normal\">(stima rif. Livornometeo)</span>';
+        }
       }
       var windCol = !wkt ? '#bbb' : wkt < 15 ? '#4cff91' : wkt < 25 ? '#ffd700' : '#ff6060';
-      var dirTxt = (d.dir_deg !== null && d.dir_deg !== undefined ? degToCard(d.dir_deg) + ' ' + d.dir_deg + '°' : '--');
-      var dirDeg = d.dir_deg !== null && d.dir_deg !== undefined ? Number(d.dir_deg) : null;
+      var dirTxt = (dispDirRm !== null && dispDirRm !== undefined ? degToCard(dispDirRm) + ' ' + dispDirRm + '°' : '--');
+      var dirDeg = dispDirRm !== null && dispDirRm !== undefined ? Number(dispDirRm) : null;
       var arrowSvg = dirDeg !== null
         ? '<svg width=\"22\" height=\"22\" viewBox=\"-11 -11 22 22\" style=\"display:inline-block;vertical-align:middle\">' +
           '<g transform=\"rotate(' + (dirDeg + 180) + ')\">' +
@@ -2234,7 +2296,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine script - NAUTILUS MAPPA2 v1.5 (segue markup HTML pannello osservazioni, non altro codice)
+// Fine script - NAUTILUS MAPPA2 v1.6 (segue markup HTML pannello osservazioni, non altro codice)
 </script>
 <!-- Pannello inserimento osservazione manuale -->
 <div id="obs-panel">
@@ -2274,4 +2336,4 @@ function refreshMnwStation(sid, popupId, name) {
 </body>
 </html>
 
-<!-- Fine codice - NAUTILUS MAPPA2 v1.5 -->
+<!-- Fine codice - NAUTILUS MAPPA2 v1.6 -->

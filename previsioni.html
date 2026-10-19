@@ -1,4 +1,4 @@
-<!-- NAUTILUS PREVISIONI v3.9 - mdisailor - 2026-09-17 - v3.9: risolto popup vuoto per Livorno sul bottone dell'ora corrente -- causa vera in engine v2.14.28 (livorno_porto mancava da stations_snapshot, quarta lista di stazioni trovata incompleta in una settimana). Aggiunta anche la correzione di riferimento (+4.2kn) ai 3 punti che leggono stationsNow per Livorno (frecce, popup, export XLS) -- mancava qui, gia presente su bussola/mappa/mappa2. Su base v3.8 -->
+<!-- NAUTILUS PREVISIONI v3.10 - mdisailor - 2026-10-16 - v3.10: Livorno ora preferisce una lettura Livornometeo fresca (<=30min, M via segnalibro, action=livornometeo_submit) come valore PRINCIPALE -- velocita' E direzione vere, non piu' solo la stima +4.2 (D16). La stima resta come ripiego quando non c'e' nulla di fresco. Applicato ai 3 punti gia' toccati il 17/9 (frecce in drawAll, popup zona, export XLS), tramite una nuova funzione condivisa getLivornometeoOverride() -- stessa identica funzione gia' in mappa2.html. drawAll() e updateZoneMarkerPopups() convertite da forEach a for sequenziale per poter fare await dentro; exportXLS prende la lettura una sola volta prima dei cicli, piu' semplice. Su base v3.9 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Previsioni Vento v3.9</title>
+<title>NAUTILUS Previsioni Vento v3.10</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -64,7 +64,7 @@
 
 <header>
   <h1>NAUTILUS &mdash; Previsioni Vento</h1>
-  <span class="ver">v3.9</span>
+  <span class="ver">v3.10</span>
   <a class="back" href="/index2.html">&larr; cruscotto</a>
 </header>
 
@@ -83,6 +83,27 @@
 
 <script>
 var ENGINE_URL = 'https://nautilus-red.vercel.app/api/engine';
+
+// fix 2026-10-16: letture manuali di Livornometeo (segnalibro, action=
+// livornometeo_submit, stazione separata 'livornometeo_porto') -- quando
+// abbastanza fresca (soglia decisa da M: 30 minuti), diventa il valore
+// MOSTRATO per Livorno al posto della stima +4.2 (velocita' E direzione, non
+// solo la velocita' -- qui e' un dato vero, non serve correggere nulla).
+// Oltre i 30 minuti, ricade sulla stima come prima. Stessa identica funzione
+// gia' usata in mappa2.html, stessa soglia -- un solo posto da cambiare se
+// la soglia va rivista.
+var LIVORNOMETEO_FRESH_MIN = 30;
+async function getLivornometeoOverride(){
+  try {
+    var r = await fetch(ENGINE_URL + '?action=bias_history&station=livornometeo_porto&limit=1', {cache:'no-store'});
+    var d = await r.json();
+    var s = d.samples && d.samples[0];
+    if (!s || !s.station || s.station.wind_kt == null || s.station.direction == null) return null;
+    var ageMin = (Date.now() - new Date(s.ts).getTime()) / 60000;
+    if (ageMin > LIVORNOMETEO_FRESH_MIN) return null;
+    return { speed: s.station.wind_kt, direction: s.station.direction, ageMin: Math.round(ageMin) };
+  } catch(e) { return null; }
+}
 var REFRESH_MS = 600000; // 10 minuti, stessa cadenza di mappa.html
 
 // ==================== Griglia (identica a mappa.html: 0.25 gradi) ====================
@@ -668,7 +689,7 @@ function nearestGridPoint(lat, lon){
 }
 
 // ==================== Disegno ====================
-function drawAll(){
+async function drawAll(){
   if (!ctx) return;
   ctx.clearRect(0,0,canvas.width,canvas.height);
   var bounds = map.getBounds();
@@ -689,24 +710,32 @@ function drawAll(){
   }
 
   // Zone nostre per prime (vincono lo spazio)
-  state.zonePoints.forEach(function(z){
+  // fix 2026-10-16: forEach -> for sequenziale, serve poter fare await dentro
+  // (per controllare una lettura Livornometeo fresca) senza che il resto del
+  // disegno parta prima che il controllo sia finito.
+  for (var zi = 0; zi < state.zonePoints.length; zi++) {
+    var z = state.zonePoints[zi];
     if (offset === 0) {
       // bottone "ora": dato reale stazione, mai AI
       var st = state.stationsNow[z.biasStation];
       if (st && st.wind_kt != null && st.direction != null) {
-        // fix 2026-09-17: stessa correzione di riferimento gia' applicata a
-        // bussola/mappa/mappa2 -- qui mancava, trovata dopo che M ha segnalato
-        // il popup vuoto per Livorno (causa vera: livorno_porto mancava da
-        // stations_snapshot, v2.14.28 -- ma la correzione di visualizzazione
-        // andava comunque aggiunta anche qui, per coerenza).
-        var stSpd = (z.biasStation === 'livorno_porto') ? Math.round((st.wind_kt + 4.2) * 10) / 10 : st.wind_kt;
-        tryDraw(z.lat, z.lon, st.direction, stSpd, st.gust_kt, true);
-        return;
+        // fix 2026-10-16: se esiste una lettura Livornometeo fresca (<=30min,
+        // M via segnalibro), quella diventa il valore PRINCIPALE -- velocita'
+        // E direzione vere, non piu' solo la stima +4.2 (D16, 15/9). La stima
+        // resta come ripiego quando non c'e' nulla di fresco.
+        var stSpd = st.wind_kt, stDir = st.direction;
+        if (z.biasStation === 'livorno_porto') {
+          var lmOvD = await getLivornometeoOverride();
+          if (lmOvD) { stSpd = lmOvD.speed; stDir = lmOvD.direction; }
+          else stSpd = Math.round((st.wind_kt + 4.2) * 10) / 10;
+        }
+        tryDraw(z.lat, z.lon, stDir, stSpd, st.gust_kt, true);
+        continue;
       }
       // nessuna lettura reale recente -- cade sull'OM del punto griglia piu' vicino
       var g0 = nearestGridPoint(z.lat, z.lon);
       if (g0) tryDraw(z.lat, z.lon, g0.dir, g0.speed, g0.gust, false);
-      return;
+      continue;
     }
     var v = ourValueForOffset(z, offset);
     if (v) {
@@ -718,7 +747,7 @@ function drawAll(){
         if (gv) tryDraw(z.lat, z.lon, gv.dir, gv.speed, gv.gust, false);
       }
     }
-  });
+  }
 
   // Griglia OM di sfondo -- sempre dall'orologio OM (relativo ad adesso)
   if (state.showGridArrows) {
@@ -729,7 +758,7 @@ function drawAll(){
     });
   }
 
-  updateZoneMarkerPopups();
+  await updateZoneMarkerPopups();
 }
 
 // D20 (17/9): un marker Leaflet invisibile per zona (solo per il tocco, non
@@ -751,21 +780,33 @@ function ensureZoneMarkers(){
 // cosa mostrare (dato reale stazione / nostra previsione / ripiego OM), ma qui
 // in forma testuale con il giudizio di affidabilita' per intero (colore + testo),
 // non solo un pallino piccolo sulla mappa.
-function updateZoneMarkerPopups(){
+async function updateZoneMarkerPopups(){
   var offset = state.currentOffset;
-  state.zonePoints.forEach(function(z){
+  for (var zi2 = 0; zi2 < state.zonePoints.length; zi2++) {
+    var z = state.zonePoints[zi2];
     var mk = state.zoneMarkers[z.key];
-    if (!mk) return;
+    if (!mk) continue;
     var html;
     if (offset === 0) {
       var st = state.stationsNow[z.biasStation];
       if (st && st.wind_kt != null && st.direction != null) {
-        // fix 2026-09-17: stessa correzione di riferimento (vedi nota estesa in drawAll).
-        var stSpd = (z.biasStation === 'livorno_porto') ? Math.round((st.wind_kt + 4.2) * 10) / 10 : st.wind_kt;
+        // fix 2026-10-16: lettura Livornometeo fresca (<=30min) ha priorita'
+        // sulla stima +4.2 -- vedi nota estesa in drawAll.
+        var stSpd = st.wind_kt, stDir = st.direction, freshNote = '';
+        if (z.biasStation === 'livorno_porto') {
+          var lmOvP = await getLivornometeoOverride();
+          if (lmOvP) {
+            stSpd = lmOvP.speed; stDir = lmOvP.direction;
+            freshNote = '<div style="font-size:0.6rem;color:#22cc66;margin-top:2px">Livornometeo diretto, ' + lmOvP.ageMin + 'min fa</div>';
+          } else {
+            stSpd = Math.round((st.wind_kt + 4.2) * 10) / 10;
+            freshNote = '<div style="font-size:0.6rem;color:#ffaa00;margin-top:2px">stima rif. Livornometeo</div>';
+          }
+        }
         html = '<div style="font-family:\'DM Mono\',monospace;font-size:0.7rem;min-width:180px">' +
           '<div style="font-weight:bold;color:#00cc66;margin-bottom:4px">' + z.name + '</div>' +
           '<div style="color:#fff;font-size:0.62rem;margin-bottom:4px">Dato reale stazione, adesso</div>' +
-          '<div><b>' + stSpd + ' kn</b> da ' + st.direction + '&deg;</div></div>';
+          '<div><b>' + stSpd + ' kn</b> da ' + stDir + '&deg;</div>' + freshNote + '</div>';
       } else {
         html = '<div style="font-family:\'DM Mono\',monospace;font-size:0.7rem;min-width:180px">' +
           '<div style="font-weight:bold;color:#00cc66;margin-bottom:4px">' + z.name + '</div>' +
@@ -801,7 +842,7 @@ function updateZoneMarkerPopups(){
       }
     }
     mk.setPopupContent(html);
-  });
+  }
 }
 
 function updateFreshness(){
@@ -843,10 +884,14 @@ document.getElementById('btn-flow').addEventListener('click', function(){
 });
 
 // ==================== Esportazione XLS -- un foglio per fascia oraria ====================
-function exportXLS(){
+async function exportXLS(){
   var btn = document.getElementById('btn-xls');
   var oldText = btn.innerHTML;
   btn.innerHTML = '...';
+  // fix 2026-10-16: presa una sola volta, prima dei due cicli sotto -- non
+  // cambia nei pochi secondi che l'export impiega, non serve richiederla a
+  // ogni zona/fascia oraria (ne' convertire i forEach in for per via dell'await).
+  var lmOvX = await getLivornometeoOverride();
   try {
     var wb = XLSX.utils.book_new();
     state.hourButtons.forEach(function(hb){
@@ -859,9 +904,14 @@ function exportXLS(){
         if (hb.offset === 0) {
           var st = state.stationsNow[z.biasStation];
           if (st && st.wind_kt != null) {
-            // fix 2026-09-17: stessa correzione di riferimento (vedi nota estesa in drawAll).
-            var stSpd = (z.biasStation === 'livorno_porto') ? Math.round((st.wind_kt + 4.2) * 10) / 10 : st.wind_kt;
-            rows.push(['zona', z.name, z.lat, z.lon, 'stazione reale (' + (st.age_min != null ? st.age_min + 'min fa' : '?') + ')', stSpd, st.direction, st.gust_kt]);
+            // fix 2026-10-16: lettura Livornometeo fresca (<=30min) ha
+            // priorita' sulla stima +4.2 -- vedi nota estesa in drawAll.
+            var stSpd = st.wind_kt, stDir = st.direction, stFonte = 'stazione reale (' + (st.age_min != null ? st.age_min + 'min fa' : '?') + ')';
+            if (z.biasStation === 'livorno_porto') {
+              if (lmOvX) { stSpd = lmOvX.speed; stDir = lmOvX.direction; stFonte = 'Livornometeo diretto (' + lmOvX.ageMin + 'min fa)'; }
+              else { stSpd = Math.round((st.wind_kt + 4.2) * 10) / 10; stFonte = 'stima rif. Livornometeo'; }
+            }
+            rows.push(['zona', z.name, z.lat, z.lon, stFonte, stSpd, stDir, st.gust_kt]);
           } else {
             var g0 = nearestGridPoint(z.lat, z.lon);
             var gv0 = g0 ? omValueForOffset(g0, 0) : null;
@@ -915,4 +965,4 @@ setInterval(loadAll, REFRESH_MS);
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS PREVISIONI v3.9 -->
+<!-- Fine codice - NAUTILUS PREVISIONI v3.10 -->

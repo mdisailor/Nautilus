@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA2 v1.7 - mdisailor - 2026-10-19 - v1.7: scambiate le posizioni dei due marker Livorno su richiesta di M (Livornometeo sta sull'imboccatura del porto). All'imboccatura (43.5525/10.3014) ora c'e' "Livornometeo Porto" (lettura vera se <=30min, altrimenti stima, logica invariata); nell'altro punto (43.5497/10.2950) c'e' "Livorno Porto (Windfinder)" col dato grezzo della stazione, marker nuovo con flag raw (stesso sid, niente override, non alimenta le particelle). Rimosso il vecchio marker informativo lv_porto (nota "accesso non disponibile" ormai falsa). refreshMnwStation distingue i due marker dal popupId. Su base v1.6 -->
+<!-- NAUTILUS MAPPA2 v1.8 - mdisailor - 2026-10-20 - v1.8: il marker Livorno Porto (Windfinder) ora sta SOPRA il cerchio di zona Livorno (zIndexOffset 150 contro 100): nel punto 43.5497/10.2950 il cerchio lo copriva del tutto e lo scambio delle due stazioni, gia presente in v1.7, non si vedeva. Cerchio e doppia freccia di zona restano dove sono. Su base v1.7 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa2 Vento v1.7</title>
+<title>NAUTILUS Mappa2 Vento v1.8</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -229,7 +229,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa2 v1.7</span>
+    <span id="nav-ver">mappa2 v1.8</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -291,11 +291,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA2 v1.7 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA2 v1.8 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA2 v1.7
+// NAUTILUS MAPPA2 v1.8
 
 var ENGINE_URL = '/api/engine';
 
@@ -2019,7 +2019,12 @@ setTimeout(loadObsMarkers, 2000);
 
 try {
 MNW_LIVE.forEach(function(st) {
-  var mk = L.marker([st.lat, st.lon], { icon: mnwIcon, zIndexOffset: 60 }).addTo(map);
+  // 2026-10-19: il marker raw (Livorno Porto/Windfinder) sta nello stesso
+  // punto del cerchio di zona 'Livorno' (ZONES, zIndexOffset 100, icona 26px):
+  // con 60 finiva SOTTO il cerchio, coperto del tutto (icona 20px) e non
+  // toccabile, quindi lo scambio delle due stazioni richiesto da M non si
+  // vedeva. Per quel marker 150, cosi' sta sopra il cerchio.
+  var mk = L.marker([st.lat, st.lon], { icon: mnwIcon, zIndexOffset: st.raw ? 150 : 60 }).addTo(map);
   var popupId = 'mnwpop_' + st.key;
   mk.bindPopup('<div id="' + popupId + '" style="font-family:DM Mono,monospace;font-size:0.7rem;min-width:200px">' +
     '<div style="font-weight:bold;color:#00cc66;margin-bottom:4px">' + st.name + '</div>' +
@@ -2316,7 +2321,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine script - NAUTILUS MAPPA2 v1.7 (segue markup HTML pannello osservazioni, non altro codice)
+// Fine script - NAUTILUS MAPPA2 v1.8 (segue markup HTML pannello osservazioni, non altro codice)
 </script>
 <!-- Pannello inserimento osservazione manuale -->
 <div id="obs-panel">
@@ -2356,4 +2361,4 @@ function refreshMnwStation(sid, popupId, name) {
 </body>
 </html>
 
-<!-- Fine codice - NAUTILUS MAPPA2 v1.7 -->
+<!-- Fine codice - NAUTILUS MAPPA2 v1.8 -->

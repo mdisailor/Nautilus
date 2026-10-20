@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.7.44 -- 2026-10-19 - (1) la bussola di Livorno (singola e tripla) usa la lettura Livornometeo se piu' recente di 30 minuti (velocita', direzione e orario veri, etichetta LIVORNOMETEO), altrimenti la stima Windfinder +4.2 come prima -- era una richiesta di M che avevo letto male (frase ambigua "lasciamo la correzione") e escluso per errore dalla bussola; stessa funzione e soglia di mappa2/previsioni. (2) nuovo bottone "Livornometeo (manuale)" accanto a Livorno Porto: non puo' forzare una lettura (la fa M col segnalibro, di persona), apre il sito in una nuova scheda e al ritorno ricarica l'elenco con la stazione selezionata. Su base v5.7.43 -->
+<!-- NAUTILUS v5.7.45 -- 2026-10-19 - (1) il bottone "Livornometeo (manuale)" ora apre l'elenco delle letture (come gli altri bottoni stazione) invece di aprire il sito: avevo assunto io il comportamento sbagliato. (2) la stazione manuale non passa piu dal ramo "Fermo da ... non usato nei calcoli" (soglia 90 min, pensata per stazioni automatiche): con 4 letture al giorno scattava quasi sempre e la lista mostrava una sola riga invece della tabella storica; falso anche nel testo, perche Livorno la usa quando ha <=30 min. Su base v5.7.44 -->
 
 <html lang="it">
 <head>
@@ -600,7 +600,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.44  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.45  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -1081,7 +1081,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
       <button class="btn-history" onclick="biasWebSample('luri','m')">📡 Luri</button>
       <div style="width:100%;font-family:DM Mono,monospace;font-size:0.6rem;color:var(--accent);letter-spacing:0.1em;text-transform:uppercase;margin:10px 0 4px;border-top:1px solid rgba(0,240,255,0.25);padding-top:8px">CFR Toscana — Costa</div>
       <button class="btn-history" onclick="biasWebSample('livorno_porto','m')">📡 Livorno Porto</button>
-      <button class="btn-history" onclick="openLivornometeo('m')">🌐 Livornometeo (manuale)</button>
+      <button class="btn-history" onclick="biasLoadHistory('livornometeo_porto','m')">📡 Livornometeo (manuale)</button>
       <button class="btn-history" onclick="biasWebSample('bocca_arno_cfr','m')">📡 Bocca d'Arno</button>
       <button class="btn-history" onclick="biasWebSample('viareggio_cfr','m')">📡 Viareggio CFR</button>
       <button class="btn-history" onclick="biasWebSample('lido_camaiore','m')">📡 Lido Camaiore</button>
@@ -2012,7 +2012,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.44  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.45  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -2096,7 +2096,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
       <button class="btn-history" onclick="biasWebSample('luri',undefined)">📡 Luri</button>
       <div style="width:100%;font-family:DM Mono,monospace;font-size:0.6rem;color:var(--accent);letter-spacing:0.1em;text-transform:uppercase;margin:10px 0 4px;border-top:1px solid rgba(0,240,255,0.25);padding-top:8px">CFR Toscana — Costa</div>
       <button class="btn-history" onclick="biasWebSample('livorno_porto',undefined)">📡 Livorno Porto</button>
-      <button class="btn-history" onclick="openLivornometeo(undefined)">🌐 Livornometeo (manuale)</button>
+      <button class="btn-history" onclick="biasLoadHistory('livornometeo_porto',undefined)">📡 Livornometeo (manuale)</button>
       <button class="btn-history" onclick="biasWebSample('bocca_arno_cfr',undefined)">📡 Bocca d'Arno</button>
       <button class="btn-history" onclick="biasWebSample('viareggio_cfr',undefined)">📡 Viareggio CFR</button>
       <button class="btn-history" onclick="biasWebSample('lido_camaiore',undefined)">📡 Lido Camaiore</button>
@@ -6021,7 +6021,13 @@ async function biasLoadHistory(selectedStation, sfx) {
       if (m < 1440) return Math.round(m/60) + 'h fa';
       return Math.round(m/1440) + 'g fa';
     }
-    const freshValid = valid.filter(function(s){ return ageMinOf(s) <= RECENT_MIN; });
+    // 2026-10-19: 'livornometeo_porto' e' una stazione MANUALE (4 letture al
+    // giorno, via segnalibro di M), quindi buchi di molte ore sono normali:
+    // non puo' passare dal ramo "Fermo da ... non usato nei calcoli" (falso
+    // due volte: non e' ferma, e Livorno la usa eccome quando ha <=30min). Con
+    // quel ramo M vedeva una sola riga invece dello storico delle letture.
+    // Per lei la lista mostra sempre la tabella normale, qualunque sia l'eta'.
+    const freshValid = (st.id === 'livornometeo_porto') ? valid : valid.filter(function(s){ return ageMinOf(s) <= RECENT_MIN; });
 
     if (!freshValid.length) {
       // Nessun dato fresco. Cerco piu' a fondo (fino a ~4 giorni) l'ultimo dato
@@ -6108,21 +6114,12 @@ async function biasLoadHistory(selectedStation, sfx) {
   if (spinner) spinner.style.display = 'none';
 }
 
-// 2026-10-19: bottone "Livornometeo (manuale)". A differenza delle altre
-// stazioni NON puo' forzare una lettura da solo (la lettura la fa M col
-// segnalibro, visitando il sito di persona: nessuno scraping automatico).
-// Apre il sito in una nuova scheda; quando M torna a questa scheda, ricarica
-// l'elenco con la stazione selezionata, cosi' vede subito la lettura appena inviata.
-function openLivornometeo(sfx) {
-  window.open('https://www.livornometeo.it/', '_blank');
-  var onBack = function() {
-    if (document.visibilityState === 'visible') {
-      document.removeEventListener('visibilitychange', onBack);
-      setTimeout(function(){ biasLoadHistory('livornometeo_porto', sfx); }, 1500);
-    }
-  };
-  document.addEventListener('visibilitychange', onBack);
-}
+// 2026-10-19: RIMOSSA la funzione openLivornometeo(). Motivo: il bottone
+// "Livornometeo (manuale)" apriva il sito in una nuova scheda, ma M si
+// aspettava l'elenco delle letture (come gli altri bottoni stazione): avevo
+// assunto io un comportamento diverso senza chiederglielo. Ora il bottone
+// chiama biasLoadHistory('livornometeo_porto') e mostra lo storico; per
+// andare al sito M usa il link dei promemoria sul telefono.
 
 async function biasWebSample(stationId, sfx) {
   const sfxId = sfx ? '-' + sfx : '';
@@ -6292,4 +6289,4 @@ async function loadTripleCompasses() {
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS v5.7.44 -->
+<!-- Fine codice - NAUTILUS v5.7.45 -->

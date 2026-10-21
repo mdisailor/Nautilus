@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.31 - by mdisailor engine - v2.14.31: aggiunta action=bias_archive_get (sola lettura, pubblica) -- legge l'archivio lungo bias_archive (fino a ~3000 campioni) in forma compatta (ts, velocita, direzione, orario reale), con filtro from= e limit=. Prima bias_history leggeva solo bias_samples (~100 campioni, ~2 giorni) e non c'era modo di leggere lo storico lungo: serviva per accoppiare le letture manuali di Livornometeo (dal 9/10) con Windfinder e capire la forma della correzione D22. Su base v2.14.30
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.32 - by mdisailor engine - v2.14.32: aggiunta action=model_dir_report (sola lettura, pubblica) -- confronta direzione e velocita di OM e AROME con quelle misurate dalle stazioni di riferimento delle zone, per fasce di vento della stazione, leggendo bias_archive (default ultimi 30 giorni). Serve a capire chi sbaglia la direzione e a che vento (la mappa OI impone la direzione della stazione anche con vento debole, dove e rumore). Funzione pura computeModelDirReport collaudata con dati inventati. Su base v2.14.31
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -1996,6 +1996,61 @@ async function updateLammaBias(kvUrl, kvToken) {
   return zoneData;
 }
 
+// 2026-10-22: confronto direzione/velocita' dei modelli (OM, AROME) contro la
+// stazione, per fascia di vento della STAZIONE. Serve a rispondere a una domanda
+// che il solo errore di velocita' non risolve: chi sbaglia la direzione, e a che
+// vento (con vento debole la direzione di una stazione e' rumore, e la mappa OI
+// la impone comunque -- vedi applyOI in mappa2). Funzione pura (nessun accesso
+// a Redis) cosi' si puo' collaudare con dati inventati.
+// Convenzioni: spd_bias = modello - stazione (positivo = il modello sta SOPRA);
+// dir_mae = errore angolare medio assoluto 0..180 gradi; w45_pct = % di campioni
+// con direzione entro 45 gradi dalla stazione.
+function angDiff(a, b) { return Math.abs(((a - b + 540) % 360) - 180); }
+function computeModelDirReport(archives, fromMs) {
+  var BANDS = ['lt4', '4_8', '8_12', 'ge12'];
+  function bandOf(s) { return s < 4 ? 'lt4' : s < 8 ? '4_8' : s < 12 ? '8_12' : 'ge12'; }
+  function r1(x) { return Math.round(x * 10) / 10; }
+  function newAcc() { return { n: 0, dir: 0, w45: 0, bias: 0, abs: 0 }; }
+  function newBands() { var o = {}; BANDS.forEach(function(b){ o[b] = { om: newAcc(), ar: newAcc(), n: 0 }; }); return o; }
+  function fin(a) {
+    return a.n ? { n: a.n, dir_mae: r1(a.dir / a.n), w45_pct: Math.round(100 * a.w45 / a.n), spd_bias: r1(a.bias / a.n), spd_mae: r1(a.abs / a.n) } : { n: 0 };
+  }
+  function finBands(bs) {
+    var o = {};
+    BANDS.forEach(function(b){ o[b] = { n: bs[b].n, om: fin(bs[b].om), ar: fin(bs[b].ar) }; });
+    return o;
+  }
+  function add(acc, stSpd, stDir, m) {
+    if (!m || m.wind_kt == null || m.direction == null) return;
+    var e = angDiff(stDir, m.direction);
+    acc.n++; acc.dir += e; if (e <= 45) acc.w45++;
+    acc.bias += (m.wind_kt - stSpd); acc.abs += Math.abs(m.wind_kt - stSpd);
+  }
+  var all = newBands(), perStation = {}, empty = [];
+  Object.keys(archives).forEach(function(id){
+    var bs = newBands(), used = 0;
+    (archives[id] || []).forEach(function(s){
+      if (!s || !s.station || s.station.wind_kt == null || s.station.direction == null) return;
+      if (!(new Date(s.ts).getTime() >= fromMs)) return;
+      var b = bandOf(s.station.wind_kt);
+      used++; bs[b].n++; all[b].n++;
+      add(bs[b].om, s.station.wind_kt, s.station.direction, s.om);
+      add(bs[b].ar, s.station.wind_kt, s.station.direction, s.arome);
+      add(all[b].om, s.station.wind_kt, s.station.direction, s.om);
+      add(all[b].ar, s.station.wind_kt, s.station.direction, s.arome);
+    });
+    if (used === 0) { empty.push(id); return; }
+    perStation[id] = { n: used, bands: finBands(bs) };
+  });
+  return {
+    ok: true,
+    legend: 'bande = vento della STAZIONE in kn: lt4 (<4), 4_8, 8_12, ge12 (>=12). om=Open-Meteo standard, ar=AROME. dir_mae=errore angolare medio (gradi, 0-180); w45_pct=% campioni entro 45 gradi; spd_bias=modello meno stazione (kn, positivo=modello sopra); spd_mae=errore assoluto medio velocita (kn)',
+    all: finBands(all),
+    stations: perStation,
+    empty: empty
+  };
+}
+
 module.exports = async function handler(req, res) {
 
 // getNowRome spostata a livello modulo (audit A6) — vedi definizione sopra fetchECMWF
@@ -2064,7 +2119,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.31', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.32', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -3209,6 +3264,38 @@ if (action === 'bias_archive_get') {
       bgOut.push({ ts: bgS.ts, w: bgS.station.wind_kt, d: bgS.station.direction, o: bgS.station.obs_time || null });
     }
     return res.status(200).json({ station: bgStation, total_in_archive: bgArr.length, returned: bgOut.length, samples: bgOut });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+// /api/engine?action=model_dir_report[&from=ISO][&stations=a,b,c] -- sola
+// lettura, pubblica. Aggiunta 2026-10-22: legge bias_archive di ogni stazione di
+// riferimento delle zone (o di quelle indicate in stations=) e confronta
+// direzione e velocita' di OM e AROME con quelle misurate, per fasce di vento
+// (vedi computeModelDirReport). Default: ultimi 30 giorni. Costo: una lettura
+// Redis per stazione (23 circa), a blocchi di 6 in parallelo.
+if (action === 'model_dir_report') {
+  try {
+    var mdrFrom = req.query.from ? new Date(req.query.from).getTime() : NaN;
+    if (isNaN(mdrFrom)) mdrFrom = Date.now() - 30 * 86400000;
+    var mdrIds = [];
+    if (req.query.stations) {
+      mdrIds = req.query.stations.toString().split(',').map(function(x){ return x.replace(/[^a-zA-Z0-9_]/g, ''); }).filter(Boolean);
+    } else {
+      Object.keys(ZONES).forEach(function(zk){ var bsn = ZONES[zk].bias_station; if (bsn && mdrIds.indexOf(bsn) < 0) mdrIds.push(bsn); });
+    }
+    var mdrArchives = {};
+    for (var mdrI = 0; mdrI < mdrIds.length; mdrI += 6) {
+      var mdrChunk = mdrIds.slice(mdrI, mdrI + 6);
+      var mdrRes = await Promise.all(mdrChunk.map(function(id){
+        return kvGet('bias_archive:' + id, kvUrl, kvToken).catch(function(){ return null; });
+      }));
+      mdrChunk.forEach(function(id, j){ mdrArchives[id] = Array.isArray(mdrRes[j]) ? mdrRes[j] : []; });
+    }
+    var mdrOut = computeModelDirReport(mdrArchives, mdrFrom);
+    mdrOut.from = new Date(mdrFrom).toISOString();
+    return res.status(200).json(mdrOut);
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }
@@ -6449,7 +6536,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.31 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.32 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -6580,4 +6667,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.31
+// Fine codice - NAUTILUS ENGINE v2.14.32

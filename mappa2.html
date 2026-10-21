@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA2 v1.8 - mdisailor - 2026-10-20 - v1.8: il marker Livorno Porto (Windfinder) ora sta SOPRA il cerchio di zona Livorno (zIndexOffset 150 contro 100): nel punto 43.5497/10.2950 il cerchio lo copriva del tutto e lo scambio delle due stazioni, gia presente in v1.7, non si vedeva. Cerchio e doppia freccia di zona restano dove sono. Su base v1.7 -->
+<!-- NAUTILUS MAPPA2 v1.9 - mdisailor - 2026-10-21 - v1.9: nel popup di Livornometeo Porto lo scarto "Vs OM" e l'orario erano quelli del campione Windfinder (es. -3.3 kn e "27min fa" accanto a 24.3 kn letti 3 minuti prima). Ora con lettura Livornometeo fresca mostrano lo scarto e l'orario della lettura stessa; con la stima, lo scarto della stima mostrata, non del grezzo. Il marker Windfinder non cambia. Corretti popup principale, di ripiego e tasto Aggiorna. Su base v1.8 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa2 Vento v1.8</title>
+<title>NAUTILUS Mappa2 Vento v1.9</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -229,7 +229,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa2 v1.8</span>
+    <span id="nav-ver">mappa2 v1.9</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -291,11 +291,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA2 v1.8 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA2 v1.9 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA2 v1.8
+// NAUTILUS MAPPA2 v1.9
 
 var ENGINE_URL = '/api/engine';
 
@@ -316,7 +316,8 @@ async function getLivornometeoOverride(){
     if (!s || !s.station || s.station.wind_kt == null || s.station.direction == null) return null;
     var ageMin = (Date.now() - new Date(s.ts).getTime()) / 60000;
     if (ageMin > LIVORNOMETEO_FRESH_MIN) return null;
-    return { speed: s.station.wind_kt, direction: s.station.direction, ageMin: Math.round(ageMin) };
+    return { speed: s.station.wind_kt, direction: s.station.direction, ageMin: Math.round(ageMin), ts: s.ts,
+             delta: (s.delta && s.delta.wind_kt != null) ? s.delta.wind_kt : null };
   } catch(e) { return null; }
 }
 
@@ -2072,9 +2073,12 @@ MNW_LIVE.forEach(function(st) {
                 if (lmOv2) {
                   wkt2 = lmOv2.speed;
                   dir2 = lmOv2.direction;
+                  dw2 = lmOv2.delta;  // 2026-10-20: scarto e orario della lettura Livornometeo, non di Windfinder
+                  dt2 = new Date(lmOv2.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
                   mkNameSuffix2 = ' <span style="font-size:0.55rem;color:#22cc66;font-weight:normal">(Livornometeo diretto, ' + lmOv2.ageMin + 'min fa)</span>';
                 } else if (wkt2 !== null && wkt2 !== undefined) {
                   wkt2 = Math.round((wkt2 + 4.2) * 10) / 10;
+                  if (s2.om && s2.om.wind_kt != null) dw2 = Math.round((wkt2 - s2.om.wind_kt) * 10) / 10;  // 2026-10-20: scarto della stima mostrata
                   mkNameSuffix2 = ' <span style="font-size:0.55rem;color:#ffaa00;font-weight:normal">(stima rif. Livornometeo)</span>';
                 }
               }
@@ -2108,14 +2112,23 @@ MNW_LIVE.forEach(function(st) {
         // Solo se non c'e' niente di fresco si ricade sulla stima +4.2 di
         // prima (D16, 15/9) -- stesso principio gia' su bussola/mappa/mappa2,
         // ora raffinato con la fonte vera quando disponibile.
+        var lmAgeStr = null;
         if (st.sid === 'livorno_porto' && !st.raw) {
           var lmOv = await getLivornometeoOverride();
           if (lmOv) {
             wkt = lmOv.speed;
             dispDir = lmOv.direction;
+            // 2026-10-20: scarto vs OM e orario sono quelli della LETTURA Livornometeo
+            // (lo scarto e' gia' calcolato all'invio contro l'OM di quel momento), non
+            // del campione Windfinder: prima mostravano il -3.3 di Windfinder accanto ai 24.3.
+            dw = lmOv.delta;
+            dt = new Date(lmOv.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+            lmAgeStr = lmOv.ageMin + 'min fa';
             mkNameSuffix = ' <span style="font-size:0.55rem;color:#22cc66;font-weight:normal">(Livornometeo diretto, ' + lmOv.ageMin + 'min fa)</span>';
           } else if (wkt !== null && wkt !== undefined) {
             wkt = Math.round((wkt + 4.2) * 10) / 10;
+            // 2026-10-20: lo scarto vs OM va calcolato sul valore MOSTRATO (la stima), non sul grezzo
+            if (s.om_wind_kt !== null && s.om_wind_kt !== undefined) dw = Math.round((wkt - s.om_wind_kt) * 10) / 10;
             mkNameSuffix = ' <span style="font-size:0.55rem;color:#ffaa00;font-weight:normal">(stima rif. Livornometeo)</span>';
           }
         }
@@ -2131,6 +2144,7 @@ MNW_LIVE.forEach(function(st) {
             '</g></svg>'
           : '';
         var ageStr = s.age_min !== undefined ? s.age_min + 'min fa' : '';
+        if (lmAgeStr) ageStr = lmAgeStr;
         el.innerHTML = '<div style="font-weight:bold;color:#00cc66;font-size:0.78rem;margin-bottom:6px">' + st.name + mkNameSuffix + '</div>' +
           '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">' +
           '<span style="font-size:1.5rem;font-weight:bold;color:' + windCol + '">' + wkt + '</span>' +
@@ -2281,6 +2295,7 @@ function refreshMnwStation(sid, popupId, name) {
       var d = res.data;
       var wkt = d.wind_kt;
       var dispDirRm = d.dir_deg;
+      var lmDtRm = null;
       var rmNameSuffix = '';
       // fix 2026-10-16: stessa logica fresco/stima degli altri 4 punti (popup
       // principale, popup di ripiego, particelle animate, ripiego rate-limit).
@@ -2289,6 +2304,7 @@ function refreshMnwStation(sid, popupId, name) {
         if (lmOv4) {
           wkt = lmOv4.speed;
           dispDirRm = lmOv4.direction;
+          lmDtRm = lmOv4.ts;  // 2026-10-20: orario della lettura Livornometeo, non del refresh Windfinder
           rmNameSuffix = ' <span style=\"font-size:0.55rem;color:#22cc66;font-weight:normal\">(Livornometeo diretto, ' + lmOv4.ageMin + 'min fa)</span>';
         } else if (wkt !== null && wkt !== undefined) {
           wkt = Math.round((wkt + 4.2) * 10) / 10;
@@ -2304,7 +2320,7 @@ function refreshMnwStation(sid, popupId, name) {
           '<line x1=\"0\" y1=\"9\" x2=\"0\" y2=\"-6\" stroke=\"#fff\" stroke-width=\"2.5\" stroke-linecap=\"round\"/>' +
           '<polygon points=\"0,-10 -4,-4 4,-4\" fill=\"#fff\"/>' +
           '</g></svg>' : '';
-      var dt = new Date(d.timestamp).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+      var dt = new Date(lmDtRm || d.timestamp).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
       el.innerHTML = '<div style=\"font-weight:bold;color:#00cc66;font-size:0.78rem;margin-bottom:6px\">' + name + rmNameSuffix + '</div>' +
         '<div style=\"display:flex;align-items:center;gap:8px;margin-bottom:5px\">' +
         (wkt ? '<span style=\"font-size:1.5rem;font-weight:bold;color:' + windCol + '\">' + wkt + '</span><span style=\"font-size:0.65rem;color:#fff;font-weight:bold\">kn</span>' : '<span style=\"color:#bbb\">--</span>') +
@@ -2321,7 +2337,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine script - NAUTILUS MAPPA2 v1.8 (segue markup HTML pannello osservazioni, non altro codice)
+// Fine script - NAUTILUS MAPPA2 v1.9 (segue markup HTML pannello osservazioni, non altro codice)
 </script>
 <!-- Pannello inserimento osservazione manuale -->
 <div id="obs-panel">
@@ -2361,4 +2377,4 @@ function refreshMnwStation(sid, popupId, name) {
 </body>
 </html>
 
-<!-- Fine codice - NAUTILUS MAPPA2 v1.8 -->
+<!-- Fine codice - NAUTILUS MAPPA2 v1.9 -->

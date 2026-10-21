@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.30 - by mdisailor engine - v2.14.30: aggiunta action=livornometeo_submit (POST, k=mdi) -- salva una lettura manuale di Livornometeo (velocita+direzione, estratta da M con un bookmarklet dal sito reale) sotto un id SEPARATO (livornometeo_porto), mai dentro livorno_porto (Windfinder) -- stesso schema di bias_samples con OM/AROME inclusi, cosi funziona subito con bias_history/confronto-modelli.html senza modifiche. Aggiunto anche POST ai metodi CORS permessi (prima solo GET/OPTIONS) -- necessario perche il bookmarklet, in esecuzione sul dominio di livornometeo.it, possa chiamare la nostra API da un altro sito. Su base v2.14.29
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.31 - by mdisailor engine - v2.14.31: aggiunta action=bias_archive_get (sola lettura, pubblica) -- legge l'archivio lungo bias_archive (fino a ~3000 campioni) in forma compatta (ts, velocita, direzione, orario reale), con filtro from= e limit=. Prima bias_history leggeva solo bias_samples (~100 campioni, ~2 giorni) e non c'era modo di leggere lo storico lungo: serviva per accoppiare le letture manuali di Livornometeo (dal 9/10) con Windfinder e capire la forma della correzione D22. Su base v2.14.30
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2064,7 +2064,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.30', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.31', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -3179,6 +3179,36 @@ if (action === 'livornometeo_submit') {
     if (lsBaList.length > 3000) lsBaList.length = 3000;
     await kvSet(lsBaKey, lsBaList, 31536000, kvUrl, kvToken);
     return res.status(200).json({ ok: true, saved: lsSample });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+// /api/engine?action=bias_archive_get&station=X[&from=ISO][&limit=N] -- sola
+// lettura, pubblica (come bias_history). Aggiunta 2026-10-21: bias_history legge
+// solo bias_samples (ultimi ~100 campioni, ~2 giorni) e non c'era nessun modo di
+// leggere l'archivio lungo (bias_archive, fino a ~3000 campioni): serviva per
+// accoppiare le letture manuali di Livornometeo (dal 9/10) con Windfinder e
+// capire la forma della correzione (D22). Forma COMPATTA apposta (ts, velocita'
+// w, direzione d, orario reale dell'osservazione o) per tenere la risposta
+// leggibile su molti giorni; piu' recenti per primi. Una sola lettura Redis.
+if (action === 'bias_archive_get') {
+  try {
+    var bgStation = (req.query.station || '').toString().replace(/[^a-zA-Z0-9_]/g, '');
+    if (!bgStation) return res.status(400).json({ error: 'Manca station' });
+    var bgLimit = Math.min(Math.max(parseInt(req.query.limit) || 300, 1), 3000);
+    var bgFrom = req.query.from ? new Date(req.query.from).getTime() : null;
+    var bgArr = await kvGet('bias_archive:' + bgStation, kvUrl, kvToken);
+    bgArr = Array.isArray(bgArr) ? bgArr : [];
+    var bgOut = [];
+    for (var bgI = 0; bgI < bgArr.length && bgOut.length < bgLimit; bgI++) {
+      var bgS = bgArr[bgI];
+      if (!bgS || !bgS.station || bgS.station.wind_kt == null) continue;
+      // continue e non break: non do per scontato che l'archivio sia sempre ordinato
+      if (bgFrom !== null && !isNaN(bgFrom) && new Date(bgS.ts).getTime() < bgFrom) continue;
+      bgOut.push({ ts: bgS.ts, w: bgS.station.wind_kt, d: bgS.station.direction, o: bgS.station.obs_time || null });
+    }
+    return res.status(200).json({ station: bgStation, total_in_archive: bgArr.length, returned: bgOut.length, samples: bgOut });
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }
@@ -6419,7 +6449,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.30 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.31 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -6550,4 +6580,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.30
+// Fine codice - NAUTILUS ENGINE v2.14.31

@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.32 - by mdisailor engine - v2.14.32: aggiunta action=model_dir_report (sola lettura, pubblica) -- confronta direzione e velocita di OM e AROME con quelle misurate dalle stazioni di riferimento delle zone, per fasce di vento della stazione, leggendo bias_archive (default ultimi 30 giorni). Serve a capire chi sbaglia la direzione e a che vento (la mappa OI impone la direzione della stazione anche con vento debole, dove e rumore). Funzione pura computeModelDirReport collaudata con dati inventati. Su base v2.14.31
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.34 - by mdisailor engine - v2.14.34: stazioni MANUALI generalizzate (tabella MANUAL_STATIONS: Livornometeo, Capraiameteo, Rosignanometeo, Golfo Aranci da livornometeo.it): nuove action manual_submit (lettura singola, POST k=mdi, derivata dal blocco livornometeo_submit che resta intatto) e manual_series_submit/manual_series_get (serie delle 3 ore per stazione, chiave manual_series:<id>); livornometeo_series_* restano come alias di livornometeo_porto. Una stazione sconosciuta viene rifiutata: protezione contro la scrittura dei dati di un sito nei contenitori di un altro. Per ora solo raccolta, l'app non le usa (M, 22/10). Include tutto il v2.14.33 (serie di Livornometeo). Su base v2.14.33
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2051,6 +2051,67 @@ function computeModelDirReport(archives, fromMs) {
   };
 }
 
+// 2026-10-22: serie di Livornometeo dal grafico "Wind speed and direction - last
+// 3 hours" (60 punti, ogni 2-4 minuti, letta da M con un segnalibro dal browser,
+// stesso principio del quadrante: legge solo cio' che la pagina ha gia' caricato).
+// Perche' serve: una lettura singola del quadrante e' un valore istantaneo e a 20 kn
+// oscilla di +-5 kn nel giro di pochi minuti (rumore di 3-6 kn); le medie su 30-60
+// minuti sono confrontabili con Windfinder e con i modelli, che sono medie.
+// Funzioni pure (nessun accesso a Redis) cosi' si collaudano con dati inventati.
+// Formato dei punti: [iso_UTC, velocita_kn, direzione_gradi]; chiave di
+// deduplica = il minuto (iso fino ai minuti), cosi' riaprire la pagina ogni poche
+// ore non duplica i punti delle finestre che si sovrappongono.
+function lmSeriesMerge(existing, incoming, cap) {
+  var byT = {};
+  (existing || []).forEach(function(p){ if (p && p.length >= 3) byT[String(p[0]).slice(0, 16)] = p; });
+  var added = 0;
+  (incoming || []).forEach(function(p){
+    if (!p || p.length < 3) return;
+    var t = new Date(p[0]).getTime(), s = Number(p[1]), d = Number(p[2]);
+    if (isNaN(t) || isNaN(s) || isNaN(d) || s < 0 || s > 150 || d < 0 || d > 360) return;
+    var iso = new Date(t).toISOString(), key = iso.slice(0, 16);
+    if (!byT[key]) added++;
+    byT[key] = [iso, Math.round(s * 10) / 10, Math.round(d)];
+  });
+  var arr = Object.keys(byT).sort().map(function(k){ return byT[k]; });
+  if (arr.length > cap) arr = arr.slice(arr.length - cap);
+  return { arr: arr, added: added };
+}
+function lmSeriesBucket(arr, bucketMin) {
+  var ms = bucketMin * 60000, groups = {}, order = [];
+  arr.forEach(function(p){
+    var b = Math.floor(new Date(p[0]).getTime() / ms) * ms;
+    if (!groups[b]) { groups[b] = []; order.push(b); }
+    groups[b].push(p);
+  });
+  return order.map(function(b){
+    var g = groups[b], n = g.length, sum = 0, mn = 1e9, mx = -1, ux = 0, uy = 0;
+    g.forEach(function(p){
+      sum += p[1]; if (p[1] < mn) mn = p[1]; if (p[1] > mx) mx = p[1];
+      ux += Math.sin(p[2] * Math.PI / 180); uy += Math.cos(p[2] * Math.PI / 180);
+    });
+    return [new Date(b).toISOString(), n, Math.round(sum / n * 10) / 10, mn, mx, Math.round((Math.atan2(ux, uy) * 180 / Math.PI + 360) % 360)];
+  });
+}
+
+// 2026-10-22: stazioni MANUALI -- letture fatte da M con i segnalibri, visitando di
+// persona i siti (nessun accesso automatico). Livornometeo, Capraiameteo,
+// Rosignanometeo e la pagina di Golfo Aranci dentro livornometeo.it sono dello stesso
+// sviluppatore e fatti allo stesso modo. Ogni stazione ha i suoi contenitori
+// (bias_samples:<id>, bias_archive:<id>, manual_series:<id>), mai mescolati tra loro
+// ne' con le stazioni automatiche (Windfinder, CFR, MNW). Per ora SOLO RACCOLTA: l'app
+// non le usa (deciso da M il 22/10); si leggono con bias_archive_get, model_dir_report
+// (stations=...) e manual_series_get. Aggiungere una stazione = una riga qui.
+// Le coordinate servono solo a confrontare con OM e AROME nello stesso punto: sono
+// APPROSSIMATE (centro del paese), le celle dei modelli sono da 9-25 km; da affinare
+// se una stazione sta in un posto molto diverso (collina, promontorio).
+var MANUAL_STATIONS = {
+  livornometeo_porto: { name: 'Livornometeo Porto',               lat: 43.5497, lon: 10.2950, source: 'livornometeo_manual' },
+  capraiameteo:       { name: 'Capraiameteo',                     lat: 43.0500, lon:  9.8300, source: 'capraiameteo_manual' },
+  rosignanometeo:     { name: 'Rosignanometeo',                   lat: 43.3880, lon: 10.4440, source: 'rosignanometeo_manual' },
+  golfoaranci_lm:     { name: 'Golfo Aranci (da livornometeo.it)', lat: 41.0000, lon:  9.6150, source: 'golfoaranci_lm_manual' }
+};
+
 module.exports = async function handler(req, res) {
 
 // getNowRome spostata a livello modulo (audit A6) — vedi definizione sopra fetchECMWF
@@ -2119,7 +2180,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.32', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.34', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -3239,6 +3300,85 @@ if (action === 'livornometeo_submit') {
   }
 }
 
+// /api/engine?action=manual_submit&station=<id> -- POST, richiede k=mdi. Versione
+// generale di livornometeo_submit (che resta com'e', in produzione dal 9/10): salva una
+// lettura manuale (velocita + direzione) della stazione <id> di MANUAL_STATIONS, con OM e
+// AROME confrontati nello stesso punto, nello stesso formato di bias_samples. Una
+// stazione sconosciuta viene rifiutata: e' la protezione contro il rischio di scrivere
+// per sbaglio i dati di un sito nei contenitori di un altro.
+if (action === 'manual_submit') {
+  try {
+    var msK = req.query.k || '';
+    if (msK !== 'mdi') return res.status(401).json({ error: 'Unauthorized' });
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Serve POST con corpo JSON {speed, direction}' });
+    var msStationId = (req.query.station || '').toString();
+    var msSt = MANUAL_STATIONS[msStationId];
+    if (!msSt) return res.status(400).json({ error: 'Stazione manuale sconosciuta: ' + msStationId, known: Object.keys(MANUAL_STATIONS) });
+    var msBody = req.body || {};
+    var msSpeed = parseFloat(msBody.speed);
+    var msDir = parseFloat(msBody.direction);
+    if (isNaN(msSpeed) || isNaN(msDir)) return res.status(400).json({ error: 'speed e direction richiesti, numerici' });
+    var MS_LAT = msSt.lat, MS_LON = msSt.lon;
+
+    var msOmUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + MS_LAT + '&longitude=' + MS_LON + '&current=wind_speed_10m,wind_gusts_10m,wind_direction_10m,surface_pressure&wind_speed_unit=kn';
+    var msAromeUrl = 'https://api.open-meteo.com/v1/meteofrance?latitude=' + MS_LAT + '&longitude=' + MS_LON + '&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m&wind_speed_unit=kn&models=arome_france&forecast_days=1';
+    var msOmPromise = fetch(msOmUrl).then(function(r){ return r.json(); }).catch(function(){ return null; });
+    var msAromePromise = fetch(msAromeUrl).then(function(r){ return r.json(); }).catch(function(){ return null; });
+    var msParallel = await Promise.all([msOmPromise, msAromePromise]);
+    var msOmJson = msParallel[0], msAromeJson = msParallel[1];
+    var msOm = {
+      wind_kt:     (msOmJson && msOmJson.current) ? Math.round(msOmJson.current.wind_speed_10m  * 10) / 10 : null,
+      gust_kt:     (msOmJson && msOmJson.current) ? Math.round(msOmJson.current.wind_gusts_10m  * 10) / 10 : null,
+      direction:   (msOmJson && msOmJson.current) ? msOmJson.current.wind_direction_10m : null,
+      pressure_mb: (msOmJson && msOmJson.current) ? Math.round(msOmJson.current.surface_pressure * 10) / 10 : null
+    };
+    var msArome = { wind_kt: null, gust_kt: null, direction: null };
+    if (msAromeJson && msAromeJson.hourly && Array.isArray(msAromeJson.hourly.time)) {
+      var msNowMs = Date.now();
+      var msBestIdx = -1, msBestDiff = Infinity;
+      for (var msJ = 0; msJ < msAromeJson.hourly.time.length; msJ++) {
+        var msDiff = Math.abs(new Date(msAromeJson.hourly.time[msJ] + 'Z').getTime() - msNowMs);
+        if (msDiff < msBestDiff) { msBestDiff = msDiff; msBestIdx = msJ; }
+      }
+      if (msBestIdx !== -1) {
+        var msW = msAromeJson.hourly.wind_speed_10m ? msAromeJson.hourly.wind_speed_10m[msBestIdx] : null;
+        var msG = msAromeJson.hourly.wind_gusts_10m ? msAromeJson.hourly.wind_gusts_10m[msBestIdx] : null;
+        var msD = msAromeJson.hourly.wind_direction_10m ? msAromeJson.hourly.wind_direction_10m[msBestIdx] : null;
+        msArome = {
+          wind_kt: (msW !== null && msW !== undefined) ? Math.round(msW * 10) / 10 : null,
+          gust_kt: (msG !== null && msG !== undefined) ? Math.round(msG * 10) / 10 : null,
+          direction: (msD !== null && msD !== undefined) ? Math.round(msD) : null
+        };
+      }
+    }
+    var msSample = {
+      ts: new Date().toISOString(),
+      station: { wind_kt: msSpeed, gust_kt: null, direction: msDir, direction_txt: null, source: msSt.source },
+      om: msOm,
+      arome: msArome,
+      delta: msOm.wind_kt !== null ? { wind_kt: Math.round((msSpeed - msOm.wind_kt) * 10) / 10 } : null,
+      delta_arome: msArome.wind_kt !== null ? { wind_kt: Math.round((msSpeed - msArome.wind_kt) * 10) / 10 } : null
+    };
+    var msKey = 'bias_samples:' + msStationId;
+    var msExisting = await kvGet(msKey, kvUrl, kvToken);
+    var msList = Array.isArray(msExisting) ? msExisting : [];
+    msList.unshift(msSample);
+    if (msList.length > 100) msList.length = 100;
+    await kvSet(msKey, msList, 31536000, kvUrl, kvToken);
+    // Archivio persistente -- nessun throttle (a differenza dei cron ogni 30
+    // min): qui i campioni sono manuali e rari, ogni invio e' prezioso.
+    var msBaKey = 'bias_archive:' + msStationId;
+    var msBaExisting = await kvGet(msBaKey, kvUrl, kvToken);
+    var msBaList = Array.isArray(msBaExisting) ? msBaExisting : [];
+    msBaList.unshift(msSample);
+    if (msBaList.length > 3000) msBaList.length = 3000;
+    await kvSet(msBaKey, msBaList, 31536000, kvUrl, kvToken);
+    return res.status(200).json({ ok: true, saved: msSample });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
 // /api/engine?action=bias_archive_get&station=X[&from=ISO][&limit=N] -- sola
 // lettura, pubblica (come bias_history). Aggiunta 2026-10-21: bias_history legge
 // solo bias_samples (ultimi ~100 campioni, ~2 giorni) e non c'era nessun modo di
@@ -3296,6 +3436,55 @@ if (action === 'model_dir_report') {
     var mdrOut = computeModelDirReport(mdrArchives, mdrFrom);
     mdrOut.from = new Date(mdrFrom).toISOString();
     return res.status(200).json(mdrOut);
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+// /api/engine?action=manual_series_submit&station=<id> -- POST, richiede k=mdi. Riceve la
+// serie del grafico "Wind speed and direction - last 3 hours" della stazione <id> (corpo
+// {pts:[[iso,speed,dir],...]}, da 1 a 500 punti), la fonde con quella gia' archiviata
+// (chiave Redis manual_series:<id>, deduplica al minuto, tetto 30000 punti ~ 3 mesi).
+// livornometeo_series_submit / _get restano come ALIAS della stazione livornometeo_porto,
+// cosi' il segnalibro "LM serie" gia' installato continua a funzionare.
+var msAct = action, msStationId2 = (req.query.station || '').toString();
+if (action === 'livornometeo_series_submit') { msAct = 'manual_series_submit'; msStationId2 = 'livornometeo_porto'; }
+if (action === 'livornometeo_series_get') { msAct = 'manual_series_get'; msStationId2 = 'livornometeo_porto'; }
+if (msAct === 'manual_series_submit') {
+  try {
+    if ((req.query.k || '') !== 'mdi') return res.status(401).json({ error: 'Unauthorized' });
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Serve POST con corpo JSON {pts:[[iso,speed,dir],...]}' });
+    if (!MANUAL_STATIONS[msStationId2]) return res.status(400).json({ error: 'Stazione manuale sconosciuta: ' + msStationId2, known: Object.keys(MANUAL_STATIONS) });
+    var msrPts = (req.body && req.body.pts) || [];
+    if (!Array.isArray(msrPts) || msrPts.length === 0 || msrPts.length > 500) return res.status(400).json({ error: 'pts richiesto, da 1 a 500 punti' });
+    var msrKey = 'manual_series:' + msStationId2;
+    var msrEx = await kvGet(msrKey, kvUrl, kvToken);
+    var msrM = lmSeriesMerge(Array.isArray(msrEx) ? msrEx : [], msrPts, 30000);
+    await kvSet(msrKey, msrM.arr, 31536000, kvUrl, kvToken);
+    return res.status(200).json({ ok: true, station: msStationId2, received: msrPts.length, added: msrM.added, total: msrM.arr.length });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+// /api/engine?action=manual_series_get&station=<id>[&from=ISO][&to=ISO][&bucket=MIN][&limit=N]
+// -- sola lettura, pubblica. Senza bucket: punti grezzi (ultimi limit, default 1000, max
+// 5000); con bucket=30 (o 60...): una riga per fascia [inizio_UTC, n, media_kn, min, max,
+// dir_media] -- molto piu' compatta.
+if (msAct === 'manual_series_get') {
+  try {
+    if (!MANUAL_STATIONS[msStationId2]) return res.status(400).json({ error: 'Stazione manuale sconosciuta: ' + msStationId2, known: Object.keys(MANUAL_STATIONS) });
+    var msgArr = await kvGet('manual_series:' + msStationId2, kvUrl, kvToken);
+    msgArr = Array.isArray(msgArr) ? msgArr : [];
+    var msgFrom = req.query.from ? new Date(req.query.from).getTime() : NaN;
+    var msgTo = req.query.to ? new Date(req.query.to).getTime() : NaN;
+    var msgSel = msgArr.filter(function(p){ var t = new Date(p[0]).getTime(); return (isNaN(msgFrom) || t >= msgFrom) && (isNaN(msgTo) || t <= msgTo); });
+    var msgBucket = parseInt(req.query.bucket) || 0;
+    if (msgBucket > 0) {
+      return res.status(200).json({ station: msStationId2, legend: '[inizio_fascia_UTC, n_punti, media_kn, min_kn, max_kn, direzione_media]', bucket_min: msgBucket, total_in_archive: msgArr.length, samples: lmSeriesBucket(msgSel, msgBucket) });
+    }
+    var msgLimit = Math.min(Math.max(parseInt(req.query.limit) || 1000, 1), 5000);
+    return res.status(200).json({ station: msStationId2, legend: '[tempo_UTC, velocita_kn, direzione]', total_in_archive: msgArr.length, returned: Math.min(msgSel.length, msgLimit), samples: msgSel.slice(-msgLimit) });
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }
@@ -6536,7 +6725,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.32 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.34 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -6667,4 +6856,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.32
+// Fine codice - NAUTILUS ENGINE v2.14.34

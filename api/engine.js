@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.36 - by mdisailor engine - v2.14.36: aggiunta action=manual_status (sola lettura): stato unico delle quattro stazioni manuali (serie, letture singole, punto usato), per controllare in un solo indirizzo che i segnalibri abbiano scritto. Include tutto il v2.14.35 (coordinate reali delle stazioni, campo pt) e il v2.14.34. Su base v2.14.35
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.37 - by mdisailor engine - v2.14.37: (1) correzione di riferimento Livornometeo PER DIREZIONE al posto del +4.2 fisso (D16): fattore proporzionale ~2.2 da Sud-Sud-Ovest, ~1.7 da Ovest-Nord-Ovest, ~1.5 da Nord-Est/Est, interpolato dolcemente (36 ore di medie orarie, validato un giorno fuori: errore 2.4 kn contro 4.1). (2) CORREZIONE DEL CIRCUITO DI BIAS: bias, verifiche e statistiche confrontano ora la previsione nella scala della stazione di riferimento (forecast_hN_wf, o forecast_hN meno il vecchio offset), perche con il valore corretto il bias di Livorno riassorbiva la correzione. (3) guardia: le osservazioni Windfinder con orario successivo alla cattura (righe di previsione, 7 casi il 23 e 26/10) non si salvano. Include tutto il v2.14.36. Su base v2.14.36
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -1493,7 +1493,7 @@ for (var si = 0; si < slots15.length; si++) {
   if (forecast) break;
 }
 if (!forecast) continue;
-var predictedWind = forecast['forecast_h' + h];
+var predictedWind = fcStationScale(forecast, 'forecast_h' + h); // v2.14.37: scala della stazione (senza fattore Livornometeo)
 if (predictedWind == null) continue;
 var windError = parseFloat((vfActual - predictedWind).toFixed(1));
 var verKey = 'verify:' + zoneKey + ':' + pastRomeHour + ':h' + h;
@@ -2119,6 +2119,86 @@ var MANUAL_STATIONS = {
   golfoaranci_lm:     { name: 'Golfo Aranci (da livornometeo.it)', lat: 40.99528, lon:  9.62361, source: 'golfoaranci_lm_manual' }
 };
 
+// 2026-10-27 (v2.14.37): CORREZIONE DI RIFERIMENTO LIVORNOMETEO PER DIREZIONE.
+// Prima era un +4.2 kn fisso (D16, 15/9); i dati raccolti col segnalibro (36 ore di
+// medie orarie di Livornometeo accoppiate a Windfinder, 23-27/10, correlazione 0.88,
+// validate lasciando fuori un giorno alla volta) mostrano che e' PROPORZIONALE e
+// dipende dalla direzione: rapporto Livornometeo/Windfinder ~2.2 da Sud-Sud-Ovest
+// (3 episodi, 16 ore), ~1.6-1.7 da Ovest-Nord-Ovest (1 episodio), ~1.5 da Nord-Est/Est.
+// Errore medio (un giorno fuori): +4.2 -> 4.1 kn, fattore per direzione -> 2.4 kn.
+// Il fattore varia DOLCEMENTE con la direzione (interpolazione tra i punti) per non
+// avere salti a cavallo dei settori. PROVVISORIO: Maestrale e Nord-Est forte hanno
+// pochi episodi; da rivedere col monitoraggio.
+var LM_FACTOR_ANCHORS = [[0, 1.5], [90, 1.5], [150, 2.2], [240, 2.2], [300, 1.7], [360, 1.5]];
+var LM_FACTOR_DEFAULT = 1.8; // direzione ignota
+function lmFactorForDir(deg) {
+  if (deg === null || deg === undefined || isNaN(deg)) return LM_FACTOR_DEFAULT;
+  var d = ((Number(deg) % 360) + 360) % 360, A = LM_FACTOR_ANCHORS;
+  for (var i = 0; i < A.length - 1; i++) {
+    if (d >= A[i][0] && d <= A[i + 1][0]) {
+      var t = (A[i + 1][0] === A[i][0]) ? 0 : (d - A[i][0]) / (A[i + 1][0] - A[i][0]);
+      return Math.round((A[i][1] + (A[i + 1][1] - A[i][1]) * t) * 100) / 100;
+    }
+  }
+  return LM_FACTOR_DEFAULT;
+}
+function compassToDeg(s) {
+  if (s === null || s === undefined) return null;
+  var t = String(s).trim().toUpperCase().replace('\u00b0', '');
+  if (/^[0-9]{1,3}(\.[0-9]+)?$/.test(t)) { var n = parseFloat(t); return n <= 360 ? n % 360 : null; }
+  var map = { N: 0, NNE: 22.5, NE: 45, ENE: 67.5, E: 90, ESE: 112.5, SE: 135, SSE: 157.5, S: 180, SSW: 202.5, SW: 225, WSW: 247.5, W: 270, WNW: 292.5, NW: 315, NNW: 337.5,
+              NNO: 337.5, NO: 315, ONO: 292.5, O: 270, OSO: 247.5, SO: 225, SSO: 202.5 };
+  return map.hasOwnProperty(t) ? map[t] : null;
+}
+// Direzione di un orizzonte dal testo dell'AI ("- H+3: 12 kn da SW"); null se non c'e'.
+function extractWindDirDeg(text, h) {
+  var m = String(text || '').match(new RegExp('H\\+?' + h + '\\s*:\\s*[0-9]+\\.?[0-9]*(?:\\s*[-\\u2013\\u2014]\\s*[0-9]+\\.?[0-9]*)?\\s*kn\\s*da\\s*([A-Za-z]{1,3}|[0-9]{1,3})', 'i'));
+  return m ? compassToDeg(m[1]) : null;
+}
+// Applica il fattore a un record di previsione. Salva il valore PRIMA del fattore in
+// forecast_hN_wf (scala Windfinder): e' quello che verifiche e bias devono confrontare
+// con la stazione di riferimento, altrimenti il circuito lo riassorbe (vedi sotto).
+function applyLmReference(rec, aiText) {
+  var applied = [];
+  ['h1', 'h3', 'h6', 'h9', 'h12'].forEach(function(h) {
+    var v = rec['forecast_' + h];
+    if (v === null || v === undefined) return;
+    var dir = extractWindDirDeg(aiText, h.slice(1)), src = 'direzione prevista';
+    if (dir === null && rec.current_wind_dir !== null && rec.current_wind_dir !== undefined && !isNaN(rec.current_wind_dir)) { dir = Number(rec.current_wind_dir); src = 'direzione attuale'; }
+    if (dir === null) src = 'direzione ignota, fattore medio';
+    var f = lmFactorForDir(dir), c = Math.round(v * f * 10) / 10;
+    rec['forecast_' + h + '_wf'] = v;
+    rec['reference_factor_' + h] = f;
+    rec['forecast_' + h] = c;
+    applied.push('H+' + h.slice(1) + ': ' + v + ' -> ' + c + ' kn (x' + f + ', ' + src + (dir !== null ? ' ' + Math.round(dir) + ' gradi' : '') + ')');
+  });
+  if (applied.length) { rec.reference_corrected = true; rec.reference_offset_kt = null; rec.reference_method = 'fattore_per_direzione_v2.14.37'; }
+  return applied;
+}
+// Previsione nella SCALA DELLA STAZIONE DI RIFERIMENTO (es. Windfinder per Livorno), cioe'
+// senza la correzione Livornometeo. SERVE perche' il bias (backfill_actuals) e le
+// statistiche di errore confrontano forecast_hN con l'osservazione della stazione: se per
+// Livorno il valore comprende il fattore, l'errore sembra enorme e il circuito di bias
+// impara a TOGLIERLO (lo ha fatto col +4.2 dal 15/9: riassorbito dopo ~30 previsioni).
+// Record nuovi: forecast_hN_wf. Record 15/9-27/10: forecast_hN meno reference_offset_kt.
+function fcStationScale(item, k) {
+  if (!item) return null;
+  var src = (item[k] !== null && item[k] !== undefined) ? item : ((item.prediction && item.prediction[k] !== null && item.prediction[k] !== undefined) ? item.prediction : null);
+  if (!src) return null;
+  if (src[k + '_wf'] !== null && src[k + '_wf'] !== undefined) return src[k + '_wf'];
+  if (src.reference_corrected && src.reference_offset_kt) return Math.max(0, Math.round((src[k] - src.reference_offset_kt) * 10) / 10);
+  return src[k];
+}
+// Osservazione Windfinder con orario SUCCESSIVO alla cattura (oltre 5 minuti): non e' una
+// misura, e' una riga di previsione scambiata per misura (visto il 23/10 e il 26/10: 7
+// campioni con obs_time 79 minuti nel futuro). Non va salvata.
+function windfinderObsInFuture(obsIso, tsIso) {
+  if (!obsIso || !tsIso) return false;
+  var o = new Date(obsIso).getTime(), t = new Date(tsIso).getTime();
+  if (isNaN(o) || isNaN(t)) return false;
+  return o > t + 5 * 60000;
+}
+
 module.exports = async function handler(req, res) {
 
 // getNowRome spostata a livello modulo (audit A6) — vedi definizione sopra fetchECMWF
@@ -2187,7 +2267,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.36', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.37', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -3031,6 +3111,10 @@ if (action === 'scrape_web2') {
         var swIsDuplicate = swStation.obs_time && swList.length > 0 && swList[0].station && swList[0].station.obs_time === swStation.obs_time;
         if (swIsDuplicate) {
           return { id: swSt.id, name: swSt.name, ok: swKn !== null, sample: swSample, skipped_duplicate: true };
+        }
+        // 2026-10-27: osservazione con orario successivo alla cattura = riga di previsione, non una misura: non si salva.
+        if (windfinderObsInFuture(swStation.obs_time, sw2Ts)) {
+          return { id: swSt.id, name: swSt.name, ok: false, skipped_future_obs: true, obs_time: swStation.obs_time };
         }
         swList.unshift(swSample);
         if (swList.length > 100) swList.length = 100;
@@ -5127,19 +5211,10 @@ if (action === 'predict') {
     // manipolare silenziosamente il dato di una fonte esterna -- si applica
     // solo qui, sulla previsione finale, in modo dichiarato e tracciabile.
     if (zoneKey === 'livorno') {
-      var LIVORNOMETEO_OFFSET_KT = 4.2;
-      var refApplied = [];
-      ['h1','h3','h6','h9','h12'].forEach(function(rh) {
-        var rVal = predRecord['forecast_' + rh];
-        if (rVal === null || rVal === undefined) return;
-        var rCorr = Math.round((rVal + LIVORNOMETEO_OFFSET_KT) * 10) / 10;
-        refApplied.push('H+' + rh.slice(1) + ': ' + rVal + ' -> ' + rCorr + ' kn (+' + LIVORNOMETEO_OFFSET_KT + ' rif. Livornometeo, provvisorio)');
-        predRecord['forecast_' + rh] = rCorr;
-      });
+      // v2.14.37: fattore per direzione (vedi applyLmReference). Al posto del +4.2 fisso.
+      var refApplied = applyLmReference(predRecord, aiText);
       if (refApplied.length > 0) {
-        predRecord.reference_corrected = true;
-        predRecord.reference_offset_kt = LIVORNOMETEO_OFFSET_KT;
-        predRecord.prediction_text = aiText + '\n\nCORREZIONE DI RIFERIMENTO (Livornometeo, provvisoria, D16):\n- ' + refApplied.join('\n- ');
+        predRecord.prediction_text = aiText + '\n\nCORREZIONE DI RIFERIMENTO (Livornometeo, per direzione, provvisoria):\n- ' + refApplied.join('\n- ');
         aiText = predRecord.prediction_text;
       }
     }
@@ -5485,7 +5560,7 @@ if (action === 'forecast_stats') {
       var w = weekMap[wk];
       w.n++;
       var getA = function(p, k){ return p[k] != null ? p[k] : (p.prediction && p.prediction[k] != null ? p.prediction[k] : null); };
-      var getF = function(p, k){ return p[k] != null ? p[k] : (p.prediction && p.prediction[k] != null ? p.prediction[k] : null); };
+      var getF = function(p, k){ return fcStationScale(p, k); }; // v2.14.37: scala della stazione
       if (getA(p,'actual_1h') != null && getF(p,'forecast_h1') != null) w.h1.push(Math.abs(getA(p,'actual_1h') - getF(p,'forecast_h1')));
       if (getA(p,'actual_3h') != null && getF(p,'forecast_h3') != null) w.h3.push(Math.abs(getA(p,'actual_3h') - getF(p,'forecast_h3')));
       if (getA(p,'actual_6h') != null && getF(p,'forecast_h6') != null) w.h6.push(Math.abs(getA(p,'actual_6h') - getF(p,'forecast_h6')));
@@ -5502,11 +5577,11 @@ if (action === 'forecast_stats') {
     var calcMae = function(arr, key, fkey) {
       var errs = arr.filter(function(p){
         var av = p[key] != null ? p[key] : (p.prediction && p.prediction[key] != null ? p.prediction[key] : null);
-        var fv = p[fkey] != null ? p[fkey] : (p.prediction && p.prediction[fkey] != null ? p.prediction[fkey] : null);
+        var fv = fcStationScale(p, fkey);
         return av != null && fv != null;
       }).map(function(p){
         var av = p[key] != null ? p[key] : p.prediction[key];
-        var fv = p[fkey] != null ? p[fkey] : p.prediction[fkey];
+        var fv = fcStationScale(p, fkey);
         return Math.abs(av - fv);
       });
       return avg(errs);
@@ -5528,7 +5603,7 @@ if (action === 'forecast_stats') {
       // fix 2026-07-11 (audit B1): solo record source:'predict', come nel backfill
       verified.filter(function(p){ return p && p.source !== 'situazione'; }).forEach(function(p) {
         var getA = function(k){ return p[k] != null ? p[k] : (p.prediction && p.prediction[k] != null ? p.prediction[k] : null); };
-        var getF = function(k){ return p[k] != null ? p[k] : (p.prediction && p.prediction[k] != null ? p.prediction[k] : null); };
+        var getF = function(k){ return fcStationScale(p, k); }; // v2.14.37: scala della stazione
         ['h1','h3','h6','h9','h12'].forEach(function(h) {
           var hNum = h.slice(1); // '1','3','6','9','12'
           var av = getA('actual_' + hNum + 'h'); var fv = getF('forecast_' + h);
@@ -5679,7 +5754,7 @@ if (action === 'backfill_actuals') {
       // corregge lo stesso prodotto che misura.
       (bfList2 || []).filter(function(item){ return item && item.source !== 'situazione'; }).forEach(function(item) {
         var getAct = function(item, k){ return item[k] != null ? item[k] : (item.prediction && item.prediction[k] != null ? item.prediction[k] : null); };
-        var getFc = function(item, k){ return item[k] != null ? item[k] : (item.prediction && item.prediction[k] != null ? item.prediction[k] : null); };
+        var getFc = function(item, k){ return fcStationScale(item, k); }; // v2.14.37: il bias si impara nella scala della stazione, non sul valore col fattore Livornometeo
         if (getAct(item,'actual_1h') !== null && getFc(item,'forecast_h1') !== null) bfErrors.h1.push(getAct(item,'actual_1h') - getFc(item,'forecast_h1'));
         if (getAct(item,'actual_3h') !== null && getFc(item,'forecast_h3') !== null) bfErrors.h3.push(getAct(item,'actual_3h') - getFc(item,'forecast_h3'));
         if (getAct(item,'actual_6h') !== null && getFc(item,'forecast_h6') !== null) bfErrors.h6.push(getAct(item,'actual_6h') - getFc(item,'forecast_h6'));
@@ -6783,7 +6858,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.36 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.37 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -6914,4 +6989,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.36
+// Fine codice - NAUTILUS ENGINE v2.14.37

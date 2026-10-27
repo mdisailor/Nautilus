@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA2 v1.9 - mdisailor - 2026-10-21 - v1.9: nel popup di Livornometeo Porto lo scarto "Vs OM" e l'orario erano quelli del campione Windfinder (es. -3.3 kn e "27min fa" accanto a 24.3 kn letti 3 minuti prima). Ora con lettura Livornometeo fresca mostrano lo scarto e l'orario della lettura stessa; con la stima, lo scarto della stima mostrata, non del grezzo. Il marker Windfinder non cambia. Corretti popup principale, di ripiego e tasto Aggiorna. Su base v1.8 -->
+<!-- NAUTILUS MAPPA2 v1.10 - mdisailor - 2026-10-22 - v1.10: invertite le coordinate dei due marker Livorno. Le coordinate ufficiali di Livornometeo (43°32'59"N 10°17'42"E, indicate da M) coincidono con il vecchio marker informativo e col cerchio di zona (43.5497/10.2950), non col punto di Windfinder (43.5525/10.3014) dove l'avevo messo il 19/10: 600 m di errore. Ora Livornometeo sta nel suo punto (flag onTop, z-index 150 sopra il cerchio di zona) e Windfinder nel suo. Ruoli invariati. Su base v1.9 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa2 Vento v1.9</title>
+<title>NAUTILUS Mappa2 Vento v1.10</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -229,7 +229,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa2 v1.9</span>
+    <span id="nav-ver">mappa2 v1.10</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -291,11 +291,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA2 v1.9 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA2 v1.10 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA2 v1.9
+// NAUTILUS MAPPA2 v1.10
 
 var ENGINE_URL = '/api/engine';
 
@@ -346,20 +346,28 @@ var BUOYS = [
   // era messo il marker "Livorno Porto". Ora Livornometeo e' un marker vivo in
   // MNW_LIVE (key 'livorno_porto', all'imboccatura) e la stazione Windfinder
   // e' un marker a parte (key 'livorno_porto_wf') nell'altro punto.
+  // 2026-10-22: le coordinate ufficiali del sito dicono che Livornometeo sta proprio
+  // dove stava il vecchio marker informativo (43.5497/10.2950): le posizioni dei due
+  // marker sono state rimesse cosi' (v1.10), tenendo i ruoli nuovi.
   { key:'capraia_st',  name:'Capraiameteo',             lat:43.0527, lon:9.8410,  type:'stazione', note:'Spostato su shipinfo.it a pagamento (maggio 2026). Accesso non disponibile.' },
 ];
 
 var MNW_LIVE = [
   { key:'livorno',          name:'Quercianella',   lat:43.465,  lon:10.347, sid:'livorno' },
-  // 2026-10-19: all'imboccatura del porto c'e' Livornometeo (lettura vera se
-  // <=30min, altrimenti stima Windfinder+4.2 -- logica invariata, solo il nome
-  // e il ruolo: la key e il sid restano 'livorno_porto').
-  { key:'livorno_porto',    name:'Livornometeo Porto', lat:43.5525, lon:10.3014, sid:'livorno_porto' },
-  // Stazione Windfinder, nell'altro punto (ex posizione del marker informativo
-  // Livornometeo). raw:true = mostra SOLO il dato grezzo della stazione: niente
-  // lettura Livornometeo ne' +4.2, e non alimenta le particelle (il campo di
-  // vento usa gia' il valore di Livornometeo/stima dal marker all'imboccatura).
-  { key:'livorno_porto_wf', name:'Livorno Porto (Windfinder)', lat:43.5497, lon:10.2950, sid:'livorno_porto', raw:true },
+  // 2026-10-19: Livornometeo (lettura vera se <=30min, altrimenti stima
+  // Windfinder+4.2 -- la key e il sid restano 'livorno_porto').
+  // 2026-10-22 (v1.10): POSIZIONE CORRETTA con le coordinate ufficiali del sito
+  // (43°32'59"N 10°17'42"E = 43.54972, 10.29500, indicate da M): coincidono con il
+  // vecchio marker informativo e col cerchio di zona Livorno, NON col punto di
+  // Windfinder dove lo avevo messo il 19/10 (600 m di errore). onTop:true perche'
+  // qui sotto c'e' il cerchio di zona (z-index 100, icona piu' grande): senza, il
+  // marker finirebbe coperto e non toccabile (stesso problema gia' visto il 20/10).
+  { key:'livorno_porto',    name:'Livornometeo Porto', lat:43.54972, lon:10.29500, sid:'livorno_porto', onTop:true },
+  // Stazione Windfinder, nel suo punto originale (43.5525, 10.3014: coordinate della
+  // nostra configurazione, senza conferma ufficiale). raw:true = mostra SOLO il dato
+  // grezzo della stazione: niente lettura Livornometeo ne' +4.2, e non alimenta le
+  // particelle (il campo di vento usa gia' il valore di Livornometeo/stima).
+  { key:'livorno_porto_wf', name:'Livorno Porto (Windfinder)', lat:43.5525, lon:10.3014, sid:'livorno_porto', raw:true },
   { key:'canale_piombino',  name:'Piombino',       lat:42.920,  lon:10.530, sid:'canale_piombino' },
   { key:'viareggio_cfr',    name:'Viareggio CFR',  lat:43.875,  lon:10.236, sid:'viareggio_cfr' },
   { key:'capraia_mnw',      name:'Capraia Monte',  lat:43.058,  lon:9.822,  sid:'capraia_w' },
@@ -2020,12 +2028,11 @@ setTimeout(loadObsMarkers, 2000);
 
 try {
 MNW_LIVE.forEach(function(st) {
-  // 2026-10-19: il marker raw (Livorno Porto/Windfinder) sta nello stesso
-  // punto del cerchio di zona 'Livorno' (ZONES, zIndexOffset 100, icona 26px):
-  // con 60 finiva SOTTO il cerchio, coperto del tutto (icona 20px) e non
-  // toccabile, quindi lo scambio delle due stazioni richiesto da M non si
-  // vedeva. Per quel marker 150, cosi' sta sopra il cerchio.
-  var mk = L.marker([st.lat, st.lon], { icon: mnwIcon, zIndexOffset: st.raw ? 150 : 60 }).addTo(map);
+  // Un marker che sta nello stesso punto di un cerchio di zona (ZONES, zIndexOffset
+  // 100, icona 26px) con 60 finirebbe SOTTO il cerchio, coperto del tutto (icona
+  // 20px) e non toccabile. Il 20/10 era il marker Windfinder (flag raw); dal 22/10
+  // (v1.10, coordinate corrette) e' Livornometeo (flag onTop): 150, sopra il cerchio.
+  var mk = L.marker([st.lat, st.lon], { icon: mnwIcon, zIndexOffset: (st.onTop || st.raw) ? 150 : 60 }).addTo(map);
   var popupId = 'mnwpop_' + st.key;
   mk.bindPopup('<div id="' + popupId + '" style="font-family:DM Mono,monospace;font-size:0.7rem;min-width:200px">' +
     '<div style="font-weight:bold;color:#00cc66;margin-bottom:4px">' + st.name + '</div>' +
@@ -2337,7 +2344,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine script - NAUTILUS MAPPA2 v1.9 (segue markup HTML pannello osservazioni, non altro codice)
+// Fine script - NAUTILUS MAPPA2 v1.10 (segue markup HTML pannello osservazioni, non altro codice)
 </script>
 <!-- Pannello inserimento osservazione manuale -->
 <div id="obs-panel">
@@ -2377,4 +2384,4 @@ function refreshMnwStation(sid, popupId, name) {
 </body>
 </html>
 
-<!-- Fine codice - NAUTILUS MAPPA2 v1.9 -->
+<!-- Fine codice - NAUTILUS MAPPA2 v1.10 -->

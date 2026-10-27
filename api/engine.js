@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.34 - by mdisailor engine - v2.14.34: stazioni MANUALI generalizzate (tabella MANUAL_STATIONS: Livornometeo, Capraiameteo, Rosignanometeo, Golfo Aranci da livornometeo.it): nuove action manual_submit (lettura singola, POST k=mdi, derivata dal blocco livornometeo_submit che resta intatto) e manual_series_submit/manual_series_get (serie delle 3 ore per stazione, chiave manual_series:<id>); livornometeo_series_* restano come alias di livornometeo_porto. Una stazione sconosciuta viene rifiutata: protezione contro la scrittura dei dati di un sito nei contenitori di un altro. Per ora solo raccolta, l'app non le usa (M, 22/10). Include tutto il v2.14.33 (serie di Livornometeo). Su base v2.14.33
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.36 - by mdisailor engine - v2.14.36: aggiunta action=manual_status (sola lettura): stato unico delle quattro stazioni manuali (serie, letture singole, punto usato), per controllare in un solo indirizzo che i segnalibri abbiano scritto. Include tutto il v2.14.35 (coordinate reali delle stazioni, campo pt) e il v2.14.34. Su base v2.14.35
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2105,11 +2105,18 @@ function lmSeriesBucket(arr, bucketMin) {
 // Le coordinate servono solo a confrontare con OM e AROME nello stesso punto: sono
 // APPROSSIMATE (centro del paese), le celle dei modelli sono da 9-25 km; da affinare
 // se una stazione sta in un posto molto diverso (collina, promontorio).
+// 2026-10-22 (v2.14.35): COORDINATE REALI, riportate sui siti stessi e passate da M
+// (gradi-primi-secondi convertiti in decimali). Prima erano stime al centro del paese,
+// sbagliate di 0.9 km (Golfo Aranci), 1.2 km (Capraia), 1.8 km (Rosignano); Livorno
+// coincideva gia'. Servono a prendere il punto di griglia dei modelli (OM, AROME,
+// ECMWF) piu' vicino alla stazione: le regole di correzione che se ne ricavano valgono
+// SOLO per questo punto, quindi non vanno piu' cambiate senza rifare le regole. Ogni
+// campione salvato da manual_submit registra il punto usato (campo pt).
 var MANUAL_STATIONS = {
-  livornometeo_porto: { name: 'Livornometeo Porto',               lat: 43.5497, lon: 10.2950, source: 'livornometeo_manual' },
-  capraiameteo:       { name: 'Capraiameteo',                     lat: 43.0500, lon:  9.8300, source: 'capraiameteo_manual' },
-  rosignanometeo:     { name: 'Rosignanometeo',                   lat: 43.3880, lon: 10.4440, source: 'rosignanometeo_manual' },
-  golfoaranci_lm:     { name: 'Golfo Aranci (da livornometeo.it)', lat: 41.0000, lon:  9.6150, source: 'golfoaranci_lm_manual' }
+  livornometeo_porto: { name: 'Livornometeo Porto',               lat: 43.54972, lon: 10.29500, source: 'livornometeo_manual' },
+  capraiameteo:       { name: 'Capraiameteo',                     lat: 43.05117, lon:  9.84425, source: 'capraiameteo_manual' },
+  rosignanometeo:     { name: 'Rosignanometeo',                   lat: 43.39583, lon: 10.42500, source: 'rosignanometeo_manual' },
+  golfoaranci_lm:     { name: 'Golfo Aranci (da livornometeo.it)', lat: 40.99528, lon:  9.62361, source: 'golfoaranci_lm_manual' }
 };
 
 module.exports = async function handler(req, res) {
@@ -2180,7 +2187,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.34', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.36', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -3357,7 +3364,8 @@ if (action === 'manual_submit') {
       om: msOm,
       arome: msArome,
       delta: msOm.wind_kt !== null ? { wind_kt: Math.round((msSpeed - msOm.wind_kt) * 10) / 10 } : null,
-      delta_arome: msArome.wind_kt !== null ? { wind_kt: Math.round((msSpeed - msArome.wind_kt) * 10) / 10 } : null
+      delta_arome: msArome.wind_kt !== null ? { wind_kt: Math.round((msSpeed - msArome.wind_kt) * 10) / 10 } : null,
+      pt: { lat: MS_LAT, lon: MS_LON }  // 2026-10-22: punto usato per OM/AROME, per sapere a cosa si riferiscono le regole
     };
     var msKey = 'bias_samples:' + msStationId;
     var msExisting = await kvGet(msKey, kvUrl, kvToken);
@@ -3485,6 +3493,56 @@ if (msAct === 'manual_series_get') {
     }
     var msgLimit = Math.min(Math.max(parseInt(req.query.limit) || 1000, 1), 5000);
     return res.status(200).json({ station: msStationId2, legend: '[tempo_UTC, velocita_kn, direzione]', total_in_archive: msgArr.length, returned: Math.min(msgSel.length, msgLimit), samples: msgSel.slice(-msgLimit) });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+// /api/engine?action=manual_status -- sola lettura, pubblica. Aggiunta 2026-10-22: uno
+// stato unico di tutte le stazioni MANUALI (Livornometeo, Capraiameteo, Rosignanometeo,
+// Golfo Aranci), per controllare in un colpo solo che i segnalibri abbiano scritto:
+// punto usato per i modelli, serie (totale, primo/ultimo punto, quanti nelle ultime 24
+// ore, ultimi 5 punti) e letture singole (quante, ultima con scarti da OM/AROME).
+// 3 letture Redis per stazione (12 in tutto). Non scrive niente.
+if (action === 'manual_status') {
+  try {
+    var mstNow = Date.now();
+    var mstOut = {};
+    var mstIds = Object.keys(MANUAL_STATIONS);
+    for (var mstI = 0; mstI < mstIds.length; mstI++) {
+      var mstId = mstIds[mstI], mstSt = MANUAL_STATIONS[mstId];
+      var mstSer = await kvGet('manual_series:' + mstId, kvUrl, kvToken); mstSer = Array.isArray(mstSer) ? mstSer : [];
+      var mstRd = await kvGet('bias_samples:' + mstId, kvUrl, kvToken); mstRd = Array.isArray(mstRd) ? mstRd : [];
+      var mstAr = await kvGet('bias_archive:' + mstId, kvUrl, kvToken); mstAr = Array.isArray(mstAr) ? mstAr : [];
+      var mstLastT = mstSer.length ? new Date(mstSer[mstSer.length - 1][0]).getTime() : null;
+      var mstLast = mstRd.length ? mstRd[0] : null;
+      mstOut[mstId] = {
+        name: mstSt.name,
+        point: { lat: mstSt.lat, lon: mstSt.lon },
+        series: {
+          total: mstSer.length,
+          first: mstSer.length ? mstSer[0][0] : null,
+          last: mstSer.length ? mstSer[mstSer.length - 1][0] : null,
+          age_min: mstLastT !== null ? Math.round((mstNow - mstLastT) / 60000) : null,
+          n_last_24h: mstSer.filter(function(p){ return mstNow - new Date(p[0]).getTime() <= 86400000; }).length,
+          last5: mstSer.slice(-5)
+        },
+        readings: {
+          in_list: mstRd.length,
+          in_archive: mstAr.length,
+          last: mstLast ? {
+            ts: mstLast.ts,
+            age_min: Math.round((mstNow - new Date(mstLast.ts).getTime()) / 60000),
+            kn: mstLast.station && mstLast.station.wind_kt,
+            dir: mstLast.station && mstLast.station.direction,
+            vs_om: mstLast.delta ? mstLast.delta.wind_kt : null,
+            vs_arome: mstLast.delta_arome ? mstLast.delta_arome.wind_kt : null,
+            pt: mstLast.pt || null
+          } : null
+        }
+      };
+    }
+    return res.status(200).json({ now: new Date(mstNow).toISOString(), legend: 'series.age_min = minuti dall ultimo punto della serie; readings.last.vs_om/vs_arome = lettura meno modello (kn); pt = punto usato per i modelli (assente nelle letture fatte prima della v2.14.35)', stations: mstOut });
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }
@@ -6725,7 +6783,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.34 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.36 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -6856,4 +6914,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.34
+// Fine codice - NAUTILUS ENGINE v2.14.36

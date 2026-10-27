@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA2 v1.10 - mdisailor - 2026-10-22 - v1.10: invertite le coordinate dei due marker Livorno. Le coordinate ufficiali di Livornometeo (43°32'59"N 10°17'42"E, indicate da M) coincidono con il vecchio marker informativo e col cerchio di zona (43.5497/10.2950), non col punto di Windfinder (43.5525/10.3014) dove l'avevo messo il 19/10: 600 m di errore. Ora Livornometeo sta nel suo punto (flag onTop, z-index 150 sopra il cerchio di zona) e Windfinder nel suo. Ruoli invariati. Su base v1.9 -->
+<!-- NAUTILUS MAPPA2 v1.11 - mdisailor - 2026-10-27 - v1.11: la stima di Livornometeo Porto non e' piu' Windfinder +4.2 fisso ma Windfinder x un fattore per direzione (x1.5 Nord-Est/Est, fino a x2.2 Sud-Est/Sud-Ovest, x1.7 Nord-Ovest, interpolato; stessa tabella dell'engine v2.14.37), nei 5 punti dove c'era il +4.2 (popup, ripiego, particelle, Aggiorna). L'etichetta ora dice da dove viene il numero (stima da Windfinder x2.2, ultima lettura Livornometeo 4 g fa) invece di 'stima rif. Livornometeo', che si leggeva come se il dato venisse da Livornometeo. Su base v1.10 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa2 Vento v1.10</title>
+<title>NAUTILUS Mappa2 Vento v1.11</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -229,7 +229,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa2 v1.10</span>
+    <span id="nav-ver">mappa2 v1.11</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -291,13 +291,40 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA2 v1.10 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA2 v1.11 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA2 v1.10
+// NAUTILUS MAPPA2 v1.11
 
 var ENGINE_URL = '/api/engine';
+
+// 2026-10-27: STIMA di Livornometeo da Windfinder, con fattore PER DIREZIONE (al posto del
+// +4.2 fisso). Stessa tabella dell'engine v2.14.37: rapporto Livornometeo/Windfinder
+// ~2.2 da Sud-Sud-Ovest, ~1.7 da Ovest-Nord-Ovest, ~1.5 da Nord-Est/Est (36 ore di medie
+// orarie, 23-27/10, correlazione 0.88, validato un giorno fuori: errore 2.4 kn contro 4.1).
+// Varia dolcemente con la direzione (nessun salto a cavallo dei settori). PROVVISORIO.
+var LM_FACTOR_ANCHORS = [[0, 1.5], [90, 1.5], [150, 2.2], [240, 2.2], [300, 1.7], [360, 1.5]];
+function lmFactorForDir(deg) {
+  if (deg === null || deg === undefined || isNaN(deg)) return 1.8;
+  var d = ((Number(deg) % 360) + 360) % 360, A = LM_FACTOR_ANCHORS;
+  for (var i = 0; i < A.length - 1; i++) {
+    if (d >= A[i][0] && d <= A[i + 1][0]) {
+      var t = (A[i + 1][0] === A[i][0]) ? 0 : (d - A[i][0]) / (A[i + 1][0] - A[i][0]);
+      return Math.round((A[i][1] + (A[i + 1][1] - A[i][1]) * t) * 100) / 100;
+    }
+  }
+  return 1.8;
+}
+// Eta' dell'ultima lettura Livornometeo (anche se scaduta): serve a dire, accanto alla
+// stima, quanto e' vecchia l'ultima lettura vera.
+var LM_LAST_AGE_MIN = null;
+function lmStaleNote() {
+  if (LM_LAST_AGE_MIN === null || isNaN(LM_LAST_AGE_MIN)) return '';
+  var m = LM_LAST_AGE_MIN, t;
+  if (m < 120) t = Math.round(m) + ' min'; else if (m < 2880) t = Math.round(m / 60) + ' h'; else t = Math.round(m / 1440) + ' g';
+  return ' \u00b7 ultima lettura Livornometeo ' + t + ' fa';
+}
 
 // fix 2026-10-16: letture manuali di Livornometeo (segnalibro, action=
 // livornometeo_submit, stazione separata 'livornometeo_porto') -- quando
@@ -313,8 +340,9 @@ async function getLivornometeoOverride(){
     var r = await fetch(ENGINE_URL + '?action=bias_history&station=livornometeo_porto&limit=1', {cache:'no-store'});
     var d = await r.json();
     var s = d.samples && d.samples[0];
-    if (!s || !s.station || s.station.wind_kt == null || s.station.direction == null) return null;
+    if (!s || !s.station || s.station.wind_kt == null || s.station.direction == null) { LM_LAST_AGE_MIN = null; return null; }
     var ageMin = (Date.now() - new Date(s.ts).getTime()) / 60000;
+    LM_LAST_AGE_MIN = ageMin; // 2026-10-27: ricordo l'eta' anche se scaduta (per l'etichetta della stima)
     if (ageMin > LIVORNOMETEO_FRESH_MIN) return null;
     return { speed: s.station.wind_kt, direction: s.station.direction, ageMin: Math.round(ageMin), ts: s.ts,
              delta: (s.delta && s.delta.wind_kt != null) ? s.delta.wind_kt : null };
@@ -893,7 +921,7 @@ async function fetchStationData(){
             fsSpeed = lmOv3.speed;
             fsDir = lmOv3.direction;
           } else {
-            fsSpeed = Math.round((fsSpeed + 4.2) * 10) / 10;
+            fsSpeed = Math.round(fsSpeed * lmFactorForDir(fsDir) * 10) / 10; // 2026-10-27: fattore per direzione
           }
         }
         return {
@@ -2084,9 +2112,10 @@ MNW_LIVE.forEach(function(st) {
                   dt2 = new Date(lmOv2.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
                   mkNameSuffix2 = ' <span style="font-size:0.55rem;color:#22cc66;font-weight:normal">(Livornometeo diretto, ' + lmOv2.ageMin + 'min fa)</span>';
                 } else if (wkt2 !== null && wkt2 !== undefined) {
-                  wkt2 = Math.round((wkt2 + 4.2) * 10) / 10;
+                  var lmF2 = lmFactorForDir(dir2); // 2026-10-27: fattore per direzione, non piu' +4.2 fisso
+                  wkt2 = Math.round(wkt2 * lmF2 * 10) / 10;
                   if (s2.om && s2.om.wind_kt != null) dw2 = Math.round((wkt2 - s2.om.wind_kt) * 10) / 10;  // 2026-10-20: scarto della stima mostrata
-                  mkNameSuffix2 = ' <span style="font-size:0.55rem;color:#ffaa00;font-weight:normal">(stima rif. Livornometeo)</span>';
+                  mkNameSuffix2 = ' <span style="font-size:0.55rem;color:#ffaa00;font-weight:normal">(stima da Windfinder \u00d7' + lmF2.toFixed(1) + lmStaleNote() + ')</span>';
                 }
               }
               var windCol2 = wkt2 < 15 ? '#4cff91' : wkt2 < 25 ? '#ffd700' : '#ff6060';
@@ -2133,10 +2162,11 @@ MNW_LIVE.forEach(function(st) {
             lmAgeStr = lmOv.ageMin + 'min fa';
             mkNameSuffix = ' <span style="font-size:0.55rem;color:#22cc66;font-weight:normal">(Livornometeo diretto, ' + lmOv.ageMin + 'min fa)</span>';
           } else if (wkt !== null && wkt !== undefined) {
-            wkt = Math.round((wkt + 4.2) * 10) / 10;
+            var lmF1 = lmFactorForDir(dispDir); // 2026-10-27: fattore per direzione, non piu' +4.2 fisso
+            wkt = Math.round(wkt * lmF1 * 10) / 10;
             // 2026-10-20: lo scarto vs OM va calcolato sul valore MOSTRATO (la stima), non sul grezzo
             if (s.om_wind_kt !== null && s.om_wind_kt !== undefined) dw = Math.round((wkt - s.om_wind_kt) * 10) / 10;
-            mkNameSuffix = ' <span style="font-size:0.55rem;color:#ffaa00;font-weight:normal">(stima rif. Livornometeo)</span>';
+            mkNameSuffix = ' <span style="font-size:0.55rem;color:#ffaa00;font-weight:normal">(stima da Windfinder \u00d7' + lmF1.toFixed(1) + lmStaleNote() + ')</span>';
           }
         }
         var windCol = wkt < 15 ? '#4cff91' : wkt < 25 ? '#ffd700' : '#ff6060';
@@ -2287,7 +2317,7 @@ function refreshMnwStation(sid, popupId, name) {
                     rlWkt = lmOv5.speed;
                     rlDir = lmOv5.direction;
                   } else if (rlWkt !== null && rlWkt !== undefined) {
-                    rlWkt = Math.round((rlWkt + 4.2) * 10) / 10;
+                    rlWkt = Math.round(rlWkt * lmFactorForDir(rlDir) * 10) / 10; // 2026-10-27: fattore per direzione
                   }
                 }
                 var rld = el.querySelector('.rl-msg');
@@ -2314,8 +2344,9 @@ function refreshMnwStation(sid, popupId, name) {
           lmDtRm = lmOv4.ts;  // 2026-10-20: orario della lettura Livornometeo, non del refresh Windfinder
           rmNameSuffix = ' <span style=\"font-size:0.55rem;color:#22cc66;font-weight:normal\">(Livornometeo diretto, ' + lmOv4.ageMin + 'min fa)</span>';
         } else if (wkt !== null && wkt !== undefined) {
-          wkt = Math.round((wkt + 4.2) * 10) / 10;
-          rmNameSuffix = ' <span style=\"font-size:0.55rem;color:#ffaa00;font-weight:normal\">(stima rif. Livornometeo)</span>';
+          var lmF4 = lmFactorForDir(dispDirRm); // 2026-10-27: fattore per direzione, non piu' +4.2 fisso
+          wkt = Math.round(wkt * lmF4 * 10) / 10;
+          rmNameSuffix = ' <span style=\"font-size:0.55rem;color:#ffaa00;font-weight:normal\">(stima da Windfinder \u00d7' + lmF4.toFixed(1) + lmStaleNote() + ')</span>';
         }
       }
       var windCol = !wkt ? '#bbb' : wkt < 15 ? '#4cff91' : wkt < 25 ? '#ffd700' : '#ff6060';
@@ -2344,7 +2375,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine script - NAUTILUS MAPPA2 v1.10 (segue markup HTML pannello osservazioni, non altro codice)
+// Fine script - NAUTILUS MAPPA2 v1.11 (segue markup HTML pannello osservazioni, non altro codice)
 </script>
 <!-- Pannello inserimento osservazione manuale -->
 <div id="obs-panel">
@@ -2384,4 +2415,4 @@ function refreshMnwStation(sid, popupId, name) {
 </body>
 </html>
 
-<!-- Fine codice - NAUTILUS MAPPA2 v1.10 -->
+<!-- Fine codice - NAUTILUS MAPPA2 v1.11 -->

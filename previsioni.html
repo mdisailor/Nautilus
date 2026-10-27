@@ -1,4 +1,4 @@
-<!-- NAUTILUS PREVISIONI v3.11 - mdisailor - 2026-10-27 - v3.11: la stima di Livorno sul bottone dell'ora corrente (frecce, popup, export XLS) non e' piu' Windfinder +4.2 fisso ma Windfinder x un fattore per direzione (x1.5 Nord-Est/Est, fino a x2.2 Sud-Est/Sud-Ovest, x1.7 Nord-Ovest, interpolato; stessa tabella dell'engine v2.14.37). Etichetta: stima da Windfinder x2.2, ultima lettura Livornometeo 4 g fa. Le previsioni FUTURE di Livorno arrivano gia corrette dall'engine (forecast_hN), nessuna modifica qui. Su base v3.10 -->
+<!-- NAUTILUS PREVISIONI v3.12 - mdisailor - 2026-10-27 - v3.12: il popup di Livorno non dice piu' "Dato reale stazione, adesso" sopra una stima: il titolo cambia col caso ("Stima per Livornometeo, da Windfinder x1.9" oppure "Livornometeo, lettura di N min fa"), e sotto la stima compaiono il Windfinder grezzo con l'eta' del campione, l'ultima lettura VERA di Livornometeo con valore, direzione e ora, e un avviso di ±2 kn a vento debole (richiesta di M del 27/10). Su base v3.11 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Previsioni Vento v3.11</title>
+<title>NAUTILUS Previsioni Vento v3.12</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -64,7 +64,7 @@
 
 <header>
   <h1>NAUTILUS &mdash; Previsioni Vento</h1>
-  <span class="ver">v3.11</span>
+  <span class="ver">v3.12</span>
   <a class="back" href="/index2.html">&larr; cruscotto</a>
 </header>
 
@@ -98,9 +98,10 @@ async function getLivornometeoOverride(){
     var r = await fetch(ENGINE_URL + '?action=bias_history&station=livornometeo_porto&limit=1', {cache:'no-store'});
     var d = await r.json();
     var s = d.samples && d.samples[0];
-    if (!s || !s.station || s.station.wind_kt == null || s.station.direction == null) { LM_LAST_AGE_MIN = null; return null; }
+    if (!s || !s.station || s.station.wind_kt == null || s.station.direction == null) { LM_LAST_AGE_MIN = null; LM_LAST = null; return null; }
     var ageMin = (Date.now() - new Date(s.ts).getTime()) / 60000;
     LM_LAST_AGE_MIN = ageMin; // 2026-10-27: ricordo l'eta' anche se scaduta (per l'etichetta della stima)
+    LM_LAST = { speed: s.station.wind_kt, direction: s.station.direction, ts: s.ts }; // 2026-10-27: e anche il valore, per mostrarlo accanto alla stima
     if (ageMin > LIVORNOMETEO_FRESH_MIN) return null;
     return { speed: s.station.wind_kt, direction: s.station.direction, ageMin: Math.round(ageMin) };
   } catch(e) { return null; }
@@ -125,6 +126,32 @@ function lmFactorForDir(deg) {
 // Eta' dell'ultima lettura Livornometeo (anche se scaduta): serve a dire, accanto alla
 // stima, quanto e' vecchia l'ultima lettura vera.
 var LM_LAST_AGE_MIN = null;
+// 2026-10-27 (v1.12 / v3.12): testi del popup per la stima di Livorno. Il 27/10 M ha fatto notare che il
+// titolo "Dato reale stazione, adesso" restava sopra una STIMA, e che l'orario in fondo era quello del
+// campione Windfinder mentre "ultima lettura Livornometeo" era un altro dato, due ore prima, senza il
+// suo valore. Ora il popup separa: stima mostrata, Windfinder grezzo (con l'eta' del campione) e ultima
+// lettura vera di Livornometeo con valore, direzione e ora. lmStaleNote() non e' piu' chiamata: il suo
+// testo ("ultima lettura ... fa") finiva attaccato al titolo della stima e si leggeva come un dato di
+// Livornometeo; la sostituisce lmEstimateExtra().
+var LM_LAST = null; // ultima lettura Livornometeo registrata, anche se scaduta: { speed, direction, ts }
+function lmHHMM(ts) {
+  try { return new Date(ts).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Rome' }); } catch (e) { return ''; }
+}
+function lmAgeText(m) { return m < 120 ? Math.round(m) + ' min' : m < 2880 ? Math.round(m / 60) + ' h' : Math.round(m / 1440) + ' g'; }
+// Righe sotto la stima: Windfinder grezzo, ultima lettura vera di Livornometeo, avviso sull'incertezza.
+// whenText: quando e' stato preso il campione Windfinder, gia' scritto dal chiamante ("delle 14:41 (19 min fa)").
+function lmEstimateExtra(rawKn, rawDir, whenText) {
+  var sty = 'font-size:0.6rem;color:#bbb;margin-top:2px';
+  var h = '<div style="' + sty + '">Windfinder grezzo: ' + rawKn + ' kn da ' + rawDir + '&deg;' + (whenText ? ' &middot; campione ' + whenText : '') + '</div>';
+  if (LM_LAST && LM_LAST_AGE_MIN !== null && !isNaN(LM_LAST_AGE_MIN)) {
+    h += '<div style="' + sty + '">Ultima lettura Livornometeo: ' + LM_LAST.speed + ' kn da ' + LM_LAST.direction + '&deg; alle ' + lmHHMM(LM_LAST.ts) + ' (' + lmAgeText(LM_LAST_AGE_MIN) + ' fa)</div>';
+  } else {
+    h += '<div style="' + sty + '">Nessuna lettura Livornometeo registrata</div>';
+  }
+  if (rawKn < 6) h += '<div style="font-size:0.58rem;color:#888;margin-top:2px">Con vento debole la stima pu&ograve; sbagliare di &plusmn;2 kn</div>';
+  return h;
+}
+
 function lmStaleNote() {
   if (LM_LAST_AGE_MIN === null || isNaN(LM_LAST_AGE_MIN)) return '';
   var m = LM_LAST_AGE_MIN, t;
@@ -821,20 +848,25 @@ async function updateZoneMarkerPopups(){
         // fix 2026-10-16: lettura Livornometeo fresca (<=30min) ha priorita'
         // sulla stima +4.2 -- vedi nota estesa in drawAll.
         var stSpd = st.wind_kt, stDir = st.direction, freshNote = '';
+        // 2026-10-27: il titolo era fisso ("Dato reale stazione, adesso") anche quando sotto c'era una STIMA
+        // (Livorno senza lettura Livornometeo fresca): si leggeva come un dato reale e di adesso. Ora cambia col caso.
+        var popHdr = 'Dato reale stazione, adesso', popHdrCol = '#fff';
         if (z.biasStation === 'livorno_porto') {
           var lmOvP = await getLivornometeoOverride();
           if (lmOvP) {
             stSpd = lmOvP.speed; stDir = lmOvP.direction;
-            freshNote = '<div style="font-size:0.6rem;color:#22cc66;margin-top:2px">Livornometeo diretto, ' + lmOvP.ageMin + 'min fa</div>';
+            popHdr = 'Livornometeo, lettura di ' + lmOvP.ageMin + ' min fa'; popHdrCol = '#22cc66';
           } else {
             var lmFP = lmFactorForDir(stDir); // 2026-10-27: fattore per direzione, non piu' +4.2 fisso
+            var rawKnP = st.wind_kt;
             stSpd = Math.round(st.wind_kt * lmFP * 10) / 10;
-            freshNote = '<div style="font-size:0.6rem;color:#ffaa00;margin-top:2px">stima da Windfinder \u00d7' + lmFP.toFixed(1) + lmStaleNote() + '</div>';
+            popHdr = 'Stima per Livornometeo, da Windfinder \u00d7' + lmFP.toFixed(1); popHdrCol = '#ffaa00';
+            freshNote = lmEstimateExtra(rawKnP, stDir, (st.age_min !== undefined && st.age_min !== null) ? 'di ' + lmAgeText(st.age_min) + ' fa' : '');
           }
         }
         html = '<div style="font-family:\'DM Mono\',monospace;font-size:0.7rem;min-width:180px">' +
           '<div style="font-weight:bold;color:#00cc66;margin-bottom:4px">' + z.name + '</div>' +
-          '<div style="color:#fff;font-size:0.62rem;margin-bottom:4px">Dato reale stazione, adesso</div>' +
+          '<div style="color:' + popHdrCol + ';font-size:0.62rem;margin-bottom:4px">' + popHdr + '</div>' +
           '<div><b>' + stSpd + ' kn</b> da ' + stDir + '&deg;</div>' + freshNote + '</div>';
       } else {
         html = '<div style="font-family:\'DM Mono\',monospace;font-size:0.7rem;min-width:180px">' +
@@ -994,4 +1026,4 @@ setInterval(loadAll, REFRESH_MS);
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS PREVISIONI v3.11 -->
+<!-- Fine codice - NAUTILUS PREVISIONI v3.12 -->

@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.7.45 -- 2026-10-19 - (1) il bottone "Livornometeo (manuale)" ora apre l'elenco delle letture (come gli altri bottoni stazione) invece di aprire il sito: avevo assunto io il comportamento sbagliato. (2) la stazione manuale non passa piu dal ramo "Fermo da ... non usato nei calcoli" (soglia 90 min, pensata per stazioni automatiche): con 4 letture al giorno scattava quasi sempre e la lista mostrava una sola riga invece della tabella storica; falso anche nel testo, perche Livorno la usa quando ha <=30 min. Su base v5.7.44 -->
+<!-- NAUTILUS v5.7.46 -- 2026-10-27 - la stima di Livorno nella bussola (singola e tripla) non e' piu' Windfinder +4.2 fisso ma Windfinder x un fattore che dipende dalla direzione (x1.5 da Nord-Est/Est, fino a x2.2 da Sud-Est a Sud-Ovest, x1.7 da Nord-Ovest, interpolato): 36 ore di medie orarie di Livornometeo, 23-27/10, validate un giorno fuori, errore 2.4 kn contro 4.1. L'etichetta dice il fattore usato (STIMA x2.2). Stessa tabella dell'engine v2.14.37. Su base v5.7.45 -->
 
 <html lang="it">
 <head>
@@ -600,7 +600,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.45  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.46  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -2012,7 +2012,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.45  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.46  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -3125,8 +3125,9 @@ async function loadSingleCompass() {
             scDisplayGust = null;
             scDisplaySrc = 'LIVORNOMETEO';
           } else if (realS.station.wind_kt !== null && realS.station.wind_kt !== undefined) {
-            scDisplaySpd = Math.round((realS.station.wind_kt + 4.2) * 10) / 10;
-            scDisplaySrc = 'STIMA';
+            var scF = lmFactorForDir(realS.station.direction); // 2026-10-27: fattore per direzione, non piu' +4.2 fisso
+            scDisplaySpd = Math.round(realS.station.wind_kt * scF * 10) / 10;
+            scDisplaySrc = 'STIMA \u00d7' + scF.toFixed(1);
           }
         }
         updateSingleCompass(scDisplaySpd, scDisplayDir, scDisplayGust, scDisplaySrc);
@@ -3432,11 +3433,39 @@ async function getLivornometeoOverride(){
     var r = await fetch(ENGINE_URL + '?action=bias_history&station=livornometeo_porto&limit=1', {cache:'no-store'});
     var d = await r.json();
     var s = d.samples && d.samples[0];
-    if (!s || !s.station || s.station.wind_kt == null || s.station.direction == null) return null;
+    if (!s || !s.station || s.station.wind_kt == null || s.station.direction == null) { LM_LAST_AGE_MIN = null; return null; }
     var ageMin = (Date.now() - new Date(s.ts).getTime()) / 60000;
+    LM_LAST_AGE_MIN = ageMin; // 2026-10-27: ricordo l'eta' anche se scaduta (per l'etichetta della stima)
     if (ageMin > LIVORNOMETEO_FRESH_MIN) return null;
     return { speed: s.station.wind_kt, direction: s.station.direction, ageMin: Math.round(ageMin), ts: s.ts };
   } catch(e) { return null; }
+}
+
+// 2026-10-27: STIMA di Livornometeo da Windfinder, con fattore PER DIREZIONE (al posto del
+// +4.2 fisso). Stessa tabella dell'engine v2.14.37: rapporto Livornometeo/Windfinder
+// ~2.2 da Sud-Sud-Ovest, ~1.7 da Ovest-Nord-Ovest, ~1.5 da Nord-Est/Est (36 ore di medie
+// orarie, 23-27/10, correlazione 0.88, validato un giorno fuori: errore 2.4 kn contro 4.1).
+// Varia dolcemente con la direzione (nessun salto a cavallo dei settori). PROVVISORIO.
+var LM_FACTOR_ANCHORS = [[0, 1.5], [90, 1.5], [150, 2.2], [240, 2.2], [300, 1.7], [360, 1.5]];
+function lmFactorForDir(deg) {
+  if (deg === null || deg === undefined || isNaN(deg)) return 1.8;
+  var d = ((Number(deg) % 360) + 360) % 360, A = LM_FACTOR_ANCHORS;
+  for (var i = 0; i < A.length - 1; i++) {
+    if (d >= A[i][0] && d <= A[i + 1][0]) {
+      var t = (A[i + 1][0] === A[i][0]) ? 0 : (d - A[i][0]) / (A[i + 1][0] - A[i][0]);
+      return Math.round((A[i][1] + (A[i + 1][1] - A[i][1]) * t) * 100) / 100;
+    }
+  }
+  return 1.8;
+}
+// Eta' dell'ultima lettura Livornometeo (anche se scaduta): serve a dire, accanto alla
+// stima, quanto e' vecchia l'ultima lettura vera.
+var LM_LAST_AGE_MIN = null;
+function lmStaleNote() {
+  if (LM_LAST_AGE_MIN === null || isNaN(LM_LAST_AGE_MIN)) return '';
+  var m = LM_LAST_AGE_MIN, t;
+  if (m < 120) t = Math.round(m) + ' min'; else if (m < 2880) t = Math.round(m / 60) + ' h'; else t = Math.round(m / 1440) + ' g';
+  return ' \u00b7 ultima lettura Livornometeo ' + t + ' fa';
 }
 
 const ALL_ZONES = [
@@ -6183,8 +6212,9 @@ function updateTripleCompass(idx, r) {
       ts = new Date(tcLmOverride.ts).toLocaleString('it-IT',{timeZone:'Europe/Rome',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
       displaySrcLabel = 'LIVORNOMETEO';
     } else {
-      displaySpd = Math.round((spd + 4.2) * 10) / 10;
-      displaySrcLabel = 'STIMA';
+      var tcF = lmFactorForDir(dir); // 2026-10-27: fattore per direzione, non piu' +4.2 fisso
+      displaySpd = Math.round(spd * tcF * 10) / 10;
+      displaySrcLabel = 'STIMA \u00d7' + tcF.toFixed(1);
     }
   }
   tcData[idx] = { spd: displaySpd !== null ? Math.round(displaySpd) : null, dir: dir, gust: gust !== null ? Math.round(gust) : null, src: displaySrcLabel, ts: ts, name: TC_NAMES[idx] };
@@ -6195,7 +6225,7 @@ function updateTripleCompass(idx, r) {
   // stazione CFR non ha risposto). CFR = dato reale, colore normale.
   // 2026-09-16: 'STIMA' (Livorno corretto) trattata come dato reale ai fini
   // del colore -- stessa lettura reale, solo +4.2kn.
-  var isOm = src && src.toLowerCase().indexOf('om') === 0 && displaySrcLabel !== 'STIMA' && displaySrcLabel !== 'LIVORNOMETEO';
+  var isOm = src && src.toLowerCase().indexOf('om') === 0 && displaySrcLabel.indexOf('STIMA') !== 0 && displaySrcLabel !== 'LIVORNOMETEO';
   var tcColor = (displaySpd !== null && isOm) ? '#ff4444' : 'var(--accent)';
   if (sEl) { sEl.textContent = displaySpd !== null ? Math.round(displaySpd) : '--'; sEl.style.color = tcColor; }
   var dEl = document.getElementById('tc-dir-' + idx);
@@ -6289,4 +6319,4 @@ async function loadTripleCompasses() {
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS v5.7.45 -->
+<!-- Fine codice - NAUTILUS v5.7.46 -->

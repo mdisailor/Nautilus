@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.37 - by mdisailor engine - v2.14.37: (1) correzione di riferimento Livornometeo PER DIREZIONE al posto del +4.2 fisso (D16): fattore proporzionale ~2.2 da Sud-Sud-Ovest, ~1.7 da Ovest-Nord-Ovest, ~1.5 da Nord-Est/Est, interpolato dolcemente (36 ore di medie orarie, validato un giorno fuori: errore 2.4 kn contro 4.1). (2) CORREZIONE DEL CIRCUITO DI BIAS: bias, verifiche e statistiche confrontano ora la previsione nella scala della stazione di riferimento (forecast_hN_wf, o forecast_hN meno il vecchio offset), perche con il valore corretto il bias di Livorno riassorbiva la correzione. (3) guardia: le osservazioni Windfinder con orario successivo alla cattura (righe di previsione, 7 casi il 23 e 26/10) non si salvano. Include tutto il v2.14.36. Su base v2.14.36
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.38 - by mdisailor engine - v2.14.38: aggiunta action=field_test (sola lettura): test di ricostruzione del campo di vento dalle sole stazioni (21 stazioni affidabili, leave-one-out): confronta interpolazione, OM, AROME e modello+correzione sulle stazioni stesse, per scala di correlazione L e per distanza dalla stazione piu vicina; risposta alla domanda di M su una mappa piu estesa. Funzioni pure collaudate con campi inventati. Include tutto il v2.14.37 (fattore Livornometeo per direzione, correzione del circuito di bias, guardia sulle osservazioni nel futuro). Su base v2.14.37
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2199,6 +2199,154 @@ function windfinderObsInFuture(obsIso, tsIso) {
   return o > t + 5 * 60000;
 }
 
+// 2026-10-27 (v2.14.38): TEST DI RICOSTRUZIONE DEL CAMPO DAL SOLO ARCHIVIO DELLE STAZIONI.
+// Domanda di M: interpolando i dati delle stazioni, si riesce a ricostruire un campo simile
+// a quello di OM / AROME? L'unico modo onesto di giudicarlo e' sulle stazioni stesse, una
+// alla volta ("leave-one-out"): si toglie la stazione j, si ricostruisce il suo vento dalle
+// altre nella stessa ora, e si confronta con (1) cio' che ha misurato davvero, (2) cio' che
+// dicono OM e AROME nel suo punto. Metodi: interp = solo stazioni (media pesata dei vettori
+// u,v con peso gaussiano exp(-(d/L)^2)); om_corr / ar_corr = modello piu' l'interpolazione
+// dell'errore (innovazione) delle altre stazioni, con restringimento lambda (lontano dalle
+// stazioni resta il modello: e' la stessa idea dell'OI della mappa). Errore principale:
+// radice dell'errore quadratico medio del VETTORE (kn), che comprende velocita' e direzione.
+// Funzioni pure (nessun accesso a Redis): collaudate con campi inventati.
+var FIELD_STATIONS = {
+  populonia_cfr: [42.987731, 10.537734], livorno_porto: [43.5525, 10.3014], viareggio_cfr: [43.875, 10.236],
+  capraia_cfr: [43.05, 9.838], portoferraio_cfr: [42.816, 10.328], giglio_porto: [42.361401, 10.921193],
+  follonica: [42.919, 10.765], barcaggio: [43.0058, 9.4045], gorgona_cfr: [43.429512, 9.900141],
+  montecristo: [42.335, 10.311], orbetello: [42.441, 11.216], bocca_arno_cfr: [43.68, 10.27],
+  svincenzo_porto: [43.098, 10.537], capalbio: [42.459, 11.269], alberese: [42.671, 11.107],
+  forte_dei_marmi: [43.963, 10.168], lido_camaiore: [43.898, 10.228], giglio_castello: [42.366456, 10.900401],
+  livorno: [43.465, 10.347], casotto_pescatori: [42.637, 11.09], venturina: [43.025308, 10.603566]
+};
+// Escluse per giudizio di M (22/10): Vada (interna, coperta da alberi, direzione sbagliata sempre) e
+// Cap Pertusato (in alto, effetti di costa). Coordinate di alberese, casotto_pescatori e
+// lido_camaiore differiscono di qualche km tra engine e mappa: qui quelle dell'engine/mappa piu' vicine
+// al punto usato per campionare i modelli; sono incertezze piccole rispetto alle scale L >= 15 km.
+function fldKm(a, b) {
+  var R = 6371, p1 = a[0] * Math.PI / 180, p2 = b[0] * Math.PI / 180, dp = p2 - p1, dl = (b[1] - a[1]) * Math.PI / 180;
+  var x = Math.sin(dp / 2) * Math.sin(dp / 2) + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) * Math.sin(dl / 2);
+  return 2 * R * Math.asin(Math.sqrt(x));
+}
+function fldUV(s, d) { var r = d * Math.PI / 180; return [-s * Math.sin(r), -s * Math.cos(r)]; }
+function fldSpdDir(u, v) { return [Math.sqrt(u * u + v * v), (Math.atan2(-u, -v) * 180 / Math.PI + 360) % 360]; }
+function fldAngDiff(a, b) { return Math.abs(((a - b + 540) % 360) - 180); }
+
+// Dai campioni d'archivio ai record orari: uno per ora, scartando osservazioni nel futuro (righe
+// di previsione) e valori CONGELATI (stesso vento e direzione dell'ora precedente: la CFR di Capraia
+// ha dato per ore 4.3 kn / 137 gradi identici; si tiene solo il primo).
+function buildFieldRecs(archives, fromMs) {
+  var recs = {}, notes = {};
+  Object.keys(archives).forEach(function(id) {
+    var byHour = {}, raw = 0;
+    (archives[id] || []).forEach(function(s) {
+      if (!s || !s.station || s.station.wind_kt === null || s.station.wind_kt === undefined || s.station.direction === null || s.station.direction === undefined) return;
+      var t = new Date(s.ts).getTime(); if (isNaN(t) || t < fromMs) return;
+      raw++;
+      if (windfinderObsInFuture(s.station.obs_time, s.ts)) return;
+      var m = function(o) { return (o && o.wind_kt !== null && o.wind_kt !== undefined && o.direction !== null && o.direction !== undefined) ? { w: o.wind_kt, d: o.direction } : null; };
+      var h = Math.floor(t / 3600000);
+      if (!byHour[h]) byHour[h] = { h: h, w: s.station.wind_kt, d: s.station.direction, om: m(s.om), ar: m(s.arome) };
+    });
+    var hs = Object.keys(byHour).map(Number).sort(function(a, b) { return a - b; });
+    var out = [], frozen = 0;
+    hs.forEach(function(h) {
+      var r = byHour[h], prev = byHour[h - 1];
+      if (prev && prev.w === r.w && prev.d === r.d) { frozen++; return; }
+      out.push(r);
+    });
+    recs[id] = out;
+    notes[id] = { campioni: raw, ore_usate: out.length, scartati_congelati: frozen };
+  });
+  return { recs: recs, notes: notes };
+}
+
+function fieldTest(recs, coords, opts) {
+  opts = opts || {};
+  var Ls = opts.Ls || [15, 30, 50, 80], lam = (opts.lambda !== undefined) ? opts.lambda : 0.3;
+  var minW = (opts.minWSum !== undefined) ? opts.minWSum : 0.05, dirMin = opts.dirMin || 4;
+  var bins = [[0, 15], [15, 30], [30, 60], [60, 1e9]];
+  var ids = Object.keys(recs).filter(function(id) { return coords[id] && recs[id].length; });
+  var slots = {};
+  ids.forEach(function(id) { recs[id].forEach(function(r) { (slots[r.h] = slots[r.h] || []).push({ id: id, r: r }); }); });
+  var dist = {}; ids.forEach(function(a) { dist[a] = {}; ids.forEach(function(b) { dist[a][b] = (a === b) ? 0 : fldKm(coords[a], coords[b]); }); });
+  function newAcc() { return { n: 0, sq: 0, sa: 0, sb: 0, dn: 0, dsum: 0, d45: 0 }; }
+  function add(acc, est, obsUV, obsS, obsD) {
+    var du = est[0] - obsUV[0], dv = est[1] - obsUV[1], es = fldSpdDir(est[0], est[1]);
+    acc.n++; acc.sq += du * du + dv * dv; acc.sa += Math.abs(es[0] - obsS); acc.sb += es[0] - obsS;
+    if (obsS >= dirMin) { var e = fldAngDiff(es[1], obsD); acc.dn++; acc.dsum += e; if (e <= 45) acc.d45++; }
+  }
+  function fin(acc) {
+    if (!acc.n) return { n: 0 };
+    return { n: acc.n, rmse_vettore: Math.round(Math.sqrt(acc.sq / acc.n) * 100) / 100, mae_velocita: Math.round(acc.sa / acc.n * 100) / 100,
+             bias_velocita: Math.round(acc.sb / acc.n * 100) / 100,
+             dir_mae: acc.dn ? Math.round(acc.dsum / acc.dn * 10) / 10 : null, dir_entro45_pct: acc.dn ? Math.round(100 * acc.d45 / acc.dn) : null };
+  }
+  var perL = Ls.map(function(L) {
+    var A = { om: newAcc(), interp: newAcc(), om_corr: newAcc() };
+    var B = { om: newAcc(), ar: newAcc(), interp: newAcc(), om_corr: newAcc(), ar_corr: newAcc() };
+    var sim = { interp_om: [0, 0], interp_ar: [0, 0], om_ar: [0, 0] };
+    var dB = bins.map(function() { return { om: newAcc(), interp: newAcc(), om_corr: newAcc() }; });
+    var perSt = {}; ids.forEach(function(id) { perSt[id] = { om: newAcc(), interp: newAcc(), om_corr: newAcc(), nn: [] }; });
+    var tot = 0, withInterp = 0;
+    Object.keys(slots).forEach(function(h) {
+      var sl = slots[h]; if (sl.length < 3) return;
+      sl.forEach(function(T) {
+        tot++;
+        var j = T.id, rj = T.r, obsUV = fldUV(rj.w, rj.d), sw = 0, su = 0, sv = 0, swO = 0, suO = 0, svO = 0, swA = 0, suA = 0, svA = 0, nn = 1e9;
+        sl.forEach(function(N) {
+          if (N.id === j) return;
+          var d = dist[j][N.id]; if (d < nn) nn = d;
+          var w = Math.exp(-(d / L) * (d / L)), ouv = fldUV(N.r.w, N.r.d);
+          sw += w; su += w * ouv[0]; sv += w * ouv[1];
+          if (N.r.om) { var m = fldUV(N.r.om.w, N.r.om.d); swO += w; suO += w * (ouv[0] - m[0]); svO += w * (ouv[1] - m[1]); }
+          if (N.r.ar) { var a = fldUV(N.r.ar.w, N.r.ar.d); swA += w; suA += w * (ouv[0] - a[0]); svA += w * (ouv[1] - a[1]); }
+        });
+        if (sw < minW || !rj.om) return;
+        withInterp++;
+        var ip = [su / sw, sv / sw], omv = fldUV(rj.om.w, rj.om.d);
+        var omc = [omv[0] + suO / (swO + lam), omv[1] + svO / (swO + lam)];
+        add(A.om, omv, obsUV, rj.w, rj.d); add(A.interp, ip, obsUV, rj.w, rj.d); add(A.om_corr, omc, obsUV, rj.w, rj.d);
+        var k = 0; while (k < bins.length - 1 && nn >= bins[k][1]) k++;
+        add(dB[k].om, omv, obsUV, rj.w, rj.d); add(dB[k].interp, ip, obsUV, rj.w, rj.d); add(dB[k].om_corr, omc, obsUV, rj.w, rj.d);
+        add(perSt[j].om, omv, obsUV, rj.w, rj.d); add(perSt[j].interp, ip, obsUV, rj.w, rj.d); add(perSt[j].om_corr, omc, obsUV, rj.w, rj.d); perSt[j].nn.push(nn);
+        if (rj.ar) {
+          var arv = fldUV(rj.ar.w, rj.ar.d), arc = [arv[0] + suA / (swA + lam), arv[1] + svA / (swA + lam)];
+          add(B.om, omv, obsUV, rj.w, rj.d); add(B.ar, arv, obsUV, rj.w, rj.d); add(B.interp, ip, obsUV, rj.w, rj.d);
+          add(B.om_corr, omc, obsUV, rj.w, rj.d); add(B.ar_corr, arc, obsUV, rj.w, rj.d);
+          var q = function(x, y) { return (x[0] - y[0]) * (x[0] - y[0]) + (x[1] - y[1]) * (x[1] - y[1]); };
+          sim.interp_om[0] += q(ip, omv); sim.interp_ar[0] += q(ip, arv); sim.om_ar[0] += q(omv, arv); sim.interp_om[1]++; 
+        }
+      });
+    });
+    var r2 = function(x) { return Math.round(x * 100) / 100; };
+    var simN = sim.interp_om[1];
+    return {
+      L_km: L, ore_stazione_totali: tot, con_interpolazione: withInterp,
+      confronto_con_om: { om: fin(A.om), interpolazione: fin(A.interp), om_piu_correzione: fin(A.om_corr) },
+      confronto_con_om_e_arome: { om: fin(B.om), arome: fin(B.ar), interpolazione: fin(B.interp), om_piu_correzione: fin(B.om_corr), arome_piu_correzione: fin(B.ar_corr) },
+      somiglianza_rmse_vettore_tra_campi: simN ? { interpolazione_vs_om: r2(Math.sqrt(sim.interp_om[0] / simN)), interpolazione_vs_arome: r2(Math.sqrt(sim.interp_ar[0] / simN)), om_vs_arome: r2(Math.sqrt(sim.om_ar[0] / simN)), n: simN } : null,
+      per_distanza_dalla_stazione_piu_vicina: bins.map(function(b, i) { return { da_km: b[0], a_km: b[1] > 1e8 ? null : b[1], om: fin(dB[i].om), interpolazione: fin(dB[i].interp), om_piu_correzione: fin(dB[i].om_corr) }; }),
+      _perSt: perSt
+    };
+  });
+  // L migliore: quella che minimizza l'errore di om_piu_correzione sul confronto con OM
+  var best = perL[0];
+  perL.forEach(function(p) { var a = p.confronto_con_om.om_piu_correzione.rmse_vettore, b = best.confronto_con_om.om_piu_correzione.rmse_vettore; if (a !== undefined && (b === undefined || a < b)) best = p; });
+  var perStation = ids.map(function(id) {
+    var s = best._perSt[id], nn = s.nn.slice().sort(function(a, b) { return a - b; });
+    return { stazione: id, ore: s.om.n, vicino_piu_prossimo_km_mediana: nn.length ? Math.round(nn[Math.floor(nn.length / 2)]) : null,
+             rmse_om: fin(s.om).rmse_vettore, rmse_interpolazione: fin(s.interp).rmse_vettore, rmse_om_piu_correzione: fin(s.om_corr).rmse_vettore };
+  }).filter(function(x) { return x.ore > 0; });
+  perL.forEach(function(p) { delete p._perSt; });
+  return { stazioni: ids.length, ore_con_dati: Object.keys(slots).length, lambda: lam, per_scala: perL, L_migliore_km: best.L_km, per_stazione_alla_L_migliore: perStation };
+}
+
+var FIELD_EXCLUDED = {
+  vada: 'esclusa: stazione interna coperta da alberi, direzione sbagliata in ogni fascia di vento (giudizio di M e dati 22/10)',
+  bonifacio_pertusato: 'esclusa: in alto, effetti di costa, inaffidabile con vento debole-moderato (giudizio di M e dati 22/10)'
+};
+
 module.exports = async function handler(req, res) {
 
 // getNowRome spostata a livello modulo (audit A6) — vedi definizione sopra fetchECMWF
@@ -2267,7 +2415,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.37', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.38', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -3627,6 +3775,36 @@ if (action === 'manual_status') {
       };
     }
     return res.status(200).json({ now: new Date(mstNow).toISOString(), legend: 'series.age_min = minuti dall ultimo punto della serie; readings.last.vs_om/vs_arome = lettura meno modello (kn); pt = punto usato per i modelli (assente nelle letture fatte prima della v2.14.35)', stations: mstOut });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+// /api/engine?action=field_test[&from=ISO][&L=15,30,50,80][&lambda=0.3] -- sola lettura,
+// pubblica. Aggiunta 2026-10-27: rispondere a "interpolando le stazioni, si ricostruisce un
+// campo simile a OM/AROME?" -- vedi la nota estesa sopra fieldTest. Legge bias_archive delle
+// 21 stazioni di FIELD_STATIONS (una lettura Redis ciascuna, a blocchi di 6). Non scrive.
+if (action === 'field_test') {
+  try {
+    var ftFrom = req.query.from ? new Date(req.query.from).getTime() : NaN;
+    if (isNaN(ftFrom)) ftFrom = Date.now() - 30 * 86400000;
+    var ftLs = req.query.L ? req.query.L.toString().split(',').map(Number).filter(function(x){ return x > 0 && x <= 500; }) : [];
+    if (!ftLs.length) ftLs = [15, 30, 50, 80];
+    var ftLam = (req.query.lambda !== undefined) ? parseFloat(req.query.lambda) : 0.3;
+    if (isNaN(ftLam) || ftLam < 0) ftLam = 0.3;
+    var ftIds = Object.keys(FIELD_STATIONS), ftArch = {};
+    for (var ftI = 0; ftI < ftIds.length; ftI += 6) {
+      var ftChunk = ftIds.slice(ftI, ftI + 6);
+      var ftRes = await Promise.all(ftChunk.map(function(id){ return kvGet('bias_archive:' + id, kvUrl, kvToken).catch(function(){ return null; }); }));
+      ftChunk.forEach(function(id, j){ ftArch[id] = Array.isArray(ftRes[j]) ? ftRes[j] : []; });
+    }
+    var ftBuilt = buildFieldRecs(ftArch, ftFrom);
+    var ftOut = fieldTest(ftBuilt.recs, FIELD_STATIONS, { Ls: ftLs, lambda: ftLam });
+    ftOut.dal = new Date(ftFrom).toISOString();
+    ftOut.stazioni_escluse = FIELD_EXCLUDED;
+    ftOut.note_per_stazione = ftBuilt.notes;
+    ftOut.legenda = 'rmse_vettore = errore quadratico medio del vettore vento (kn), comprende velocita e direzione; interpolazione = solo stazioni (peso gaussiano exp(-(d/L)^2)), le altre ore stesse; om_piu_correzione / arome_piu_correzione = modello + interpolazione dell errore delle stazioni vicine, restringimento lambda; somiglianza = distanza tra i campi, con OM-AROME come scala di riferimento; ore uniche per stazione, scartati dati congelati e osservazioni nel futuro';
+    return res.status(200).json(ftOut);
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }
@@ -6858,7 +7036,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.37 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.38 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -6989,4 +7167,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.37
+// Fine codice - NAUTILUS ENGINE v2.14.38

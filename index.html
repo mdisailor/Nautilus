@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.7.46 -- 2026-10-27 - la stima di Livorno nella bussola (singola e tripla) non e' piu' Windfinder +4.2 fisso ma Windfinder x un fattore che dipende dalla direzione (x1.5 da Nord-Est/Est, fino a x2.2 da Sud-Est a Sud-Ovest, x1.7 da Nord-Ovest, interpolato): 36 ore di medie orarie di Livornometeo, 23-27/10, validate un giorno fuori, errore 2.4 kn contro 4.1. L'etichetta dice il fattore usato (STIMA x2.2). Stessa tabella dell'engine v2.14.37. Su base v5.7.45 -->
+<!-- NAUTILUS v5.7.47 -- 2026-10-27 - dettaglio della bussola tripla per Livorno piu' chiaro: SORGENTE dice "Stima da Windfinder x1.9 (grezzo 4.1 kn)" e una riga a parte "ULT. LETTURA LM" riporta l'ultima lettura VERA di Livornometeo con valore, direzione, ora ed eta' (prima "AGGIORNATO" era l'orario del campione Windfinder accanto a "STIMA x1.9", senza altro). La bussola singola resta con la sola etichetta "STIMA x1.9" (poco spazio). Su base v5.7.46 -->
 
 <html lang="it">
 <head>
@@ -600,7 +600,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.46  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.47  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -788,6 +788,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
     <div class="wind-detail-row"><span class="wd-label">RAFFICA</span><span class="wd-value" id="tc-d-gust">--</span></div>
     <div class="wind-detail-row"><span class="wd-label">AGGIORNATO</span><span class="wd-value" id="tc-d-ts">--</span></div>
     <div class="wind-detail-row"><span class="wd-label">SORGENTE</span><span class="wd-value" id="tc-d-src">--</span></div>
+    <div class="wind-detail-row" id="tc-d-lm-row" style="display:none"><span class="wd-label">ULT. LETTURA LM</span><span class="wd-value" id="tc-d-lm">--</span></div>
   </div>
 </div>
 
@@ -2012,7 +2013,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.46  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.47  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -3433,9 +3434,10 @@ async function getLivornometeoOverride(){
     var r = await fetch(ENGINE_URL + '?action=bias_history&station=livornometeo_porto&limit=1', {cache:'no-store'});
     var d = await r.json();
     var s = d.samples && d.samples[0];
-    if (!s || !s.station || s.station.wind_kt == null || s.station.direction == null) { LM_LAST_AGE_MIN = null; return null; }
+    if (!s || !s.station || s.station.wind_kt == null || s.station.direction == null) { LM_LAST_AGE_MIN = null; LM_LAST = null; return null; }
     var ageMin = (Date.now() - new Date(s.ts).getTime()) / 60000;
     LM_LAST_AGE_MIN = ageMin; // 2026-10-27: ricordo l'eta' anche se scaduta (per l'etichetta della stima)
+    LM_LAST = { speed: s.station.wind_kt, direction: s.station.direction, ts: s.ts }; // 2026-10-27: anche il valore, per mostrarlo accanto alla stima
     if (ageMin > LIVORNOMETEO_FRESH_MIN) return null;
     return { speed: s.station.wind_kt, direction: s.station.direction, ageMin: Math.round(ageMin), ts: s.ts };
   } catch(e) { return null; }
@@ -3461,6 +3463,20 @@ function lmFactorForDir(deg) {
 // Eta' dell'ultima lettura Livornometeo (anche se scaduta): serve a dire, accanto alla
 // stima, quanto e' vecchia l'ultima lettura vera.
 var LM_LAST_AGE_MIN = null;
+// 2026-10-27 (v5.7.47): testi del dettaglio per la stima di Livorno. Il 27/10 M ha fatto notare, sui popup di
+// mappa2 e previsioni, che "stima ... ultima lettura Livornometeo" accanto a un orario del campione Windfinder
+// non faceva capire quale dato fosse quale. Qui, nel dettaglio della bussola tripla: SORGENTE dice
+// "Stima da Windfinder x1.9 (grezzo 4.1 kn)" e una riga a parte riporta l'ultima lettura VERA di
+// Livornometeo con valore, direzione, ora ed eta'.
+var LM_LAST = null; // ultima lettura Livornometeo registrata, anche se scaduta: { speed, direction, ts }
+function lmHHMM(ts) {
+  try { return new Date(ts).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Rome' }); } catch (e) { return ''; }
+}
+function lmAgeText(m) { return m < 120 ? Math.round(m) + ' min' : m < 2880 ? Math.round(m / 60) + ' h' : Math.round(m / 1440) + ' g'; }
+function lmLastText() {
+  if (!LM_LAST || LM_LAST_AGE_MIN === null || isNaN(LM_LAST_AGE_MIN)) return 'nessuna lettura registrata';
+  return LM_LAST.speed + ' kn da ' + LM_LAST.direction + '\u00b0 alle ' + lmHHMM(LM_LAST.ts) + ' (' + lmAgeText(LM_LAST_AGE_MIN) + ' fa)';
+}
 function lmStaleNote() {
   if (LM_LAST_AGE_MIN === null || isNaN(LM_LAST_AGE_MIN)) return '';
   var m = LM_LAST_AGE_MIN, t;
@@ -6203,6 +6219,7 @@ function updateTripleCompass(idx, r) {
   // METODOLOGIA sezione 17-18).
   var displaySpd = spd;
   var displaySrcLabel = src.toUpperCase().replace('MNW_API','MNW').replace('MNW_WEB','MNW');
+  var srcLongTc = null, lmLastTc = null; // 2026-10-27: testo esteso della stima per il dettaglio
   if (TC_ZONES[idx] === 'livorno' && spd !== null) {
     if (tcLmOverride) {
       // 2026-10-19: lettura Livornometeo fresca (<=30min) -- velocita', direzione e orario veri
@@ -6213,11 +6230,12 @@ function updateTripleCompass(idx, r) {
       displaySrcLabel = 'LIVORNOMETEO';
     } else {
       var tcF = lmFactorForDir(dir); // 2026-10-27: fattore per direzione, non piu' +4.2 fisso
+      srcLongTc = 'Stima da Windfinder \u00d7' + tcF.toFixed(1) + ' (grezzo ' + spd + ' kn)'; lmLastTc = lmLastText();
       displaySpd = Math.round(spd * tcF * 10) / 10;
       displaySrcLabel = 'STIMA \u00d7' + tcF.toFixed(1);
     }
   }
-  tcData[idx] = { spd: displaySpd !== null ? Math.round(displaySpd) : null, dir: dir, gust: gust !== null ? Math.round(gust) : null, src: displaySrcLabel, ts: ts, name: TC_NAMES[idx] };
+  tcData[idx] = { spd: displaySpd !== null ? Math.round(displaySpd) : null, dir: dir, gust: gust !== null ? Math.round(gust) : null, src: displaySrcLabel, ts: ts, name: TC_NAMES[idx], srcLong: srcLongTc, lmLast: lmLastTc };
   var needle = document.getElementById('tc-needle-' + idx);
   if (needle && dir !== null) needle.setAttribute('transform', 'rotate(' + dir + ',50,50)');
   var sEl = document.getElementById('tc-speed-' + idx);
@@ -6253,7 +6271,10 @@ function renderTripleDetail(idx) {
   if (dirEl) dirEl.textContent = dirToText(d.dir) + (d.dir !== null ? ' ' + Math.round(d.dir) + '\u00b0' : '');
   if (gustEl) gustEl.textContent = d.gust !== null ? d.gust + ' kn' : '--';
   if (tsEl) tsEl.textContent = d.ts;
-  if (srcEl) srcEl.textContent = d.src;
+  if (srcEl) srcEl.textContent = d.srcLong || d.src; // 2026-10-27: per la stima di Livorno il testo esteso
+  var lmRowEl = document.getElementById('tc-d-lm-row'), lmValEl = document.getElementById('tc-d-lm');
+  if (lmRowEl) lmRowEl.style.display = d.lmLast ? '' : 'none'; // la riga c'e' solo per la stima di Livorno
+  if (lmValEl) lmValEl.textContent = d.lmLast || '--';
 }
 
 // Coordinate delle 3 stazioni triple-compass (stesso ordine di TC_ZONES)
@@ -6319,4 +6340,4 @@ async function loadTripleCompasses() {
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS v5.7.46 -->
+<!-- Fine codice - NAUTILUS v5.7.47 -->

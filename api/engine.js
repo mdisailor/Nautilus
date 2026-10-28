@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.39 - by mdisailor engine - v2.14.39: salvataggio ORARIO dei modelli (OM best_match e AROME) sui punti ufficiali delle quattro stazioni manuali (chiave manual_models:<id>), agganciato a scrape_web2 senza nuovi cron (una volta all'ora, tetto 5 s, errori non propagati); azioni manual_models_tick (forzare), manual_models_get (lettura compatta), manual_models_backfill (recupero del passato dall'archivio Open-Meteo, NON provato contro il vero servizio: l'esito diagnostico dice cosa succede); manual_status mostra la copertura dei modelli. Serve a ricavare le regole per Capraia, Rosignano e Golfo Aranci (D28). Include tutto il v2.14.38. Su base v2.14.38
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.40 - by mdisailor engine - v2.14.40: manual_models_backfill prova prima AROME standard (meteofrance_arome_france, lo stesso modello del salvataggio orario e dei campioni) e solo poi la HD: la prova a vuoto del 28/10 ha mostrato che l'archivio accetta entrambe, e con la HD per prima il passato sarebbe stato su un modello diverso dal futuro. Include tutto il v2.14.39 (salvataggio orario dei modelli sui punti delle stazioni manuali, agganciato a scrape_web2). Su base v2.14.39
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2506,7 +2506,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.39', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.40', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -3970,9 +3970,12 @@ if (action === 'manual_models_backfill') {
     if (Date.parse(bfTo + 'T00:00:00Z') > Date.now()) return res.status(400).json({ error: 'to nel futuro' });
     var bfDry = req.query.dry === '1', bfOver = req.query.overwrite === '1';
     var bfBase = 'latitude=' + bfSt.lat + '&longitude=' + bfSt.lon + '&start_date=' + bfFrom + '&end_date=' + bfTo + '&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m&wind_speed_unit=kn';
-    // OM: il modello "migliore" di Open-Meteo, lo stesso del dato 'om' dei campioni. AROME: il nome del modello
-    // nell'archivio non e' certo (meteofrance_arome_france o la versione _hd): si prova in ordine.
-    var bfPlan = [ { role: 'om', fields: 'om', models: ['best_match'] }, { role: 'ar', fields: 'ar', models: ['meteofrance_arome_france_hd', 'meteofrance_arome_france'] } ];
+    // OM: il modello "migliore" di Open-Meteo, lo stesso del dato 'om' dei campioni. AROME: stesso modello del
+    // salvataggio orario e dei campioni (models=arome_france, la versione standard), cioe' meteofrance_arome_france
+    // nell'archivio; la versione HD (piu' fine) solo come ripiego. Il 28/10 la prova a vuoto di M ha mostrato che
+    // l'archivio accetta entrambe: con la HD per prima il passato sarebbe stato su un modello diverso dal futuro
+    // (salto sistematico nella serie). L'esito dice quale e' stato usato.
+    var bfPlan = [ { role: 'om', fields: 'om', models: ['best_match'] }, { role: 'ar', fields: 'ar', models: ['meteofrance_arome_france', 'meteofrance_arome_france_hd'] } ];
     var bfMap = await kvGet('manual_models:' + bfId, kvUrl, kvToken);
     bfMap = (bfMap && typeof bfMap === 'object' && !Array.isArray(bfMap)) ? bfMap : {};
     var bfOut = [], bfAdded = 0, bfNow = Date.now();
@@ -7222,7 +7225,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.39 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.40 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -7353,4 +7356,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.39
+// Fine codice - NAUTILUS ENGINE v2.14.40

@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.41 - by mdisailor engine - v2.14.41: aggiunta action=manual_hourly (sola lettura): tabella oraria per stazione manuale con la serie osservata (n punti, media, min, max, direzione), OM e AROME dell'ora (a meta ora), scarti, riepilogo per fascia di vento e per quadrante, e controllo di qualita' delle letture singole contro la serie (richiesta di M del 28/10: usare le serie per completare i dati istantanei). Non scrive niente. Include tutto il v2.14.40. Su base v2.14.40
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.42 - by mdisailor engine - v2.14.42: aggiunta action=forecast_monitor (sola lettura): monitoraggio delle previsioni di Livorno contro le medie delle serie di Livornometeo, per orizzonte, fascia di vento, gruppo (fattore per direzione / +4.2 / nessuna) e direzione, con tolleranza entro 3 kn, 5 kn, 25 per cento (richiesta di M del 27/10). Include tutto il v2.14.41. Su base v2.14.41
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2533,6 +2533,86 @@ function buildHourlyTable(series, models, singles, opts) {
   };
 }
 
+// ===== 2026-10-28 (v2.14.42): MONITORAGGIO DELLE PREVISIONI DI LIVORNO CONTRO LIVORNOMETEO =====
+// Richiesta di M (27/10): "faremo monitoraggio per verificare se siamo dentro una tolleranza accettabile".
+// Per ogni previsione salvata di Livorno (predict_history:livorno) e per ogni orizzonte (H+1, 3, 6, 9, 12),
+// l'orario di arrivo e' generated_at + N ore; l'osservato e' la media delle serie di Livornometeo entro
+// +-30 minuti da quell'orario (almeno 8 punti: altrimenti l'orario non e' coperto e la coppia manca; la
+// notte M non raccoglie). Si confronta la previsione FINALE (quella mostrata, col fattore) e la previsione
+// nella scala di Windfinder (senza fattore, forecast_hN_wf): la differenza dice quanto il fattore aggiunge.
+// Gruppi: 'nuovo' = record con il fattore per direzione (v2.14.37 in poi), 'vecchio' = con il +4.2 fisso
+// (15/9-27/10; da ricordare che per il circuito di bias il +4.2 era in gran parte riassorbito), 'nessuna'.
+// Tolleranza (scelta provvisoria, da discutere con M): errore entro 3 kn, entro 5 kn, entro il 25%.
+// Funzione pura: nessun accesso a Redis.
+function fmGet(rec, key) {
+  if (!rec) return null;
+  if (rec[key] !== null && rec[key] !== undefined) return rec[key];
+  if (rec.prediction && rec.prediction[key] !== null && rec.prediction[key] !== undefined) return rec.prediction[key];
+  return null;
+}
+function fmWindow(series, seriesMs, tMs, halfMin, minPts) {
+  var lo = tMs - halfMin * 60000, hi = tMs + halfMin * 60000, n = 0, sum = 0, ux = 0, uy = 0;
+  for (var i = 0; i < seriesMs.length; i++) {
+    if (seriesMs[i] < lo || seriesMs[i] > hi) continue;
+    n++; sum += series[i][1]; ux += Math.sin(series[i][2] * Math.PI / 180); uy += Math.cos(series[i][2] * Math.PI / 180);
+  }
+  if (n < minPts) return null;
+  return { n: n, kn: Math.round(sum / n * 10) / 10, dir: Math.round((Math.atan2(ux, uy) * 180 / Math.PI + 360) % 360) };
+}
+function fmStats(items) {
+  // items: { obs, fc } in kn
+  var n = items.length; if (!n) return { n: 0 };
+  var so = 0, sf = 0, sa = 0, w3 = 0, w5 = 0, w25 = 0;
+  items.forEach(function(x) {
+    var e = x.obs - x.fc; so += x.obs; sf += x.fc; sa += Math.abs(e);
+    if (Math.abs(e) <= 3) w3++; if (Math.abs(e) <= 5) w5++; if (Math.abs(e) <= Math.max(0.25 * x.obs, 0.01)) w25++;
+  });
+  return { n: n, osservato_medio: Math.round(so / n * 10) / 10, previsto_medio: Math.round(sf / n * 10) / 10,
+           bias_kn: Math.round((so - sf) / n * 10) / 10, rapporto: sf > 0 ? Math.round(so / sf * 100) / 100 : null,
+           errore_assoluto_kn: Math.round(sa / n * 10) / 10, entro_3kn_pct: Math.round(100 * w3 / n), entro_5kn_pct: Math.round(100 * w5 / n), entro_25pct_pct: Math.round(100 * w25 / n) };
+}
+function buildForecastMonitor(history, series, opts) {
+  opts = opts || {};
+  var half = opts.halfMin || 30, minPts = opts.minPoints || 8, fromMs = opts.fromMs || 0;
+  history = Array.isArray(history) ? history : []; series = Array.isArray(series) ? series : [];
+  var seriesMs = series.map(function(p) { return new Date(p[0]).getTime(); });
+  var hs = ['h1', 'h3', 'h6', 'h9', 'h12'], pairs = [], recsUsed = 0, noCover = 0, seen = {};
+  history.forEach(function(rec) {
+    var ga = rec && (rec.generated_at || (rec.prediction && rec.prediction.generated_at)); if (!ga) return;
+    var gMs = new Date(ga).getTime(); if (isNaN(gMs) || gMs < fromMs || seen[ga]) return; seen[ga] = true;
+    var text = rec.prediction_text || (rec.prediction && rec.prediction.prediction_text) || '';
+    var group = (rec.reference_method && String(rec.reference_method).indexOf('fattore_per_direzione') === 0) ? 'nuovo' : (rec.reference_corrected ? 'vecchio' : 'nessuna');
+    var any = false;
+    hs.forEach(function(h) {
+      var fc = fmGet(rec, 'forecast_' + h); if (fc === null) return;
+      var tMs = gMs + parseInt(h.slice(1), 10) * 3600000;
+      var o = fmWindow(series, seriesMs, tMs, half, minPts);
+      if (!o) { noCover++; return; }
+      any = true;
+      var wf = fcStationScale(rec, 'forecast_' + h);
+      pairs.push({ ga: ga, slot: rec.slot || null, h: h, group: group, target: new Date(tMs).toISOString(), obs: o.kn, obsDir: o.dir, n: o.n, fc: fc, wf: wf,
+                   factor: fmGet(rec, 'reference_factor_' + h), fcDir: extractWindDirDeg(text, h.slice(1)) });
+    });
+    if (any) recsUsed++;
+  });
+  var mkGroup = function(sel) {
+    var out = { coppie: sel.length, finale: fmStats(sel.map(function(p) { return { obs: p.obs, fc: p.fc }; })),
+                scala_windfinder_senza_fattore: fmStats(sel.filter(function(p) { return p.wf !== null; }).map(function(p) { return { obs: p.obs, fc: p.wf }; })) };
+    out.per_orizzonte = {};
+    hs.forEach(function(h) { var s2 = sel.filter(function(p) { return p.h === h; }); out.per_orizzonte[h] = { finale: fmStats(s2.map(function(p) { return { obs: p.obs, fc: p.fc }; })) }; });
+    var bands = [[0, 6, 'osservato <6 kn'], [6, 14, 'osservato 6-14 kn'], [14, 999, 'osservato >=14 kn']];
+    out.per_fascia_di_vento_osservato = bands.map(function(b) { var s3 = sel.filter(function(p) { return p.obs >= b[0] && p.obs < b[1]; }); return { fascia: b[2], finale: fmStats(s3.map(function(p) { return { obs: p.obs, fc: p.fc }; })) }; });
+    var dsel = sel.filter(function(p) { return p.fcDir !== null && p.obs >= 6; });
+    var de = dsel.map(function(p) { return Math.abs(hrAngDiff(p.fcDir, p.obsDir)); });
+    out.direzione = { n: dsel.length, errore_medio_gradi: de.length ? Math.round(de.reduce(function(a, b) { return a + b; }, 0) / de.length) : null, entro45_pct: de.length ? Math.round(100 * de.filter(function(x) { return x <= 45; }).length / de.length) : null, nota: 'solo ore con vento osservato >= 6 kn e direzione prevista leggibile nel testo' };
+    return out;
+  };
+  var groups = {};
+  ['nuovo', 'vecchio', 'nessuna'].forEach(function(g) { var sel = pairs.filter(function(p) { return p.group === g; }); if (sel.length) groups[g] = mkGroup(sel); });
+  return { record_con_almeno_una_coppia: recsUsed, coppie_totali: pairs.length, orizzonti_senza_osservato_coperto: noCover,
+           tutti: mkGroup(pairs), per_gruppo: groups, coppie: pairs };
+}
+
 module.exports = async function handler(req, res) {
 
 // getNowRome spostata a livello modulo (audit A6) — vedi definizione sopra fetchECMWF
@@ -2601,7 +2681,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.41', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.42', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -4117,6 +4197,30 @@ if (action === 'manual_hourly') {
       station: hId, point: { lat: hSt.lat, lon: hSt.lon }, min_points: hMin, from: hFromQ, to: hToQ,
       legenda_rows: '[ora_UTC, n_punti, kn_medio, kn_min, kn_max, dir_media, om_kn, om_gradi, om_raffica, arome_kn, arome_gradi, arome_raffica, scarto_om_kn (osservato-OM), scarto_arome_kn, scarto_dir_om (gradi con segno, osservato-OM), scarto_dir_arome]. OM e AROME sono il valore a meta ora (media tra l ora e la successiva).'
     }, hT));
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+// /api/engine?action=forecast_monitor[&from=YYYY-MM-DD][&min_points=8][&half_min=30][&pairs=1] -- sola lettura,
+// pubblica. Monitoraggio delle previsioni di Livorno (zona 'livorno', predict_history:livorno) contro le serie di
+// Livornometeo (manual_series:livornometeo_porto): per orizzonte, fascia di vento, gruppo (fattore nuovo, +4.2
+// vecchio), direzione, e tolleranza (entro 3 kn, 5 kn, 25%). Vedi la nota estesa sopra buildForecastMonitor.
+// pairs=1 include l'elenco delle coppie (utile per controllare a mano).
+if (action === 'forecast_monitor') {
+  try {
+    var fmHist = await kvGet('predict_history:livorno', kvUrl, kvToken);
+    var fmSer = await kvGet('manual_series:livornometeo_porto', kvUrl, kvToken);
+    var fmFromQ = /^\d{4}-\d{2}-\d{2}$/.test((req.query.from || '').toString()) ? Date.parse(req.query.from + 'T00:00:00Z') : 0;
+    var fmMin = Math.max(3, Math.min(parseInt(req.query.min_points, 10) || 8, 30));
+    var fmHalf = Math.max(10, Math.min(parseInt(req.query.half_min, 10) || 30, 90));
+    var fmOut = buildForecastMonitor(fmHist, fmSer, { fromMs: fmFromQ, minPoints: fmMin, halfMin: fmHalf });
+    if (req.query.pairs !== '1') delete fmOut.coppie;
+    return res.status(200).json(Object.assign({
+      zona: 'livorno', verita: 'manual_series:livornometeo_porto', finestra_osservato_min: fmHalf, punti_minimi: fmMin,
+      record_nello_storico: Array.isArray(fmHist) ? fmHist.length : 0, punti_di_serie: Array.isArray(fmSer) ? fmSer.length : 0,
+      legenda: 'osservato = media delle serie di Livornometeo entro +-finestra minuti dall orario di arrivo (generated_at + N ore); finale = previsione mostrata (col fattore); scala_windfinder_senza_fattore = la stessa previsione prima del fattore (forecast_hN_wf, o forecast_hN meno il vecchio offset); bias = osservato - previsto (negativo = previsione troppo alta); tolleranza: errore entro 3 kn, 5 kn, o il 25 per cento dell osservato; nuovo = fattore per direzione (v2.14.37 in poi), vecchio = +4.2 fisso (dal 15/9, in gran parte riassorbito dal bias).'
+    }, fmOut));
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }
@@ -7348,7 +7452,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.41 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.42 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -7479,4 +7583,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.41
+// Fine codice - NAUTILUS ENGINE v2.14.42

@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.40 - by mdisailor engine - v2.14.40: manual_models_backfill prova prima AROME standard (meteofrance_arome_france, lo stesso modello del salvataggio orario e dei campioni) e solo poi la HD: la prova a vuoto del 28/10 ha mostrato che l'archivio accetta entrambe, e con la HD per prima il passato sarebbe stato su un modello diverso dal futuro. Include tutto il v2.14.39 (salvataggio orario dei modelli sui punti delle stazioni manuali, agganciato a scrape_web2). Su base v2.14.39
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.41 - by mdisailor engine - v2.14.41: aggiunta action=manual_hourly (sola lettura): tabella oraria per stazione manuale con la serie osservata (n punti, media, min, max, direzione), OM e AROME dell'ora (a meta ora), scarti, riepilogo per fascia di vento e per quadrante, e controllo di qualita' delle letture singole contro la serie (richiesta di M del 28/10: usare le serie per completare i dati istantanei). Non scrive niente. Include tutto il v2.14.40. Su base v2.14.40
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2438,6 +2438,101 @@ async function manualModelsTick(kvUrl, kvToken, opts) {
   return status;
 }
 
+// ===== 2026-10-28 (v2.14.41): TABELLA ORARIA DELLE STAZIONI MANUALI (osservato + modelli, per ora) =====
+// Richiesta di M (28/10): "tutto lo storico estratto da LM serie dovrebbe essere usato per completare i dati
+// istantanei". Per ogni ora UTC: media della serie (n punti, minimo, massimo, direzione dei vettori: stesso
+// calcolo di manual_series_get), OM e AROME dell'ora (media tra l'ora e la successiva: l'osservazione e' una
+// media su tutta l'ora, il modello vale nell'istante, quindi si confronta con il valore a meta' ora),
+// scarti e, se in quell'ora c'e' una lettura singola, il controllo di qualita' contro il punto di serie piu'
+// vicino (entro 6 minuti). Sola lettura: non scrive niente e non trasforma le letture singole in altro.
+// Limite noto: le ore senza serie (soprattutto la notte, M non la raccoglie) restano vuote, quindi le
+// regole che se ne ricavano valgono per il giorno; e un'ora con pochi punti e' scartata (default 14).
+function hrRound1(x) { return Math.round(x * 10) / 10; }
+function hrAngDiff(a, b) { return ((a - b + 540) % 360) - 180; } // a - b, in (-180, 180]
+function hrNextKey(hk) { return new Date(Date.parse(hk + ':00:00Z') + 3600000).toISOString().slice(0, 13); }
+function hrMid(models, hk, field) {
+  var a = models[hk] && models[hk][field] ? models[hk][field] : null;
+  var b = models[hrNextKey(hk)] && models[hrNextKey(hk)][field] ? models[hrNextKey(hk)][field] : null;
+  if (!a && !b) return null;
+  if (!a || !b) { var s = a || b; return [s[0], s[1], s[2]]; }
+  var ua = -a[0] * Math.sin(a[1] * Math.PI / 180), va = -a[0] * Math.cos(a[1] * Math.PI / 180);
+  var ub = -b[0] * Math.sin(b[1] * Math.PI / 180), vb = -b[0] * Math.cos(b[1] * Math.PI / 180);
+  var u = (ua + ub) / 2, v = (va + vb) / 2;
+  var g = (a[2] !== null && a[2] !== undefined && b[2] !== null && b[2] !== undefined) ? hrRound1((a[2] + b[2]) / 2) : (a[2] !== null && a[2] !== undefined ? a[2] : b[2]);
+  return [hrRound1((a[0] + b[0]) / 2), Math.round((Math.atan2(-u, -v) * 180 / Math.PI + 360) % 360), g === undefined ? null : g];
+}
+function hrQuad(d) { return d < 90 ? 'NE (0-90)' : d < 180 ? 'SE (90-180)' : d < 270 ? 'SW (180-270)' : 'NW (270-360)'; }
+function hrStats(rows, mi, di, ddi) {
+  // rows gia' filtrate: ogni riga ha l'osservato e il modello alla posizione mi (indice di [w,d,g])
+  var n = rows.length; if (!n) return { n: 0 };
+  var so = 0, sm = 0, sa = 0, sb = 0, dn = 0, dsum = 0, d45 = 0;
+  rows.forEach(function(r) {
+    var m = r[mi]; so += r.kn; sm += m[0]; sb += r.kn - m[0]; sa += Math.abs(r.kn - m[0]);
+    if (r.kn >= 4) { var e = Math.abs(hrAngDiff(r.dir, m[1])); dn++; dsum += e; if (e <= 45) d45++; }
+  });
+  return { n: n, osservato_medio: hrRound1(so / n), modello_medio: hrRound1(sm / n), rapporto: sm > 0 ? Math.round(so / sm * 100) / 100 : null,
+           bias_kn: hrRound1(sb / n), errore_assoluto_kn: hrRound1(sa / n), dir_mae: dn ? Math.round(dsum / dn) : null, dir_entro45_pct: dn ? Math.round(100 * d45 / dn) : null };
+}
+function buildHourlyTable(series, models, singles, opts) {
+  opts = opts || {};
+  var minPts = opts.minPoints || 14, fromKey = opts.from || null, toKey = opts.to || null;
+  series = Array.isArray(series) ? series : []; models = (models && typeof models === 'object') ? models : {}; singles = Array.isArray(singles) ? singles : [];
+  var buckets = lmSeriesBucket(series, 60), rowsAll = [], scartate = 0;
+  buckets.forEach(function(b) {
+    var hk = b[0].slice(0, 13);
+    if (fromKey && hk < fromKey) return;
+    if (toKey && hk > toKey) return;
+    if (b[1] < minPts) { scartate++; return; }
+    var r = { h: hk, n: b[1], kn: b[2], min: b[3], max: b[4], dir: b[5], om: hrMid(models, hk, 'om'), ar: hrMid(models, hk, 'ar') };
+    rowsAll.push(r);
+  });
+  var byH = {}; rowsAll.forEach(function(r) { byH[r.h] = r; });
+  // controllo di qualita' delle letture singole contro la serie
+  var qc = [], seriesMs = series.map(function(p) { return new Date(p[0]).getTime(); });
+  singles.forEach(function(s) {
+    if (!s || !s.station || s.station.wind_kt === null || s.station.wind_kt === undefined || s.station.direction === null || s.station.direction === undefined) return;
+    var t = new Date(s.ts).getTime(); if (isNaN(t)) return;
+    var hk = new Date(t).toISOString().slice(0, 13);
+    if ((fromKey && hk < fromKey) || (toKey && hk > toKey)) return;
+    var best = -1, bd = Infinity;
+    for (var i = 0; i < seriesMs.length; i++) { var d = Math.abs(seriesMs[i] - t); if (d < bd) { bd = d; best = i; } }
+    var item = { ts: s.ts, ora: hk, lettura_kn: s.station.wind_kt, lettura_dir: s.station.direction };
+    if (best >= 0 && bd <= 6 * 60000) {
+      item.serie_kn = series[best][1]; item.serie_dir = series[best][2]; item.distanza_min = Math.round(bd / 600) / 100;
+      item.d_kn = hrRound1(s.station.wind_kt - series[best][1]); item.d_dir = Math.round(hrAngDiff(s.station.direction, series[best][2]));
+    }
+    qc.push(item);
+  });
+  var qcc = qc.filter(function(x) { return x.d_kn !== undefined; });
+  var qcSummary = { letture_singole: qc.length, confrontate_con_la_serie: qcc.length,
+    d_kn_assoluto_medio: qcc.length ? hrRound1(qcc.reduce(function(a, x) { return a + Math.abs(x.d_kn); }, 0) / qcc.length) : null,
+    d_kn_assoluto_max: qcc.length ? Math.max.apply(null, qcc.map(function(x) { return Math.abs(x.d_kn); })) : null,
+    d_dir_assoluto_medio: qcc.length ? Math.round(qcc.reduce(function(a, x) { return a + Math.abs(x.d_dir); }, 0) / qcc.length) : null };
+  // statistiche
+  var withOm = rowsAll.filter(function(r) { return r.om; }), withAr = rowsAll.filter(function(r) { return r.ar; });
+  var bands = [[0, 5], [5, 10], [10, 15], [15, 999]];
+  var by_band = bands.map(function(bd) {
+    var sel = withOm.filter(function(r) { return r.kn >= bd[0] && r.kn < bd[1]; }), sel2 = withAr.filter(function(r) { return r.kn >= bd[0] && r.kn < bd[1]; });
+    return { da_kn: bd[0], a_kn: bd[1] > 900 ? null : bd[1], om: hrStats(sel, 'om'), arome: hrStats(sel2, 'ar') };
+  });
+  var quads = ['NE (0-90)', 'SE (90-180)', 'SW (180-270)', 'NW (270-360)'];
+  var by_quad = quads.map(function(q) {
+    return { quadrante: q, om: hrStats(withOm.filter(function(r) { return hrQuad(r.dir) === q; }), 'om'), arome: hrStats(withAr.filter(function(r) { return hrQuad(r.dir) === q; }), 'ar') };
+  });
+  var rows = rowsAll.map(function(r) {
+    var o = r.om || [null, null, null], a = r.ar || [null, null, null];
+    return [r.h, r.n, r.kn, r.min, r.max, r.dir, o[0], o[1], o[2], a[0], a[1], a[2],
+            r.om ? hrRound1(r.kn - r.om[0]) : null, r.ar ? hrRound1(r.kn - r.ar[0]) : null,
+            r.om ? Math.round(hrAngDiff(r.dir, r.om[1])) : null, r.ar ? Math.round(hrAngDiff(r.dir, r.ar[1])) : null];
+  });
+  return {
+    ore_con_serie: rowsAll.length, ore_scartate_per_pochi_punti: scartate, ore_con_om: withOm.length, ore_con_arome: withAr.length,
+    ore_senza_modelli: rowsAll.filter(function(r) { return !r.om && !r.ar; }).length,
+    riepilogo: { om: hrStats(withOm, 'om'), arome: hrStats(withAr, 'ar'), per_fascia_di_vento_osservato: by_band, per_quadrante_di_direzione_osservata: by_quad },
+    controllo_letture_singole: qcSummary, letture_singole_dettaglio: qc, rows: rows
+  };
+}
+
 module.exports = async function handler(req, res) {
 
 // getNowRome spostata a livello modulo (audit A6) — vedi definizione sopra fetchECMWF
@@ -2506,7 +2601,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.40', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.41', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -3994,6 +4089,34 @@ if (action === 'manual_models_backfill') {
     }
     if (bfAdded > 0) { mmPrune(bfMap, bfNow, 400); await kvSet('manual_models:' + bfId, bfMap, 31536000, kvUrl, kvToken); }
     return res.status(200).json({ station: bfId, from: bfFrom, to: bfTo, dry: bfDry, overwrite: bfOver, tentativi: bfOut, ore_aggiunte_totali: bfAdded, ore_totali_salvate: Object.keys(bfMap).length });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+// /api/engine?action=manual_hourly&station=<id>[&from=YYYY-MM-DD][&to=YYYY-MM-DD][&min_points=14][&rows=0][&singles=0]
+// -- sola lettura, pubblica. Tabella oraria di una stazione manuale: serie osservata + OM e AROME per ogni ora,
+// scarti, riepilogo per fascia di vento e per quadrante, e controllo di qualita' delle letture singole contro la
+// serie. Vedi la nota estesa sopra buildHourlyTable. rows=0 omette le righe (solo riepilogo); singles=0 omette il
+// dettaglio delle letture singole.
+if (action === 'manual_hourly') {
+  try {
+    var hId = (req.query.station || '').toString(), hSt = MANUAL_STATIONS[hId];
+    if (!hSt) return res.status(400).json({ error: 'Stazione manuale sconosciuta: ' + hId, known: Object.keys(MANUAL_STATIONS) });
+    var hRe = /^\d{4}-\d{2}-\d{2}$/;
+    var hFromQ = hRe.test((req.query.from || '').toString()) ? req.query.from.toString() : null;
+    var hToQ = hRe.test((req.query.to || '').toString()) ? req.query.to.toString() : null;
+    var hMin = Math.max(3, Math.min(parseInt(req.query.min_points, 10) || 14, 60));
+    var hSeries = await kvGet('manual_series:' + hId, kvUrl, kvToken);
+    var hModels = await kvGet('manual_models:' + hId, kvUrl, kvToken);
+    var hSingles = await kvGet('bias_archive:' + hId, kvUrl, kvToken);
+    var hT = buildHourlyTable(hSeries, hModels, hSingles, { minPoints: hMin, from: hFromQ ? hFromQ + 'T00' : null, to: hToQ ? hToQ + 'T23' : null });
+    if (req.query.rows === '0') delete hT.rows;
+    if (req.query.singles === '0') delete hT.letture_singole_dettaglio;
+    return res.status(200).json(Object.assign({
+      station: hId, point: { lat: hSt.lat, lon: hSt.lon }, min_points: hMin, from: hFromQ, to: hToQ,
+      legenda_rows: '[ora_UTC, n_punti, kn_medio, kn_min, kn_max, dir_media, om_kn, om_gradi, om_raffica, arome_kn, arome_gradi, arome_raffica, scarto_om_kn (osservato-OM), scarto_arome_kn, scarto_dir_om (gradi con segno, osservato-OM), scarto_dir_arome]. OM e AROME sono il valore a meta ora (media tra l ora e la successiva).'
+    }, hT));
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }
@@ -7225,7 +7348,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.40 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.41 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -7356,4 +7479,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.40
+// Fine codice - NAUTILUS ENGINE v2.14.41

@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.43 - by mdisailor engine - v2.14.43: CORREZIONE DI UN MIO ERRORE. Dal 9-10 ottobre predict con fast=1 (Haiku 5.5, introdotto nella v2.14.29) restituiva 500 ("Cannot read properties of undefined (reading 'match')") perche il codice leggeva content[0].text e col modello nuovo il primo blocco non e di testo: le previsioni non venivano salvate (storico, archivio, bias) per 19 giorni, e le chiamate venivano comunque fatturate. Ora: testo preso dai blocchi di tipo text (aiExtractText); fast=1 prova Haiku 5.5 e poi Sonnet 4.6; se nessuno risponde con testo non si salva niente (prima si salvava un record vuoto) e si restituisce 502 con i dettagli; il record riporta model_used e ai_fallback; max_tokens del primo tentativo veloce 300->1000; stessa lettura robusta in situazione. Include tutto il v2.14.42. Su base v2.14.42
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.44 - by mdisailor engine - v2.14.44: manual_hourly con fasce di vento e quadranti scelti sul valore e sulla direzione del MODELLO (OM e AROME), quelli che il sistema conosce quando deve correggere (le fasce sull'osservato falsano il rapporto con il vento basso e forte per un effetto statistico); e station=all: le quattro stazioni e il loro insieme (con e senza Livorno) in una sola risposta compatta. Include tutto il v2.14.43 (correzione del fermo delle previsioni). Su base v2.14.43
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2080,7 +2080,9 @@ function lmSeriesMerge(existing, incoming, cap) {
 function lmSeriesBucket(arr, bucketMin) {
   var ms = bucketMin * 60000, groups = {}, order = [];
   arr.forEach(function(p){
-    var b = Math.floor(new Date(p[0]).getTime() / ms) * ms;
+    var pt = new Date(p[0]).getTime();
+    if (isNaN(pt)) return; // 2026-10-28: un punto con data non valida non deve far fallire tutte le medie orarie (toISOString lancia)
+    var b = Math.floor(pt / ms) * ms;
     if (!groups[b]) { groups[b] = []; order.push(b); }
     groups[b].push(p);
   });
@@ -2473,19 +2475,60 @@ function hrStats(rows, mi, di, ddi) {
   return { n: n, osservato_medio: hrRound1(so / n), modello_medio: hrRound1(sm / n), rapporto: sm > 0 ? Math.round(so / sm * 100) / 100 : null,
            bias_kn: hrRound1(sb / n), errore_assoluto_kn: hrRound1(sa / n), dir_mae: dn ? Math.round(dsum / dn) : null, dir_entro45_pct: dn ? Math.round(100 * d45 / dn) : null };
 }
-function buildHourlyTable(series, models, singles, opts) {
+// Righe orarie (osservato + OM + AROME a meta' ora) con almeno minPoints punti. Separata da buildHourlyTable
+// perche' serve anche a mettere insieme piu' stazioni (buildHourlyAll).
+function hrCollectRows(series, models, opts) {
   opts = opts || {};
-  var minPts = opts.minPoints || 14, fromKey = opts.from || null, toKey = opts.to || null;
-  series = Array.isArray(series) ? series : []; models = (models && typeof models === 'object') ? models : {}; singles = Array.isArray(singles) ? singles : [];
-  var buckets = lmSeriesBucket(series, 60), rowsAll = [], scartate = 0;
-  buckets.forEach(function(b) {
+  var minPts = opts.minPoints || 14, fromKey = opts.from || null, toKey = opts.to || null, rowsAll = [], scartate = 0;
+  series = Array.isArray(series) ? series : []; models = (models && typeof models === 'object') ? models : {};
+  lmSeriesBucket(series, 60).forEach(function(b) {
     var hk = b[0].slice(0, 13);
     if (fromKey && hk < fromKey) return;
     if (toKey && hk > toKey) return;
     if (b[1] < minPts) { scartate++; return; }
-    var r = { h: hk, n: b[1], kn: b[2], min: b[3], max: b[4], dir: b[5], om: hrMid(models, hk, 'om'), ar: hrMid(models, hk, 'ar') };
-    rowsAll.push(r);
+    rowsAll.push({ h: hk, n: b[1], kn: b[2], min: b[3], max: b[4], dir: b[5], om: hrMid(models, hk, 'om'), ar: hrMid(models, hk, 'ar') });
   });
+  return { rowsAll: rowsAll, scartate: scartate };
+}
+// FASCE E QUADRANTI SCELTI SUL MODELLO (28/10). Le fasce sull'osservato fanno sembrare il modello troppo alto
+// con vento basso e troppo basso con vento forte anche senza difetto sistematico (effetto statistico: il
+// modello ha errori casuali). Per una CORREZIONE conta la fascia scelta sul valore che il sistema conosce, cioe'
+// quello del modello: osservato medio / modello medio in quella fascia = quanto aspettarsi dato quel valore. Nel
+// rapporto c'e' anche il "ritorno verso la media" (se il modello dice poco, in media si osserva un po' di piu'):
+// e' corretto che ci sia, fa parte della correzione ottimale.
+function hrModelBands(rowsAll, compact) {
+  var stat = function(sel, mi) {
+    var s = hrStats(sel, mi);
+    if (!compact || !s.n) return s;
+    return { n: s.n, osservato_medio: s.osservato_medio, modello_medio: s.modello_medio, rapporto: s.rapporto, bias_kn: s.bias_kn, errore_assoluto_kn: s.errore_assoluto_kn, dir_mae: s.dir_mae };
+  };
+  var bands = [[0, 4], [4, 7], [7, 10], [10, 14], [14, 999]], quads = ['NE (0-90)', 'SE (90-180)', 'SW (180-270)', 'NW (270-360)'], out = { per_fascia_del_modello: {}, per_quadrante_del_modello: {} };
+  [['om', 'om'], ['arome', 'ar']].forEach(function(m) {
+    var key = m[0], mi = m[1], rs = rowsAll.filter(function(r) { return r[mi]; });
+    out.per_fascia_del_modello[key] = bands.map(function(b) { return { da_kn: b[0], a_kn: b[1] > 900 ? null : b[1], stat: stat(rs.filter(function(r) { return r[mi][0] >= b[0] && r[mi][0] < b[1]; }), mi) }; });
+    out.per_quadrante_del_modello[key] = quads.map(function(q) { return { quadrante: q, stat: stat(rs.filter(function(r) { return hrQuad(r[mi][1]) === q; }), mi) }; });
+  });
+  return out;
+}
+// Quattro stazioni in una risposta: per ciascuna e per l'insieme (con e senza Livorno) le fasce sul modello.
+function buildHourlyAll(perStation, opts) {
+  opts = opts || {};
+  var out = { stazioni: {}, ore_totali: 0 }, pooled = [], pooledNoLiv = [];
+  Object.keys(perStation).forEach(function(id) {
+    var c = hrCollectRows(perStation[id].series, perStation[id].models, opts), rs = c.rowsAll;
+    out.stazioni[id] = Object.assign({ ore_con_serie: rs.length, ore_con_om: rs.filter(function(r) { return r.om; }).length, ore_con_arome: rs.filter(function(r) { return r.ar; }).length }, hrModelBands(rs, true));
+    rs.forEach(function(r) { pooled.push(r); if (id !== 'livornometeo_porto') pooledNoLiv.push(r); });
+    out.ore_totali += rs.length;
+  });
+  out.tutte_le_stazioni = Object.assign({ ore: pooled.length }, hrModelBands(pooled, true));
+  out.senza_livorno = Object.assign({ ore: pooledNoLiv.length, nota: 'Capraia, Rosignano e Golfo Aranci insieme' }, hrModelBands(pooledNoLiv, true));
+  return out;
+}
+function buildHourlyTable(series, models, singles, opts) {
+  opts = opts || {};
+  var minPts = opts.minPoints || 14, fromKey = opts.from || null, toKey = opts.to || null;
+  series = Array.isArray(series) ? series : []; models = (models && typeof models === 'object') ? models : {}; singles = Array.isArray(singles) ? singles : [];
+  var coll = hrCollectRows(series, models, opts), rowsAll = coll.rowsAll, scartate = coll.scartate;
   var byH = {}; rowsAll.forEach(function(r) { byH[r.h] = r; });
   // controllo di qualita' delle letture singole contro la serie
   var qc = [], seriesMs = series.map(function(p) { return new Date(p[0]).getTime(); });
@@ -2528,7 +2571,7 @@ function buildHourlyTable(series, models, singles, opts) {
   return {
     ore_con_serie: rowsAll.length, ore_scartate_per_pochi_punti: scartate, ore_con_om: withOm.length, ore_con_arome: withAr.length,
     ore_senza_modelli: rowsAll.filter(function(r) { return !r.om && !r.ar; }).length,
-    riepilogo: { om: hrStats(withOm, 'om'), arome: hrStats(withAr, 'ar'), per_fascia_di_vento_osservato: by_band, per_quadrante_di_direzione_osservata: by_quad },
+    riepilogo: Object.assign({ om: hrStats(withOm, 'om'), arome: hrStats(withAr, 'ar'), per_fascia_di_vento_osservato: by_band, per_quadrante_di_direzione_osservata: by_quad }, hrModelBands(rowsAll, false)),
     controllo_letture_singole: qcSummary, letture_singole_dettaglio: qc, rows: rows
   };
 }
@@ -2700,7 +2743,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.43', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.44', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -4201,7 +4244,23 @@ if (action === 'manual_models_backfill') {
 if (action === 'manual_hourly') {
   try {
     var hId = (req.query.station || '').toString(), hSt = MANUAL_STATIONS[hId];
-    if (!hSt) return res.status(400).json({ error: 'Stazione manuale sconosciuta: ' + hId, known: Object.keys(MANUAL_STATIONS) });
+    if (hId === 'all') {
+      // 2026-10-28: le quattro stazioni e il loro insieme, solo fasce e quadranti sul valore del MODELLO (compatto).
+      var haRe = /^\d{4}-\d{2}-\d{2}$/;
+      var haFrom = haRe.test((req.query.from || '').toString()) ? req.query.from.toString() + 'T00' : null;
+      var haTo = haRe.test((req.query.to || '').toString()) ? req.query.to.toString() + 'T23' : null;
+      var haMin = Math.max(3, Math.min(parseInt(req.query.min_points, 10) || 14, 60)), haData = {};
+      var haIds = Object.keys(MANUAL_STATIONS);
+      for (var haI = 0; haI < haIds.length; haI++) {
+        var haSer = await kvGet('manual_series:' + haIds[haI], kvUrl, kvToken), haMod = await kvGet('manual_models:' + haIds[haI], kvUrl, kvToken);
+        haData[haIds[haI]] = { series: haSer, models: haMod };
+      }
+      return res.status(200).json(Object.assign({
+        min_points: haMin, from: haFrom, to: haTo,
+        legenda: 'Fasce e quadranti scelti sul valore e sulla direzione del MODELLO (OM e AROME a meta ora), quello che il sistema conosce: rapporto = osservato medio / modello medio nella fascia = quanto aspettarsi dato quel valore del modello (include il ritorno verso la media); bias = osservato - modello. n = ore. Ore con almeno min_points punti di serie, solo di giorno.'
+      }, buildHourlyAll(haData, { minPoints: haMin, from: haFrom, to: haTo })));
+    }
+    if (!hSt) return res.status(400).json({ error: 'Stazione manuale sconosciuta: ' + hId, known: Object.keys(MANUAL_STATIONS).concat(['all']) });
     var hRe = /^\d{4}-\d{2}-\d{2}$/;
     var hFromQ = hRe.test((req.query.from || '').toString()) ? req.query.from.toString() : null;
     var hToQ = hRe.test((req.query.to || '').toString()) ? req.query.to.toString() : null;
@@ -7488,7 +7547,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.43 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.44 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -7619,4 +7678,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.43
+// Fine codice - NAUTILUS ENGINE v2.14.44

@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.44 - by mdisailor engine - v2.14.44: manual_hourly con fasce di vento e quadranti scelti sul valore e sulla direzione del MODELLO (OM e AROME), quelli che il sistema conosce quando deve correggere (le fasce sull'osservato falsano il rapporto con il vento basso e forte per un effetto statistico); e station=all: le quattro stazioni e il loro insieme (con e senza Livorno) in una sola risposta compatta. Include tutto il v2.14.43 (correzione del fermo delle previsioni). Su base v2.14.43
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.45 - by mdisailor engine - v2.14.45: manual_hourly station=all con VALIDAZIONE UN GIORNO FUORI della correzione per fascia del modello (OM e AROME): fattori osservato/modello per fascia ricavati sugli altri giorni e applicati al giorno escluso, in tre varianti (tutte le fasce, solo vento debole, per stazione), con errore medio in kn contro il modello grezzo, per ore forti e deboli e per stazione. validate=0 la salta. Include tutto il v2.14.44. Su base v2.14.44
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2510,6 +2510,60 @@ function hrModelBands(rowsAll, compact) {
   });
   return out;
 }
+// VALIDAZIONE UN GIORNO FUORI della correzione per fascia del modello (28/10). Per ogni giorno UTC D: i fattori
+// (osservato totale / modello totale in ciascuna fascia, almeno 5 ore) si ricavano su TUTTE le stazioni e su tutti i
+// giorni TRANNE D, e si applicano alle ore di D. Varianti: 'insieme' (tutte le fasce, fattori delle quattro
+// stazioni insieme), 'insieme_solo_debole' (solo le fasce sotto i 7 kn, il resto invariato) e 'per_stazione' (fattori
+// della sola stazione, con ripiego su quelli dell'insieme se in quella fascia ha meno di 5 ore). Si misura l'errore
+// medio in nodi contro il modello grezzo. Se il giorno escluso lasciasse meno di 30 ore di addestramento, e' saltato.
+function hrBandIdx(v) { return v < 4 ? 0 : v < 7 ? 1 : v < 10 ? 2 : v < 14 ? 3 : 4; }
+var HR_BAND_LABELS = ['0-4', '4-7', '7-10', '10-14', 'oltre 14'];
+function hrFitFactors(rows, mi) {
+  var so = [0, 0, 0, 0, 0], sm = [0, 0, 0, 0, 0], n = [0, 0, 0, 0, 0];
+  rows.forEach(function(r) { var m = r[mi]; if (!m) return; var b = hrBandIdx(m[0]); so[b] += r.kn; sm[b] += m[0]; n[b]++; });
+  return so.map(function(x, b) { return { n: n[b], f: (n[b] >= 5 && sm[b] > 0) ? x / sm[b] : 1 }; });
+}
+function hrSummarize(items) {
+  var s = function(sel) {
+    if (!sel.length) return { n: 0 };
+    var a = 0, b = 0; sel.forEach(function(x) { a += Math.abs(x.r.kn - x.est); b += x.r.kn - x.est; });
+    return { n: sel.length, errore_assoluto_kn: hrRound1(a / sel.length), bias_kn: hrRound1(b / sel.length) };
+  };
+  var out = { tutte: s(items), ore_forti_osservato_14: s(items.filter(function(x) { return x.r.kn >= 14; })), ore_deboli_osservato_6: s(items.filter(function(x) { return x.r.kn < 6; })), per_stazione: {} };
+  var ids = {}; items.forEach(function(x) { ids[x.r.st] = true; });
+  Object.keys(ids).forEach(function(id) { out.per_stazione[id] = s(items.filter(function(x) { return x.r.st === id; })); });
+  return out;
+}
+function hrValidate(rows) {
+  var days = {}; rows.forEach(function(r) { days[r.day] = true; }); days = Object.keys(days).sort();
+  var out = { giorni: days, ore: rows.length, fasce_kn: HR_BAND_LABELS, nota: 'errore assoluto medio in kn, un giorno fuori alla volta; miglioramento = (grezzo - corretto) / grezzo' };
+  [['om', 'om'], ['arome', 'ar']].forEach(function(m) {
+    var key = m[0], mi = m[1], rs = rows.filter(function(r) { return r[mi]; });
+    var acc = { grezzo: [], insieme: [], insieme_solo_debole: [], per_stazione: [] }, skipped = 0;
+    days.forEach(function(D) {
+      var tr = rs.filter(function(r) { return r.day !== D; }), te = rs.filter(function(r) { return r.day === D; });
+      if (!te.length) return;
+      if (tr.length < 30) { skipped++; return; }
+      var Fall = hrFitFactors(tr, mi), Fst = {};
+      tr.forEach(function(r) { Fst[r.st] = true; }); Object.keys(Fst).forEach(function(id) { Fst[id] = hrFitFactors(tr.filter(function(r) { return r.st === id; }), mi); });
+      te.forEach(function(r) {
+        var mv = r[mi][0], b = hrBandIdx(mv), Fs = Fst[r.st];
+        acc.grezzo.push({ r: r, est: mv });
+        acc.insieme.push({ r: r, est: mv * Fall[b].f });
+        acc.insieme_solo_debole.push({ r: r, est: b >= 2 ? mv : mv * Fall[b].f });
+        acc.per_stazione.push({ r: r, est: mv * ((Fs && Fs[b].n >= 5) ? Fs[b].f : Fall[b].f) });
+      });
+    });
+    var g = hrSummarize(acc.grezzo), res = { giorni_saltati: skipped, grezzo: g };
+    ['insieme', 'insieme_solo_debole', 'per_stazione'].forEach(function(k) {
+      var s2 = hrSummarize(acc[k]); res[k] = s2;
+      if (g.tutte.n && s2.tutte.n) res[k].miglioramento_pct = { tutte: Math.round(100 * (g.tutte.errore_assoluto_kn - s2.tutte.errore_assoluto_kn) / g.tutte.errore_assoluto_kn), ore_deboli: g.ore_deboli_osservato_6.n ? Math.round(100 * (g.ore_deboli_osservato_6.errore_assoluto_kn - s2.ore_deboli_osservato_6.errore_assoluto_kn) / g.ore_deboli_osservato_6.errore_assoluto_kn) : null, ore_forti: g.ore_forti_osservato_14.n ? Math.round(100 * (g.ore_forti_osservato_14.errore_assoluto_kn - s2.ore_forti_osservato_14.errore_assoluto_kn) / g.ore_forti_osservato_14.errore_assoluto_kn) : null };
+    });
+    res.fattori_su_tutte_le_ore = hrFitFactors(rs, mi).map(function(x, b) { return { fascia_kn: HR_BAND_LABELS[b], ore: x.n, fattore: Math.round(x.f * 100) / 100 }; });
+    out[key] = res;
+  });
+  return out;
+}
 // Quattro stazioni in una risposta: per ciascuna e per l'insieme (con e senza Livorno) le fasce sul modello.
 function buildHourlyAll(perStation, opts) {
   opts = opts || {};
@@ -2517,11 +2571,12 @@ function buildHourlyAll(perStation, opts) {
   Object.keys(perStation).forEach(function(id) {
     var c = hrCollectRows(perStation[id].series, perStation[id].models, opts), rs = c.rowsAll;
     out.stazioni[id] = Object.assign({ ore_con_serie: rs.length, ore_con_om: rs.filter(function(r) { return r.om; }).length, ore_con_arome: rs.filter(function(r) { return r.ar; }).length }, hrModelBands(rs, true));
-    rs.forEach(function(r) { pooled.push(r); if (id !== 'livornometeo_porto') pooledNoLiv.push(r); });
+    rs.forEach(function(r) { r.st = id; r.day = r.h.slice(0, 10); pooled.push(r); if (id !== 'livornometeo_porto') pooledNoLiv.push(r); });
     out.ore_totali += rs.length;
   });
   out.tutte_le_stazioni = Object.assign({ ore: pooled.length }, hrModelBands(pooled, true));
   out.senza_livorno = Object.assign({ ore: pooledNoLiv.length, nota: 'Capraia, Rosignano e Golfo Aranci insieme' }, hrModelBands(pooledNoLiv, true));
+  if (opts.validate !== false) out.validazione_un_giorno_fuori = hrValidate(pooled);
   return out;
 }
 function buildHourlyTable(series, models, singles, opts) {
@@ -2743,7 +2798,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.44', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.45', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -4258,7 +4313,7 @@ if (action === 'manual_hourly') {
       return res.status(200).json(Object.assign({
         min_points: haMin, from: haFrom, to: haTo,
         legenda: 'Fasce e quadranti scelti sul valore e sulla direzione del MODELLO (OM e AROME a meta ora), quello che il sistema conosce: rapporto = osservato medio / modello medio nella fascia = quanto aspettarsi dato quel valore del modello (include il ritorno verso la media); bias = osservato - modello. n = ore. Ore con almeno min_points punti di serie, solo di giorno.'
-      }, buildHourlyAll(haData, { minPoints: haMin, from: haFrom, to: haTo })));
+      }, buildHourlyAll(haData, { minPoints: haMin, from: haFrom, to: haTo, validate: req.query.validate !== '0' })));
     }
     if (!hSt) return res.status(400).json({ error: 'Stazione manuale sconosciuta: ' + hId, known: Object.keys(MANUAL_STATIONS).concat(['all']) });
     var hRe = /^\d{4}-\d{2}-\d{2}$/;
@@ -7547,7 +7602,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.44 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.45 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -7678,4 +7733,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.44
+// Fine codice - NAUTILUS ENGINE v2.14.45

@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.42 - by mdisailor engine - v2.14.42: aggiunta action=forecast_monitor (sola lettura): monitoraggio delle previsioni di Livorno contro le medie delle serie di Livornometeo, per orizzonte, fascia di vento, gruppo (fattore per direzione / +4.2 / nessuna) e direzione, con tolleranza entro 3 kn, 5 kn, 25 per cento (richiesta di M del 27/10). Include tutto il v2.14.41. Su base v2.14.41
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.43 - by mdisailor engine - v2.14.43: CORREZIONE DI UN MIO ERRORE. Dal 9-10 ottobre predict con fast=1 (Haiku 5.5, introdotto nella v2.14.29) restituiva 500 ("Cannot read properties of undefined (reading 'match')") perche il codice leggeva content[0].text e col modello nuovo il primo blocco non e di testo: le previsioni non venivano salvate (storico, archivio, bias) per 19 giorni, e le chiamate venivano comunque fatturate. Ora: testo preso dai blocchi di tipo text (aiExtractText); fast=1 prova Haiku 5.5 e poi Sonnet 4.6; se nessuno risponde con testo non si salva niente (prima si salvava un record vuoto) e si restituisce 502 con i dettagli; il record riporta model_used e ai_fallback; max_tokens del primo tentativo veloce 300->1000; stessa lettura robusta in situazione. Include tutto il v2.14.42. Su base v2.14.42
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2613,6 +2613,25 @@ function buildForecastMonitor(history, series, opts) {
            tutti: mkGroup(pairs), per_gruppo: groups, coppie: pairs };
 }
 
+// ===== 2026-10-28 (v2.14.43): LETTURA ROBUSTA DELLA RISPOSTA DELL'AI =====
+// Dal 9-10 ottobre `predict` con fast=1 (Haiku 5.5, introdotto nella v2.14.29) restituiva 500 con
+// "Cannot read properties of undefined (reading 'match')": il codice leggeva content[0].text, e col modello
+// nuovo il primo blocco della risposta non e' di testo (verosimilmente un blocco di ragionamento): text
+// era undefined, e la funzione si fermava PRIMA di salvare. Per 19 giorni le previsioni non sono state
+// salvate (storico, archivio, bias), mentre le chiamate venivano fatturate. Non l'avevo provato quando ho
+// cambiato il modello. Ora si prende il testo dai blocchi di tipo "text", qualunque sia la loro posizione.
+function aiExtractText(aiData) {
+  if (!aiData || !Array.isArray(aiData.content)) return null;
+  var parts = aiData.content.filter(function(b) { return b && b.type === 'text' && typeof b.text === 'string' && b.text.length; }).map(function(b) { return b.text; });
+  if (!parts.length) parts = aiData.content.filter(function(b) { return b && typeof b.text === 'string' && b.text.length; }).map(function(b) { return b.text; });
+  return parts.length ? parts.join('\n') : null;
+}
+function aiDiag(aiRes, aiData) {
+  return { http: aiRes ? aiRes.status : null, stop_reason: aiData ? aiData.stop_reason || null : null,
+           tipi_di_blocco: (aiData && Array.isArray(aiData.content)) ? aiData.content.map(function(b) { return b ? b.type : null; }) : null,
+           modello: aiData ? aiData.model || null : null, uso_token: aiData ? aiData.usage || null : null, errore_api: (aiData && aiData.error) ? aiData.error : null };
+}
+
 module.exports = async function handler(req, res) {
 
 // getNowRome spostata a livello modulo (audit A6) — vedi definizione sopra fetchECMWF
@@ -2681,7 +2700,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.42', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.43', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -5320,7 +5339,7 @@ if (action === 'situazione') {
     });
     if (!sitRes.ok) return res.status(500).json({ error: 'AI error ' + sitRes.status });
     var sitData = await sitRes.json();
-    var sitText = sitData.content && sitData.content[0] ? sitData.content[0].text : '';
+    var sitText = aiExtractText(sitData) || ''; // 2026-10-28: lettura robusta (primo blocco di testo), come in predict
 
     // Estrae livello allerta dal testo
     var allertaMatch = sitText.match(/ALLERTA:\s*(VERDE|GIALLO|ROSSO)/i);
@@ -5711,22 +5730,38 @@ if (action === 'predict') {
       // 'CONSIGLIO: una riga\n' +
       'Usa valori singoli (non range). Nessuna analisi o commento. Solo i dati numerici nel formato indicato. Max 80 parole.';
 
-    var aiRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': anthropicKey,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: req.query.fast === '1' ? 'claude-haiku-5-5' : 'claude-sonnet-4-6',
-        max_tokens: req.query.fast === '1' ? 300 : 600,
-        system: req.query.fast === '1' ? systemPromptFast : systemPrompt,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
-    var aiData = await aiRes.json();
-    var aiText = aiData.content && aiData.content[0] ? aiData.content[0].text : 'Errore risposta AI';
+    // 2026-10-28: tentativi in ordine. fast=1: Haiku 5.5 e, se non restituisce testo, Sonnet 4.6 (che ha sempre
+    // funzionato); senza fast: solo Sonnet 4.6. Se nessuno restituisce testo NON si salva niente: prima, in
+    // caso di errore dell'AI, il codice salvava un record vuoto ("Errore risposta AI") che inquinava lo storico.
+    // Il primo tentativo veloce ha piu' spazio (1000 invece di 300 token) nel caso il modello ne consumi una
+    // parte prima del testo.
+    var aiIsFast = req.query.fast === '1';
+    var aiModels = aiIsFast ? ['claude-haiku-5-5', 'claude-sonnet-4-6'] : ['claude-sonnet-4-6'];
+    var aiText = null, aiModelUsed = null, aiTries = [];
+    for (var aiI = 0; aiI < aiModels.length && aiText === null; aiI++) {
+      var aiRes = null, aiData = null;
+      try {
+        aiRes = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': anthropicKey,
+            'anthropic-version': '2023-06-01'
+          },
+          body: JSON.stringify({
+            model: aiModels[aiI],
+            max_tokens: (aiIsFast && aiI === 0) ? 1000 : (aiIsFast ? 600 : 600),
+            system: aiIsFast ? systemPromptFast : systemPrompt,
+            messages: [{ role: 'user', content: prompt }]
+          })
+        });
+        aiData = await aiRes.json().catch(function() { return null; });
+      } catch (aiErr) { aiTries.push({ modello: aiModels[aiI], errore_di_rete: aiErr.message }); continue; }
+      aiText = aiRes.ok ? aiExtractText(aiData) : null;
+      if (aiText === null) aiTries.push({ modello: aiModels[aiI], dettagli: aiDiag(aiRes, aiData) });
+      else aiModelUsed = aiModels[aiI];
+    }
+    if (aiText === null) return res.status(502).json({ error: 'Risposta AI senza testo: previsione non salvata', zone: zoneKey, tentativi: aiTries });
 
     // Save prediction to KV for later verification
     var now3 = new Date();
@@ -5761,7 +5796,8 @@ if (action === 'predict') {
       forecast_h6: extractWindVal(aiText, '6'),
       forecast_h9: extractWindVal(aiText, '9'),
       forecast_h12: extractWindVal(aiText, '12'),
-      slot: (function(){ var h = parseInt(getNowRome().slice(11,13),10); return h < 11 ? 'morning' : 'afternoon'; }())
+      slot: (function(){ var h = parseInt(getNowRome().slice(11,13),10); return h < 11 ? 'morning' : 'afternoon'; }()),
+      model_used: aiModelUsed, ai_fallback: aiTries.length > 0
     };
     // fix 2026-07-11 (audit B2): correzione bias DETERMINISTICA post-estrazione.
     // L'aritmetica non si delega piu' all'LLM (lezione sezione 9 metodologia):
@@ -7452,7 +7488,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.42 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.43 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -7583,4 +7619,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.42
+// Fine codice - NAUTILUS ENGINE v2.14.43

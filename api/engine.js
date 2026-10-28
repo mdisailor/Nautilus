@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.38 - by mdisailor engine - v2.14.38: aggiunta action=field_test (sola lettura): test di ricostruzione del campo di vento dalle sole stazioni (21 stazioni affidabili, leave-one-out): confronta interpolazione, OM, AROME e modello+correzione sulle stazioni stesse, per scala di correlazione L e per distanza dalla stazione piu vicina; risposta alla domanda di M su una mappa piu estesa. Funzioni pure collaudate con campi inventati. Include tutto il v2.14.37 (fattore Livornometeo per direzione, correzione del circuito di bias, guardia sulle osservazioni nel futuro). Su base v2.14.37
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.39 - by mdisailor engine - v2.14.39: salvataggio ORARIO dei modelli (OM best_match e AROME) sui punti ufficiali delle quattro stazioni manuali (chiave manual_models:<id>), agganciato a scrape_web2 senza nuovi cron (una volta all'ora, tetto 5 s, errori non propagati); azioni manual_models_tick (forzare), manual_models_get (lettura compatta), manual_models_backfill (recupero del passato dall'archivio Open-Meteo, NON provato contro il vero servizio: l'esito diagnostico dice cosa succede); manual_status mostra la copertura dei modelli. Serve a ricavare le regole per Capraia, Rosignano e Golfo Aranci (D28). Include tutto il v2.14.38. Su base v2.14.38
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2347,6 +2347,97 @@ var FIELD_EXCLUDED = {
   bonifacio_pertusato: 'esclusa: in alto, effetti di costa, inaffidabile con vento debole-moderato (giudizio di M e dati 22/10)'
 };
 
+// ===== 2026-10-28 (v2.14.39): SALVATAGGIO ORARIO DEI MODELLI SUI PUNTI DELLE STAZIONI MANUALI =====
+// Perche': le serie di Livornometeo, Capraia, Rosignano e Golfo Aranci hanno vento e direzione ma NON
+// i valori dei modelli per quelle ore, e senza modelli non si possono ricavare le regole di correzione
+// (D28). Ogni ora, sui punti ufficiali delle quattro stazioni, si salvano OM (best_match) e AROME:
+// velocita' e direzione orarie, raffica. Chiave Redis manual_models:<id>: oggetto { "YYYY-MM-DDTHH":
+// {om:[kn,gradi,raffica], ar:[kn,gradi,raffica]} } (ora UTC). Si chiede a Open-Meteo anche il giorno
+// precedente (past_days=1) e si tengono le ultime 6 ore: se un giro salta, il successivo recupera.
+// Le ore gia' presenti vengono aggiornate col valore piu' recente del modello.
+function mmHourKey(ms) { return new Date(Math.floor(ms / 3600000) * 3600000).toISOString().slice(0, 13); }
+// Da una risposta Open-Meteo { hourly: { time, wind_speed_10m, wind_direction_10m, wind_gusts_10m } } alle ore
+// comprese tra (adesso - maxBackH) e adesso. Tollera i nomi con suffisso modello (wind_speed_10m_<modello>).
+function mmParseHourly(json, nowMs, maxBackH, modelSuffix) {
+  var out = {};
+  if (!json || !json.hourly || !Array.isArray(json.hourly.time)) return out;
+  var h = json.hourly;
+  var pick = function(name) {
+    if (Array.isArray(h[name])) return h[name];
+    if (modelSuffix && Array.isArray(h[name + '_' + modelSuffix])) return h[name + '_' + modelSuffix];
+    return null;
+  };
+  var ws = pick('wind_speed_10m'), wd = pick('wind_direction_10m'), wg = pick('wind_gusts_10m');
+  if (!ws || !wd) return out;
+  for (var i = 0; i < h.time.length; i++) {
+    var t = Date.parse(h.time[i] + 'Z');
+    if (isNaN(t) || t > nowMs || t < nowMs - maxBackH * 3600000) continue;
+    var w = ws[i], d = wd[i], g = wg ? wg[i] : null;
+    if (w === null || w === undefined || d === null || d === undefined) continue;
+    out[String(h.time[i]).slice(0, 13)] = [Math.round(w * 10) / 10, Math.round(d), (g !== null && g !== undefined) ? Math.round(g * 10) / 10 : null];
+  }
+  return out;
+}
+// Unisce 'hours' nella mappa sotto il campo ('om' o 'ar'). overwrite=false: non tocca le ore gia' presenti.
+function mmMerge(map, hours, field, overwrite) {
+  var added = 0;
+  Object.keys(hours).forEach(function(k) {
+    var rec = map[k] || (map[k] = {});
+    if (rec[field] && !overwrite) return;
+    rec[field] = hours[k]; added++;
+  });
+  return added;
+}
+function mmPrune(map, nowMs, days) {
+  var minKey = mmHourKey(nowMs - days * 86400000), n = 0;
+  Object.keys(map).forEach(function(k) { if (k < minKey) { delete map[k]; n++; } });
+  return n;
+}
+async function mmFetchJson(url, timeoutMs) {
+  var ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  var timer = ctl ? setTimeout(function() { ctl.abort(); }, timeoutMs || 4500) : null;
+  try {
+    var r = await fetch(url, ctl ? { signal: ctl.signal } : undefined);
+    var status = r.status, json = null;
+    try { json = await r.json(); } catch (e) { json = null; }
+    var bad = !r.ok || (json && json.error === true);
+    return { ok: !bad && !!json, status: status, json: json, error: bad ? ((json && json.reason) || ('HTTP ' + status)) : null };
+  } catch (e) {
+    return { ok: false, status: 0, json: null, error: (e && e.name === 'AbortError') ? 'timeout' : (e && e.message) || 'errore di rete' };
+  } finally { if (timer) clearTimeout(timer); }
+}
+async function manualModelsTick(kvUrl, kvToken, opts) {
+  opts = opts || {};
+  var now = Date.now(), hk = mmHourKey(now);
+  var last = await kvGet('manual_models_last', kvUrl, kvToken);
+  if (!opts.force && last && last.hour === hk && last.ok) return { skipped: true, hour: hk };
+  var ids = Object.keys(MANUAL_STATIONS), per = {};
+  await Promise.all(ids.map(async function(id) {
+    var st = MANUAL_STATIONS[id], rep = { om: null, ar: null };
+    var base = 'latitude=' + st.lat + '&longitude=' + st.lon + '&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m&wind_speed_unit=kn&past_days=1&forecast_days=1';
+    var res2 = await Promise.all([
+      mmFetchJson('https://api.open-meteo.com/v1/forecast?' + base, opts.timeoutMs),
+      mmFetchJson('https://api.open-meteo.com/v1/meteofrance?' + base + '&models=arome_france', opts.timeoutMs)
+    ]);
+    var map = await kvGet('manual_models:' + id, kvUrl, kvToken);
+    map = (map && typeof map === 'object' && !Array.isArray(map)) ? map : {};
+    var omH = res2[0].ok ? mmParseHourly(res2[0].json, now, 6) : {};
+    var arH = res2[1].ok ? mmParseHourly(res2[1].json, now, 6, 'arome_france') : {};
+    var nOm = mmMerge(map, omH, 'om', true), nAr = mmMerge(map, arH, 'ar', true);
+    rep.om = res2[0].ok ? nOm : ('errore: ' + res2[0].error);
+    rep.ar = res2[1].ok ? nAr : ('errore: ' + res2[1].error);
+    if (nOm + nAr > 0) {
+      mmPrune(map, now, 60);
+      await kvSet('manual_models:' + id, map, 31536000, kvUrl, kvToken);
+    }
+    per[id] = rep;
+  }));
+  var allOk = ids.every(function(id) { return (typeof per[id].om === 'number' && per[id].om > 0) || (typeof per[id].ar === 'number' && per[id].ar > 0); });
+  var status = { hour: hk, ok: allOk, ts: new Date(now).toISOString(), per_station: per, source: opts.source || null };
+  await kvSet('manual_models_last', status, 31536000, kvUrl, kvToken);
+  return status;
+}
+
 module.exports = async function handler(req, res) {
 
 // getNowRome spostata a livello modulo (audit A6) — vedi definizione sopra fetchECMWF
@@ -2415,7 +2506,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.38', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.39', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -3291,7 +3382,18 @@ if (action === 'scrape_web2') {
     }
 
     var sw2Results = await Promise.all(sw2Stations.map(sw2ProcessStation));
-    return res.status(200).json({ ts: sw2Ts, results: sw2Results });
+    // 2026-10-28: salvataggio orario dei modelli sui punti delle stazioni manuali, agganciato a questo giro
+    // (ogni 30 minuti, leggero) per non chiedere a M un nuovo cron; fa qualcosa solo la prima volta di ogni ora
+    // (chiave manual_models_last). Tetto di 5 secondi e nessun errore propagato: non deve mai ritardare o far
+    // fallire la raccolta delle stazioni; se non finisce, la prossima chiamata riprova.
+    var sw2Mm = null;
+    try {
+      sw2Mm = await Promise.race([
+        manualModelsTick(kvUrl, kvToken, { source: 'scrape_web2', timeoutMs: 4000 }),
+        new Promise(function(resolve){ setTimeout(function(){ resolve({ timeout: true }); }, 5000); })
+      ]);
+    } catch(sw2MmErr) { sw2Mm = { error: sw2MmErr.message }; }
+    return res.status(200).json({ ts: sw2Ts, results: sw2Results, manual_models: sw2Mm });
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }
@@ -3746,6 +3848,7 @@ if (action === 'manual_status') {
       var mstSer = await kvGet('manual_series:' + mstId, kvUrl, kvToken); mstSer = Array.isArray(mstSer) ? mstSer : [];
       var mstRd = await kvGet('bias_samples:' + mstId, kvUrl, kvToken); mstRd = Array.isArray(mstRd) ? mstRd : [];
       var mstAr = await kvGet('bias_archive:' + mstId, kvUrl, kvToken); mstAr = Array.isArray(mstAr) ? mstAr : [];
+      var mstMod = await kvGet('manual_models:' + mstId, kvUrl, kvToken); mstMod = (mstMod && typeof mstMod === 'object' && !Array.isArray(mstMod)) ? mstMod : {}; var mstModKeys = Object.keys(mstMod).sort();
       var mstLastT = mstSer.length ? new Date(mstSer[mstSer.length - 1][0]).getTime() : null;
       var mstLast = mstRd.length ? mstRd[0] : null;
       mstOut[mstId] = {
@@ -3759,6 +3862,7 @@ if (action === 'manual_status') {
           n_last_24h: mstSer.filter(function(p){ return mstNow - new Date(p[0]).getTime() <= 86400000; }).length,
           last5: mstSer.slice(-5)
         },
+        models: { hours: mstModKeys.length, first: mstModKeys[0] || null, last: mstModKeys.length ? mstModKeys[mstModKeys.length - 1] : null, with_om: mstModKeys.filter(function(k){ return mstMod[k].om; }).length, with_arome: mstModKeys.filter(function(k){ return mstMod[k].ar; }).length },
         readings: {
           in_list: mstRd.length,
           in_archive: mstAr.length,
@@ -3805,6 +3909,88 @@ if (action === 'field_test') {
     ftOut.note_per_stazione = ftBuilt.notes;
     ftOut.legenda = 'rmse_vettore = errore quadratico medio del vettore vento (kn), comprende velocita e direzione; interpolazione = solo stazioni (peso gaussiano exp(-(d/L)^2)), le altre ore stesse; om_piu_correzione / arome_piu_correzione = modello + interpolazione dell errore delle stazioni vicine, restringimento lambda; somiglianza = distanza tra i campi, con OM-AROME come scala di riferimento; ore uniche per stazione, scartati dati congelati e osservazioni nel futuro';
     return res.status(200).json(ftOut);
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+// /api/engine?action=manual_models_tick&k=mdi[&force=1] -- salva ORA i modelli sui punti delle quattro stazioni
+// manuali (di solito parte da solo dentro scrape_web2, una volta all'ora: qui si puo' forzare a mano).
+if (action === 'manual_models_tick') {
+  try {
+    if ((req.query.k || '') !== 'mdi') return res.status(401).json({ error: 'Unauthorized' });
+    var mtRes = await manualModelsTick(kvUrl, kvToken, { force: req.query.force === '1', source: 'manuale' });
+    return res.status(200).json(mtRes);
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+// /api/engine?action=manual_models_get&station=<id>[&from=YYYY-MM-DDTHH][&limit=N] -- sola lettura.
+// Modelli salvati per una stazione manuale, in forma compatta. Senza from: le ultime N ore; con from: le N ore dopo.
+if (action === 'manual_models_get') {
+  try {
+    var mgId = (req.query.station || '').toString(), mgSt = MANUAL_STATIONS[mgId];
+    if (!mgSt) return res.status(400).json({ error: 'Stazione manuale sconosciuta: ' + mgId, known: Object.keys(MANUAL_STATIONS) });
+    var mgMap = await kvGet('manual_models:' + mgId, kvUrl, kvToken);
+    mgMap = (mgMap && typeof mgMap === 'object' && !Array.isArray(mgMap)) ? mgMap : {};
+    var mgKeys = Object.keys(mgMap).sort();
+    var mgLimit = Math.max(1, Math.min(parseInt(req.query.limit, 10) || 200, 1500));
+    var mgFrom = (req.query.from || '').toString();
+    var mgSel = mgFrom ? mgKeys.filter(function(k){ return k >= mgFrom; }).slice(0, mgLimit) : mgKeys.slice(-mgLimit);
+    return res.status(200).json({
+      station: mgId, point: { lat: mgSt.lat, lon: mgSt.lon }, hours_total: mgKeys.length,
+      first: mgKeys[0] || null, last: mgKeys.length ? mgKeys[mgKeys.length - 1] : null,
+      with_om: mgKeys.filter(function(k){ return mgMap[k].om; }).length, with_arome: mgKeys.filter(function(k){ return mgMap[k].ar; }).length,
+      legend: '[ora_UTC, om_kn, om_gradi, om_raffica, arome_kn, arome_gradi, arome_raffica]',
+      rows: mgSel.map(function(k){ var r = mgMap[k], o = r.om || [null, null, null], a = r.ar || [null, null, null]; return [k, o[0], o[1], o[2], a[0], a[1], a[2]]; })
+    });
+  } catch(e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+// /api/engine?action=manual_models_backfill&station=<id>&from=YYYY-MM-DD&to=YYYY-MM-DD&k=mdi[&dry=1][&overwrite=1]
+// Recupera il PASSATO dall'archivio delle previsioni di Open-Meteo (historical-forecast-api) per una stazione
+// manuale, e lo unisce ai modelli salvati. Non sovrascrive le ore gia' presenti (quelle del salvataggio orario
+// valgono di piu') salvo overwrite=1. dry=1: prova la chiamata e mostra l'esito senza scrivere. Massimo 31 giorni.
+// ATTENZIONE: questa parte non e' stata provata contro il vero servizio (nessuna rete nel luogo dove e' stata
+// scritta): l'esito diagnostico (stato HTTP, ore trovate, modello usato) dice cosa e' successo.
+if (action === 'manual_models_backfill') {
+  try {
+    if ((req.query.k || '') !== 'mdi') return res.status(401).json({ error: 'Unauthorized' });
+    var bfId = (req.query.station || '').toString(), bfSt = MANUAL_STATIONS[bfId];
+    if (!bfSt) return res.status(400).json({ error: 'Stazione manuale sconosciuta: ' + bfId, known: Object.keys(MANUAL_STATIONS) });
+    var bfFrom = (req.query.from || '').toString(), bfTo = (req.query.to || '').toString();
+    var bfRe = /^\d{4}-\d{2}-\d{2}$/;
+    if (!bfRe.test(bfFrom) || !bfRe.test(bfTo)) return res.status(400).json({ error: 'from e to richiesti, formato YYYY-MM-DD' });
+    var bfDays = (Date.parse(bfTo + 'T00:00:00Z') - Date.parse(bfFrom + 'T00:00:00Z')) / 86400000;
+    if (isNaN(bfDays) || bfDays < 0) return res.status(400).json({ error: 'to deve essere uguale o successivo a from' });
+    if (bfDays > 30) return res.status(400).json({ error: 'Massimo 31 giorni per chiamata' });
+    if (Date.parse(bfTo + 'T00:00:00Z') > Date.now()) return res.status(400).json({ error: 'to nel futuro' });
+    var bfDry = req.query.dry === '1', bfOver = req.query.overwrite === '1';
+    var bfBase = 'latitude=' + bfSt.lat + '&longitude=' + bfSt.lon + '&start_date=' + bfFrom + '&end_date=' + bfTo + '&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m&wind_speed_unit=kn';
+    // OM: il modello "migliore" di Open-Meteo, lo stesso del dato 'om' dei campioni. AROME: il nome del modello
+    // nell'archivio non e' certo (meteofrance_arome_france o la versione _hd): si prova in ordine.
+    var bfPlan = [ { role: 'om', fields: 'om', models: ['best_match'] }, { role: 'ar', fields: 'ar', models: ['meteofrance_arome_france_hd', 'meteofrance_arome_france'] } ];
+    var bfMap = await kvGet('manual_models:' + bfId, kvUrl, kvToken);
+    bfMap = (bfMap && typeof bfMap === 'object' && !Array.isArray(bfMap)) ? bfMap : {};
+    var bfOut = [], bfAdded = 0, bfNow = Date.now();
+    for (var bfP = 0; bfP < bfPlan.length; bfP++) {
+      var bfPl = bfPlan[bfP], bfDone = false;
+      for (var bfM = 0; bfM < bfPl.models.length && !bfDone; bfM++) {
+        var bfModel = bfPl.models[bfM];
+        var bfR = await mmFetchJson('https://historical-forecast-api.open-meteo.com/v1/forecast?' + bfBase + '&models=' + bfModel, 12000);
+        var bfHours = bfR.ok ? mmParseHourly(bfR.json, bfNow, 24 * 400, bfModel) : {};
+        var bfN = Object.keys(bfHours).length, bfAd = 0;
+        if (bfN > 0 && !bfDry) bfAd = mmMerge(bfMap, bfHours, bfPl.fields, bfOver);
+        bfOut.push({ ruolo: bfPl.role, modello: bfModel, http: bfR.status, ok: bfR.ok, errore: bfR.error, ore_nella_risposta: bfN, ore_aggiunte: bfAd });
+        bfAdded += bfAd;
+        if (bfN > 0) bfDone = true;
+      }
+    }
+    if (bfAdded > 0) { mmPrune(bfMap, bfNow, 400); await kvSet('manual_models:' + bfId, bfMap, 31536000, kvUrl, kvToken); }
+    return res.status(200).json({ station: bfId, from: bfFrom, to: bfTo, dry: bfDry, overwrite: bfOver, tentativi: bfOut, ore_aggiunte_totali: bfAdded, ore_totali_salvate: Object.keys(bfMap).length });
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }
@@ -7036,7 +7222,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.38 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.39 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -7167,4 +7353,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.38
+// Fine codice - NAUTILUS ENGINE v2.14.39

@@ -1,4 +1,4 @@
-<!-- NAUTILUS PREVISIONI v3.12 - mdisailor - 2026-10-27 - v3.12: il popup di Livorno non dice piu' "Dato reale stazione, adesso" sopra una stima: il titolo cambia col caso ("Stima per Livornometeo, da Windfinder x1.9" oppure "Livornometeo, lettura di N min fa"), e sotto la stima compaiono il Windfinder grezzo con l'eta' del campione, l'ultima lettura VERA di Livornometeo con valore, direzione e ora, e un avviso di ±2 kn a vento debole (richiesta di M del 27/10). Su base v3.11 -->
+<!-- NAUTILUS PREVISIONI v3.13 - mdisailor - 2026-11-03 - v3.13: BOTTONE NODI (richiesta di M), in basso a sinistra della mappa: con il bottone acceso accanto a ogni freccia (zone e griglia OM) compare il numero di nodi di quel punto, per l'ora scelta; parte spento; le frecce non cambiano e non spariscono, i numeri compaiono dove c'e' spazio (zone per prime) e zoomando ne compaiono di piu'. Carattere e contorno in KNOTS_FONT_PX / flushKnotLabels. Su base v3.12 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Previsioni Vento v3.12</title>
+<title>NAUTILUS Previsioni Vento v3.13</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -53,6 +53,7 @@
   }
   #btn-flow.active{color:var(--accent);border-color:var(--accent);box-shadow:0 0 14px rgba(0,240,255,0.3);}
   #btn-grid-toggle.active{color:var(--accent);border-color:var(--accent);}
+  #btn-knots.active{color:var(--accent);border-color:var(--accent);box-shadow:0 0 14px rgba(0,240,255,0.3);}
   #status{
     position:absolute;top:10px;right:10px;z-index:900;background:rgba(10,26,46,0.92);
     border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:11px;color:var(--muted);
@@ -64,7 +65,7 @@
 
 <header>
   <h1>NAUTILUS &mdash; Previsioni Vento</h1>
-  <span class="ver">v3.12</span>
+  <span class="ver">v3.13</span>
   <a class="back" href="/index2.html">&larr; cruscotto</a>
 </header>
 
@@ -78,6 +79,7 @@
   <button id="btn-flow" title="Animazione flusso vento">&#x1F300; FLOW</button>
   <button id="btn-xls" title="Esporta tutti i dati orari in Excel" style="position:absolute;top:10px;left:110px;z-index:900;background:rgba(10,26,46,0.92);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;">&#128202; XLS</button>
   <button id="btn-grid-toggle" title="Mostra/nasconde le frecce della griglia OM di sfondo" class="active" style="position:absolute;top:10px;left:200px;z-index:900;background:rgba(10,26,46,0.92);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;">&#9750; GRID</button>
+  <button id="btn-knots" title="Mostra i nodi accanto a ogni freccia (spento all'apertura)" style="position:absolute;bottom:24px;left:10px;z-index:900;background:rgba(10,26,46,0.92);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;">12 KN</button>
   <div id="status"></div>
 </div>
 
@@ -286,7 +288,46 @@ function drawSingleArrow(ctx, ox, oy, rad, len, lw, colShaft, colHead, alpha){
   ctx.restore();
 }
 
-function drawArrow(ctx, cx, cy, dir, spd, gust, alpha, isZone, zoom){
+// ===== 2026-11-03: BOTTONE NODI (richiesta di M) =====
+// Con il bottone acceso, accanto a ogni freccia compare il numero di nodi di quel punto (lo stesso valore
+// che la freccia mostra: zone, punti delle stazioni e punti di griglia). Le frecce NON cambiano e non
+// spariscono (M: "se serve faccio lo zoom"): i numeri si disegnano solo dove c'e' spazio, in ordine di
+// priorita' (zone, poi punti delle stazioni, poi griglia), e quello che si sovrapporrebbe a un numero gia'
+// disegnato viene omesso: zoomando compaiono. Si disegnano in un SECONDO passaggio, dopo tutte le frecce,
+// cosi' le zone hanno la precedenza anche quando vengono disegnate dopo la griglia (mappa2). Contorno scuro
+// attorno alle cifre per leggerle su qualunque sfondo. Il bottone parte spento. Dimensione e aspetto: qui.
+var KNOTS_FONT_PX = 12; // carattere base: da regolare guardando lo schermo (M: "va scelto leggibile")
+function knotsFontPx(zoom) { return zoom >= 10 ? KNOTS_FONT_PX + 1 : (zoom >= 8 ? KNOTS_FONT_PX : KNOTS_FONT_PX - 1); }
+function knotsLabelPos(q, zoom) {
+  var zScale = Math.max(0.4, Math.min(1.4, (zoom - 6) * 0.3));
+  var ax = Math.sin(q.rad), ay = -Math.cos(q.rad);   // asse della freccia, verso la punta
+  var nx = -ay, ny = ax;                              // perpendicolare all'asse
+  if (ny < -0.001 || (Math.abs(ny) <= 0.001 && nx < 0)) { nx = -nx; ny = -ny; } // sempre dal lato basso (o destro)
+  var off = q.isZone ? Math.max(17, 5 * zScale + q.lw / 2 + 11) : q.lw / 2 + 9; // zone: fuori dal cerchio del marker (raggio 13)
+  return { x: q.cx + nx * off, y: q.cy + ny * off };
+}
+function flushKnotLabels(ctx, zoom, queue) {
+  if (!queue || !queue.length) return 0;
+  var px = knotsFontPx(zoom), placed = [], drawnN = 0;
+  var order = queue.map(function(q, i) { return { q: q, i: i }; }).sort(function(a, b) { return (a.q.prio - b.q.prio) || (a.i - b.i); });
+  ctx.save();
+  ctx.font = 'bold ' + px + 'px "DM Mono", monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round'; ctx.globalAlpha = 1;
+  order.forEach(function(o) {
+    var q = o.q, txt = String(Math.round(q.spd)), pos = knotsLabelPos(q, zoom);
+    var w = ctx.measureText(txt).width + 5, h = px + 3;
+    var r = { x0: pos.x - w / 2, y0: pos.y - h / 2, x1: pos.x + w / 2, y1: pos.y + h / 2 };
+    for (var k = 0; k < placed.length; k++) { var s = placed[k]; if (r.x0 < s.x1 && r.x1 > s.x0 && r.y0 < s.y1 && r.y1 > s.y0) return; }
+    placed.push(r); drawnN++;
+    ctx.lineWidth = 3.5; ctx.strokeStyle = 'rgba(2,12,24,0.92)'; ctx.strokeText(txt, pos.x, pos.y);
+    ctx.fillStyle = '#ffffff'; ctx.fillText(txt, pos.x, pos.y);
+  });
+  ctx.restore();
+  queue.length = 0;
+  return drawnN;
+}
+
+function drawArrow(ctx, cx, cy, dir, spd, gust, alpha, isZone, zoom, prio, kq){
   if (spd === null || spd === undefined || isNaN(spd)) return;
   if (dir === null || dir === undefined || isNaN(dir)) return;
   var zScale = Math.max(0.4, Math.min(1.4, (zoom - 6) * 0.3));
@@ -297,6 +338,7 @@ function drawArrow(ctx, cx, cy, dir, spd, gust, alpha, isZone, zoom){
   var rad = (dir - 180) * Math.PI / 180;
   var colSpd  = windColor(spd);
   var colGust = (gust != null && !isNaN(gust)) ? windColor(gust) : colSpd;
+  if (kq && state.showKnots) kq.push({ cx: cx, cy: cy, rad: rad, lw: lw, spd: spd, isZone: !!isZone, prio: (prio === undefined ? (isZone ? 0 : 2) : prio) });
 
   if (isZone) {
     var off = 5 * zScale;
@@ -327,6 +369,7 @@ var state = {
   hourButtons: [],       // [{ offset, date }] ricostruito ad ogni loadAll
   currentOffset: 0,      // quale bottone e' selezionato -- persiste tra i refresh
   showGridArrows: true,  // tasto on/off frecce griglia OM di sfondo
+  showKnots: false,      // 3/11: bottone NODI, numero di nodi accanto a ogni freccia (parte spento)
   zoneMarkers: {},        // D20 (17/9): marker Leaflet invisibili per zona, con popup dettagliato
   lastFetch: null
 };
@@ -752,8 +795,9 @@ async function drawAll(){
   var minPx = zoom >= 10 ? 18 : zoom >= 9 ? 22 : 30;
   var drawn = [];
   var offset = state.currentOffset;
+  var kq = []; // 3/11: numeri dei nodi, accodati dalle frecce e disegnati alla fine (locale: drawAll e' asincrona)
 
-  function tryDraw(lat, lon, dir, spd, gust, isZone){
+  function tryDraw(lat, lon, dir, spd, gust, isZone, prio){
     if (!bounds.contains([lat, lon])) return;
     var pt = map.latLngToContainerPoint([lat, lon]);
     for (var i = 0; i < drawn.length; i++){
@@ -761,7 +805,7 @@ async function drawAll(){
       if (Math.sqrt(dx*dx+dy*dy) < minPx) return;
     }
     drawn.push(pt);
-    drawArrow(ctx, pt.x, pt.y, dir, spd, gust, 0.95, isZone, zoom);
+    drawArrow(ctx, pt.x, pt.y, dir, spd, gust, 0.95, isZone, zoom, prio, kq);
   }
 
   // Zone nostre per prime (vincono lo spazio)
@@ -784,22 +828,22 @@ async function drawAll(){
           if (lmOvD) { stSpd = lmOvD.speed; stDir = lmOvD.direction; }
           else stSpd = Math.round(st.wind_kt * lmFactorForDir(stDir) * 10) / 10; // 2026-10-27: fattore per direzione
         }
-        tryDraw(z.lat, z.lon, stDir, stSpd, st.gust_kt, true);
+        tryDraw(z.lat, z.lon, stDir, stSpd, st.gust_kt, true, 0);
         continue;
       }
       // nessuna lettura reale recente -- cade sull'OM del punto griglia piu' vicino
       var g0 = nearestGridPoint(z.lat, z.lon);
-      if (g0) tryDraw(z.lat, z.lon, g0.dir, g0.speed, g0.gust, false);
+      if (g0) tryDraw(z.lat, z.lon, g0.dir, g0.speed, g0.gust, false, 1);
       continue;
     }
     var v = ourValueForOffset(z, offset);
     if (v) {
-      tryDraw(z.lat, z.lon, v.dir, v.speed, null, true);
+      tryDraw(z.lat, z.lon, v.dir, v.speed, null, true, 0);
     } else {
       var g = nearestGridPoint(z.lat, z.lon);
       if (g) {
         var gv = omValueForOffset(g, offset);
-        if (gv) tryDraw(z.lat, z.lon, gv.dir, gv.speed, gv.gust, false);
+        if (gv) tryDraw(z.lat, z.lon, gv.dir, gv.speed, gv.gust, false, 1);
       }
     }
   }
@@ -809,10 +853,11 @@ async function drawAll(){
     state.gridPoints.forEach(function(g){
       var gv = omValueForOffset(g, offset);
       if (!gv) return;
-      tryDraw(g.lat, g.lon, gv.dir, gv.speed, gv.gust, false);
+      tryDraw(g.lat, g.lon, gv.dir, gv.speed, gv.gust, false, 2);
     });
   }
 
+  if (state.showKnots) flushKnotLabels(ctx, zoom, kq); // 3/11: numeri dopo tutte le frecce, zone per prime
   await updateZoneMarkerPopups();
 }
 
@@ -1019,6 +1064,13 @@ document.getElementById('btn-grid-toggle').addEventListener('click', function(){
   drawAll();
 });
 
+// BOTTONE NODI (3/11, M): numero di nodi accanto a ogni freccia; parte spento
+document.getElementById('btn-knots').addEventListener('click', function(){
+  state.showKnots = !state.showKnots;
+  this.classList.toggle('active', state.showKnots);
+  drawAll();
+});
+
 initMap();
 loadAll();
 setInterval(loadAll, REFRESH_MS);
@@ -1026,4 +1078,4 @@ setInterval(loadAll, REFRESH_MS);
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS PREVISIONI v3.12 -->
+<!-- Fine codice - NAUTILUS PREVISIONI v3.13 -->

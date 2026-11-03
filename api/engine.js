@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.45 - by mdisailor engine - v2.14.45: manual_hourly station=all con VALIDAZIONE UN GIORNO FUORI della correzione per fascia del modello (OM e AROME): fattori osservato/modello per fascia ricavati sugli altri giorni e applicati al giorno escluso, in tre varianti (tutte le fasce, solo vento debole, per stazione), con errore medio in kn contro il modello grezzo, per ore forti e deboli e per stazione. validate=0 la salta. Include tutto il v2.14.44. Su base v2.14.44
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.46 - by mdisailor engine - v2.14.46: CONTROLLO DI SALUTE (action=health, sola lettura): previsioni per zona dopo l'ultimo giro dovuto (07:15 e 13:15 ora di Roma, tolleranza 90 minuti), fotografie di zona ferme da oltre 2 ore, salvataggio orario dei modelli sulle stazioni manuali, frequenza del ripiego su Sonnet; risponde 503 se qualcosa e rotto cosi cron-job.org avvisa. predict scrive ora una piccola etichetta predict_last:<zona> (3 giorni) letta dal controllo. Motivo: il fermo di 19 giorni delle previsioni (9-28/10) non era stato visto da nessuno. Include tutto il v2.14.45. Su base v2.14.45
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2730,6 +2730,66 @@ function aiDiag(aiRes, aiData) {
            modello: aiData ? aiData.model || null : null, uso_token: aiData ? aiData.usage || null : null, errore_api: (aiData && aiData.error) ? aiData.error : null };
 }
 
+// ===== 2026-11-03: CONTROLLO DI SALUTE (action=health) =====
+// Perche': il 9-10/10 le previsioni sono state ferme 19 giorni senza che nessun controllo se ne accorgesse (i costi
+// continuavano e i lavori di cron-job.org risultavano "programmati"). Il segnale giusto e' la DATA DELL'ULTIMA
+// USCITA: qui si controlla che (1) ogni zona attiva abbia una previsione piu' recente dell'ultimo giro dovuto
+// (07:15 e 13:15 ora di Roma, con 90 minuti di tolleranza), (2) le fotografie di zona (ogni 30 minuti) non siano ferme,
+// (3) il salvataggio orario dei modelli sulle stazioni manuali giri, (4) il ripiego su Sonnet non scatti troppo.
+// Risponde 503 se qualcosa e' rotto (cosi' cron-job.org lo segna come fallito e avvisa), 200 se tutto bene o solo
+// avvisi. Funzione pura: il tempo e l'offset di Roma si passano da fuori (collaudata con orari inventati).
+var HEALTH_SLOTS = [[7, 15], [13, 15]]; // giri delle previsioni, ora di Roma
+var HEALTH_GRACE_MIN = 90;
+function healthDueSlotMs(nowMs, romeOffsetMin) {
+  // ultimo giro DOVUTO (inizio + tolleranza gia' passati), in ms UTC. L'ora di Roma si ricava dal solo offset.
+  var romeNow = new Date(nowMs + romeOffsetMin * 60000), best = null;
+  for (var back = 0; back <= 2; back++) {
+    var y = romeNow.getUTCFullYear(), m = romeNow.getUTCMonth(), d = romeNow.getUTCDate() - back;
+    HEALTH_SLOTS.forEach(function(sl) {
+      var ms = Date.UTC(y, m, d, sl[0], sl[1]) - romeOffsetMin * 60000;
+      if (ms + HEALTH_GRACE_MIN * 60000 <= nowMs && (best === null || ms > best)) best = ms;
+    });
+  }
+  return best;
+}
+function buildHealth(inp) {
+  var now = inp.nowMs, due = healthDueSlotMs(now, inp.romeOffsetMin), problems = [], out = { checked_at: new Date(now).toISOString() };
+  // 1) previsioni per zona
+  var overdue = [], missing = [], okN = 0, zones = inp.zones || [];
+  zones.forEach(function(z) {
+    if (!z.last || !z.last.ts) { missing.push(z.key); return; }
+    var t = new Date(z.last.ts).getTime();
+    if (isNaN(t)) { missing.push(z.key); return; }
+    if (due !== null && t < due - 5 * 60000) overdue.push({ zona: z.key, ultima: z.last.ts, ore_di_ritardo: Math.round((now - t) / 360000) / 10 });
+    else okN++;
+  });
+  out.previsioni = { zone_attive: zones.length, in_regola: okN, giro_dovuto_utc: due !== null ? new Date(due).toISOString() : null, in_ritardo: overdue, senza_previsioni: missing };
+  if (overdue.length) problems.push({ livello: 'fail', area: 'previsioni', messaggio: overdue.length + ' zone senza previsione dopo il giro dovuto: ' + overdue.slice(0, 6).map(function(x) { return x.zona + ' (' + x.ore_di_ritardo + ' h)'; }).join(', ') + (overdue.length > 6 ? ', ...' : '') });
+  if (missing.length) problems.push({ livello: 'fail', area: 'previsioni', messaggio: missing.length + ' zone senza nessuna previsione registrata: ' + missing.slice(0, 6).join(', ') });
+  // 2) fotografie di zona
+  var noSnap = zones.filter(function(z) { return z.snapOk === false; }).map(function(z) { return z.key; });
+  out.fotografie = { zone_senza_fotografie_ultime_2_ore: noSnap };
+  if (zones.length && noSnap.length >= Math.ceil(zones.length / 2)) problems.push({ livello: 'fail', area: 'fotografie', messaggio: 'fotografie di zona ferme da oltre 2 ore su ' + noSnap.length + ' zone su ' + zones.length });
+  else if (noSnap.length) problems.push({ livello: 'warn', area: 'fotografie', messaggio: 'nessuna fotografia nelle ultime 2 ore per: ' + noSnap.join(', ') });
+  // 3) salvataggio orario dei modelli sulle stazioni manuali
+  var ml = inp.manualModelsLast;
+  if (!ml || !ml.ts) { out.modelli_stazioni_manuali = { stato: 'mai eseguito' }; problems.push({ livello: 'warn', area: 'modelli', messaggio: 'il salvataggio orario dei modelli sulle stazioni manuali non risulta mai eseguito' }); }
+  else {
+    var age = Math.round((now - new Date(ml.ts).getTime()) / 6000) / 10;
+    out.modelli_stazioni_manuali = { ultimo_giro: ml.ts, minuti_fa: age, completo: !!ml.ok };
+    if (age > 180) problems.push({ livello: 'fail', area: 'modelli', messaggio: 'il salvataggio orario dei modelli e\' fermo da ' + Math.round(age / 6) / 10 + ' ore' });
+    else if (!ml.ok) problems.push({ livello: 'warn', area: 'modelli', messaggio: 'ultimo giro dei modelli incompleto (almeno una stazione senza dati)' });
+  }
+  // 4) ripiego su Sonnet nelle ultime 24 ore
+  var recent = zones.filter(function(z) { return z.last && z.last.ts && now - new Date(z.last.ts).getTime() <= 86400000 && z.last.ai_fallback !== undefined; });
+  var fb = recent.filter(function(z) { return z.last.ai_fallback === true; }).length;
+  out.ai = { previsioni_ultime_24h: recent.length, con_ripiego: fb };
+  if (recent.length >= 4 && fb / recent.length >= 0.3) problems.push({ livello: 'warn', area: 'ai', messaggio: 'il ripiego su Sonnet e\' scattato in ' + fb + ' previsioni su ' + recent.length + ' (il modello veloce potrebbe non rispondere come dovrebbe)' });
+  out.status = problems.some(function(p) { return p.livello === 'fail'; }) ? 'fail' : (problems.length ? 'warn' : 'ok');
+  out.problemi = problems;
+  return out;
+}
+
 module.exports = async function handler(req, res) {
 
 // getNowRome spostata a livello modulo (audit A6) — vedi definizione sopra fetchECMWF
@@ -2798,7 +2858,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.45', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.46', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -4356,6 +4416,49 @@ if (action === 'forecast_monitor') {
     }, fmOut));
   } catch(e) {
     return res.status(500).json({ error: e.message });
+  }
+}
+
+// /api/engine?action=health[&detail=1] -- sola lettura, pubblica. Vedi la nota sopra buildHealth. 503 se qualcosa e'
+// rotto, 200 altrimenti. cron-job.org: lavoro GET ogni 30 minuti con avviso "in caso di errore".
+if (action === 'health') {
+  try {
+    var hzKeys = Object.keys(ZONES).filter(function(k) { return ZONES[k].enabled; });
+    var hlRes = await kvMGet(hzKeys.map(function(k) { return 'predict_last:' + k; }), kvUrl, kvToken);
+    var hNow = Date.now();
+    var hRomeStr = getNowRome(), hOff = hRomeStr ? Math.round((Date.parse(hRomeStr + 'Z') - Math.floor(hNow / 3600000) * 3600000) / 60000) : 60;
+    if (hOff !== 60 && hOff !== 120) hOff = (hOff > 90) ? 120 : 60;
+    // ripiego: zone senza etichetta (prima del primo giro dopo l'installazione): ultima voce dello storico, una lettura per zona
+    var hZones = [];
+    for (var hI = 0; hI < hzKeys.length; hI++) {
+      var hLast = hlRes[hI] && typeof hlRes[hI] === 'object' ? hlRes[hI] : null;
+      if (!hLast) {
+        var hHist = await kvGet('predict_history:' + hzKeys[hI], kvUrl, kvToken);
+        if (Array.isArray(hHist)) {
+          var hPred = hHist.filter(function(x) { return x && x.source !== 'situazione' && x.generated_at; });
+          hPred.sort(function(a, b) { return new Date(b.generated_at) - new Date(a.generated_at); });
+          if (hPred.length) hLast = { ts: hPred[0].generated_at, slot: hPred[0].slot || null, ai_fallback: hPred[0].ai_fallback };
+        }
+      }
+      hZones.push({ key: hzKeys[hI], last: hLast, snapOk: null });
+    }
+    // fotografie: le ultime 4 mezz'ore (2 ore) per ogni zona attiva, in una sola lettura
+    var hSnapKeys = [], hSnapIdx = [];
+    hzKeys.forEach(function(zk, zi) {
+      for (var s = 0; s < 4; s++) {
+        var d = new Date(hNow - s * 1800000), mins = d.getUTCMinutes() < 30 ? '00' : '30';
+        hSnapKeys.push('snap:' + zk + ':' + d.toISOString().slice(0, 13) + '-' + mins); hSnapIdx.push(zi);
+      }
+    });
+    var hSnapVals = await kvMGet(hSnapKeys, kvUrl, kvToken);
+    hZones.forEach(function(z) { z.snapOk = false; });
+    hSnapVals.forEach(function(v, i) { if (v) hZones[hSnapIdx[i]].snapOk = true; });
+    var hMl = await kvGet('manual_models_last', kvUrl, kvToken);
+    var hOut = buildHealth({ nowMs: hNow, romeOffsetMin: hOff, zones: hZones, manualModelsLast: hMl });
+    if (req.query.detail === '1') hOut.dettaglio_zone = hZones.map(function(z) { return { zona: z.key, ultima_previsione: z.last ? z.last.ts : null, modello: z.last ? z.last.model_used || null : null, fotografie_ok: z.snapOk }; });
+    return res.status(hOut.status === 'fail' ? 503 : 200).json(hOut);
+  } catch(e) {
+    return res.status(500).json({ status: 'fail', error: e.message });
   }
 }
 
@@ -5965,6 +6068,9 @@ if (action === 'predict') {
     if (kvUrl && kvToken) {
       var saveOk = await kvSet(predKey, predRecord, 2592000, kvUrl, kvToken); // 30 days TTL
       if (!saveOk) console.error('predict: kvSet failed for key', predKey);
+      // 2026-11-03: etichetta piccola dell'ultima previsione per zona, letta da action=health (una lettura per zona
+      // invece di caricare lo storico intero). 3 giorni di vita: se la zona smette di produrre, sparisce da sola.
+      try { await kvSet('predict_last:' + zoneKey, { ts: predRecord.generated_at, slot: predRecord.slot, model_used: predRecord.model_used || null, ai_fallback: predRecord.ai_fallback === true }, 259200, kvUrl, kvToken); } catch (eL) { console.error('predict_last:', eL.message); }
       // Salva anche in lista unificata predict_history:zona
       var phList = await kvGet('predict_history:' + zoneKey, kvUrl, kvToken) || [];
       phList = Array.isArray(phList) ? phList : [];
@@ -7602,7 +7708,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.45 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.46 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -7733,4 +7839,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.45
+// Fine codice - NAUTILUS ENGINE v2.14.46

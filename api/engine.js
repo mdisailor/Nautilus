@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.46 - by mdisailor engine - v2.14.46: CONTROLLO DI SALUTE (action=health, sola lettura): previsioni per zona dopo l'ultimo giro dovuto (07:15 e 13:15 ora di Roma, tolleranza 90 minuti), fotografie di zona ferme da oltre 2 ore, salvataggio orario dei modelli sulle stazioni manuali, frequenza del ripiego su Sonnet; risponde 503 se qualcosa e rotto cosi cron-job.org avvisa. predict scrive ora una piccola etichetta predict_last:<zona> (3 giorni) letta dal controllo. Motivo: il fermo di 19 giorni delle previsioni (9-28/10) non era stato visto da nessuno. Include tutto il v2.14.45. Su base v2.14.45
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.47 - by mdisailor engine - v2.14.47: il controllo di salute (action=health) ignora le zone senza previsioni per scelta (vada e bonifacio, elenco HEALTH_IGNORE con il motivo, visibili nella risposta come 'ignorate'): il primo controllo del 3/11 le aveva trovate ferme da sempre e avrebbero dato errore ogni 30 minuti; aggiunto soft=1 (risponde sempre 200, per leggerlo con strumenti che scartano gli errori); il ripiego sullo storico riporta anche model_used. Include tutto il v2.14.46. Su base v2.14.46
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2738,6 +2738,13 @@ function aiDiag(aiRes, aiData) {
 // (3) il salvataggio orario dei modelli sulle stazioni manuali giri, (4) il ripiego su Sonnet non scatti troppo.
 // Risponde 503 se qualcosa e' rotto (cosi' cron-job.org lo segna come fallito e avvisa), 200 se tutto bene o solo
 // avvisi. Funzione pura: il tempo e l'offset di Roma si passano da fuori (collaudata con orari inventati).
+// Zone attive che NON hanno previsioni per scelta: il primo controllo (3/11) le ha trovate ferme da sempre. Restano
+// elencate nella risposta ("ignorate") ma non fanno scattare l'errore, altrimenti cron-job.org segnerebbe il lavoro
+// come fallito ogni 30 minuti per sempre (falso allarme). Se si decide di dar loro previsioni, toglierle da qui.
+var HEALTH_IGNORE = {
+  vada: 'zona senza previsioni: stazione di riferimento (Vada) giudicata inaffidabile, decisione D1 del 22/10 e 27/10',
+  bonifacio: 'zona senza previsioni: stazione di riferimento (Cap Pertusato) esclusa per effetti di costa, decisione D2'
+};
 var HEALTH_SLOTS = [[7, 15], [13, 15]]; // giri delle previsioni, ora di Roma
 var HEALTH_GRACE_MIN = 90;
 function healthDueSlotMs(nowMs, romeOffsetMin) {
@@ -2755,7 +2762,9 @@ function healthDueSlotMs(nowMs, romeOffsetMin) {
 function buildHealth(inp) {
   var now = inp.nowMs, due = healthDueSlotMs(now, inp.romeOffsetMin), problems = [], out = { checked_at: new Date(now).toISOString() };
   // 1) previsioni per zona
-  var overdue = [], missing = [], okN = 0, zones = inp.zones || [];
+  var overdue = [], missing = [], okN = 0, allZones = inp.zones || [];
+  var zones = allZones.filter(function(z) { return !z.ignore; });
+  out.ignorate = allZones.filter(function(z) { return z.ignore; }).map(function(z) { return { zona: z.key, motivo: z.ignoreReason || null }; });
   zones.forEach(function(z) {
     if (!z.last || !z.last.ts) { missing.push(z.key); return; }
     var t = new Date(z.last.ts).getTime();
@@ -2858,7 +2867,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.46', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.47', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -4432,15 +4441,15 @@ if (action === 'health') {
     var hZones = [];
     for (var hI = 0; hI < hzKeys.length; hI++) {
       var hLast = hlRes[hI] && typeof hlRes[hI] === 'object' ? hlRes[hI] : null;
-      if (!hLast) {
+      if (!hLast && !HEALTH_IGNORE[hzKeys[hI]]) { // le zone ignorate non hanno previsioni per scelta: inutile leggere il loro storico a ogni controllo
         var hHist = await kvGet('predict_history:' + hzKeys[hI], kvUrl, kvToken);
         if (Array.isArray(hHist)) {
           var hPred = hHist.filter(function(x) { return x && x.source !== 'situazione' && x.generated_at; });
           hPred.sort(function(a, b) { return new Date(b.generated_at) - new Date(a.generated_at); });
-          if (hPred.length) hLast = { ts: hPred[0].generated_at, slot: hPred[0].slot || null, ai_fallback: hPred[0].ai_fallback };
+          if (hPred.length) hLast = { ts: hPred[0].generated_at, slot: hPred[0].slot || null, ai_fallback: hPred[0].ai_fallback, model_used: hPred[0].model_used || null };
         }
       }
-      hZones.push({ key: hzKeys[hI], last: hLast, snapOk: null });
+      hZones.push({ key: hzKeys[hI], last: hLast, snapOk: null, ignore: !!HEALTH_IGNORE[hzKeys[hI]], ignoreReason: HEALTH_IGNORE[hzKeys[hI]] || null });
     }
     // fotografie: le ultime 4 mezz'ore (2 ore) per ogni zona attiva, in una sola lettura
     var hSnapKeys = [], hSnapIdx = [];
@@ -4455,8 +4464,9 @@ if (action === 'health') {
     hSnapVals.forEach(function(v, i) { if (v) hZones[hSnapIdx[i]].snapOk = true; });
     var hMl = await kvGet('manual_models_last', kvUrl, kvToken);
     var hOut = buildHealth({ nowMs: hNow, romeOffsetMin: hOff, zones: hZones, manualModelsLast: hMl });
-    if (req.query.detail === '1') hOut.dettaglio_zone = hZones.map(function(z) { return { zona: z.key, ultima_previsione: z.last ? z.last.ts : null, modello: z.last ? z.last.model_used || null : null, fotografie_ok: z.snapOk }; });
-    return res.status(hOut.status === 'fail' ? 503 : 200).json(hOut);
+    if (req.query.detail === '1') hOut.dettaglio_zone = hZones.map(function(z) { return { zona: z.key, ignorata: !!z.ignore, ultima_previsione: z.last ? z.last.ts : null, modello: z.last ? z.last.model_used || null : null, fotografie_ok: z.snapOk }; });
+    // soft=1: risponde sempre 200 con lo stesso contenuto (per leggerlo con strumenti che scartano le risposte di errore); lo stato vero e' nel campo status
+    return res.status((hOut.status === 'fail' && req.query.soft !== '1') ? 503 : 200).json(hOut);
   } catch(e) {
     return res.status(500).json({ status: 'fail', error: e.message });
   }
@@ -7708,7 +7718,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.46 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.47 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -7839,4 +7849,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.46
+// Fine codice - NAUTILUS ENGINE v2.14.47

@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA2 v1.14 - mdisailor - 2026-11-03 - v1.14: bottone NODI rifinito su richiesta di M: (1) etichetta "NODI" invece di "12 KN" (il 12 era un numero d'esempio, non si capiva); (2) con GRID spento i numeri della velocita' restano (la freccia generica no): i punti di griglia restano nel ciclo con noDraw e il numero sta sul punto; (3) carattere meno pesante (500 invece di bold, font di sistema) e piu' grande (13 px, 12 sotto lo zoom 8, 14 da 10 in su). Su base v1.13 -->
+<!-- NAUTILUS MAPPA2 v1.15 - mdisailor - 2026-11-03 - v1.15: OI, direzione delle stazioni con vento debole: per Orbetello e Giglio Porto (direzione entro 45 gradi da OM solo nel 16% e 29% dei casi sotto i 4 kn, model_dir_report 4/10-3/11) il peso della direzione sale da 0 a 3 kn al nominale a 7 kn, il resto passa a OM; la velocita' non cambia; le altre stazioni invariate (il fix del 1/7 per Bocca d'Arno e Viareggio resta). Interruttore OI_DIR_WEAK_ALL per estenderlo a tutte. Su base v1.14 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa2 Vento v1.14</title>
+<title>NAUTILUS Mappa2 Vento v1.15</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -241,7 +241,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa2 v1.14</span>
+    <span id="nav-ver">mappa2 v1.15</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -304,11 +304,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA2 v1.14 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA2 v1.15 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA2 v1.14
+// NAUTILUS MAPPA2 v1.15
 
 var ENGINE_URL = '/api/engine';
 
@@ -1391,6 +1391,24 @@ var OI_MIN_STATIONS = 2;
 var FLOW_GRIDRULE_BOOST = 15;
 // Stazioni escluse da OI: dati inaffidabili, in osservazione. Rimuovere quando promosse.
 var OI_EXCLUDED = { 'bonifacio_mnw': true, 'vada_mnw': true };
+// 2026-11-03 (M): stazioni la cui DIREZIONE con vento debole non e' affidabile (model_dir_report 4/10-3/11, direzione
+// entro 45 gradi da OM: Orbetello 16% sotto i 4 kn e 41% tra 4 e 8, Giglio Porto 29% e 42%, contro il 56% e il 65% della
+// media). Orbetello non sta sulla costa e ha effetti locali (riparo, brezze): il 3/11 la stazione dava 280 gradi con 1-3 kn
+// contro un Nord-Est generale di 10-23 kn. Per queste stazioni il peso della DIREZIONE sale da 0 (a [lo] kn) al peso nominale
+// (a [hi] kn), in rampa; sotto [lo] la cella segue OM. La VELOCITA' resta col peso pieno (errore 1.4-2 kn, buona), cosi' come
+// tutto il resto delle stazioni: il fix del 2026-07-01 (direzione al peso nominale per non far perdere il controllo alle
+// stazioni con vento debole, bug Bocca d'Arno/Viareggio, dove la direzione e' vera) VALE ANCORA per loro.
+// OI_DIR_WEAK_ALL = true estende la rampa [3,7] a TUTTE le stazioni (non fatto: rimetterebbe in discussione quel fix).
+var OI_DIR_WEAK = { 'orbetello': [3, 7], 'giglio_porto': [3, 7] };
+var OI_DIR_WEAK_ALL = false;
+var OI_DIR_WEAK_DEFAULT = [3, 7];
+function oiDirFactor(stKey, speed) {
+  var cfg = OI_DIR_WEAK[stKey] || (OI_DIR_WEAK_ALL ? OI_DIR_WEAK_DEFAULT : null);
+  if (!cfg || speed === null || speed === undefined || isNaN(speed)) return 1;
+  if (speed >= cfg[1]) return 1;
+  if (speed <= cfg[0]) return 0;
+  return (speed - cfg[0]) / (cfg[1] - cfg[0]);
+}
 var state_biasMatrix = null; // Cache bias_matrix caricata all'avvio
 var state_gridRules = {};  // Regole per cella: { "43.25_10.65": { allowed_stations: [...] } }
 
@@ -1648,13 +1666,25 @@ function applyOI(gridData, stationData){
     // La direzione deve seguire il peso nominale (min_weight/omInfluence), non il modulo
     // vettoriale che varia con la velocità — altrimenti stazioni con vento debole perdono
     // il controllo della direzione anche con min_weight alto (bug Bocca d'Arno/Viareggio)
+    // 2026-11-03: per le stazioni con direzione inaffidabile sulle calme (OI_DIR_WEAK) il peso della direzione e' ridotto
+    // dalla rampa sulla loro velocita'; il peso tolto passa a OM (la somma resta 1). Se nessuna stazione e' coinvolta il
+    // calcolo e' identico a prima.
+    var dirFactors = contributions.map(function(c){ return oiDirFactor(c.st.key, c.st.speed); });
+    var dirReduced = dirFactors.some(function(f){ return f < 1; });
+    var dirOmInfluence = omInfluence;
+    if (dirReduced) {
+      var dirStationSum = 0;
+      contributions.forEach(function(c, ci){ dirStationSum += c.w * scale * dirFactors[ci]; });
+      dirOmInfluence = 1.0 - Math.min(1.0, dirStationSum);
+    }
     var omRad = degToRad(pt.dir);
-    var finalU = -Math.sin(omRad) * omInfluence;
-    var finalV = -Math.cos(omRad) * omInfluence;
-    contributions.forEach(function(c){
+    var finalU = -Math.sin(omRad) * dirOmInfluence;
+    var finalV = -Math.cos(omRad) * dirOmInfluence;
+    contributions.forEach(function(c, ci){
       var stRad = degToRad(c.st.dir);
-      finalU += -Math.sin(stRad) * c.w * scale;
-      finalV += -Math.cos(stRad) * c.w * scale;
+      var dw = c.w * scale * dirFactors[ci];
+      finalU += -Math.sin(stRad) * dw;
+      finalV += -Math.cos(stRad) * dw;
     });
     var finalDir = Math.atan2(-finalU, -finalV) * 180 / Math.PI;
     if (finalDir < 0) finalDir += 360;
@@ -2478,7 +2508,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine script - NAUTILUS MAPPA2 v1.14 (segue markup HTML pannello osservazioni, non altro codice)
+// Fine script - NAUTILUS MAPPA2 v1.15 (segue markup HTML pannello osservazioni, non altro codice)
 </script>
 <!-- Pannello inserimento osservazione manuale -->
 <div id="obs-panel">
@@ -2518,4 +2548,4 @@ function refreshMnwStation(sid, popupId, name) {
 </body>
 </html>
 
-<!-- Fine codice - NAUTILUS MAPPA2 v1.14 -->
+<!-- Fine codice - NAUTILUS MAPPA2 v1.15 -->

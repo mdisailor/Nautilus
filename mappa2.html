@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA2 v1.15 - mdisailor - 2026-11-03 - v1.15: OI, direzione delle stazioni con vento debole: per Orbetello e Giglio Porto (direzione entro 45 gradi da OM solo nel 16% e 29% dei casi sotto i 4 kn, model_dir_report 4/10-3/11) il peso della direzione sale da 0 a 3 kn al nominale a 7 kn, il resto passa a OM; la velocita' non cambia; le altre stazioni invariate (il fix del 1/7 per Bocca d'Arno e Viareggio resta). Interruttore OI_DIR_WEAK_ALL per estenderlo a tutte. Su base v1.14 -->
+<!-- NAUTILUS MAPPA2 v1.16 - mdisailor - 2026-11-03 - v1.16: OI, Orbetello: la fiducia nella VELOCITA' della stazione cresce con la sua velocita' (0.3 fino a 3 kn, piena da 8 kn, rampa in mezzo): con 1.6 kn da Sud la stazione non impone piu' il suo valore alle celle intorno (a 15 km pesava 0.8) mentre con vento moderato e forte, dove ha ragione, resta come prima; la rampa della direzione (v1.15) resta. Le altre stazioni invariate. Su base v1.15 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa2 Vento v1.15</title>
+<title>NAUTILUS Mappa2 Vento v1.16</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -241,7 +241,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa2 v1.15</span>
+    <span id="nav-ver">mappa2 v1.16</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -304,11 +304,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA2 v1.15 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA2 v1.16 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA2 v1.15
+// NAUTILUS MAPPA2 v1.16
 
 var ENGINE_URL = '/api/engine';
 
@@ -1401,6 +1401,21 @@ var OI_EXCLUDED = { 'bonifacio_mnw': true, 'vada_mnw': true };
 // OI_DIR_WEAK_ALL = true estende la rampa [3,7] a TUTTE le stazioni (non fatto: rimetterebbe in discussione quel fix).
 var OI_DIR_WEAK = { 'orbetello': [3, 7], 'giglio_porto': [3, 7] };
 var OI_DIR_WEAK_ALL = false;
+// 2026-11-03 (M, stesso giorno, dopo gli screenshot): la rampa della sola direzione non basta. Con OI acceso la stazione di
+// Orbetello (1.6 kn da Sud) imponeva la sua VELOCITA' con peso 0.8-1 fino a 15 km e il flusso intorno cambiava (celle corrette da
+// 26 a 100 su 426), mentre tutto intorno era Nord-Est. Orbetello non e' sulla costa (laguna, riparo, brezze) e col vento debole
+// non rappresenta l'area. Un tetto fisso di fiducia (come STATION_TRUST_CAP) toglierebbe peso anche col vento FORTE, dove la
+// stazione ha ragione (model_dir_report: OM sta 6.8 kn sotto la stazione sopra i 12 kn). Quindi la fiducia nella velocita'
+// cresce con la velocita' della stazione: [min] fino a [lo] kn, piena da [hi] kn, rampa lineare in mezzo. Vale per il PESO
+// complessivo (velocita' e direzione). Le altre stazioni non cambiano.
+var OI_WEAK_TRUST = { 'orbetello': { lo: 3, hi: 8, min: 0.3 } };
+function oiSpeedTrust(stKey, speed) {
+  var cfg = OI_WEAK_TRUST[stKey];
+  if (!cfg || speed === null || speed === undefined || isNaN(speed)) return 1;
+  if (speed >= cfg.hi) return 1;
+  if (speed <= cfg.lo) return cfg.min;
+  return cfg.min + (1 - cfg.min) * (speed - cfg.lo) / (cfg.hi - cfg.lo);
+}
 var OI_DIR_WEAK_DEFAULT = [3, 7];
 function oiDirFactor(stKey, speed) {
   var cfg = OI_DIR_WEAK[stKey] || (OI_DIR_WEAK_ALL ? OI_DIR_WEAK_DEFAULT : null);
@@ -1562,7 +1577,7 @@ function applyOI(gridData, stationData){
   // col suo dato reale, a meno di una grid_rule scritta a mano. Ora ogni stazione
   // di zona comanda quasi totalmente la propria area ravvicinata di default.
   var OI_LOCAL_DOMINANCE_KM = 15;
-  function stationWeight(distKm, stationKey) {
+  function stationWeight(distKm, stationKey, stationSpeed) {
     if (distKm >= OI_MAX_DIST_KM) return 0.0;
     var w;
     if (distKm <= 0) {
@@ -1577,7 +1592,8 @@ function applyOI(gridData, stationData){
       }
     }
     var cap = STATION_TRUST_CAP[stationKey];
-    return (cap !== undefined) ? Math.min(w, cap) : w;
+    if (cap !== undefined) w = Math.min(w, cap);
+    return w * oiSpeedTrust(stationKey, stationSpeed); // 3/11: fiducia in rampa sulla velocita' per le stazioni poco rappresentative (OI_WEAK_TRUST)
   }
 
   return gridData.map(function(pt){
@@ -1611,7 +1627,7 @@ function applyOI(gridData, stationData){
       // penalizzava proprio le stazioni che divergono di piu' da OM, cioe' quelle
       // con l'effetto orografico locale piu' forte e piu' vero). Nella vista diretta
       // il dato di stazione e' sempre vero: il peso e' solo funzione della distanza.
-      var w = stationWeight(d, st.key);
+      var w = stationWeight(d, st.key, st.speed);
       if (w > 0) contributions.push({ st: st, d: d, w: w });
     });
 
@@ -2508,7 +2524,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine script - NAUTILUS MAPPA2 v1.15 (segue markup HTML pannello osservazioni, non altro codice)
+// Fine script - NAUTILUS MAPPA2 v1.16 (segue markup HTML pannello osservazioni, non altro codice)
 </script>
 <!-- Pannello inserimento osservazione manuale -->
 <div id="obs-panel">
@@ -2548,4 +2564,4 @@ function refreshMnwStation(sid, popupId, name) {
 </body>
 </html>
 
-<!-- Fine codice - NAUTILUS MAPPA2 v1.15 -->
+<!-- Fine codice - NAUTILUS MAPPA2 v1.16 -->

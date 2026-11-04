@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.47 - by mdisailor engine - v2.14.47: il controllo di salute (action=health) ignora le zone senza previsioni per scelta (vada e bonifacio, elenco HEALTH_IGNORE con il motivo, visibili nella risposta come 'ignorate'): il primo controllo del 3/11 le aveva trovate ferme da sempre e avrebbero dato errore ogni 30 minuti; aggiunto soft=1 (risponde sempre 200, per leggerlo con strumenti che scartano gli errori); il ripiego sullo storico riporta anche model_used. Include tutto il v2.14.46. Su base v2.14.46
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.48 - by mdisailor engine - v2.14.48: AVVISO SU TELEGRAM dal controllo di salute (action=health senza soft=1): quando lo stato passa a errore manda un messaggio (nuovo, cambiato al massimo una volta all'ora, promemoria ogni 6 ore, ripristino), solo sul passaggio di stato; stato in health_alert_state e registro dei cambi in health_log (action=health_log); action=health_alert_test per provare la consegna (richiede sempre il segreto). Variabili Vercel ALERT_TELEGRAM_TOKEN e ALERT_TELEGRAM_CHAT. Motivo: cron-job.org non ha mai mandato un avviso di errore (provato il 3/11). Include tutto il v2.14.47. Su base v2.14.47
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2799,6 +2799,66 @@ function buildHealth(inp) {
   return out;
 }
 
+// ===== 2026-11-04: AVVISO SU TELEGRAM quando il controllo di salute trova un errore =====
+// Perche': cron-job.org non ha mai mandato un'email di errore a M (nemmeno nelle settimane del fermo di ottobre; provato il 3/11
+// con un lavoro verso un indirizzo inesistente: errore registrato, nessuna mail). L'avviso parte quindi dal nostro motore, che sa
+// gia' ad ogni controllo se qualcosa e' rotto. Solo sul PASSAGGIO di stato (non un messaggio ogni 30 minuti): errore nuovo, errore
+// cambiato (al massimo una volta all'ora), promemoria ogni 6 ore mentre dura, ripristino. Gli avvisi (giallo) NON mandano niente.
+// Lo stato precedente sta in Redis (health_alert_state), il registro dei cambi di stato in health_log (ultimi 100). Si valuta solo
+// nelle chiamate SENZA soft=1 (il lavoro di cron-job.org) e senza alert=0: le letture di M e dell'app con soft=1 non cambiano niente.
+// Variabili in Vercel: ALERT_TELEGRAM_TOKEN e ALERT_TELEGRAM_CHAT (mai nelle risposte ne' nei log).
+var HEALTH_REMINDER_HOURS = 6;
+function healthAlertDecision(prev, cur, nowMs, reminderHours) {
+  var prevStatus = prev && prev.status ? prev.status : 'ok';
+  var remMs = (reminderHours || HEALTH_REMINDER_HOURS) * 3600000;
+  if (cur.status === 'fail') {
+    if (prevStatus !== 'fail') return 'new';
+    var la = prev && prev.last_alert ? new Date(prev.last_alert).getTime() : 0;
+    var prevAreas = ((prev && prev.areas) || []).slice().sort().join(','), curAreas = (cur.areas || []).slice().sort().join(',');
+    if (prevAreas !== curAreas && (!la || nowMs - la >= 3600000)) return 'changed';
+    if (!la || nowMs - la >= remMs) return 'reminder';
+    return null;
+  }
+  return prevStatus === 'fail' ? 'resolved' : null;
+}
+function healthFmtDuration(ms) {
+  var m = Math.max(0, Math.round(ms / 60000));
+  if (m < 90) return m + ' minuti';
+  var h = Math.floor(m / 60), r = m % 60;
+  return h + ' h' + (r ? ' ' + r + ' min' : '');
+}
+function healthAlertText(type, health, prev, nowMs) {
+  var rome = new Date(nowMs).toLocaleTimeString('it-IT', { timeZone: 'Europe/Rome', hour: '2-digit', minute: '2-digit' });
+  var lines = (health.problemi || []).filter(function(p) { return p.livello === 'fail'; }).slice(0, 5).map(function(p) { return '• ' + p.area + ': ' + p.messaggio; });
+  var link = '\nDettaglio: https://nautilus-red.vercel.app/api/engine?action=health&detail=1&soft=1';
+  var since = prev && prev.since ? healthFmtDuration(nowMs - new Date(prev.since).getTime()) : null;
+  if (type === 'new') return '🔴 NAUTILUS: problema\n' + lines.join('\n') + '\nOra: ' + rome + ' (Roma)' + link;
+  if (type === 'changed') return '🟠 NAUTILUS: il problema e\' cambiato\n' + lines.join('\n') + '\nOra: ' + rome + ' (Roma)' + link;
+  if (type === 'reminder') return '🔴 NAUTILUS: il problema continua' + (since ? ' da ' + since : '') + '\n' + lines.join('\n') + '\nOra: ' + rome + ' (Roma)' + link;
+  if (type === 'resolved') return '🟢 NAUTILUS: tutto a posto' + (since ? '\nIl problema e\' durato ' + since + '.' : '') + '\nOra: ' + rome + ' (Roma)';
+  return '';
+}
+function healthLogAppend(log, entry, cap) {
+  var a = Array.isArray(log) ? log.slice() : [];
+  a.unshift(entry);
+  return a.slice(0, cap || 100);
+}
+async function sendTelegramAlert(text) {
+  var token = process.env.ALERT_TELEGRAM_TOKEN || '', chat = process.env.ALERT_TELEGRAM_CHAT || '';
+  if (!token || !chat) return { sent: false, configured: false };
+  var clean = function(s) { return String(s || '').split(token).join('***'); };
+  try {
+    var ctl = new AbortController(), tm = setTimeout(function() { ctl.abort(); }, 5000);
+    var r = await fetch('https://api.telegram.org/bot' + token + '/sendMessage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: chat, text: text, disable_web_page_preview: true }), signal: ctl.signal });
+    clearTimeout(tm);
+    var j = null; try { j = await r.json(); } catch (eJ) {}
+    if (r.ok && j && j.ok) return { sent: true, configured: true };
+    return { sent: false, configured: true, error: clean('Telegram HTTP ' + r.status + (j && j.description ? ': ' + j.description : '')) };
+  } catch (e) {
+    return { sent: false, configured: true, error: e && e.name === 'AbortError' ? 'timeout (5 s)' : clean(e && e.message) };
+  }
+}
+
 module.exports = async function handler(req, res) {
 
 // getNowRome spostata a livello modulo (audit A6) — vedi definizione sopra fetchECMWF
@@ -2867,7 +2927,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.47', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.48', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -4465,11 +4525,49 @@ if (action === 'health') {
     var hMl = await kvGet('manual_models_last', kvUrl, kvToken);
     var hOut = buildHealth({ nowMs: hNow, romeOffsetMin: hOff, zones: hZones, manualModelsLast: hMl });
     if (req.query.detail === '1') hOut.dettaglio_zone = hZones.map(function(z) { return { zona: z.key, ignorata: !!z.ignore, ultima_previsione: z.last ? z.last.ts : null, modello: z.last ? z.last.model_used || null : null, fotografie_ok: z.snapOk }; });
+    // 2026-11-04: avviso su Telegram sul passaggio di stato; solo per le chiamate senza soft=1 (il lavoro di cron-job.org)
+    if (req.query.soft !== '1' && req.query.alert !== '0') {
+      try {
+        var hPrev = await kvGet('health_alert_state', kvUrl, kvToken);
+        var hFailAreas = [];
+        hOut.problemi.forEach(function(p) { if (p.livello === 'fail' && hFailAreas.indexOf(p.area) < 0) hFailAreas.push(p.area); });
+        var hType = healthAlertDecision(hPrev, { status: hOut.status, areas: hFailAreas }, hNow, HEALTH_REMINDER_HOURS);
+        var hRes = hType ? await sendTelegramAlert(healthAlertText(hType, hOut, hPrev, hNow)) : null;
+        var hSent = !!(hRes && hRes.sent), hPrevStatus = hPrev && hPrev.status ? hPrev.status : 'ok', hIso = new Date(hNow).toISOString();
+        var hNewSt = { status: hOut.status, since: (!hPrev || !hPrev.since || hOut.status !== hPrevStatus) ? hIso : hPrev.since, areas: hOut.status === 'fail' ? hFailAreas : [], last_alert: hSent ? hIso : ((hOut.status !== hPrevStatus) ? null : ((hPrev && hPrev.last_alert) || null)) }; // l'orario dell'ultimo avviso appartiene all'episodio: a ogni cambio di stato si azzera, cosi' se il messaggio non parte (Telegram che risponde male) il controllo dopo riprova subito invece di aspettare 6 ore dall'avviso di un episodio precedente (trovato dal collaudo)
+        if (!hPrev || hPrev.status !== hNewSt.status || hPrev.since !== hNewSt.since || hPrev.last_alert !== hNewSt.last_alert || ((hPrev.areas || []).join(',') !== hNewSt.areas.join(','))) {
+          await kvSet('health_alert_state', hNewSt, 31536000, kvUrl, kvToken);
+        }
+        if (hOut.status !== hPrevStatus) { // registro dei cambi di stato (ultimi 100)
+          var hLog = await kvGet('health_log', kvUrl, kvToken);
+          hLog = healthLogAppend(hLog, { ts: hIso, da: hPrevStatus, a: hOut.status, problemi: hOut.problemi.slice(0, 3).map(function(p) { return p.area + ': ' + p.messaggio; }), avviso: hType, inviato: hRes ? hSent : null }, 100);
+          await kvSet('health_log', hLog, 31536000, kvUrl, kvToken);
+        }
+        hOut.avviso = { tipo: hType, inviato: hRes ? hSent : null, configurato: hRes ? hRes.configured !== false : !!(process.env.ALERT_TELEGRAM_TOKEN && process.env.ALERT_TELEGRAM_CHAT), errore: (hRes && hRes.error) || null };
+      } catch (eA) {
+        hOut.avviso = { tipo: null, inviato: null, errore: 'avviso non valutato: ' + eA.message };
+      }
+    }
     // soft=1: risponde sempre 200 con lo stesso contenuto (per leggerlo con strumenti che scartano le risposte di errore); lo stato vero e' nel campo status
     return res.status((hOut.status === 'fail' && req.query.soft !== '1') ? 503 : 200).json(hOut);
   } catch(e) {
     return res.status(500).json({ status: 'fail', error: e.message });
   }
+}
+
+// /api/engine?action=health_alert_test&secret=<CRON_SECRET> -- manda un messaggio di prova su Telegram. Richiede il segreto
+// SEMPRE (anche se CRON_SECRET non fosse impostato): altrimenti chiunque potrebbe riempire di messaggi il telefono di M.
+if (action === 'health_alert_test') {
+  var hatSecret = req.query.secret || '', hatExpected = process.env.CRON_SECRET || '';
+  if (!hatExpected || hatSecret !== hatExpected) return res.status(401).json({ error: 'Unauthorized' });
+  var hatRome = new Date().toLocaleTimeString('it-IT', { timeZone: 'Europe/Rome', hour: '2-digit', minute: '2-digit' });
+  var hatRes = await sendTelegramAlert('🔔 Prova NAUTILUS delle ' + hatRome + ' (Roma): se leggi questo messaggio, gli avvisi del controllo di salute ti arrivano.');
+  return res.status(200).json({ configurato: hatRes.configured !== false, inviato: !!hatRes.sent, errore: hatRes.error || null });
+}
+// /api/engine?action=health_log -- registro dei cambi di stato del controllo (ultimi 100), sola lettura
+if (action === 'health_log') {
+  var hlgLog = await kvGet('health_log', kvUrl, kvToken), hlgSt = await kvGet('health_alert_state', kvUrl, kvToken);
+  return res.status(200).json({ stato_attuale: hlgSt || null, cambi: Array.isArray(hlgLog) ? hlgLog : [] });
 }
 
 if (action === 'mnw_web_test') {
@@ -7718,7 +7816,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.47 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.48 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -7849,4 +7947,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.47
+// Fine codice - NAUTILUS ENGINE v2.14.48

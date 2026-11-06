@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA2 v1.17 - mdisailor - 2026-11-06 - v1.17: UN VALORE SOLO PER PUNTO (richiesta di M: un numero sulla mappa e' o il dato vero, o quello ricalcolato, o il modello, e il popup di quel punto dice lo stesso numero): la freccia di zona di Livorno usa la stima della stazione (lettura diretta di Livornometeo o Windfinder x fattore) come punto, numero e popup (prima 12 contro 17); popup di zona con funzione unica; popup di griglia = freccia disegnata piu' vicina al click; popup di stazione riallineano freccia e numero; numeri bianchi (vero o ricalcolato) e azzurri (modello); 'Vs OM' in colore neutro. Su base v1.16 -->
+<!-- NAUTILUS MAPPA2 v1.18 - mdisailor - 2026-11-06 - v1.18: correzione di un mio errore della v1.17: il popup di griglia dichiarava "Punto stazione (dato vero)" anche quando il valore era quello di MODELLO della cella di un punto stazione senza dato vivo (cliccando nel mare a destra di Gorgona, M, 6/11). Ora "dato vero" e numero bianco solo se la freccia ha il valore vivo della stazione; il click libero descrive una cella normale della griglia (le celle dei punti stazione valgono solo per la loro freccia). Su base v1.17 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa2 Vento v1.17</title>
+<title>NAUTILUS Mappa2 Vento v1.18</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -241,7 +241,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa2 v1.17</span>
+    <span id="nav-ver">mappa2 v1.18</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -304,11 +304,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA2 v1.17 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA2 v1.18 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA2 v1.17
+// NAUTILUS MAPPA2 v1.18
 
 var ENGINE_URL = '/api/engine';
 
@@ -785,6 +785,7 @@ function drawWind(){
     }
     drawn.push(ll);
     var arrDir = pt.dir, arrSpd = pt.speed, arrGust = pt.gust;
+    var stationLive = false; // 2026-11-06: il punto stazione e' "dato vero" SOLO se ha il valore vivo della stazione (altrimenti la freccia mostra il modello della cella)
     if (pt.isStationPoint) {
       // fix v1.6.82: la freccia sulla stazione mostra sempre il dato reale,
       // letto qui al momento del disegno, indipendentemente dal tasto OI —
@@ -794,10 +795,11 @@ function drawWind(){
       var stLive = epMatch ? state.stationData.filter(function(s){ return s.key === epMatch.stationKey; })[0] : null;
       if (stLive && stLive.speed != null && stLive.dir != null) {
         arrDir = stLive.dir; arrSpd = stLive.speed; arrGust = stLive.gust;
+        stationLive = true;
       }
     }
-    var cellReal = !!pt.isStationPoint || (oiEnabled && pt.oi_correction !== undefined && Math.abs(pt.oi_correction) >= 0.05); // vero o ricalcolato (OI) = bianco; altrimenti modello
-    state.drawnCells.push({ x: ll.x, y: ll.y, pt: pt, val: { speed: arrSpd, dir: arrDir, gust: arrGust } });
+    var cellReal = stationLive || (oiEnabled && pt.oi_correction !== undefined && Math.abs(pt.oi_correction) >= 0.05); // vero o ricalcolato (OI) = bianco; altrimenti modello
+    state.drawnCells.push({ x: ll.x, y: ll.y, pt: pt, live: stationLive, val: { speed: arrSpd, dir: arrDir, gust: arrGust } });
     drawArrow(ll.x, ll.y, arrDir, arrSpd, arrGust, 0.65, false, pt.isStationPoint ? 1 : 2, !state.showGridArrows && !pt.isStationPoint, cellReal); // prio: stazioni prima della griglia; ultimo: freccia nascosta, solo numero
   });
   ZONES.forEach(function(z){
@@ -942,14 +944,19 @@ function pickGridCell(clickLat, clickLon, clickPx, drawnCells, cells){
     var dx = c.x - clickPx.x, dy = c.y - clickPx.y, dd = Math.sqrt(dx*dx + dy*dy);
     if (dd < bd){ bd = dd; bestC = c; }
   });
-  if (bestC) return { pt: bestC.pt, val: bestC.val };
-  var best = null, bestDist = 999;
+  if (bestC) return { pt: bestC.pt, val: bestC.val, live: !!bestC.live };
+  // Click libero (nel mare, lontano dalle frecce): si descrive una cella NORMALE della griglia. Le celle dei punti stazione (isStationPoint) valgono
+  // solo per la loro freccia: cliccando a 15-20 km da una stazione non si deve ricevere il valore (di modello) della sua cella come se fosse "la stazione"
+  // (visto il 6/11 a destra di Gorgona). Se non c'e' nessuna cella normale entro il limite, si ripiega su quella del punto stazione, ma come modello.
+  var best = null, bestDist = 999, bestSt = null, bestStDist = 999;
   (cells || []).forEach(function(pt){
     var d = Math.sqrt(Math.pow(pt.lat - clickLat,2) + Math.pow(pt.lon - clickLon,2));
-    if (d < bestDist){ bestDist = d; best = pt; }
+    if (pt.isStationPoint) { if (d < bestStDist){ bestStDist = d; bestSt = pt; } }
+    else if (d < bestDist){ bestDist = d; best = pt; }
   });
+  if (!best || bestDist > 0.2) { best = bestSt; bestDist = bestStDist; }
   if (!best || bestDist > 0.2) return null;
-  return { pt: best, val: { speed: best.speed, dir: best.dir, gust: best.gust } };
+  return { pt: best, val: { speed: best.speed, dir: best.dir, gust: best.gust }, live: false };
 }
 
 map.on('click', function(e){
@@ -965,7 +972,7 @@ map.on('click', function(e){
   // Trova la freccia disegnata piu' vicina (o la cella piu' vicina): vedi pickGridCell
   var picked = pickGridCell(clickLat, clickLon, map.latLngToContainerPoint(e.latlng), state.drawnCells, activeGrid());
   if (!picked) return; // troppo lontano
-  var best = picked.pt, bv = picked.val;
+  var best = picked.pt, bv = picked.val, bLive = !!picked.live; // bLive: la freccia cliccata mostra il valore VIVO della stazione
 
   var dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
   var dirName = bv.dir != null ? dirs[Math.round(bv.dir/22.5)%16] : '--';
@@ -974,10 +981,10 @@ map.on('click', function(e){
   var oiStr = (oiEnabled && best.oi_correction !== undefined) ?
     '<div class="popup-ts" style="color:#00e676">OI: ' + (best.oi_correction >= 0 ? '+' : '') + best.oi_correction + ' kn</div>' : '';
   var html =
-    '<div class="popup-name" style="font-size:0.85rem">' + (best.isStationPoint ? 'Punto stazione (dato vero)' : 'Griglia OM') + '</div>' +
+    '<div class="popup-name" style="font-size:0.85rem">' + (bLive ? 'Punto stazione (dato vero)' : 'Griglia OM') + '</div>' +
     '<div class="popup-wind">' + spd + ' kn ' + dirName + '</div>' +
     '<div class="popup-wind" style="color:#ffaa00;font-size:0.85rem">Raffica: ' + gustGrid + '</div>' +
-    (best.isStationPoint ? '<div class="popup-ts">Ultimo dato della stazione</div>' : '<div class="popup-ts">Modello OM ore ' + (best.time || '--') + '</div>') +
+    (bLive ? '<div class="popup-ts">Ultimo dato della stazione</div>' : '<div class="popup-ts">Modello OM ore ' + (best.time || '--') + '</div>') +
     oiStr +
     '<div style="margin-top:8px"><button onclick="openObsPanel(' + clickLat.toFixed(5) + ',' + clickLon.toFixed(5) + ',\'\')" style="width:100%;padding:7px;background:rgba(255,149,0,0.15);border:1px solid #ff9500;border-radius:8px;font-family:DM Mono,monospace;font-size:0.55rem;color:#ff9500;cursor:pointer;letter-spacing:0.05em">📍 Inserisci osservazione</button></div>';
   gridPopup.setLatLng(e.latlng).setContent(html).openOn(map);
@@ -2598,7 +2605,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine script - NAUTILUS MAPPA2 v1.17 (segue markup HTML pannello osservazioni, non altro codice)
+// Fine script - NAUTILUS MAPPA2 v1.18 (segue markup HTML pannello osservazioni, non altro codice)
 </script>
 <!-- Pannello inserimento osservazione manuale -->
 <div id="obs-panel">
@@ -2638,4 +2645,4 @@ function refreshMnwStation(sid, popupId, name) {
 </body>
 </html>
 
-<!-- Fine codice - NAUTILUS MAPPA2 v1.17 -->
+<!-- Fine codice - NAUTILUS MAPPA2 v1.18 -->

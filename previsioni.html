@@ -1,4 +1,4 @@
-<!-- NAUTILUS PREVISIONI v3.14 - mdisailor - 2026-11-03 - v3.14: bottone NODI rifinito su richiesta di M: (1) etichetta "NODI" invece di "12 KN"; (2) con GRID spento i numeri della velocita' restano (la freccia della griglia no): la griglia entra nel ciclo con noDraw e il numero sta sul punto; (3) carattere meno pesante (500 invece di bold, font di sistema) e piu' grande (13 px, 12 sotto lo zoom 8, 14 da 10 in su). Su base v3.13 -->
+<!-- NAUTILUS PREVISIONI v3.15 - mdisailor - 2026-11-06 - v3.15: i numeri del bottone NODI hanno due colori: bianco = valore nostro (lettura vera della stazione, stima di Livorno, nostra previsione), azzurro = modello (griglia OM e ripiego sull'OM), richiesta di M (un numero sulla mappa e' o il dato vero, o quello ricalcolato, o il modello). Freccia e popup nascono gia' dallo stesso calcolo. Su base v3.14 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Previsioni Vento v3.14</title>
+<title>NAUTILUS Previsioni Vento v3.15</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -65,7 +65,7 @@
 
 <header>
   <h1>NAUTILUS &mdash; Previsioni Vento</h1>
-  <span class="ver">v3.14</span>
+  <span class="ver">v3.15</span>
   <a class="back" href="/index2.html">&larr; cruscotto</a>
 </header>
 
@@ -79,7 +79,7 @@
   <button id="btn-flow" title="Animazione flusso vento">&#x1F300; FLOW</button>
   <button id="btn-xls" title="Esporta tutti i dati orari in Excel" style="position:absolute;top:10px;left:110px;z-index:900;background:rgba(10,26,46,0.92);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;">&#128202; XLS</button>
   <button id="btn-grid-toggle" title="Mostra/nasconde le frecce della griglia OM di sfondo" class="active" style="position:absolute;top:10px;left:200px;z-index:900;background:rgba(10,26,46,0.92);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;">&#9750; GRID</button>
-  <button id="btn-knots" title="Mostra il numero di nodi accanto a ogni freccia, anche a GRID spento (spento all'apertura)" style="position:absolute;bottom:24px;left:10px;z-index:900;background:rgba(10,26,46,0.92);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;">NODI</button>
+  <button id="btn-knots" title="Mostra il numero di nodi accanto a ogni freccia, anche a GRID spento. Bianco = valore nostro (dato vero, stima o previsione), azzurro = modello (spento all'apertura)" style="position:absolute;bottom:24px;left:10px;z-index:900;background:rgba(10,26,46,0.92);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;">NODI</button>
   <div id="status"></div>
 </div>
 
@@ -298,6 +298,11 @@ function drawSingleArrow(ctx, ox, oy, rad, len, lw, colShaft, colHead, alpha){
 // attorno alle cifre per leggerle su qualunque sfondo. Il bottone parte spento. Dimensione e aspetto: qui.
 var KNOTS_FONT_PX = 13;        // carattere base: da regolare guardando lo schermo (M: "leggermente piu' grande", 3/11)
 var KNOTS_FONT_WEIGHT = 500;    // 500 = medio. M (3/11): "in grassetto non sono bellissimi" (era 'bold'). 400 = normale
+// 2026-11-06 (M): i numeri sono di due colori: BIANCO = valore nostro (lettura vera della stazione, stima di Livorno, nostra previsione), AZZURRO = modello (griglia OM).
+// Regola dell'app (M): un numero sulla mappa e' o il dato VERO, o quello RICALCOLATO, o (se non c'e' altro) quello del MODELLO; il popup del punto dice lo stesso numero
+// (qui freccia e popup nascono dallo stesso calcolo, nello stesso giro di disegno di drawAll).
+var KNOTS_COLOR_REAL = '#ffffff';
+var KNOTS_COLOR_MODEL = '#9ec5e6';
 var KNOTS_FONT_FAMILY = '-apple-system, "SF Pro Text", "Helvetica Neue", Arial, sans-serif'; // cifre piu' nitide di DM Mono sul canvas
 function knotsFontPx(zoom) { return zoom >= 10 ? KNOTS_FONT_PX + 1 : (zoom >= 8 ? KNOTS_FONT_PX : KNOTS_FONT_PX - 1); }
 function knotsLabelPos(q, zoom) {
@@ -324,14 +329,14 @@ function flushKnotLabels(ctx, zoom, queue) {
     for (var k = 0; k < placed.length; k++) { var s = placed[k]; if (r.x0 < s.x1 && r.x1 > s.x0 && r.y0 < s.y1 && r.y1 > s.y0) return; }
     placed.push(r); drawnN++;
     ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(2,12,24,0.88)'; ctx.strokeText(txt, pos.x, pos.y);
-    ctx.fillStyle = '#ffffff'; ctx.fillText(txt, pos.x, pos.y);
+    ctx.fillStyle = q.real ? KNOTS_COLOR_REAL : KNOTS_COLOR_MODEL; ctx.fillText(txt, pos.x, pos.y);
   });
   ctx.restore();
   queue.length = 0;
   return drawnN;
 }
 
-function drawArrow(ctx, cx, cy, dir, spd, gust, alpha, isZone, zoom, prio, kq, noDraw){
+function drawArrow(ctx, cx, cy, dir, spd, gust, alpha, isZone, zoom, prio, kq, noDraw, real){
   if (spd === null || spd === undefined || isNaN(spd)) return;
   if (dir === null || dir === undefined || isNaN(dir)) return;
   var zScale = Math.max(0.4, Math.min(1.4, (zoom - 6) * 0.3));
@@ -342,7 +347,7 @@ function drawArrow(ctx, cx, cy, dir, spd, gust, alpha, isZone, zoom, prio, kq, n
   var rad = (dir - 180) * Math.PI / 180;
   var colSpd  = windColor(spd);
   var colGust = (gust != null && !isNaN(gust)) ? windColor(gust) : colSpd;
-  if (kq && state.showKnots) kq.push({ cx: cx, cy: cy, rad: rad, lw: lw, spd: spd, isZone: !!isZone, centered: !!noDraw, prio: (prio === undefined ? (isZone ? 0 : 2) : prio) });
+  if (kq && state.showKnots) kq.push({ cx: cx, cy: cy, rad: rad, lw: lw, spd: spd, isZone: !!isZone, centered: !!noDraw, real: !!real, prio: (prio === undefined ? (isZone ? 0 : 2) : prio) });
   if (noDraw) return; // 3/11: GRID spento ma NODI acceso: si accoda solo il numero, la freccia non si disegna
 
   if (isZone) {
@@ -810,7 +815,7 @@ async function drawAll(){
       if (Math.sqrt(dx*dx+dy*dy) < minPx) return;
     }
     drawn.push(pt);
-    drawArrow(ctx, pt.x, pt.y, dir, spd, gust, 0.95, isZone, zoom, prio, kq, noDraw);
+    drawArrow(ctx, pt.x, pt.y, dir, spd, gust, 0.95, isZone, zoom, prio, kq, noDraw, prio === 0); // real: prio 0 = valore nostro (lettura vera, stima, nostra previsione); 1 e 2 = modello
   }
 
   // Zone nostre per prime (vincono lo spazio)
@@ -1085,4 +1090,4 @@ setInterval(loadAll, REFRESH_MS);
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS PREVISIONI v3.14 -->
+<!-- Fine codice - NAUTILUS PREVISIONI v3.15 -->

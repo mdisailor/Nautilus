@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.49 - by mdisailor engine - v2.14.49: ARCHIVIO fase A: record orari compatti per zona (22 campi, hash Redis zh:<zona>:<AAAA-MM>, un campo per ora UTC, permanente) scritti dentro saveZoneSnapshot dopo la fotografia, in try/catch e con interruttore ZH_ENABLED; azione zone_hourly_backfill (recupero delle fotografie dei 14 giorni, con segreto e budget di tempo), zone_hourly_status e zone_hourly_get (sola lettura); il controllo di salute campiona l'archivio su tre zone (solo avviso). Motivo: le fotografie vivono 14 giorni e i casi simili dell'AI guardano solo quelle (decisione di M del 10/11). Include tutto il v2.14.48. Su base v2.14.48
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.50 - by mdisailor engine - v2.14.50: (A) il record orario dell'archivio viene scritto anche da scrape_cfr (HSETNX, non sovrascrive un record piu' completo): per le zone la cui fotografia nasce da scrape_cfr mancava; (B) le fotografie scritte da scrape_cfr durano 14 giorni invece di 3 (SCF_SNAP_TTL): action=predict ne chiede sempre 14, e 16 zone su 17 collegate a una stazione CFR ne avevano 3 (scoperto leggendo l'archivio orario, decisione di M il 10/11); (C) cron_snap e il recupero accettano i nomi di zona con la maiuscola, e cron_snap segnala nella risposta i nomi non riconosciuti (unknown_zones). Include tutto il v2.14.49. Su base v2.14.49
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2801,6 +2801,28 @@ async function zhWriteHourly(zone, snapshot, data, now, restUrl, restToken) {
     return r !== null;
   } catch (e) { return false; }
 }
+// Come zhWriteHourly ma NON sovrascrive un record gia' presente (HSETNX): lo usa scrape_cfr, la cui fotografia e' spesso piu' povera (solo CFR + OM corrente)
+// di quella che cron_snap / saveZoneSnapshot scrivono con onde, ICON, IFS: il record completo vince sempre, qualunque sia l'ordine.
+async function zhWriteHourlyNX(zone, snapshot, now, restUrl, restToken) {
+  if (!ZH_ENABLED || !restUrl || !restToken) return false;
+  try {
+    var r = await kvCmd(['HSETNX', zhKey(zone, now), zhField(now), JSON.stringify(zhRecord(snapshot, null))], restUrl, restToken);
+    return r !== null;
+  } catch (e) { return false; }
+}
+// Zone da un parametro ?zones=a,b: nomi in minuscolo (il 10/11 la lista dei lavori cron_snap di M conteneva "Livorno" e "Quercianella" con la maiuscola: probabile
+// autocorrezione, ma il motore confrontava il nome esatto e un nome sbagliato non scriveva niente senza dire nulla). Restituisce anche i nomi non riconosciuti.
+function parseZonesParam(param) {
+  var asked = String(param || '').split(',').map(function(z) { return z.trim().toLowerCase(); }).filter(function(z) { return z.length; });
+  var okZ = [], unknownZ = [];
+  asked.forEach(function(zk) {
+    if (ZONES[zk] && ZONES[zk].enabled !== false) { if (okZ.indexOf(zk) < 0) okZ.push(zk); }
+    else if (unknownZ.indexOf(zk) < 0) unknownZ.push(zk);
+  });
+  return { zones: okZ, unknown: unknownZ };
+}
+// Scadenza delle fotografie scritte da scrape_cfr: 14 giorni, come quelle di saveZoneSnapshot (era 3: vedi il commento nel punto d'uso).
+var SCF_SNAP_TTL = 1209600;
 // Recupero dal passato: legge le fotografie ancora vive (14 giorni) di una zona e scrive i record orari mancanti (non sovrascrive quelli gia' scritti).
 async function zhBackfillZone(zone, nowMs, restUrl, restToken, dry) {
   var base = new Date(nowMs); base.setUTCMinutes(0, 0, 0);
@@ -3051,7 +3073,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.49', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.50', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -3497,7 +3519,12 @@ if (action === 'scrape_cfr') {
         if (merged.wind_dir_850 === undefined) merged.wind_dir_850 = null;
         if (merged.ifs_wind_speed === undefined) merged.ifs_wind_speed = null;
         if (merged.ifs_wind_dir === undefined) merged.ifs_wind_dir = null;
-        return kvSet(scfSlotKey2, merged, 86400 * 3, kvUrl, kvToken).catch(function(){});
+        // 2026-11-10: la scadenza era 3 giorni (86400 * 3). Ma action=predict chiede SEMPRE 14 giorni di fotografie (336 ore, 672 slot) per ogni zona, e questo
+        // kvSet RISCRIVEVA la chiave ad ogni giro con la scadenza corta anche quando cron_snap l'aveva scritta con 14 giorni: le zone collegate a una stazione
+        // CFR (16 su 17) avevano una finestra di 3 giorni invece di 14 (Orbetello: 142 punti dati contro i 315 di Livorno; history-check sotto il 30%).
+        // Scoperto leggendo i dati dell'archivio orario (72 ore esatte dal 7/11). Ora 14 giorni (SCF_SNAP_TTL), come saveZoneSnapshot.
+        // Poi il record orario compatto dell'archivio (HSETNX: non sovrascrive uno piu' completo gia' scritto da cron_snap).
+        return kvSet(scfSlotKey2, merged, SCF_SNAP_TTL, kvUrl, kvToken).catch(function(){}).then(function() { return zhWriteHourlyNX(mappedZone, merged, scfNow2, kvUrl, kvToken); }).catch(function(){});
       });
     });
     await Promise.all(snapSavePromises);
@@ -4692,7 +4719,7 @@ if (action === 'zone_hourly_backfill') {
   if (!zbExpected || zbSecret !== zbExpected) return res.status(401).json({ error: 'Unauthorized' });
   var zbT0 = Date.now(), zbBudget = Math.max(100, Math.min(parseInt(req.query.budget, 10) || 7000, 8000)), zbDry = req.query.dry === '1';
   var zbAll = Object.keys(ZONES);
-  var zbWant = req.query.zones ? req.query.zones.toString().split(',').map(function(x) { return x.trim(); }).filter(function(x) { return ZONES[x]; }) : zbAll;
+  var zbWant = req.query.zones ? req.query.zones.toString().split(',').map(function(x) { return x.trim().toLowerCase(); }).filter(function(x) { return ZONES[x]; }) : zbAll;
   var zbState = (req.query.reset === '1' || zbDry) ? null : await kvGet('zh_backfill_state', kvUrl, kvToken);
   var zbDone = (zbState && Array.isArray(zbState.done)) ? zbState.done.slice() : [];
   var zbOut = {}, zbTot = 0, zbDoneNow = [];
@@ -5129,10 +5156,10 @@ var csExpected = process.env.CRON_SECRET || '';
 if (csExpected && csSecret !== csExpected) {
   return res.status(401).json({ error: 'Unauthorized' });
 }
-var csZones;
+var csZones, csUnknown = [];
 if (req.query.zones) {
-  var csRequested = req.query.zones.split(',').map(function(z) { return z.trim(); });
-  csZones = csRequested.filter(function(zk) { return ZONES[zk] && ZONES[zk].enabled !== false; });
+  var csParsed = parseZonesParam(req.query.zones); // 2026-11-10: maiuscole tollerate, nomi sbagliati segnalati
+  csZones = csParsed.zones; csUnknown = csParsed.unknown;
 } else {
   csZones = Object.keys(ZONES).filter(function(zk) { return ZONES[zk].enabled !== false; });
 }
@@ -5199,7 +5226,7 @@ var csPromises = csZones.map(function(zk) {
     .catch(function(e) { csResults[zk] = { ok: false, error: e.message }; });
 });
 await Promise.all(csPromises);
-return res.status(200).json({ ok: true, ts: new Date().toISOString(), zones: csResults });
+return res.status(200).json({ ok: true, ts: new Date().toISOString(), zones: csResults, unknown_zones: csUnknown });
 }
 
 if (action === 'cron') {
@@ -7999,7 +8026,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.49 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.50 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -8130,4 +8157,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.49
+// Fine codice - NAUTILUS ENGINE v2.14.50

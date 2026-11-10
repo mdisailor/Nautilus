@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.48 - by mdisailor engine - v2.14.48: AVVISO SU TELEGRAM dal controllo di salute (action=health senza soft=1): quando lo stato passa a errore manda un messaggio (nuovo, cambiato al massimo una volta all'ora, promemoria ogni 6 ore, ripristino), solo sul passaggio di stato; stato in health_alert_state e registro dei cambi in health_log (action=health_log); action=health_alert_test per provare la consegna (richiede sempre il segreto). Variabili Vercel ALERT_TELEGRAM_TOKEN e ALERT_TELEGRAM_CHAT. Motivo: cron-job.org non ha mai mandato un avviso di errore (provato il 3/11). Include tutto il v2.14.47. Su base v2.14.47
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.49 - by mdisailor engine - v2.14.49: ARCHIVIO fase A: record orari compatti per zona (22 campi, hash Redis zh:<zona>:<AAAA-MM>, un campo per ora UTC, permanente) scritti dentro saveZoneSnapshot dopo la fotografia, in try/catch e con interruttore ZH_ENABLED; azione zone_hourly_backfill (recupero delle fotografie dei 14 giorni, con segreto e budget di tempo), zone_hourly_status e zone_hourly_get (sola lettura); il controllo di salute campiona l'archivio su tre zone (solo avviso). Motivo: le fotografie vivono 14 giorni e i casi simili dell'AI guardano solo quelle (decisione di M del 10/11). Include tutto il v2.14.48. Su base v2.14.48
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -1193,6 +1193,8 @@ try {
   }
 } catch(e) {}
 await kvSet(key, snapshot, 1209600, restUrl, restToken);
+// 2026-11-10: record orario compatto (archivio, fase A). DOPO la fotografia e in try/catch: non puo' mai farla fallire.
+try { await zhWriteHourly(zoneKey, snapshot, data, now, restUrl, restToken); } catch (eZh) {}
 }
 
 async function saveForecast(zoneKey, forecast, data, restUrl, restToken) {
@@ -2730,6 +2732,122 @@ function aiDiag(aiRes, aiData) {
            modello: aiData ? aiData.model || null : null, uso_token: aiData ? aiData.usage || null : null, errore_api: (aiData && aiData.error) ? aiData.error : null };
 }
 
+// ===== 2026-11-10: RECORD ORARI COMPATTI PER ZONA (archivio, fase A) =====
+// Perche': le fotografie di zona (snap:) vivono 14 giorni e poi spariscono; i casi simili dell'AI guardano solo quelle. Qui ogni fotografia scritta
+// lascia anche un record orario compatto (22 numeri, circa 110 byte) in un hash Redis per zona e mese (zh:<zona>:<AAAA-MM>, un campo per ora UTC,
+// "GGTOO"), PERMANENTE. Un solo comando (HSET) per zona e ora: niente lettura-modifica-scrittura, quindi nessuna perdita se due scritture coincidono.
+// E' scritto DOPO la fotografia e in try/catch: un errore qui non tocca mai la fotografia ne' le previsioni. Interruttore: ZH_ENABLED.
+// Decisione di M (10/11): tutti i campi della fotografia, fase A (record orari + recupero dei 14 giorni), poi B (esportazione su GitHub).
+var ZH_ENABLED = true;
+var ZH_FIELDS = ['wind_om','dir_om','gust_om','wind_obs','dir_obs','gust_obs','wind_icon','dir_icon','gust_icon','wind_ifs','dir_ifs','gust_ifs',
+                 'p_om','p_obs','p_ifs','t_om','t_real','hum','wave','swell','swell_dir','obs_src'];
+function zhNum(v, d) {
+  if (v === null || v === undefined || v === '') return null;
+  var n = Number(v); if (isNaN(n)) return null;
+  var f = Math.pow(10, d); return Math.round(n * f) / f;
+}
+// s = fotografia (gia' unita ai campi CFR), d = dati in ingresso (se ci sono: nel recupero dal passato non ci sono)
+function zhRecord(s, d) {
+  s = s || {}; d = d || {};
+  var cfr = s.wind_speed_cfr !== undefined && s.wind_speed_cfr !== null;
+  var cfrMerged = s.obs_source === 'cfr';   // wind_speed/dir/gust sono stati sostituiti dai valori reali della stazione CFR
+  var omSpd = (s.wind_speed_om !== undefined && s.wind_speed_om !== null) ? s.wind_speed_om : (cfrMerged ? null : s.wind_speed);
+  var omDir = (s.wind_dir_om !== undefined && s.wind_dir_om !== null) ? s.wind_dir_om : (cfrMerged ? null : s.wind_dir);
+  var omGust = (d.wind_gust !== undefined && d.wind_gust !== null) ? d.wind_gust : (cfrMerged ? null : s.wind_gust); // con la CFR unita, wind_gust e' quella della stazione
+  var oSpd, oDir, oGust;
+  if (cfr) { oSpd = s.wind_speed_cfr; oDir = s.wind_dir_cfr; oGust = s.wind_gust_cfr; }
+  else if (cfrMerged) { oSpd = s.wind_speed; oDir = s.wind_dir; oGust = s.wind_gust; }
+  else { oSpd = s.wind_speed_obs; oDir = s.wind_dir_obs; oGust = s.wind_gust_obs; }
+  var src = cfr ? 'cfr' : (s.obs_source || null);
+  return [
+    zhNum(omSpd, 1), zhNum(omDir, 0), zhNum(omGust, 1),
+    zhNum(oSpd, 1), zhNum(oDir, 0), zhNum(oGust, 1),
+    zhNum(s.wind_speed_icon, 1), zhNum(s.wind_dir_icon, 0), zhNum(s.wind_gust_icon, 1),
+    zhNum(s.ifs_wind_speed, 1), zhNum(s.ifs_wind_dir, 0), zhNum(s.ifs_wind_gust, 1),
+    zhNum(s.pressure, 1), zhNum(s.pressure_obs, 1), zhNum(s.ifs_pressure, 1),
+    zhNum(s.temp_air, 1), zhNum(s.temp_air_real, 1), zhNum(s.humidity, 0),
+    zhNum(s.wave_height, 1), zhNum(s.swell_height, 1), zhNum(s.swell_dir, 0),
+    src
+  ];
+}
+function zhDecode(arr) {
+  var o = {}; if (!Array.isArray(arr)) return o;
+  ZH_FIELDS.forEach(function(f, i) { o[f] = arr[i] === undefined ? null : arr[i]; });
+  return o;
+}
+function zhKey(zone, d) { return 'zh:' + zone + ':' + d.toISOString().slice(0, 7); }
+function zhField(d) { var s = d.toISOString(); return s.slice(8, 10) + 'T' + s.slice(11, 13); }
+function zhHourIso(key, field) { return key.slice(key.lastIndexOf(':') + 1) + '-' + field.slice(0, 2) + 'T' + field.slice(3, 5); } // "2026-11" + "10T14" -> "2026-11-10T14"
+// comando generico per Upstash (HSET, HKEYS, HMGET, HGETALL...): restituisce result oppure null
+async function kvCmd(cmd, restUrl, restToken) {
+  if (!restUrl || !restToken) return null;
+  try {
+    var res = await fetch(restUrl, { method: 'POST', headers: { 'Authorization': 'Bearer ' + restToken, 'Content-Type': 'application/json' }, body: JSON.stringify(cmd) });
+    if (!res.ok) return null;
+    var data = await res.json();
+    return (data.result === undefined) ? null : data.result;
+  } catch (e) { return null; }
+}
+function zhPairs(raw) { // HGETALL: Upstash risponde con un elenco piatto [campo, valore, ...]; per sicurezza si accetta anche un oggetto
+  var o = {};
+  if (Array.isArray(raw)) { for (var i = 0; i + 1 < raw.length; i += 2) o[raw[i]] = raw[i + 1]; }
+  else if (raw && typeof raw === 'object') o = raw;
+  return o;
+}
+async function zhWriteHourly(zone, snapshot, data, now, restUrl, restToken) {
+  if (!ZH_ENABLED || !restUrl || !restToken) return false;
+  try {
+    var r = await kvCmd(['HSET', zhKey(zone, now), zhField(now), JSON.stringify(zhRecord(snapshot, data))], restUrl, restToken);
+    return r !== null;
+  } catch (e) { return false; }
+}
+// Recupero dal passato: legge le fotografie ancora vive (14 giorni) di una zona e scrive i record orari mancanti (non sovrascrive quelli gia' scritti).
+async function zhBackfillZone(zone, nowMs, restUrl, restToken, dry) {
+  var base = new Date(nowMs); base.setUTCMinutes(0, 0, 0);
+  var keys = [], hours = [];
+  for (var h = 0; h <= 336; h++) {
+    var d = new Date(base.getTime() - h * 3600000), hk = d.toISOString().slice(0, 13);
+    keys.push('snap:' + zone + ':' + hk + '-00'); keys.push('snap:' + zone + ':' + hk + '-30'); hours.push(d);
+  }
+  var vals = [];
+  for (var i = 0; i < keys.length; i += 150) { vals = vals.concat(await kvMGet(keys.slice(i, i + 150), restUrl, restToken)); }
+  var byMonth = {}, nSnap = 0;
+  for (var j = 0; j < hours.length; j++) {
+    var v0 = vals[j * 2], v30 = vals[j * 2 + 1];
+    var snap = (v30 && typeof v30 === 'object') ? v30 : ((v0 && typeof v0 === 'object') ? v0 : null); // se ci sono entrambe le mezz'ore, la piu' recente
+    if (!snap) continue;
+    nSnap++;
+    var mk = zhKey(zone, hours[j]);
+    (byMonth[mk] = byMonth[mk] || []).push([zhField(hours[j]), JSON.stringify(zhRecord(snap, null))]);
+  }
+  var written = 0, skipped = 0, months = Object.keys(byMonth);
+  for (var m = 0; m < months.length; m++) {
+    var existing = await kvCmd(['HKEYS', months[m]], restUrl, restToken), have = {};
+    (Array.isArray(existing) ? existing : []).forEach(function(f) { have[f] = true; });
+    var todo = byMonth[months[m]].filter(function(p) { if (have[p[0]]) { skipped++; return false; } return true; });
+    if (dry) { written += todo.length; continue; }
+    for (var c = 0; c < todo.length; c += 150) {
+      var args = ['HSET', months[m]];
+      todo.slice(c, c + 150).forEach(function(p) { args.push(p[0], p[1]); });
+      var r = await kvCmd(args, restUrl, restToken);
+      if (r !== null) written += Math.min(150, todo.length - c);
+    }
+  }
+  return { snapshot_trovati: nSnap, record_scritti: written, gia_presenti: skipped, mesi: months };
+}
+// Ore fa dell'ultimo record orario di una zona entro le ultime 40 ore (0 = ora corrente), oppure null. Per il controllo di salute.
+async function zhLastHourAge(zone, nowMs, restUrl, restToken) {
+  var byKey = {};
+  for (var h = 0; h < 40; h++) { var d = new Date(nowMs - h * 3600000), k = zhKey(zone, d); (byKey[k] = byKey[k] || []).push({ f: zhField(d), h: h }); }
+  var best = null;
+  for (var k2 in byKey) {
+    var res = await kvCmd(['HMGET', k2].concat(byKey[k2].map(function(x) { return x.f; })), restUrl, restToken);
+    if (!Array.isArray(res)) continue;
+    res.forEach(function(v, i) { if (v !== null && v !== undefined) { var hb = byKey[k2][i].h; if (best === null || hb < best) best = hb; } });
+  }
+  return best;
+}
+
 // ===== 2026-11-03: CONTROLLO DI SALUTE (action=health) =====
 // Perche': il 9-10/10 le previsioni sono state ferme 19 giorni senza che nessun controllo se ne accorgesse (i costi
 // continuavano e i lavori di cron-job.org risultavano "programmati"). Il segnale giusto e' la DATA DELL'ULTIMA
@@ -2794,6 +2912,12 @@ function buildHealth(inp) {
   var fb = recent.filter(function(z) { return z.last.ai_fallback === true; }).length;
   out.ai = { previsioni_ultime_24h: recent.length, con_ripiego: fb };
   if (recent.length >= 4 && fb / recent.length >= 0.3) problems.push({ livello: 'warn', area: 'ai', messaggio: 'il ripiego su Sonnet e\' scattato in ' + fb + ' previsioni su ' + recent.length + ' (il modello veloce potrebbe non rispondere come dovrebbe)' });
+  // 5) archivio dei record orari (campione di zone): solo AVVISO, mai errore: il recupero dei 14 giorni lo rimette a posto e l'esportazione settimanale (fase B) lo controlla
+  if (inp.archivio && inp.archivio.length) {
+    var arStale = inp.archivio.filter(function(x) { return x.ore === null || x.ore > 3; });
+    out.archivio = { campione: inp.archivio };
+    if (arStale.length === inp.archivio.length) problems.push({ livello: 'warn', area: 'archivio', messaggio: 'nessun record orario nelle ultime 3 ore per ' + arStale.map(function(x) { return x.zona; }).join(', ') + ' (scrittura dei record orari ferma o non ancora partita)' });
+  }
   out.status = problems.some(function(p) { return p.livello === 'fail'; }) ? 'fail' : (problems.length ? 'warn' : 'ok');
   out.problemi = problems;
   return out;
@@ -2927,7 +3051,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.48', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.49', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -4523,7 +4647,12 @@ if (action === 'health') {
     hZones.forEach(function(z) { z.snapOk = false; });
     hSnapVals.forEach(function(v, i) { if (v) hZones[hSnapIdx[i]].snapOk = true; });
     var hMl = await kvGet('manual_models_last', kvUrl, kvToken);
-    var hOut = buildHealth({ nowMs: hNow, romeOffsetMin: hOff, zones: hZones, manualModelsLast: hMl });
+    var hArch = [];
+    if (req.query.archivio !== '0' && ZH_ENABLED) { // campione di tre zone stabili: 1-2 comandi ciascuna
+      var hArchZones = ['livorno', 'capraia', 'orbetello'];
+      for (var hAi = 0; hAi < hArchZones.length; hAi++) hArch.push({ zona: hArchZones[hAi], ore: await zhLastHourAge(hArchZones[hAi], hNow, kvUrl, kvToken) });
+    }
+    var hOut = buildHealth({ nowMs: hNow, romeOffsetMin: hOff, zones: hZones, manualModelsLast: hMl, archivio: hArch });
     if (req.query.detail === '1') hOut.dettaglio_zone = hZones.map(function(z) { return { zona: z.key, ignorata: !!z.ignore, ultima_previsione: z.last ? z.last.ts : null, modello: z.last ? z.last.model_used || null : null, fotografie_ok: z.snapOk }; });
     // 2026-11-04: avviso su Telegram sul passaggio di stato; solo per le chiamate senza soft=1 (il lavoro di cron-job.org)
     if (req.query.soft !== '1' && req.query.alert !== '0') {
@@ -4553,6 +4682,60 @@ if (action === 'health') {
   } catch(e) {
     return res.status(500).json({ status: 'fail', error: e.message });
   }
+}
+
+// /api/engine?action=zone_hourly_backfill&secret=<CRON_SECRET>[&zones=a,b][&dry=1][&reset=1][&budget=ms] -- ARCHIVIO fase A: travasa le fotografie ancora vive
+// (14 giorni) nei record orari compatti. Richiede SEMPRE il segreto. Lavora a zone, con un budget di tempo (7 s): si riapre lo stesso indirizzo finche'
+// risponde "completato": true. Non sovrascrive i record gia' presenti (quelli scritti dal vivo hanno piu' dati). dry=1 conta senza scrivere.
+if (action === 'zone_hourly_backfill') {
+  var zbSecret = req.query.secret || '', zbExpected = process.env.CRON_SECRET || '';
+  if (!zbExpected || zbSecret !== zbExpected) return res.status(401).json({ error: 'Unauthorized' });
+  var zbT0 = Date.now(), zbBudget = Math.max(100, Math.min(parseInt(req.query.budget, 10) || 7000, 8000)), zbDry = req.query.dry === '1';
+  var zbAll = Object.keys(ZONES);
+  var zbWant = req.query.zones ? req.query.zones.toString().split(',').map(function(x) { return x.trim(); }).filter(function(x) { return ZONES[x]; }) : zbAll;
+  var zbState = (req.query.reset === '1' || zbDry) ? null : await kvGet('zh_backfill_state', kvUrl, kvToken);
+  var zbDone = (zbState && Array.isArray(zbState.done)) ? zbState.done.slice() : [];
+  var zbOut = {}, zbTot = 0, zbDoneNow = [];
+  for (var zbI = 0; zbI < zbWant.length; zbI++) {
+    var zbZone = zbWant[zbI];
+    if (zbDone.indexOf(zbZone) >= 0) continue;
+    if (Date.now() - zbT0 > zbBudget) break;
+    var zbInfo = await zhBackfillZone(zbZone, zbT0, kvUrl, kvToken, zbDry);
+    zbOut[zbZone] = zbInfo; zbTot += zbInfo.record_scritti; zbDoneNow.push(zbZone);
+  }
+  var zbAllDone = zbDone.concat(zbDry ? [] : zbDoneNow);
+  if (!zbDry && zbDoneNow.length) await kvSet('zh_backfill_state', { done: zbAllDone, ts: new Date().toISOString() }, 604800, kvUrl, kvToken);
+  var zbLeft = zbWant.filter(function(z) { return (zbDry ? zbDoneNow : zbAllDone).indexOf(z) < 0; });
+  return res.status(200).json({ dry: zbDry, completato: !zbDry && zbLeft.length === 0, zone_questo_giro: zbDoneNow, zone_rimaste: zbLeft, record_scritti_questo_giro: zbTot, ms: Date.now() - zbT0, dettaglio: zbOut });
+}
+// /api/engine?action=zone_hourly_status[&mesi=N] -- per ogni zona: quante ore ci sono, la prima, l'ultima e quante ne mancano nelle ultime 48 (sola lettura)
+if (action === 'zone_hourly_status') {
+  var zsMonths = Math.max(1, Math.min(parseInt(req.query.mesi, 10) || 2, 6)), zsNow = Date.now(), zsOut = {}, zsTotal = 0;
+  var zsKeys = Object.keys(ZONES);
+  await Promise.all(zsKeys.map(async function(zk) {
+    var hoursSet = {};
+    for (var mi = 0; mi < zsMonths; mi++) {
+      var d0 = new Date(zsNow); d0.setUTCDate(1); d0.setUTCMonth(d0.getUTCMonth() - mi);
+      var key = zhKey(zk, d0), fields = await kvCmd(['HKEYS', key], kvUrl, kvToken);
+      (Array.isArray(fields) ? fields : []).forEach(function(f) { hoursSet[zhHourIso(key, f)] = true; });
+    }
+    var hrs = Object.keys(hoursSet).sort();
+    var missing = 0; for (var hh = 0; hh < 48; hh++) { var dd = new Date(zsNow - hh * 3600000); if (!hoursSet[dd.toISOString().slice(0, 13)]) missing++; }
+    zsOut[zk] = { ore: hrs.length, prima: hrs[0] || null, ultima: hrs.length ? hrs[hrs.length - 1] : null, mancano_ultime_48h: hrs.length ? missing : null };
+    zsTotal += hrs.length;
+  }));
+  return res.status(200).json({ ore_totali: zsTotal, mesi_letti: zsMonths, campi: ZH_FIELDS, abilitato: ZH_ENABLED, zone: zsOut });
+}
+// /api/engine?action=zone_hourly_get&zone=livorno[&month=AAAA-MM][&limit=12] -- gli ultimi record orari di una zona, decodificati (sola lettura)
+if (action === 'zone_hourly_get') {
+  var zgZone = (req.query.zone || '').toString();
+  if (!ZONES[zgZone]) return res.status(400).json({ error: 'Zona sconosciuta', known: Object.keys(ZONES) });
+  var zgMonth = /^\d{4}-\d{2}$/.test((req.query.month || '').toString()) ? req.query.month.toString() : new Date().toISOString().slice(0, 7);
+  var zgLimit = Math.max(1, Math.min(parseInt(req.query.limit, 10) || 12, 200));
+  var zgAll = zhPairs(await kvCmd(['HGETALL', 'zh:' + zgZone + ':' + zgMonth], kvUrl, kvToken));
+  var zgFields = Object.keys(zgAll).sort().reverse();
+  var zgRows = zgFields.slice(0, zgLimit).map(function(f) { var arr = null; try { arr = JSON.parse(zgAll[f]); } catch (e) {} var row = zhDecode(arr); row.ora = zgMonth + '-' + f.slice(0, 2) + 'T' + f.slice(3, 5); return row; });
+  return res.status(200).json({ zona: zgZone, mese: zgMonth, ore_nel_mese: zgFields.length, campi: ZH_FIELDS, ultimi: zgRows });
 }
 
 // /api/engine?action=health_alert_test&secret=<CRON_SECRET> -- manda un messaggio di prova su Telegram. Richiede il segreto
@@ -7816,7 +7999,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.48 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.49 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -7947,4 +8130,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.48
+// Fine codice - NAUTILUS ENGINE v2.14.49

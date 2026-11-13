@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.55 - by mdisailor engine - v2.14.55: action=livorno_now: il VALORE UNICO di Livorno deciso dal motore (lettura vera di Livornometeo se recente, altrimenti stima da Windfinder con tetto se il campione e' recente, altrimenti AROME, mai OM), con fonte, eta' e motivo. Motivo: il 13/11 mappa2 mostrava 32.4 kn (campione di 2 ore prima) e l'index 13 kn (OM di ripiego moltiplicato per il fattore di Windfinder e chiamato STIMA) con Livornometeo a 25: ogni pagina decideva da sola. Le pagine passeranno a mostrare questo valore. Include tutto il v2.14.54. Su base v2.14.54
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.56 - by mdisailor engine - v2.14.56: livorno_now con la MEDIA tra la stima da Windfinder (con tetto) e AROME quando la lettura vera non e' recente e il campione di Windfinder ha al massimo 90 minuti; AROME da solo oltre; la sola stima senza AROME. Motivo: lm_factor_report del 13/11 (177 coppie, un giorno fuori): errore 2.20 kn la media contro 2.48 il solo tetto, 2.80 AROME, 3.01 il fattore senza tetto. lm_factor_report: varianti della media (da 8 e da 10 kn) e invecchiamento della media. Include tutto il v2.14.55. Su base v2.14.55
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2825,7 +2825,7 @@ function lmfOLS(train) { var n = train.length, sx = 0, sy = 0, sxx = 0, sxy = 0;
 function lmfDayOut(allPairs) {
   var pairs = allPairs.filter(function(p) { return p.ar !== null; }), liv = LMF_CTX.livorno;     // tutti i metodi sulle STESSE coppie (quelle con AROME)
   var days = Object.keys(lmfGroup(pairs, function(p) { return p.day; })).sort(), M = { identita: [], costante: [], per_settore: [], per_fascia: [], lineare: [], arome: [], media_lineare_arome: [] }, used = 0, skipped = 0;
-  if (liv) { M.attuale = []; M.media_attuale_arome = []; M.con_tetto = []; M.media_con_tetto_arome = []; }
+  if (liv) { M.attuale = []; M.media_attuale_arome = []; M.con_tetto = []; M.media_con_tetto_arome = []; M.media_con_tetto_arome_da_8 = []; M.media_con_tetto_arome_da_10 = []; }
   var bySectorErr = { attuale: {}, per_settore: {} };
   days.forEach(function(D) {
     var train = pairs.filter(function(p) { return p.day !== D; }), test = pairs.filter(function(p) { return p.day === D; });
@@ -2841,7 +2841,7 @@ function lmfDayOut(allPairs) {
       M.identita.push({ lm: p.lm, est: p.wf }); M.costante.push({ lm: p.lm, est: p.wf * k });
       M.per_settore.push({ lm: p.lm, est: eSec }); M.per_fascia.push({ lm: p.lm, est: p.wf * (kb[lmfBand(p.wf)] !== undefined ? kb[lmfBand(p.wf)] : k) });
       M.lineare.push({ lm: p.lm, est: eLin }); M.arome.push({ lm: p.lm, est: p.ar }); M.media_lineare_arome.push({ lm: p.lm, est: (eLin + p.ar) / 2 });
-      if (liv) { var eAtt = p.wf * lmFactorForDir(p.wfd), eTet = p.wf * lmFactorForDir(p.wfd, p.wf); M.attuale.push({ lm: p.lm, est: eAtt }); M.media_attuale_arome.push({ lm: p.lm, est: (eAtt + p.ar) / 2 }); M.con_tetto.push({ lm: p.lm, est: eTet }); M.media_con_tetto_arome.push({ lm: p.lm, est: (eTet + p.ar) / 2 });
+      if (liv) { var eAtt = p.wf * lmFactorForDir(p.wfd), eTet = p.wf * lmFactorForDir(p.wfd, p.wf); M.attuale.push({ lm: p.lm, est: eAtt }); M.media_attuale_arome.push({ lm: p.lm, est: (eAtt + p.ar) / 2 }); M.con_tetto.push({ lm: p.lm, est: eTet }); M.media_con_tetto_arome.push({ lm: p.lm, est: (eTet + p.ar) / 2 }); M.media_con_tetto_arome_da_8.push({ lm: p.lm, est: eTet >= 8 ? (eTet + p.ar) / 2 : eTet }); M.media_con_tetto_arome_da_10.push({ lm: p.lm, est: eTet >= 10 ? (eTet + p.ar) / 2 : eTet });
         (bySectorErr.attuale[sec] = bySectorErr.attuale[sec] || []).push({ lm: p.lm, est: eAtt }); (bySectorErr.per_settore[sec] = bySectorErr.per_settore[sec] || []).push({ lm: p.lm, est: eSec }); }
     });
   });
@@ -2855,9 +2855,9 @@ function lmfStale(pts, pairs, half, minPts, deltas) { // il popup mostra un camp
   var out = {};
   deltas.forEach(function(dl) {
     var rowsA = [], rowsI = [];
-    var rowsT = [];
-    pairs.forEach(function(p) { var w = lmfWindow(pts, p.t + dl * 60000, half); if (!w || w.n < minPts) return; if (LMF_CTX.livorno) { rowsA.push({ lm: w.mean, est: p.wf * lmFactorForDir(p.wfd) }); rowsT.push({ lm: w.mean, est: p.wf * lmFactorForDir(p.wfd, p.wf) }); } rowsI.push({ lm: w.mean, est: p.wf }); });
-    out['campione_di_' + dl + '_min_fa'] = LMF_CTX.livorno ? { attuale: lmfErr(rowsA), con_tetto: lmfErr(rowsT), senza_fattore: lmfErr(rowsI) } : { senza_fattore: lmfErr(rowsI) };
+    var rowsT = [], rowsB = [], rowsR = [];
+    pairs.forEach(function(p) { var w = lmfWindow(pts, p.t + dl * 60000, half); if (!w || w.n < minPts) return; if (LMF_CTX.livorno) { var eT = p.wf * lmFactorForDir(p.wfd, p.wf); rowsA.push({ lm: w.mean, est: p.wf * lmFactorForDir(p.wfd) }); rowsT.push({ lm: w.mean, est: eT }); if (p.ar !== null) { rowsB.push({ lm: w.mean, est: (eT + p.ar) / 2 }); rowsR.push({ lm: w.mean, est: p.ar }); } } rowsI.push({ lm: w.mean, est: p.wf }); });
+    out['campione_di_' + dl + '_min_fa'] = LMF_CTX.livorno ? { attuale: lmfErr(rowsA), con_tetto: lmfErr(rowsT), media_con_tetto_arome: lmfErr(rowsB), arome: lmfErr(rowsR), senza_fattore: lmfErr(rowsI) } : { senza_fattore: lmfErr(rowsI) };
   });
   return out;
 }
@@ -2914,6 +2914,7 @@ function buildLmFactorReport(series, wf, o) {
   Object.keys(gx).sort().forEach(function(k) { if (gx[k].length >= 5) { var ag = lmfAgg(gx[k]); rep.per_settore_e_fascia[k] = { n: gx[k].length, rapporto_MAN_su_AUTO: ag.rapporto_MAN_su_AUTO, fattore_attuale_medio: ag.fattore_attuale_medio }; } });
   rep.un_giorno_fuori = lmfDayOut(pairs);
   rep.invecchiamento_campione_automatico = lmfStale(pts, pairs, half, minPts, [0, 30, 60, 90]);
+  rep.nota_invecchiamento = 'nelle righe media_con_tetto_arome e arome dell\'invecchiamento il valore di AROME e\' quello al momento del campione (non quello di delta minuti dopo): lievemente ottimistico per AROME';
   rep.legenda = 'rapporto_MAN_su_AUTO = somma serie manuale / somma stazione automatica nel gruppo = il fattore che avrebbe reso esatta la stima; fattore_attuale_medio (solo Livorno) = quello usato oggi dalla mappa; un_giorno_fuori: fattori ricavati sugli altri giorni e applicati al giorno escluso, errore contro la media della serie manuale nella finestra, tutti i metodi sulle stesse coppie (con AROME); sovrastima = stima oltre il vero; invecchiamento_lettura_vera: errore di una lettura singola e della media degli ultimi 10 minuti contro la serie delta minuti dopo';
   rep._pairs = pairs;
   return rep;
@@ -3060,12 +3061,18 @@ async function zhLastHourAge(zone, nowMs, restUrl, restToken) {
 // ===== 2026-11-13: VALORE UNICO DI LIVORNO (action=livorno_now) =====
 // Perche': il 13/11 mappa2 mostrava 32.4 kn (stima da un campione di Windfinder di 2 ore prima) e l'index 13 kn (OM di ripiego, moltiplicato per il fattore di Windfinder e
 // scritto "STIMA"), con Livornometeo a 25: ogni pagina decideva da sola quanto e' vecchio troppo vecchio, e il fattore era copiato in quattro posti. Qui la decisione e' una sola:
-//   1) lettura vera di Livornometeo, se recente (LN_LM_FRESH_MIN minuti)                      -> tipo "vero"
-//   2) stima da Windfinder (con il tetto di lmFactorForDir), se il campione e' recente (LN_WF_FRESH_MIN minuti dall'ORARIO DI OSSERVAZIONE, non da quello di cattura) -> "ricalcolato"
-//   3) AROME adesso (modello calibrato a Livorno: errore 2.4 kn e bias 0 in 207 ore; OM sbaglia di 2-2.5 volte, bias +5)                  -> "modello"
-//   4) in mancanza di tutto: il dato piu' recente tra stima da Windfinder e lettura vera, con vecchio: true.
-// Mai OM. Le soglie sono PROVVISORIE: si tarano con lm_factor_report (AROME e invecchiamento sulle stesse coppie). La risposta dice sempre fonte, eta' e perche'.
-var LN_LM_FRESH_MIN = 30, LN_WF_FRESH_MIN = 45, LN_AR_CACHE_S = 600;
+//   1) lettura vera di Livornometeo, se recente (LN_LM_FRESH_MIN minuti)                                                      -> tipo "vero"
+//   2) MEDIA tra la stima da Windfinder (con il tetto di lmFactorForDir) e AROME adesso, se il campione di Windfinder ha al massimo LN_WF_BLEND_MAX_MIN minuti
+//      dall'ORARIO DI OSSERVAZIONE (non da quello di cattura): direzione di Windfinder, raffica media delle due                -> "ricalcolato"
+//   3) senza AROME: la sola stima da Windfinder, se il campione ha al massimo LN_WF_FRESH_MIN minuti                              -> "ricalcolato"
+//   4) AROME adesso da solo (campione piu' vecchio o assente)                                                                   -> "modello"
+//   5) in mancanza di tutto: il dato piu' recente tra stima da Windfinder e lettura vera, con vecchio: true.
+// Mai OM. TARATURA (lm_factor_report del 13/11, 177 coppie, un giorno fuori, stesse coppie): fattore senza tetto 3.01 kn di errore (7% di sovrastime oltre 8 kn, peggiore +24.8),
+// con tetto 2.48 (1%, +9.3), AROME da solo 2.80 (ottimo col vento forte, 2.49 contro 3.74; male col debole, 4.33 contro 2.11), MEDIA tetto + AROME 2.20 (la migliore, sovrastime 1%).
+// Una lettura vera invecchia: errore 1.54 kn subito, 2.41 a 30 minuti, 2.88 a 60, 3.24 a 90: pareggia la media attorno ai 45 minuti, quindi LN_LM_FRESH_MIN resta 30.
+// Il 13/11 alle 15:42 UTC: lettura vera di 37 minuti fa 26.1 kn, Livornometeo ADESSO 9.6 (calo di 16 kn in 37 minuti): nessuna regola copre casi cosi', per questo fonte e eta' si mostrano sempre.
+// LN_WF_BLEND_MAX_MIN e' una scelta ragionata, non misurata (AROME non invecchia): la verifica e' nel report (invecchiamento della media).
+var LN_LM_FRESH_MIN = 30, LN_WF_FRESH_MIN = 45, LN_WF_BLEND_MAX_MIN = 90, LN_AR_CACHE_S = 600;
 function lnNum(v) { return (v !== null && v !== undefined && v !== '' && !isNaN(Number(v))) ? Number(v) : null; }
 function lnInterpDir(a, b, f) { var d = ((b - a + 540) % 360) - 180; return ((a + d * f) % 360 + 360) % 360; }
 function lnAromeNow(json, nowMs, suffix) { // AROME adesso: interpolazione lineare tra l'ora precedente e la successiva (la direzione sull'arco piu' corto)
@@ -3083,7 +3090,7 @@ function lnAromeNow(json, nowMs, suffix) { // AROME adesso: interpolazione linea
   return { speed: Math.round(spd * 10) / 10, dir: Math.round(dir), gust: gst === null ? null : Math.round(gst * 10) / 10, ora_modello: String(h.time[best]), interpolato: ok1 };
 }
 function lnDecide(lmS, wfS, ar, nowMs, o) {
-  o = o || {}; var lmMax = o.lmMax || LN_LM_FRESH_MIN, wfMax = o.wfMax || LN_WF_FRESH_MIN, det = {}, lm = null, wf = null;
+  o = o || {}; var lmMax = o.lmMax || LN_LM_FRESH_MIN, wfMax = o.wfMax || LN_WF_FRESH_MIN, blMax = o.blendMax || LN_WF_BLEND_MAX_MIN, det = {}, lm = null, wf = null;
   if (lmS && lmS.station && lnNum(lmS.station.wind_kt) !== null && lnNum(lmS.station.direction) !== null) {
     var tl = Date.parse(lmS.ts);
     if (!isNaN(tl)) { lm = { velocita_kn: Number(lmS.station.wind_kt), direzione: Math.round(Number(lmS.station.direction)), ts: new Date(tl).toISOString(), eta_min: Math.round((nowMs - tl) / 60000) }; det.livornometeo = lm; }
@@ -3099,6 +3106,11 @@ function lnDecide(lmS, wfS, ar, nowMs, o) {
   if (ar) det.arome = ar;
   var pick = null;
   if (lm && lm.eta_min <= lmMax) pick = { fonte: 'livornometeo', tipo: 'vero', velocita_kn: lm.velocita_kn, direzione: lm.direzione, raffica_kn: null, eta_min: lm.eta_min, vecchio: false, motivo: 'lettura di Livornometeo di ' + lm.eta_min + ' min fa (limite ' + lmMax + ')' };
+  else if (wf && ar && wf.eta_min <= blMax) {
+    var bSpd = Math.round(((wf.stima_kn + ar.speed) / 2) * 10) / 10, gW = wf.raffica_stimata_kn, gA = ar.gust, bG = (gW !== null && gA !== null) ? (gW + gA) / 2 : (gW !== null ? gW : gA);
+    pick = { fonte: 'windfinder_arome', tipo: 'ricalcolato', velocita_kn: bSpd, direzione: wf.direzione, raffica_kn: bG === null ? null : Math.max(Math.round(bG * 10) / 10, bSpd), eta_min: wf.eta_min, vecchio: false, fattore: wf.fattore_efficace,
+             componenti: { windfinder_stimato_kn: wf.stima_kn, arome_kn: ar.speed }, motivo: 'media tra la stima da Windfinder (' + wf.stima_kn + ' kn, campione di ' + wf.eta_min + ' min fa, limite ' + blMax + ') e AROME (' + ar.speed + ' kn)' };
+  }
   else if (wf && wf.eta_min <= wfMax) pick = { fonte: 'windfinder_stima', tipo: 'ricalcolato', velocita_kn: wf.stima_kn, direzione: wf.direzione, raffica_kn: wf.raffica_stimata_kn, eta_min: wf.eta_min, vecchio: false, fattore: wf.fattore_efficace, motivo: 'campione di Windfinder osservato ' + wf.eta_min + ' min fa (limite ' + wfMax + '), per il fattore ' + wf.fattore_efficace };
   else if (ar) pick = { fonte: 'arome', tipo: 'modello', velocita_kn: ar.speed, direzione: ar.dir, raffica_kn: ar.gust === null ? null : Math.max(ar.gust, ar.speed), eta_min: null, vecchio: false, motivo: 'nessuna lettura vera o campione di Windfinder recenti (Livornometeo ' + (lm ? lm.eta_min + ' min' : 'assente') + ', Windfinder ' + (wf ? wf.eta_min + ' min' : 'assente') + '): modello AROME' };
   else if (wf || lm) {
@@ -3261,14 +3273,14 @@ var kvUrl = process.env.UPSTASH_REDIS_REST_URL || null;
 var kvToken = process.env.UPSTASH_REDIS_REST_TOKEN || null;
 
 // /api/engine?action=livorno_now -- il VALORE UNICO di Livorno (vedi il commento sopra lnDecide): lo usano index, mappa2 e previsioni. Sola lettura, pubblica.
-// Tre letture Redis piccole; AROME da Open-Meteo solo se la lettura vera e Windfinder non sono recenti, con cache di 10 minuti (ln_arome).
+// Tre letture Redis piccole; AROME da Open-Meteo solo se la lettura vera non e' recente, con cache di 10 minuti (ln_arome).
 if (action === 'livorno_now') {
   try {
     var lnNow = Date.now();
     var lnRead = await Promise.all([kvGet('bias_samples:livornometeo_porto', kvUrl, kvToken), kvGet('bias_samples:livorno_porto', kvUrl, kvToken)]);
     var lnLm = Array.isArray(lnRead[0]) ? lnRead[0][0] : null, lnWf = Array.isArray(lnRead[1]) ? lnRead[1][0] : null;
     var lnFirst = lnDecide(lnLm, lnWf, null, lnNow), lnAr = null, lnArNote = null;
-    if (!(lnFirst.ok && (lnFirst.valore.fonte === 'livornometeo' || lnFirst.valore.fonte === 'windfinder_stima'))) {
+    if (!(lnFirst.ok && lnFirst.valore.fonte === 'livornometeo')) { // AROME serve per la media (e come ripiego): si chiede ogni volta che la lettura vera non e' recente, con la cache di 10 minuti
       var lnCache = await kvGet('ln_arome', kvUrl, kvToken);
       if (lnCache && lnCache.v && (lnNow - Date.parse(lnCache.ts)) < LN_AR_CACHE_S * 1000) { lnAr = lnCache.v; lnArNote = 'da cache (' + Math.round((lnNow - Date.parse(lnCache.ts)) / 1000) + ' s)'; }
       else {
@@ -3341,7 +3353,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.55', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.56', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -8345,7 +8357,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.55 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.56 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -8476,4 +8488,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.55
+// Fine codice - NAUTILUS ENGINE v2.14.56

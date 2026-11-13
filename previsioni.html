@@ -1,4 +1,4 @@
-<!-- NAUTILUS PREVISIONI v3.15 - mdisailor - 2026-11-06 - v3.15: i numeri del bottone NODI hanno due colori: bianco = valore nostro (lettura vera della stazione, stima di Livorno, nostra previsione), azzurro = modello (griglia OM e ripiego sull'OM), richiesta di M (un numero sulla mappa e' o il dato vero, o quello ricalcolato, o il modello). Freccia e popup nascono gia' dallo stesso calcolo. Su base v3.14 -->
+<!-- NAUTILUS PREVISIONI v3.16 - mdisailor - 2026-11-13 - v3.16: CORREZIONE PROVVISORIA del fattore di Livorno: tetto sulla velocita' (lmFactorForDir(dir, kn): stima = min(kn x fattore_direzione, 3.3 + 1.08 x kn), mai piu' della vecchia) e raffica scalata come la velocita' (e null con la lettura vera). Motivo: il 13/11 la stima era 53 kn (x2.2 a 240 gradi, Windfinder 24 kn) contro i 25 di Livornometeo. Su base v3.15 | v3.15 (6/11): i numeri del bottone NODI hanno due colori: bianco = valore nostro (lettura vera della stazione, stima di Livorno, nostra previsione), azzurro = modello (griglia OM e ripiego sull'OM), richiesta di M (un numero sulla mappa e' o il dato vero, o quello ricalcolato, o il modello). Freccia e popup nascono gia' dallo stesso calcolo. Su base v3.14 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Previsioni Vento v3.15</title>
+<title>NAUTILUS Previsioni Vento v3.16</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -65,7 +65,7 @@
 
 <header>
   <h1>NAUTILUS &mdash; Previsioni Vento</h1>
-  <span class="ver">v3.15</span>
+  <span class="ver">v3.16</span>
   <a class="back" href="/index2.html">&larr; cruscotto</a>
 </header>
 
@@ -114,7 +114,13 @@ async function getLivornometeoOverride(){
 // orarie, 23-27/10, correlazione 0.88, validato un giorno fuori: errore 2.4 kn contro 4.1).
 // Varia dolcemente con la direzione (nessun salto a cavallo dei settori). PROVVISORIO.
 var LM_FACTOR_ANCHORS = [[0, 1.5], [90, 1.5], [150, 2.2], [240, 2.2], [300, 1.7], [360, 1.5]];
-function lmFactorForDir(deg) {
+// 2026-11-13: TETTO. Il fattore per direzione e' un moltiplicatore e cresce senza limite: il 13/11 a 240 gradi con Windfinder a 24 kn dava 53 kn (x2.2) contro i 25
+// reali di Livornometeo; il 12/11 a 144 gradi 14.4 kn davano 30.7 contro 10.4. Sulle 176 coppie Windfinder/Livornometeo (23/10-13/11) il rapporto CALA con la velocita'
+// (1.80 sotto i 6 kn, 1.55 tra 6 e 10, 1.33 tra 10 e 14, 1.29 oltre i 14): una retta Livornometeo = 3.3 + 1.08 x Windfinder segue le quattro fasce. Con la velocita' grezza
+// (kn) il fattore EFFICACE porta alla stima min(kn x fattore_direzione, 3.3 + 1.08 x kn): puo' solo ridurre la vecchia stima, mai aumentarla. Provvisorio: la taratura
+// definitiva e' in corso. Senza kn il comportamento e' quello di prima. Stessa funzione, stesse costanti nel motore, in index, in mappa2 e in previsioni.
+var LM_LIN_A = 3.3, LM_LIN_B = 1.08;
+function lmFactorForDirBase(deg) {
   if (deg === null || deg === undefined || isNaN(deg)) return 1.8;
   var d = ((Number(deg) % 360) + 360) % 360, A = LM_FACTOR_ANCHORS;
   for (var i = 0; i < A.length - 1; i++) {
@@ -124,6 +130,12 @@ function lmFactorForDir(deg) {
     }
   }
   return 1.8;
+}
+function lmFactorForDir(deg, kn) {
+  var f = lmFactorForDirBase(deg);
+  if (kn === undefined || kn === null || isNaN(kn) || Number(kn) <= 0) return f;
+  var k = Number(kn), est = Math.min(k * f, LM_LIN_A + LM_LIN_B * k);
+  return Math.round((est / k) * 100) / 100;
 }
 // Eta' dell'ultima lettura Livornometeo (anche se scaduta): serve a dire, accanto alla
 // stima, quanto e' vecchia l'ultima lettura vera.
@@ -832,13 +844,17 @@ async function drawAll(){
         // M via segnalibro), quella diventa il valore PRINCIPALE -- velocita'
         // E direzione vere, non piu' solo la stima +4.2 (D16, 15/9). La stima
         // resta come ripiego quando non c'e' nulla di fresco.
-        var stSpd = st.wind_kt, stDir = st.direction;
+        var stSpd = st.wind_kt, stDir = st.direction, stGust = st.gust_kt;
         if (z.biasStation === 'livorno_porto') {
           var lmOvD = await getLivornometeoOverride();
-          if (lmOvD) { stSpd = lmOvD.speed; stDir = lmOvD.direction; }
-          else stSpd = Math.round(st.wind_kt * lmFactorForDir(stDir) * 10) / 10; // 2026-10-27: fattore per direzione
+          if (lmOvD) { stSpd = lmOvD.speed; stDir = lmOvD.direction; stGust = null; } // lettura vera: la raffica di Windfinder non le appartiene
+          else {
+            var lmFD = lmFactorForDir(stDir, st.wind_kt); // 2026-11-13: con il tetto sulla velocita'
+            stSpd = Math.round(st.wind_kt * lmFD * 10) / 10;
+            if (stGust != null && !isNaN(stGust)) stGust = Math.max(Math.round(stGust * lmFD * 10) / 10, stSpd); // 2026-11-13: la raffica si scala come la velocita' (l'index mostrava raffica 30 con vento stimato 53) e non scende sotto il vento
+          }
         }
-        tryDraw(z.lat, z.lon, stDir, stSpd, st.gust_kt, true, 0);
+        tryDraw(z.lat, z.lon, stDir, stSpd, stGust, true, 0);
         continue;
       }
       // nessuna lettura reale recente -- cade sull'OM del punto griglia piu' vicino
@@ -914,7 +930,7 @@ async function updateZoneMarkerPopups(){
             stSpd = lmOvP.speed; stDir = lmOvP.direction;
             popHdr = 'Livornometeo, lettura di ' + lmOvP.ageMin + ' min fa'; popHdrCol = '#22cc66';
           } else {
-            var lmFP = lmFactorForDir(stDir); // 2026-10-27: fattore per direzione, non piu' +4.2 fisso
+            var lmFP = lmFactorForDir(stDir, st.wind_kt); // 2026-11-13: con il tetto sulla velocita' // 2026-10-27: fattore per direzione, non piu' +4.2 fisso
             var rawKnP = st.wind_kt;
             stSpd = Math.round(st.wind_kt * lmFP * 10) / 10;
             popHdr = 'Stima per Livornometeo, da Windfinder \u00d7' + lmFP.toFixed(1); popHdrCol = '#ffaa00';
@@ -1024,12 +1040,12 @@ async function exportXLS(){
           if (st && st.wind_kt != null) {
             // fix 2026-10-16: lettura Livornometeo fresca (<=30min) ha
             // priorita' sulla stima +4.2 -- vedi nota estesa in drawAll.
-            var stSpd = st.wind_kt, stDir = st.direction, stFonte = 'stazione reale (' + (st.age_min != null ? st.age_min + 'min fa' : '?') + ')';
+            var stSpd = st.wind_kt, stDir = st.direction, stGustX = st.gust_kt, stFonte = 'stazione reale (' + (st.age_min != null ? st.age_min + 'min fa' : '?') + ')';
             if (z.biasStation === 'livorno_porto') {
-              if (lmOvX) { stSpd = lmOvX.speed; stDir = lmOvX.direction; stFonte = 'Livornometeo diretto (' + lmOvX.ageMin + 'min fa)'; }
-              else { var lmFX = lmFactorForDir(stDir); stSpd = Math.round(st.wind_kt * lmFX * 10) / 10; stFonte = 'stima da Windfinder \u00d7' + lmFX.toFixed(1); }
+              if (lmOvX) { stSpd = lmOvX.speed; stDir = lmOvX.direction; stGustX = null; stFonte = 'Livornometeo diretto (' + lmOvX.ageMin + 'min fa)'; }
+              else { var lmFX = lmFactorForDir(stDir, st.wind_kt); stSpd = Math.round(st.wind_kt * lmFX * 10) / 10; if (stGustX != null && !isNaN(stGustX)) stGustX = Math.max(Math.round(stGustX * lmFX * 10) / 10, stSpd); stFonte = 'stima da Windfinder \u00d7' + lmFX.toFixed(1); } // 2026-11-13: tetto sulla velocita' e raffica scalata
             }
-            rows.push(['zona', z.name, z.lat, z.lon, stFonte, stSpd, stDir, st.gust_kt]);
+            rows.push(['zona', z.name, z.lat, z.lon, stFonte, stSpd, stDir, stGustX]);
           } else {
             var g0 = nearestGridPoint(z.lat, z.lon);
             var gv0 = g0 ? omValueForOffset(g0, 0) : null;
@@ -1090,4 +1106,4 @@ setInterval(loadAll, REFRESH_MS);
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS PREVISIONI v3.15 -->
+<!-- Fine codice - NAUTILUS PREVISIONI v3.16 -->

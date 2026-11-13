@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.51 - by mdisailor engine - v2.14.51: ARCHIVIO fase B: action=archive_export (richiede sempre il segreto; type=index, zone_hourly, manual_series con paginazione 'after') per la copia settimanale su un repository privato di GitHub (GitHub Action). Include tutto il v2.14.50. Su base v2.14.50
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.52 - by mdisailor engine - v2.14.52: action=lm_factor_report (sola lettura): taratura del fattore di Livorno con tre settimane di dati: ogni campione di Windfinder, al suo orario di osservazione, accoppiato alla media di Livornometeo; rapporto per settore e per fascia, un giorno fuori contro le alternative, invecchiamento del campione, campionamento di Windfinder, rumore delle letture singole. Motivo: il 12/11 il popup di Livorno dava 30.7 kn contro i 10.4 di Livornometeo (fattore 2.13 a 144 gradi: tratto interpolato, non misurato). Include tutto il v2.14.51. Su base v2.14.51
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2732,6 +2732,151 @@ function aiDiag(aiRes, aiData) {
            modello: aiData ? aiData.model || null : null, uso_token: aiData ? aiData.usage || null : null, errore_api: (aiData && aiData.error) ? aiData.error : null };
 }
 
+// ===== 2026-11-13: ANALISI DEL FATTORE DI LIVORNO (action=lm_factor_report) =====
+// Perche': il 12/11 il popup di Livorno dava 30.7 kn con Livornometeo a 10.4 kn (3 volte): Windfinder grezzo 14.4 kn da 144 gradi, campione di 83 minuti
+// prima, per il fattore 2.13 che le ancore danno a quella direzione. Le ancore [90 -> 1.5, 150 -> 2.2] sono state ricavate il 27/10 con 36 ore, quasi
+// tutte da Sud-Sud-Ovest: il tratto 90-150 e' un'INTERPOLAZIONE, non un dato. Ora ci sono tre settimane di serie (Livornometeo) e l'archivio di Windfinder.
+// Accoppia ogni campione di Windfinder, al SUO orario di osservazione (obs_time, non quello di cattura), alla media di Livornometeo nella finestra
+// +-tol minuti; poi: rapporto per settore e per fascia, un giorno fuori tra funzione attuale e alternative, quanto peggiora il popup con l'eta' del
+// campione di Windfinder, ogni quanto Windfinder si aggiorna, e quanto e' rumorosa una lettura singola di Livornometeo. Sola lettura, funzioni pure.
+var LMF_SECTORS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+function lmfSector(deg) { var d = ((Number(deg) % 360) + 360) % 360; return LMF_SECTORS[Math.floor(((d + 22.5) % 360) / 45)]; }
+function lmfBand(kn) { return kn < 6 ? '<6' : (kn < 10 ? '6-10' : (kn < 14 ? '10-14' : '>=14')); }
+function lmfR(x, d) { if (x === null || x === undefined || isNaN(x)) return null; var f = Math.pow(10, d === undefined ? 2 : d); return Math.round(x * f) / f; }
+function lmfPoints(series) {
+  var out = [];
+  (Array.isArray(series) ? series : []).forEach(function(p) {
+    if (!p || p.length < 3) return;
+    var t = new Date(p[0]).getTime(), kn = Number(p[1]), dir = Number(p[2]);
+    if (isNaN(t) || isNaN(kn) || isNaN(dir) || kn < 0 || kn > 150) return;
+    out.push({ t: t, kn: kn, dir: dir });
+  });
+  out.sort(function(a, b) { return a.t - b.t; });
+  return out;
+}
+function lmfLower(pts, t) { var lo = 0, hi = pts.length; while (lo < hi) { var m = (lo + hi) >> 1; if (pts[m].t < t) lo = m + 1; else hi = m; } return lo; }
+function lmfWindow(pts, t, half) { // media di velocita' e direzione (media vettoriale) dei punti in [t-half, t+half]
+  var lo = lmfLower(pts, t - half), hi = lmfLower(pts, t + half + 1), n = hi - lo;
+  if (n <= 0) return null;
+  var s = 0, su = 0, sv = 0;
+  for (var i = lo; i < hi; i++) { s += pts[i].kn; su += Math.sin(pts[i].dir * Math.PI / 180); sv += Math.cos(pts[i].dir * Math.PI / 180); }
+  var d = Math.atan2(su, sv) * 180 / Math.PI; if (d < 0) d += 360;
+  return { n: n, mean: s / n, dir: d };
+}
+function lmfPairs(pts, wf, o) {
+  var half = (o.tolMin || 20) * 60000, minPts = o.minPts || 6, out = [], seen = {};
+  (Array.isArray(wf) ? wf : []).forEach(function(s) {
+    if (!s || !s.station || s.station.wind_kt === null || s.station.wind_kt === undefined) return;
+    var kn = Number(s.station.wind_kt), dir = Number(s.station.direction);
+    if (isNaN(kn) || isNaN(dir) || kn < 0 || s.station.direction === null) return;
+    var cap = new Date(s.ts).getTime(), obs = s.station.obs_time ? new Date(s.station.obs_time).getTime() : NaN, t = isNaN(obs) ? cap : obs;
+    if (isNaN(t)) return;
+    if (!isNaN(cap) && t > cap + 5 * 60000) return;            // osservazione nel futuro: riga di previsione, non una misura
+    if (o.fromMs && t < o.fromMs) return;
+    var key = Math.round(t / 60000); if (seen[key]) return; seen[key] = true;
+    var w = lmfWindow(pts, t, half); if (!w || w.n < minPts) return;
+    var om = (s.om && s.om.wind_kt !== null && s.om.wind_kt !== undefined && !isNaN(Number(s.om.wind_kt))) ? Number(s.om.wind_kt) : null;
+    out.push({ t: t, day: new Date(t).toISOString().slice(0, 10), wf: kn, wfd: dir, lm: w.mean, lmd: w.dir, n: w.n, om: om, age: (isNaN(cap) || isNaN(obs)) ? null : Math.round((cap - obs) / 60000) });
+  });
+  out.sort(function(a, b) { return a.t - b.t; });
+  return out;
+}
+function lmfAgg(list) {
+  var n = list.length; if (!n) return { n: 0 };
+  var sw = 0, sl = 0, so = 0, slo = 0, fa = 0, rat = [];
+  list.forEach(function(p) { sw += p.wf; sl += p.lm; fa += lmFactorForDir(p.wfd); if (p.wf >= 2) rat.push(p.lm / p.wf); if (p.om !== null) { so += p.om; slo += p.lm; } });
+  rat.sort(function(a, b) { return a - b; });
+  var med = rat.length ? ((rat.length % 2) ? rat[(rat.length - 1) / 2] : (rat[rat.length / 2 - 1] + rat[rat.length / 2]) / 2) : null;
+  return { n: n, windfinder_medio_kn: lmfR(sw / n), livornometeo_medio_kn: lmfR(sl / n), rapporto_LM_su_WF: sw > 0 ? lmfR(sl / sw) : null, rapporto_mediano: lmfR(med), fattore_attuale_medio: lmfR(fa / n), rapporto_LM_su_OM: so > 0 ? lmfR(slo / so) : null };
+}
+function lmfGroup(pairs, keyFn) { var g = {}; pairs.forEach(function(p) { var k = keyFn(p); (g[k] = g[k] || []).push(p); }); return g; }
+function lmfErr(rows) { // rows: [{lm, est, wf?}]
+  var n = rows.length; if (!n) return { n: 0 };
+  var a = 0, b = 0; rows.forEach(function(r) { a += Math.abs(r.lm - r.est); b += (r.lm - r.est); });
+  var f = rows.filter(function(r) { return r.lm >= 14; }), w = rows.filter(function(r) { return r.lm < 8; });
+  var mae = function(x) { if (!x.length) return null; var s = 0; x.forEach(function(r) { s += Math.abs(r.lm - r.est); }); return lmfR(s / x.length); };
+  return { n: n, errore_medio_kn: lmfR(a / n), bias_kn: lmfR(b / n), errore_ore_forti_14: mae(f), n_forti: f.length, errore_ore_deboli_8: mae(w), n_deboli: w.length };
+}
+function lmfOLS(train) { var n = train.length, sx = 0, sy = 0, sxx = 0, sxy = 0; train.forEach(function(p) { sx += p.wf; sy += p.lm; sxx += p.wf * p.wf; sxy += p.wf * p.lm; }); var d = n * sxx - sx * sx; if (Math.abs(d) < 1e-9) return { a: 0, b: 1 }; var b = (n * sxy - sx * sy) / d; return { a: (sy - b * sx) / n, b: b }; }
+function lmfDayOut(pairs) {
+  var days = Object.keys(lmfGroup(pairs, function(p) { return p.day; })).sort(), M = { identita: [], attuale: [], costante: [], per_settore: [], per_fascia: [], lineare: [] }, used = 0, skipped = 0;
+  var bySectorErr = { attuale: {}, per_settore: {} };
+  days.forEach(function(D) {
+    var train = pairs.filter(function(p) { return p.day !== D; }), test = pairs.filter(function(p) { return p.day === D; });
+    if (train.length < 20 || !test.length) { skipped++; return; }
+    used++;
+    var ratio = function(l) { var a = 0, b = 0; l.forEach(function(p) { a += p.lm; b += p.wf; }); return b > 0 ? a / b : null; };
+    var k = ratio(train) || 1, ks = {}, kb = {}, g;
+    g = lmfGroup(train, function(p) { return lmfSector(p.wfd); }); Object.keys(g).forEach(function(s) { ks[s] = g[s].length >= 5 ? (ratio(g[s]) || k) : k; });
+    g = lmfGroup(train, function(p) { return lmfBand(p.wf); }); Object.keys(g).forEach(function(s) { kb[s] = g[s].length >= 5 ? (ratio(g[s]) || k) : k; });
+    var ols = lmfOLS(train);
+    test.forEach(function(p) {
+      var sec = lmfSector(p.wfd), eAtt = p.wf * lmFactorForDir(p.wfd), eSec = p.wf * (ks[sec] !== undefined ? ks[sec] : k);
+      M.identita.push({ lm: p.lm, est: p.wf }); M.attuale.push({ lm: p.lm, est: eAtt }); M.costante.push({ lm: p.lm, est: p.wf * k });
+      M.per_settore.push({ lm: p.lm, est: eSec }); M.per_fascia.push({ lm: p.lm, est: p.wf * (kb[lmfBand(p.wf)] !== undefined ? kb[lmfBand(p.wf)] : k) });
+      M.lineare.push({ lm: p.lm, est: Math.max(0, ols.a + ols.b * p.wf) });
+      (bySectorErr.attuale[sec] = bySectorErr.attuale[sec] || []).push({ lm: p.lm, est: eAtt }); (bySectorErr.per_settore[sec] = bySectorErr.per_settore[sec] || []).push({ lm: p.lm, est: eSec });
+    });
+  });
+  var out = { giorni_usati: used, giorni_saltati: skipped, metodi: {} };
+  Object.keys(M).forEach(function(m) { out.metodi[m] = lmfErr(M[m]); });
+  out.per_settore_errore_medio = {};
+  LMF_SECTORS.forEach(function(s) { if (bySectorErr.attuale[s] && bySectorErr.attuale[s].length) out.per_settore_errore_medio[s] = { n: bySectorErr.attuale[s].length, attuale: lmfErr(bySectorErr.attuale[s]).errore_medio_kn, per_settore: lmfErr(bySectorErr.per_settore[s]).errore_medio_kn }; });
+  return out;
+}
+function lmfStale(pts, pairs, half, minPts, deltas) { // il popup mostra un campione di Windfinder di delta minuti fa: errore contro Livornometeo ADESSO
+  var out = {};
+  deltas.forEach(function(dl) {
+    var rowsA = [], rowsI = [];
+    pairs.forEach(function(p) { var w = lmfWindow(pts, p.t + dl * 60000, half); if (!w || w.n < minPts) return; rowsA.push({ lm: w.mean, est: p.wf * lmFactorForDir(p.wfd) }); rowsI.push({ lm: w.mean, est: p.wf }); });
+    out['campione_di_' + dl + '_min_fa'] = { attuale: lmfErr(rowsA), senza_fattore: lmfErr(rowsI) };
+  });
+  return out;
+}
+function lmfQuantile(arr, q) { if (!arr.length) return null; var s = arr.slice().sort(function(a, b) { return a - b; }); var i = (s.length - 1) * q, lo = Math.floor(i), hi = Math.ceil(i); return s[lo] + (s[hi] - s[lo]) * (i - lo); }
+function lmfSampling(wf, o) { // ogni quanto cambia l'osservazione di Windfinder, e quanto e' vecchia quando la catturiamo
+  var obsT = [], ages = [];
+  (Array.isArray(wf) ? wf : []).forEach(function(s) {
+    if (!s || !s.station || s.station.obs_time === null || s.station.obs_time === undefined) return;
+    var obs = new Date(s.station.obs_time).getTime(), cap = new Date(s.ts).getTime(); if (isNaN(obs)) return;
+    if (o_fromOk(o, obs)) { obsT.push(obs); if (!isNaN(cap) && cap >= obs) ages.push((cap - obs) / 60000); }
+  });
+  var u = Object.keys(obsT.reduce(function(a, t) { a[Math.round(t / 60000)] = 1; return a; }, {})).map(Number).sort(function(a, b) { return a - b; }), gaps = [];
+  for (var i = 1; i < u.length; i++) gaps.push(u[i] - u[i - 1]);
+  return { osservazioni_distinte: u.length, intervallo_mediano_min: lmfR(lmfQuantile(gaps, 0.5), 0), intervallo_p90_min: lmfR(lmfQuantile(gaps, 0.9), 0), intervallo_massimo_min: gaps.length ? Math.max.apply(null, gaps) : null,
+           eta_alla_cattura_mediana_min: lmfR(lmfQuantile(ages, 0.5), 0), eta_alla_cattura_p90_min: lmfR(lmfQuantile(ages, 0.9), 0), quota_oltre_30_min: ages.length ? lmfR(ages.filter(function(a) { return a > 30; }).length / ages.length) : null, quota_oltre_60_min: ages.length ? lmfR(ages.filter(function(a) { return a > 60; }).length / ages.length) : null };
+}
+function o_fromOk(o, t) { return !o.fromMs || t >= o.fromMs; }
+function lmfNoise(pts, o) { // quanto una lettura singola si discosta dalla media delle ALTRE letture dei 20 minuti attorno (la serie ha un punto ogni 2-3 minuti)
+  var d = [], rel = [], half = 10 * 60000;
+  for (var i = 0; i < pts.length; i += 3) {
+    if (o.fromMs && pts[i].t < o.fromMs) continue;
+    var w = lmfWindow(pts, pts[i].t, half); if (!w || w.n < 5) continue;
+    var others = (w.mean * w.n - pts[i].kn) / (w.n - 1); // media senza la lettura stessa
+    d.push(Math.abs(pts[i].kn - others)); if (others >= 5) rel.push(Math.abs(pts[i].kn - others) / others);
+  }
+  return { letture_valutate: d.length, scarto_mediano_kn: lmfR(lmfQuantile(d, 0.5)), scarto_p90_kn: lmfR(lmfQuantile(d, 0.9)), quota_entro_3_kn: d.length ? lmfR(d.filter(function(x) { return x <= 3; }).length / d.length) : null, scarto_relativo_mediano: lmfR(lmfQuantile(rel, 0.5)), scarto_relativo_p90: lmfR(lmfQuantile(rel, 0.9)) };
+}
+function buildLmFactorReport(series, wf, o) {
+  o = o || {}; var pts = lmfPoints(series), pairs = lmfPairs(pts, wf, o), half = (o.tolMin || 20) * 60000, minPts = o.minPts || 6;
+  var rep = { parametri: { finestra_min: o.tolMin || 20, punti_minimi: minPts, dal: o.fromMs ? new Date(o.fromMs).toISOString() : null }, punti_serie: pts.length, coppie: { n: pairs.length, giorni: Object.keys(lmfGroup(pairs, function(p) { return p.day; })).length, prima: pairs.length ? new Date(pairs[0].t).toISOString() : null, ultima: pairs.length ? new Date(pairs[pairs.length - 1].t).toISOString() : null } };
+  rep.campionamento_windfinder = lmfSampling(wf, o);
+  rep.rumore_lettura_singola_livornometeo = lmfNoise(pts, o);
+  if (!pairs.length) { rep.nota = 'nessuna coppia: servono campioni di Windfinder con obs_time e punti di serie nella finestra'; return rep; }
+  rep.complessivo = lmfAgg(pairs);
+  var gs = lmfGroup(pairs, function(p) { return lmfSector(p.wfd); }); rep.per_settore = {};
+  LMF_SECTORS.forEach(function(s) { if (gs[s]) rep.per_settore[s] = lmfAgg(gs[s]); });
+  var gb = lmfGroup(pairs, function(p) { return lmfBand(p.wf); }); rep.per_fascia_windfinder = {};
+  ['<6', '6-10', '10-14', '>=14'].forEach(function(b) { if (gb[b]) rep.per_fascia_windfinder[b] = lmfAgg(gb[b]); });
+  var gx = lmfGroup(pairs, function(p) { return lmfSector(p.wfd) + ' ' + lmfBand(p.wf); }); rep.per_settore_e_fascia = {};
+  Object.keys(gx).sort().forEach(function(k) { if (gx[k].length >= 5) rep.per_settore_e_fascia[k] = { n: gx[k].length, rapporto_LM_su_WF: lmfAgg(gx[k]).rapporto_LM_su_WF, fattore_attuale_medio: lmfAgg(gx[k]).fattore_attuale_medio }; });
+  rep.un_giorno_fuori = lmfDayOut(pairs);
+  rep.invecchiamento_campione_windfinder = lmfStale(pts, pairs, half, minPts, [0, 30, 60, 90]);
+  rep.legenda = 'rapporto_LM_su_WF = somma Livornometeo / somma Windfinder nel gruppo = il fattore che avrebbe reso esatta la stima; fattore_attuale_medio = quello usato oggi dalla mappa; un_giorno_fuori: fattori ricavati sugli altri giorni, applicati al giorno escluso; errore contro la media di Livornometeo nella finestra';
+  rep._pairs = pairs;
+  return rep;
+}
+
 // ===== 2026-11-10: RECORD ORARI COMPATTI PER ZONA (archivio, fase A) =====
 // Perche': le fotografie di zona (snap:) vivono 14 giorni e poi spariscono; i casi simili dell'AI guardano solo quelle. Qui ogni fotografia scritta
 // lascia anche un record orario compatto (22 numeri, circa 110 byte) in un hash Redis per zona e mese (zh:<zona>:<AAAA-MM>, un campo per ora UTC,
@@ -3073,7 +3218,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.51', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.52', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -4765,6 +4910,21 @@ if (action === 'zone_hourly_get') {
   return res.status(200).json({ zona: zgZone, mese: zgMonth, ore_nel_mese: zgFields.length, campi: ZH_FIELDS, ultimi: zgRows });
 }
 
+// /api/engine?action=lm_factor_report[&from=ISO][&tol=MIN][&minpts=N][&rows=1] -- sola lettura, pubblica. Taratura del fattore di Livorno con le tre settimane di dati
+// (vedi il commento sopra buildLmFactorReport). Due letture Redis: manual_series:livornometeo_porto e bias_archive:livorno_porto. rows=1 aggiunge le ultime 400 coppie.
+if (action === 'lm_factor_report') {
+  try {
+    var lfSeries = await kvGet('manual_series:livornometeo_porto', kvUrl, kvToken), lfWf = await kvGet('bias_archive:livorno_porto', kvUrl, kvToken);
+    var lfFrom = req.query.from ? new Date(req.query.from).getTime() : Date.UTC(2026, 9, 23);
+    var lfRep = buildLmFactorReport(lfSeries, lfWf, { fromMs: isNaN(lfFrom) ? Date.UTC(2026, 9, 23) : lfFrom, tolMin: Math.max(5, Math.min(parseInt(req.query.tol, 10) || 20, 60)), minPts: Math.max(2, Math.min(parseInt(req.query.minpts, 10) || 6, 30)) });
+    var lfPairs = lfRep._pairs || []; delete lfRep._pairs;
+    lfRep.campioni_windfinder_in_archivio = Array.isArray(lfWf) ? lfWf.length : 0;
+    if (req.query.rows === '1') lfRep.coppie_elenco = lfPairs.slice(-400).map(function(p) { return { t: new Date(p.t).toISOString(), wf: lmfR(p.wf, 1), wfd: Math.round(p.wfd), lm: lmfR(p.lm, 1), lmd: Math.round(p.lmd), n: p.n, om: p.om === null ? null : lmfR(p.om, 1), eta_cattura_min: p.age }; });
+    return res.status(200).json(lfRep);
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+}
 // /api/engine?action=archive_export&secret=<CRON_SECRET>&type=index|zone_hourly|manual_series -- ARCHIVIO fase B: esportazione per la copia settimanale su GitHub
 // (repository privato, GitHub Action). Richiede SEMPRE il segreto. Sola lettura, risposte piccole (una zona-mese o una pagina di serie alla volta).
 //  type=index                                  -> zone, stazioni manuali, campi del record orario
@@ -8059,7 +8219,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.51 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.52 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -8190,4 +8350,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.51
+// Fine codice - NAUTILUS ENGINE v2.14.52

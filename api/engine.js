@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.54 - by mdisailor engine - v2.14.54: CORREZIONE PROVVISORIA del fattore di Livorno: tetto sulla velocita'. Con la velocita' grezza il fattore efficace e' quello che porta a min(kn x fattore_direzione, 3.3 + 1.08 x kn): puo' solo ridurre la vecchia stima. Motivo: il 13/11 a 240 gradi con Windfinder a 24 kn la stima era 53 kn (x2.2) contro i 25 di Livornometeo, e il 12/11 30.7 contro 10.4. Si applica anche alla conversione delle previsioni di Livorno (reference_method fattore_per_direzione_con_tetto_v2.14.54). lm_factor_report confronta 'attuale' (senza tetto) con 'con_tetto'. Include tutto il v2.14.53. Su base v2.14.53
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.55 - by mdisailor engine - v2.14.55: action=livorno_now: il VALORE UNICO di Livorno deciso dal motore (lettura vera di Livornometeo se recente, altrimenti stima da Windfinder con tetto se il campione e' recente, altrimenti AROME, mai OM), con fonte, eta' e motivo. Motivo: il 13/11 mappa2 mostrava 32.4 kn (campione di 2 ore prima) e l'index 13 kn (OM di ripiego moltiplicato per il fattore di Windfinder e chiamato STIMA) con Livornometeo a 25: ogni pagina decideva da sola. Le pagine passeranno a mostrare questo valore. Include tutto il v2.14.54. Su base v2.14.54
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -3057,6 +3057,59 @@ async function zhLastHourAge(zone, nowMs, restUrl, restToken) {
   return best;
 }
 
+// ===== 2026-11-13: VALORE UNICO DI LIVORNO (action=livorno_now) =====
+// Perche': il 13/11 mappa2 mostrava 32.4 kn (stima da un campione di Windfinder di 2 ore prima) e l'index 13 kn (OM di ripiego, moltiplicato per il fattore di Windfinder e
+// scritto "STIMA"), con Livornometeo a 25: ogni pagina decideva da sola quanto e' vecchio troppo vecchio, e il fattore era copiato in quattro posti. Qui la decisione e' una sola:
+//   1) lettura vera di Livornometeo, se recente (LN_LM_FRESH_MIN minuti)                      -> tipo "vero"
+//   2) stima da Windfinder (con il tetto di lmFactorForDir), se il campione e' recente (LN_WF_FRESH_MIN minuti dall'ORARIO DI OSSERVAZIONE, non da quello di cattura) -> "ricalcolato"
+//   3) AROME adesso (modello calibrato a Livorno: errore 2.4 kn e bias 0 in 207 ore; OM sbaglia di 2-2.5 volte, bias +5)                  -> "modello"
+//   4) in mancanza di tutto: il dato piu' recente tra stima da Windfinder e lettura vera, con vecchio: true.
+// Mai OM. Le soglie sono PROVVISORIE: si tarano con lm_factor_report (AROME e invecchiamento sulle stesse coppie). La risposta dice sempre fonte, eta' e perche'.
+var LN_LM_FRESH_MIN = 30, LN_WF_FRESH_MIN = 45, LN_AR_CACHE_S = 600;
+function lnNum(v) { return (v !== null && v !== undefined && v !== '' && !isNaN(Number(v))) ? Number(v) : null; }
+function lnInterpDir(a, b, f) { var d = ((b - a + 540) % 360) - 180; return ((a + d * f) % 360 + 360) % 360; }
+function lnAromeNow(json, nowMs, suffix) { // AROME adesso: interpolazione lineare tra l'ora precedente e la successiva (la direzione sull'arco piu' corto)
+  if (!json || !json.hourly || !Array.isArray(json.hourly.time)) return null;
+  var h = json.hourly, pick = function(n) { return Array.isArray(h[n]) ? h[n] : (suffix && Array.isArray(h[n + '_' + suffix]) ? h[n + '_' + suffix] : null); };
+  var ws = pick('wind_speed_10m'), wd = pick('wind_direction_10m'), wg = pick('wind_gusts_10m'); if (!ws || !wd) return null;
+  var best = -1;
+  for (var i = 0; i < h.time.length; i++) { var t = Date.parse(h.time[i] + 'Z'); if (!isNaN(t) && t <= nowMs && lnNum(ws[i]) !== null && lnNum(wd[i]) !== null) best = i; }
+  if (best < 0) return null;
+  var t0 = Date.parse(h.time[best] + 'Z'); if (nowMs - t0 > 3 * 3600000) return null;
+  var nx = best + 1, t1 = nx < h.time.length ? Date.parse(h.time[nx] + 'Z') : NaN, ok1 = !isNaN(t1) && lnNum(ws[nx]) !== null && lnNum(wd[nx]) !== null, f = ok1 ? Math.max(0, Math.min(1, (nowMs - t0) / (t1 - t0))) : 0;
+  var spd = ok1 ? Number(ws[best]) + (Number(ws[nx]) - Number(ws[best])) * f : Number(ws[best]);
+  var dir = ok1 ? lnInterpDir(Number(wd[best]), Number(wd[nx]), f) : Number(wd[best]);
+  var g0 = wg ? lnNum(wg[best]) : null, g1 = (wg && ok1) ? lnNum(wg[nx]) : null, gst = g0 === null ? null : (g1 === null ? g0 : g0 + (g1 - g0) * f);
+  return { speed: Math.round(spd * 10) / 10, dir: Math.round(dir), gust: gst === null ? null : Math.round(gst * 10) / 10, ora_modello: String(h.time[best]), interpolato: ok1 };
+}
+function lnDecide(lmS, wfS, ar, nowMs, o) {
+  o = o || {}; var lmMax = o.lmMax || LN_LM_FRESH_MIN, wfMax = o.wfMax || LN_WF_FRESH_MIN, det = {}, lm = null, wf = null;
+  if (lmS && lmS.station && lnNum(lmS.station.wind_kt) !== null && lnNum(lmS.station.direction) !== null) {
+    var tl = Date.parse(lmS.ts);
+    if (!isNaN(tl)) { lm = { velocita_kn: Number(lmS.station.wind_kt), direzione: Math.round(Number(lmS.station.direction)), ts: new Date(tl).toISOString(), eta_min: Math.round((nowMs - tl) / 60000) }; det.livornometeo = lm; }
+  }
+  if (wfS && wfS.station && lnNum(wfS.station.wind_kt) !== null && lnNum(wfS.station.direction) !== null) {
+    var cap = Date.parse(wfS.ts), obs = Date.parse(wfS.station.obs_time), tw = (!isNaN(obs) && obs <= nowMs + 5 * 60000) ? obs : cap;
+    if (!isNaN(tw)) {
+      var kn = Number(wfS.station.wind_kt), dr = Number(wfS.station.direction), fct = lmFactorForDir(dr, kn), est = Math.round(kn * fct * 10) / 10, g = lnNum(wfS.station.gust_kt);
+      wf = { grezzo_kn: kn, direzione: Math.round(dr), raffica_grezza_kn: g, osservato_alle: new Date(tw).toISOString(), eta_min: Math.round((nowMs - tw) / 60000), fattore_efficace: fct, stima_kn: est, raffica_stimata_kn: g === null ? null : Math.max(Math.round(g * fct * 10) / 10, est) };
+      det.windfinder = wf;
+    }
+  }
+  if (ar) det.arome = ar;
+  var pick = null;
+  if (lm && lm.eta_min <= lmMax) pick = { fonte: 'livornometeo', tipo: 'vero', velocita_kn: lm.velocita_kn, direzione: lm.direzione, raffica_kn: null, eta_min: lm.eta_min, vecchio: false, motivo: 'lettura di Livornometeo di ' + lm.eta_min + ' min fa (limite ' + lmMax + ')' };
+  else if (wf && wf.eta_min <= wfMax) pick = { fonte: 'windfinder_stima', tipo: 'ricalcolato', velocita_kn: wf.stima_kn, direzione: wf.direzione, raffica_kn: wf.raffica_stimata_kn, eta_min: wf.eta_min, vecchio: false, fattore: wf.fattore_efficace, motivo: 'campione di Windfinder osservato ' + wf.eta_min + ' min fa (limite ' + wfMax + '), per il fattore ' + wf.fattore_efficace };
+  else if (ar) pick = { fonte: 'arome', tipo: 'modello', velocita_kn: ar.speed, direzione: ar.dir, raffica_kn: ar.gust === null ? null : Math.max(ar.gust, ar.speed), eta_min: null, vecchio: false, motivo: 'nessuna lettura vera o campione di Windfinder recenti (Livornometeo ' + (lm ? lm.eta_min + ' min' : 'assente') + ', Windfinder ' + (wf ? wf.eta_min + ' min' : 'assente') + '): modello AROME' };
+  else if (wf || lm) {
+    var useWf = wf && (!lm || wf.eta_min <= lm.eta_min);
+    pick = useWf ? { fonte: 'windfinder_stima_vecchia', tipo: 'ricalcolato', velocita_kn: wf.stima_kn, direzione: wf.direzione, raffica_kn: wf.raffica_stimata_kn, eta_min: wf.eta_min, vecchio: true, fattore: wf.fattore_efficace, motivo: 'AROME non disponibile: ultimo campione di Windfinder, di ' + wf.eta_min + ' min fa' }
+                 : { fonte: 'livornometeo_vecchia', tipo: 'vero', velocita_kn: lm.velocita_kn, direzione: lm.direzione, raffica_kn: null, eta_min: lm.eta_min, vecchio: true, motivo: 'AROME non disponibile: ultima lettura di Livornometeo, di ' + lm.eta_min + ' min fa' };
+  }
+  var res = { ok: !!pick, ts: new Date(nowMs).toISOString(), soglie: { livornometeo_min: lmMax, windfinder_min: wfMax }, dettagli: det };
+  if (pick) { res.valore = pick; } else res.motivo = 'nessun dato disponibile';
+  return res;
+}
 // ===== 2026-11-03: CONTROLLO DI SALUTE (action=health) =====
 // Perche': il 9-10/10 le previsioni sono state ferme 19 giorni senza che nessun controllo se ne accorgesse (i costi
 // continuavano e i lavori di cron-job.org risultavano "programmati"). Il segnale giusto e' la DATA DELL'ULTIMA
@@ -3207,6 +3260,34 @@ var sgKey = process.env.STORMGLASS_KEY || null;
 var kvUrl = process.env.UPSTASH_REDIS_REST_URL || null;
 var kvToken = process.env.UPSTASH_REDIS_REST_TOKEN || null;
 
+// /api/engine?action=livorno_now -- il VALORE UNICO di Livorno (vedi il commento sopra lnDecide): lo usano index, mappa2 e previsioni. Sola lettura, pubblica.
+// Tre letture Redis piccole; AROME da Open-Meteo solo se la lettura vera e Windfinder non sono recenti, con cache di 10 minuti (ln_arome).
+if (action === 'livorno_now') {
+  try {
+    var lnNow = Date.now();
+    var lnRead = await Promise.all([kvGet('bias_samples:livornometeo_porto', kvUrl, kvToken), kvGet('bias_samples:livorno_porto', kvUrl, kvToken)]);
+    var lnLm = Array.isArray(lnRead[0]) ? lnRead[0][0] : null, lnWf = Array.isArray(lnRead[1]) ? lnRead[1][0] : null;
+    var lnFirst = lnDecide(lnLm, lnWf, null, lnNow), lnAr = null, lnArNote = null;
+    if (!(lnFirst.ok && (lnFirst.valore.fonte === 'livornometeo' || lnFirst.valore.fonte === 'windfinder_stima'))) {
+      var lnCache = await kvGet('ln_arome', kvUrl, kvToken);
+      if (lnCache && lnCache.v && (lnNow - Date.parse(lnCache.ts)) < LN_AR_CACHE_S * 1000) { lnAr = lnCache.v; lnArNote = 'da cache (' + Math.round((lnNow - Date.parse(lnCache.ts)) / 1000) + ' s)'; }
+      else {
+        var lnSt = MANUAL_STATIONS.livornometeo_porto, lnModels = ['meteofrance_arome_france', 'meteofrance_arome_france_hd'];
+        for (var lnI = 0; lnI < lnModels.length && !lnAr; lnI++) {
+          var lnR = await mmFetchJson('https://api.open-meteo.com/v1/forecast?latitude=' + lnSt.lat + '&longitude=' + lnSt.lon + '&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m&models=' + lnModels[lnI] + '&wind_speed_unit=kn&timezone=UTC&past_hours=3&forecast_hours=3', 6000);
+          var lnP = lnR.ok ? lnAromeNow(lnR.json, lnNow, lnModels[lnI]) : null;
+          if (lnP) { lnP.modello = lnModels[lnI]; lnAr = lnP; lnArNote = 'da Open-Meteo'; }
+          else lnArNote = 'non disponibile (' + (lnR.error || 'nessun dato') + ')';
+        }
+        if (lnAr) await kvSet('ln_arome', { ts: new Date(lnNow).toISOString(), v: lnAr }, 1800, kvUrl, kvToken);
+      }
+    }
+    var lnRes = lnDecide(lnLm, lnWf, lnAr, lnNow); if (lnArNote) lnRes.arome_nota = lnArNote;
+    return res.status(200).json(lnRes);
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+}
 if (action === 'triple_wind') {
 var twZones = (req.query.zones || 'viareggio,bocca_arno,livorno').split(',');
 var twResults = await Promise.all(twZones.map(async function(zk) {
@@ -3260,7 +3341,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.54', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.55', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -8264,7 +8345,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.54 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.55 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -8395,4 +8476,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.54
+// Fine codice - NAUTILUS ENGINE v2.14.55

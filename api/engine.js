@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.56 - by mdisailor engine - v2.14.56: livorno_now con la MEDIA tra la stima da Windfinder (con tetto) e AROME quando la lettura vera non e' recente e il campione di Windfinder ha al massimo 90 minuti; AROME da solo oltre; la sola stima senza AROME. Motivo: lm_factor_report del 13/11 (177 coppie, un giorno fuori): errore 2.20 kn la media contro 2.48 il solo tetto, 2.80 AROME, 3.01 il fattore senza tetto. lm_factor_report: varianti della media (da 8 e da 10 kn) e invecchiamento della media. Include tutto il v2.14.55. Su base v2.14.55
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.57 - by mdisailor engine - v2.14.57: livorno_now: la media tra stima con tetto e AROME SOLO da 8 kn in su (sotto, con vento debole, la sola stima da Windfinder). Motivo: lm_factor_report del 13/11 sera, stesse 177 coppie un giorno fuori: 2.04 kn contro 2.20 della media sempre e 2.48 del solo tetto (vento debole 1.89 contro 2.76, errore p90 4.28 contro 5.09, nessuna sovrastima oltre 8 kn). Include tutto il v2.14.56. Su base v2.14.56
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -3062,8 +3062,9 @@ async function zhLastHourAge(zone, nowMs, restUrl, restToken) {
 // Perche': il 13/11 mappa2 mostrava 32.4 kn (stima da un campione di Windfinder di 2 ore prima) e l'index 13 kn (OM di ripiego, moltiplicato per il fattore di Windfinder e
 // scritto "STIMA"), con Livornometeo a 25: ogni pagina decideva da sola quanto e' vecchio troppo vecchio, e il fattore era copiato in quattro posti. Qui la decisione e' una sola:
 //   1) lettura vera di Livornometeo, se recente (LN_LM_FRESH_MIN minuti)                                                      -> tipo "vero"
-//   2) MEDIA tra la stima da Windfinder (con il tetto di lmFactorForDir) e AROME adesso, se il campione di Windfinder ha al massimo LN_WF_BLEND_MAX_MIN minuti
-//      dall'ORARIO DI OSSERVAZIONE (non da quello di cattura): direzione di Windfinder, raffica media delle due                -> "ricalcolato"
+//   2) se il campione di Windfinder ha al massimo LN_WF_BLEND_MAX_MIN minuti dall'ORARIO DI OSSERVAZIONE (non da quello di cattura): la MEDIA tra la stima da Windfinder
+//      (con il tetto di lmFactorForDir) e AROME adesso, MA SOLO se la stima e' di almeno LN_BLEND_FROM_KN; sotto, con vento debole, la sola stima da Windfinder.
+//      Direzione di Windfinder, raffica media delle due                                                                              -> "ricalcolato"
 //   3) senza AROME: la sola stima da Windfinder, se il campione ha al massimo LN_WF_FRESH_MIN minuti                              -> "ricalcolato"
 //   4) AROME adesso da solo (campione piu' vecchio o assente)                                                                   -> "modello"
 //   5) in mancanza di tutto: il dato piu' recente tra stima da Windfinder e lettura vera, con vecchio: true.
@@ -3071,8 +3072,13 @@ async function zhLastHourAge(zone, nowMs, restUrl, restToken) {
 // con tetto 2.48 (1%, +9.3), AROME da solo 2.80 (ottimo col vento forte, 2.49 contro 3.74; male col debole, 4.33 contro 2.11), MEDIA tetto + AROME 2.20 (la migliore, sovrastime 1%).
 // Una lettura vera invecchia: errore 1.54 kn subito, 2.41 a 30 minuti, 2.88 a 60, 3.24 a 90: pareggia la media attorno ai 45 minuti, quindi LN_LM_FRESH_MIN resta 30.
 // Il 13/11 alle 15:42 UTC: lettura vera di 37 minuti fa 26.1 kn, Livornometeo ADESSO 9.6 (calo di 16 kn in 37 minuti): nessuna regola copre casi cosi', per questo fonte e eta' si mostrano sempre.
-// LN_WF_BLEND_MAX_MIN e' una scelta ragionata, non misurata (AROME non invecchia): la verifica e' nel report (invecchiamento della media).
-var LN_LM_FRESH_MIN = 30, LN_WF_FRESH_MIN = 45, LN_WF_BLEND_MAX_MIN = 90, LN_AR_CACHE_S = 600;
+// SECONDO GIRO (13/11 sera, stesse 177 coppie): la media solo da 8 kn e' la migliore in assoluto: 2.04 kn contro 2.20 della media sempre e 2.48 del solo tetto; col vento debole (LM<8)
+// 1.89 contro 2.76 (AROME da solo lo peggiora: 4.33), errore p90 4.28 contro 5.09, nessuna sovrastima oltre 8 kn, peggiore +6.4 contro +11.4; da 10 kn 2.06. Invecchiamento del campione di
+// Windfinder (0/30/60/90 min): media 2.20/2.35/2.41/2.59, solo tetto 2.47/2.81/3.11/3.54, AROME da solo 2.80/2.82/2.46/2.53 (AROME e' preso al momento del campione: lievemente ottimistico):
+// il limite dei 90 minuti per la media e' quindi sostenuto dai dati (a 90 minuti media e AROME sono pari).
+// Idea per dopo: la media degli ultimi 10 minuti di una serie di Livornometeo invecchia meglio di una lettura singola (0.62 / 1.56 / 1.94 / 2.45 a 0/15/30/60 minuti contro
+// 1.54 / 2.07 / 2.41 / 2.88): servirebbe un riassunto piccolo salvato al momento del segnalibro serie (la serie intera e' troppo pesante da leggere ad ogni chiamata).
+var LN_LM_FRESH_MIN = 30, LN_WF_FRESH_MIN = 45, LN_WF_BLEND_MAX_MIN = 90, LN_BLEND_FROM_KN = 8, LN_AR_CACHE_S = 600;
 function lnNum(v) { return (v !== null && v !== undefined && v !== '' && !isNaN(Number(v))) ? Number(v) : null; }
 function lnInterpDir(a, b, f) { var d = ((b - a + 540) % 360) - 180; return ((a + d * f) % 360 + 360) % 360; }
 function lnAromeNow(json, nowMs, suffix) { // AROME adesso: interpolazione lineare tra l'ora precedente e la successiva (la direzione sull'arco piu' corto)
@@ -3106,10 +3112,12 @@ function lnDecide(lmS, wfS, ar, nowMs, o) {
   if (ar) det.arome = ar;
   var pick = null;
   if (lm && lm.eta_min <= lmMax) pick = { fonte: 'livornometeo', tipo: 'vero', velocita_kn: lm.velocita_kn, direzione: lm.direzione, raffica_kn: null, eta_min: lm.eta_min, vecchio: false, motivo: 'lettura di Livornometeo di ' + lm.eta_min + ' min fa (limite ' + lmMax + ')' };
+  else if (wf && ar && wf.eta_min <= blMax && wf.stima_kn < (o.blendFrom !== undefined ? o.blendFrom : LN_BLEND_FROM_KN)) pick = { fonte: 'windfinder_stima', tipo: 'ricalcolato', velocita_kn: wf.stima_kn, direzione: wf.direzione, raffica_kn: wf.raffica_stimata_kn, eta_min: wf.eta_min, vecchio: false, fattore: wf.fattore_efficace,
+           motivo: 'vento debole (stima ' + wf.stima_kn + ' kn, sotto gli ' + (o.blendFrom !== undefined ? o.blendFrom : LN_BLEND_FROM_KN) + '): la media con AROME peggiora (1.89 contro 2.76 kn di errore), si usa la sola stima da Windfinder (campione di ' + wf.eta_min + ' min fa)' };
   else if (wf && ar && wf.eta_min <= blMax) {
     var bSpd = Math.round(((wf.stima_kn + ar.speed) / 2) * 10) / 10, gW = wf.raffica_stimata_kn, gA = ar.gust, bG = (gW !== null && gA !== null) ? (gW + gA) / 2 : (gW !== null ? gW : gA);
     pick = { fonte: 'windfinder_arome', tipo: 'ricalcolato', velocita_kn: bSpd, direzione: wf.direzione, raffica_kn: bG === null ? null : Math.max(Math.round(bG * 10) / 10, bSpd), eta_min: wf.eta_min, vecchio: false, fattore: wf.fattore_efficace,
-             componenti: { windfinder_stimato_kn: wf.stima_kn, arome_kn: ar.speed }, motivo: 'media tra la stima da Windfinder (' + wf.stima_kn + ' kn, campione di ' + wf.eta_min + ' min fa, limite ' + blMax + ') e AROME (' + ar.speed + ' kn)' };
+             componenti: { windfinder_stimato_kn: wf.stima_kn, arome_kn: ar.speed }, motivo: 'media tra la stima da Windfinder (' + wf.stima_kn + ' kn, campione di ' + wf.eta_min + ' min fa, limite ' + blMax + ') e AROME (' + ar.speed + ' kn), vento da ' + (o.blendFrom !== undefined ? o.blendFrom : LN_BLEND_FROM_KN) + ' kn in su' };
   }
   else if (wf && wf.eta_min <= wfMax) pick = { fonte: 'windfinder_stima', tipo: 'ricalcolato', velocita_kn: wf.stima_kn, direzione: wf.direzione, raffica_kn: wf.raffica_stimata_kn, eta_min: wf.eta_min, vecchio: false, fattore: wf.fattore_efficace, motivo: 'campione di Windfinder osservato ' + wf.eta_min + ' min fa (limite ' + wfMax + '), per il fattore ' + wf.fattore_efficace };
   else if (ar) pick = { fonte: 'arome', tipo: 'modello', velocita_kn: ar.speed, direzione: ar.dir, raffica_kn: ar.gust === null ? null : Math.max(ar.gust, ar.speed), eta_min: null, vecchio: false, motivo: 'nessuna lettura vera o campione di Windfinder recenti (Livornometeo ' + (lm ? lm.eta_min + ' min' : 'assente') + ', Windfinder ' + (wf ? wf.eta_min + ' min' : 'assente') + '): modello AROME' };
@@ -3353,7 +3361,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.56', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.57', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -8357,7 +8365,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.56 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.57 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -8488,4 +8496,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.56
+// Fine codice - NAUTILUS ENGINE v2.14.57

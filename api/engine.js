@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.50 - by mdisailor engine - v2.14.50: (A) il record orario dell'archivio viene scritto anche da scrape_cfr (HSETNX, non sovrascrive un record piu' completo): per le zone la cui fotografia nasce da scrape_cfr mancava; (B) le fotografie scritte da scrape_cfr durano 14 giorni invece di 3 (SCF_SNAP_TTL): action=predict ne chiede sempre 14, e 16 zone su 17 collegate a una stazione CFR ne avevano 3 (scoperto leggendo l'archivio orario, decisione di M il 10/11); (C) cron_snap e il recupero accettano i nomi di zona con la maiuscola, e cron_snap segnala nella risposta i nomi non riconosciuti (unknown_zones). Include tutto il v2.14.49. Su base v2.14.49
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.51 - by mdisailor engine - v2.14.51: ARCHIVIO fase B: action=archive_export (richiede sempre il segreto; type=index, zone_hourly, manual_series con paginazione 'after') per la copia settimanale su un repository privato di GitHub (GitHub Action). Include tutto il v2.14.50. Su base v2.14.50
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -3073,7 +3073,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.50', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.51', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -4765,6 +4765,39 @@ if (action === 'zone_hourly_get') {
   return res.status(200).json({ zona: zgZone, mese: zgMonth, ore_nel_mese: zgFields.length, campi: ZH_FIELDS, ultimi: zgRows });
 }
 
+// /api/engine?action=archive_export&secret=<CRON_SECRET>&type=index|zone_hourly|manual_series -- ARCHIVIO fase B: esportazione per la copia settimanale su GitHub
+// (repository privato, GitHub Action). Richiede SEMPRE il segreto. Sola lettura, risposte piccole (una zona-mese o una pagina di serie alla volta).
+//  type=index                                  -> zone, stazioni manuali, campi del record orario
+//  type=zone_hourly&zone=<z>&month=AAAA-MM     -> tutti i record orari della zona nel mese: {ora "GGTOO": [22 valori]}
+//  type=manual_series&station=<id>[&after=ISO][&limit=N]  -> punti [ISO, kn, dir] STRETTAMENTE dopo 'after', in ordine crescente, al massimo N (default 10000, max 20000);
+//                                                 has_more=true se ce ne sono altri: si riparte da ultimo_ts. Serve a ACCUMULARE: Redis ne tiene solo gli ultimi 30000.
+if (action === 'archive_export') {
+  var aeSecret = req.query.secret || '', aeExpected = process.env.CRON_SECRET || '';
+  if (!aeExpected || aeSecret !== aeExpected) return res.status(401).json({ error: 'Unauthorized' });
+  var aeType = (req.query.type || '').toString();
+  if (aeType === 'index') {
+    return res.status(200).json({ ora_utc: new Date().toISOString(), zone: Object.keys(ZONES), stazioni_manuali: Object.keys(MANUAL_STATIONS), campi_zone: ZH_FIELDS });
+  }
+  if (aeType === 'zone_hourly') {
+    var aeZone = (req.query.zone || '').toString().toLowerCase(), aeMonth = (req.query.month || '').toString();
+    if (!ZONES[aeZone]) return res.status(400).json({ error: 'Zona sconosciuta', known: Object.keys(ZONES) });
+    if (!/^\d{4}-\d{2}$/.test(aeMonth)) return res.status(400).json({ error: 'month deve essere AAAA-MM' });
+    var aeRaw = zhPairs(await kvCmd(['HGETALL', 'zh:' + aeZone + ':' + aeMonth], kvUrl, kvToken)), aeOre = {}, aeN = 0;
+    Object.keys(aeRaw).sort().forEach(function(f) { try { aeOre[f] = JSON.parse(aeRaw[f]); aeN++; } catch (eJ) {} });
+    return res.status(200).json({ zona: aeZone, mese: aeMonth, campi: ZH_FIELDS, n: aeN, ore: aeOre });
+  }
+  if (aeType === 'manual_series') {
+    var aeSt = (req.query.station || '').toString();
+    if (!MANUAL_STATIONS[aeSt]) return res.status(400).json({ error: 'Stazione manuale sconosciuta', known: Object.keys(MANUAL_STATIONS) });
+    var aeArr = await kvGet('manual_series:' + aeSt, kvUrl, kvToken); aeArr = Array.isArray(aeArr) ? aeArr : [];
+    var aeAfter = req.query.after ? new Date(req.query.after).getTime() : NaN;
+    var aeLim = Math.max(1, Math.min(parseInt(req.query.limit, 10) || 10000, 20000));
+    var aeSel = aeArr.filter(function(p) { return p && p.length >= 3 && (isNaN(aeAfter) || new Date(p[0]).getTime() > aeAfter); });
+    var aePage = aeSel.slice(0, aeLim);
+    return res.status(200).json({ station: aeSt, legend: '[tempo_UTC, velocita_kn, direzione]', totale_in_redis: aeArr.length, n: aePage.length, has_more: aeSel.length > aeLim, ultimo_ts: aePage.length ? aePage[aePage.length - 1][0] : null, punti: aePage });
+  }
+  return res.status(400).json({ error: 'type non valido', validi: ['index', 'zone_hourly', 'manual_series'] });
+}
 // /api/engine?action=health_alert_test&secret=<CRON_SECRET> -- manda un messaggio di prova su Telegram. Richiede il segreto
 // SEMPRE (anche se CRON_SECRET non fosse impostato): altrimenti chiunque potrebbe riempire di messaggi il telefono di M.
 if (action === 'health_alert_test') {
@@ -8026,7 +8059,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.50 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.51 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -8157,4 +8190,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.50
+// Fine codice - NAUTILUS ENGINE v2.14.51

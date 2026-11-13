@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.53 - by mdisailor engine - v2.14.53: lm_factor_report, secondo giro: AROME e le medie con AROME tra i metodi (sulle STESSE coppie), CODE degli errori (quota di sovrastime e sottostime oltre 8 kn, peggiore, p90), invecchiamento di una lettura vera (singola e media di 10 minuti), e parametri auto= e manual= per confrontare altre coppie (per esempio capraia_cfr con capraiameteo). Motivo: la validazione manual_hourly a 22 giorni mostra AROME calibrato in tutte e quattro le stazioni manuali (Livorno: errore 2.4 kn, bias 0), contro la conclusione di ottobre. Include tutto il v2.14.52. Su base v2.14.52
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.54 - by mdisailor engine - v2.14.54: CORREZIONE PROVVISORIA del fattore di Livorno: tetto sulla velocita'. Con la velocita' grezza il fattore efficace e' quello che porta a min(kn x fattore_direzione, 3.3 + 1.08 x kn): puo' solo ridurre la vecchia stima. Motivo: il 13/11 a 240 gradi con Windfinder a 24 kn la stima era 53 kn (x2.2) contro i 25 di Livornometeo, e il 12/11 30.7 contro 10.4. Si applica anche alla conversione delle previsioni di Livorno (reference_method fattore_per_direzione_con_tetto_v2.14.54). lm_factor_report confronta 'attuale' (senza tetto) con 'con_tetto'. Include tutto il v2.14.53. Su base v2.14.53
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2135,7 +2135,14 @@ var MANUAL_STATIONS = {
 // pochi episodi; da rivedere col monitoraggio.
 var LM_FACTOR_ANCHORS = [[0, 1.5], [90, 1.5], [150, 2.2], [240, 2.2], [300, 1.7], [360, 1.5]];
 var LM_FACTOR_DEFAULT = 1.8; // direzione ignota
-function lmFactorForDir(deg) {
+// 2026-11-13: TETTO. Il fattore per direzione e' un moltiplicatore e cresce senza limite: il 13/11 a 240 gradi con Windfinder a 24 kn dava 53 kn (x2.2) contro i
+// 25 reali di Livornometeo; il 12/11 a 144 gradi 14.4 kn davano 30.7 contro 10.4. Sulle 176 coppie Windfinder/Livornometeo (23/10-13/11) il rapporto CALA con la
+// velocita' (1.80 sotto i 6 kn, 1.55 tra 6 e 10, 1.33 tra 10 e 14, 1.29 oltre i 14): una retta Livornometeo = 3.3 + 1.08 x Windfinder segue le quattro fasce (errore
+// un giorno fuori 2.51 kn contro 2.78 della funzione senza tetto). Con la velocita' grezza (kn) il fattore EFFICACE e' quello che porta alla stima
+// min(kn x fattore_direzione, 3.3 + 1.08 x kn): puo' solo ridurre la vecchia stima, mai aumentarla. Provvisorio: la taratura definitiva e' in corso (lm_factor_report).
+// Senza kn il comportamento e' quello di prima (le ancore da sole).
+var LM_LIN_A = 3.3, LM_LIN_B = 1.08;
+function lmFactorForDirBase(deg) {
   if (deg === null || deg === undefined || isNaN(deg)) return LM_FACTOR_DEFAULT;
   var d = ((Number(deg) % 360) + 360) % 360, A = LM_FACTOR_ANCHORS;
   for (var i = 0; i < A.length - 1; i++) {
@@ -2145,6 +2152,12 @@ function lmFactorForDir(deg) {
     }
   }
   return LM_FACTOR_DEFAULT;
+}
+function lmFactorForDir(deg, kn) {
+  var f = lmFactorForDirBase(deg);
+  if (kn === undefined || kn === null || isNaN(kn) || Number(kn) <= 0) return f;
+  var k = Number(kn), est = Math.min(k * f, LM_LIN_A + LM_LIN_B * k);
+  return Math.round((est / k) * 100) / 100;
 }
 function compassToDeg(s) {
   if (s === null || s === undefined) return null;
@@ -2170,13 +2183,13 @@ function applyLmReference(rec, aiText) {
     var dir = extractWindDirDeg(aiText, h.slice(1)), src = 'direzione prevista';
     if (dir === null && rec.current_wind_dir !== null && rec.current_wind_dir !== undefined && !isNaN(rec.current_wind_dir)) { dir = Number(rec.current_wind_dir); src = 'direzione attuale'; }
     if (dir === null) src = 'direzione ignota, fattore medio';
-    var f = lmFactorForDir(dir), c = Math.round(v * f * 10) / 10;
+    var f = lmFactorForDir(dir, v), c = Math.round(v * f * 10) / 10; // 2026-11-13: con il tetto sulla velocita' (v e' il valore previsto in kn, nel riferimento Windfinder)
     rec['forecast_' + h + '_wf'] = v;
     rec['reference_factor_' + h] = f;
     rec['forecast_' + h] = c;
     applied.push('H+' + h.slice(1) + ': ' + v + ' -> ' + c + ' kn (x' + f + ', ' + src + (dir !== null ? ' ' + Math.round(dir) + ' gradi' : '') + ')');
   });
-  if (applied.length) { rec.reference_corrected = true; rec.reference_offset_kt = null; rec.reference_method = 'fattore_per_direzione_v2.14.37'; }
+  if (applied.length) { rec.reference_corrected = true; rec.reference_offset_kt = null; rec.reference_method = 'fattore_per_direzione_con_tetto_v2.14.54'; }
   return applied;
 }
 // Previsione nella SCALA DELLA STAZIONE DI RIFERIMENTO (es. Windfinder per Livorno), cioe'
@@ -2812,7 +2825,7 @@ function lmfOLS(train) { var n = train.length, sx = 0, sy = 0, sxx = 0, sxy = 0;
 function lmfDayOut(allPairs) {
   var pairs = allPairs.filter(function(p) { return p.ar !== null; }), liv = LMF_CTX.livorno;     // tutti i metodi sulle STESSE coppie (quelle con AROME)
   var days = Object.keys(lmfGroup(pairs, function(p) { return p.day; })).sort(), M = { identita: [], costante: [], per_settore: [], per_fascia: [], lineare: [], arome: [], media_lineare_arome: [] }, used = 0, skipped = 0;
-  if (liv) { M.attuale = []; M.media_attuale_arome = []; }
+  if (liv) { M.attuale = []; M.media_attuale_arome = []; M.con_tetto = []; M.media_con_tetto_arome = []; }
   var bySectorErr = { attuale: {}, per_settore: {} };
   days.forEach(function(D) {
     var train = pairs.filter(function(p) { return p.day !== D; }), test = pairs.filter(function(p) { return p.day === D; });
@@ -2828,7 +2841,7 @@ function lmfDayOut(allPairs) {
       M.identita.push({ lm: p.lm, est: p.wf }); M.costante.push({ lm: p.lm, est: p.wf * k });
       M.per_settore.push({ lm: p.lm, est: eSec }); M.per_fascia.push({ lm: p.lm, est: p.wf * (kb[lmfBand(p.wf)] !== undefined ? kb[lmfBand(p.wf)] : k) });
       M.lineare.push({ lm: p.lm, est: eLin }); M.arome.push({ lm: p.lm, est: p.ar }); M.media_lineare_arome.push({ lm: p.lm, est: (eLin + p.ar) / 2 });
-      if (liv) { var eAtt = p.wf * lmFactorForDir(p.wfd); M.attuale.push({ lm: p.lm, est: eAtt }); M.media_attuale_arome.push({ lm: p.lm, est: (eAtt + p.ar) / 2 });
+      if (liv) { var eAtt = p.wf * lmFactorForDir(p.wfd), eTet = p.wf * lmFactorForDir(p.wfd, p.wf); M.attuale.push({ lm: p.lm, est: eAtt }); M.media_attuale_arome.push({ lm: p.lm, est: (eAtt + p.ar) / 2 }); M.con_tetto.push({ lm: p.lm, est: eTet }); M.media_con_tetto_arome.push({ lm: p.lm, est: (eTet + p.ar) / 2 });
         (bySectorErr.attuale[sec] = bySectorErr.attuale[sec] || []).push({ lm: p.lm, est: eAtt }); (bySectorErr.per_settore[sec] = bySectorErr.per_settore[sec] || []).push({ lm: p.lm, est: eSec }); }
     });
   });
@@ -2842,8 +2855,9 @@ function lmfStale(pts, pairs, half, minPts, deltas) { // il popup mostra un camp
   var out = {};
   deltas.forEach(function(dl) {
     var rowsA = [], rowsI = [];
-    pairs.forEach(function(p) { var w = lmfWindow(pts, p.t + dl * 60000, half); if (!w || w.n < minPts) return; if (LMF_CTX.livorno) rowsA.push({ lm: w.mean, est: p.wf * lmFactorForDir(p.wfd) }); rowsI.push({ lm: w.mean, est: p.wf }); });
-    out['campione_di_' + dl + '_min_fa'] = LMF_CTX.livorno ? { attuale: lmfErr(rowsA), senza_fattore: lmfErr(rowsI) } : { senza_fattore: lmfErr(rowsI) };
+    var rowsT = [];
+    pairs.forEach(function(p) { var w = lmfWindow(pts, p.t + dl * 60000, half); if (!w || w.n < minPts) return; if (LMF_CTX.livorno) { rowsA.push({ lm: w.mean, est: p.wf * lmFactorForDir(p.wfd) }); rowsT.push({ lm: w.mean, est: p.wf * lmFactorForDir(p.wfd, p.wf) }); } rowsI.push({ lm: w.mean, est: p.wf }); });
+    out['campione_di_' + dl + '_min_fa'] = LMF_CTX.livorno ? { attuale: lmfErr(rowsA), con_tetto: lmfErr(rowsT), senza_fattore: lmfErr(rowsI) } : { senza_fattore: lmfErr(rowsI) };
   });
   return out;
 }
@@ -3246,7 +3260,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.53', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.54', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -8250,7 +8264,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.53 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.54 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -8381,4 +8395,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.53
+// Fine codice - NAUTILUS ENGINE v2.14.54

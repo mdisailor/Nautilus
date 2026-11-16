@@ -1,4 +1,4 @@
-<!-- NAUTILUS PREVISIONI v3.16 - mdisailor - 2026-11-13 - v3.16: CORREZIONE PROVVISORIA del fattore di Livorno: tetto sulla velocita' (lmFactorForDir(dir, kn): stima = min(kn x fattore_direzione, 3.3 + 1.08 x kn), mai piu' della vecchia) e raffica scalata come la velocita' (e null con la lettura vera). Motivo: il 13/11 la stima era 53 kn (x2.2 a 240 gradi, Windfinder 24 kn) contro i 25 di Livornometeo. Su base v3.15 | v3.15 (6/11): i numeri del bottone NODI hanno due colori: bianco = valore nostro (lettura vera della stazione, stima di Livorno, nostra previsione), azzurro = modello (griglia OM e ripiego sull'OM), richiesta di M (un numero sulla mappa e' o il dato vero, o quello ricalcolato, o il modello). Freccia e popup nascono gia' dallo stesso calcolo. Su base v3.14 -->
+<!-- NAUTILUS PREVISIONI v3.17 - mdisailor - 2026-11-16 - v3.17: Livorno prende il valore da action=livorno_now (lettura vera / media Windfinder+AROME / AROME), stesso numero di index e mappa; ripiego sulla logica precedente. v3.16 (13/11): CORREZIONE PROVVISORIA del fattore di Livorno: tetto sulla velocita' (lmFactorForDir(dir, kn): stima = min(kn x fattore_direzione, 3.3 + 1.08 x kn), mai piu' della vecchia) e raffica scalata come la velocita' (e null con la lettura vera). Motivo: il 13/11 la stima era 53 kn (x2.2 a 240 gradi, Windfinder 24 kn) contro i 25 di Livornometeo. Su base v3.15 | v3.15 (6/11): i numeri del bottone NODI hanno due colori: bianco = valore nostro (lettura vera della stazione, stima di Livorno, nostra previsione), azzurro = modello (griglia OM e ripiego sull'OM), richiesta di M (un numero sulla mappa e' o il dato vero, o quello ricalcolato, o il modello). Freccia e popup nascono gia' dallo stesso calcolo. Su base v3.14 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Previsioni Vento v3.16</title>
+<title>NAUTILUS Previsioni Vento v3.17</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -65,7 +65,7 @@
 
 <header>
   <h1>NAUTILUS &mdash; Previsioni Vento</h1>
-  <span class="ver">v3.16</span>
+  <span class="ver">v3.17</span>
   <a class="back" href="/index2.html">&larr; cruscotto</a>
 </header>
 
@@ -152,6 +152,41 @@ function lmHHMM(ts) {
   try { return new Date(ts).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Rome' }); } catch (e) { return ''; }
 }
 function lmAgeText(m) { return m < 120 ? Math.round(m) + ' min' : m < 2880 ? Math.round(m / 60) + ' h' : Math.round(m / 1440) + ' g'; }
+
+// 2026-11-16: UN SOLO valore per Livorno, deciso dall'engine (action=livorno_now): lettura vera <=30 min, altrimenti media tra
+// stima da Windfinder e AROME, altrimenti AROME. Stesso numero di index e mappa. Se l'engine non risponde: logica precedente.
+var LN_PV = null, LN_PV_TS = 0, LN_PV_P = null;
+async function getLivornoNowPv(force) {
+  if (!force && LN_PV && (Date.now() - LN_PV_TS) < 20000) return LN_PV;
+  if (LN_PV_P) return LN_PV_P;
+  LN_PV_P = (async function() {
+    try {
+      var r = await fetch(ENGINE_URL + '?action=livorno_now', { cache: 'no-store' });
+      var d = await r.json();
+      if (!d || !d.ok || !d.valore || d.valore.velocita_kn == null || d.valore.direzione == null) return null;
+      LN_PV = d; LN_PV_TS = Date.now(); return d;
+    } catch (e) { return null; } finally { LN_PV_P = null; }
+  })();
+  return LN_PV_P;
+}
+// descrizione del valore: titolo e colore del popup, testo breve per il file Excel, model = vale come modello (freccia azzurra)
+function lnPvInfo(d) {
+  var v = d.valore, det = d.dettagli || {}, age = (v.eta_min != null) ? lmAgeText(v.eta_min) : null;
+  var f = (v.fattore != null) ? Number(v.fattore).toFixed(1) : '';
+  var o = { hdr: v.fonte, col: '#bbb', xls: v.fonte, model: false, extra: '' };
+  var sty = 'font-size:0.58rem;color:#bbb;margin-top:2px';
+  if (v.fonte === 'livornometeo') { o.hdr = 'Livornometeo, lettura di ' + age + ' fa'; o.col = '#22cc66'; o.xls = 'Livornometeo diretto (' + age + ' fa)'; }
+  else if (v.fonte === 'livornometeo_vecchia') { o.hdr = 'Livornometeo, lettura VECCHIA di ' + age; o.col = '#ff8844'; o.xls = 'Livornometeo VECCHIO (' + age + ')'; }
+  else if (v.fonte === 'windfinder_arome') { o.hdr = 'Media: stima Windfinder e AROME (campione di ' + age + ' fa)'; o.col = '#ffaa00'; o.xls = 'media stima Windfinder ' + v.componenti.windfinder_stimato_kn + ' e AROME ' + v.componenti.arome_kn;
+    o.extra = '<div style="' + sty + '">Stima Windfinder <b>' + v.componenti.windfinder_stimato_kn + '</b> kn &middot; AROME <b>' + v.componenti.arome_kn + '</b> kn</div>'; }
+  else if (v.fonte === 'windfinder_stima') { o.hdr = 'Stima per Livornometeo, da Windfinder ×' + f + ' (campione di ' + age + ' fa)'; o.col = '#ffaa00'; o.xls = 'stima da Windfinder ×' + f; }
+  else if (v.fonte === 'windfinder_stima_vecchia') { o.hdr = 'Stima da Windfinder ×' + f + ', campione VECCHIO di ' + age; o.col = '#ff8844'; o.xls = 'stima da Windfinder ×' + f + ' (campione vecchio ' + age + ')'; }
+  else if (v.fonte === 'arome') { o.hdr = 'Modello AROME (nessun dato recente di stazione)'; o.col = '#4da6ff'; o.xls = 'modello AROME'; o.model = true; }
+  if (det.windfinder) o.extra += '<div style="' + sty + '">Windfinder grezzo: ' + det.windfinder.grezzo_kn + ' kn da ' + det.windfinder.direzione + '&deg; alle ' + lmHHMM(det.windfinder.osservato_alle) + '</div>';
+  if (det.livornometeo && v.fonte !== 'livornometeo') o.extra += '<div style="' + sty + '">Ultima lettura Livornometeo: ' + det.livornometeo.velocita_kn + ' kn da ' + det.livornometeo.direzione + '&deg; alle ' + lmHHMM(det.livornometeo.ts) + ' (' + lmAgeText(det.livornometeo.eta_min) + ' fa)</div>';
+  return o;
+}
+function lnPvGust(v) { return (v.raffica_kn != null) ? Math.max(v.raffica_kn, v.velocita_kn) : null; } // la raffica non scende mai sotto il vento
 // Righe sotto la stima: Windfinder grezzo, ultima lettura vera di Livornometeo, avviso sull'incertezza.
 // whenText: quando e' stato preso il campione Windfinder, gia' scritto dal chiamante ("delle 14:41 (19 min fa)").
 function lmEstimateExtra(rawKn, rawDir, whenText) {
@@ -844,17 +879,19 @@ async function drawAll(){
         // M via segnalibro), quella diventa il valore PRINCIPALE -- velocita'
         // E direzione vere, non piu' solo la stima +4.2 (D16, 15/9). La stima
         // resta come ripiego quando non c'e' nulla di fresco.
-        var stSpd = st.wind_kt, stDir = st.direction, stGust = st.gust_kt;
+        var stSpd = st.wind_kt, stDir = st.direction, stGust = st.gust_kt, stPrio = 0;
         if (z.biasStation === 'livorno_porto') {
-          var lmOvD = await getLivornometeoOverride();
-          if (lmOvD) { stSpd = lmOvD.speed; stDir = lmOvD.direction; stGust = null; } // lettura vera: la raffica di Windfinder non le appartiene
+          var lnD = await getLivornoNowPv();
+          var lmOvD = lnD ? null : await getLivornometeoOverride();
+          if (lnD) { stSpd = lnD.valore.velocita_kn; stDir = lnD.valore.direzione; stGust = lnPvGust(lnD.valore); if (lnPvInfo(lnD).model) stPrio = 1; } // 2026-11-16: valore deciso dall'engine; AROME = modello (azzurro)
+          else if (lmOvD) { stSpd = lmOvD.speed; stDir = lmOvD.direction; stGust = null; } // lettura vera: la raffica di Windfinder non le appartiene
           else {
             var lmFD = lmFactorForDir(stDir, st.wind_kt); // 2026-11-13: con il tetto sulla velocita'
             stSpd = Math.round(st.wind_kt * lmFD * 10) / 10;
             if (stGust != null && !isNaN(stGust)) stGust = Math.max(Math.round(stGust * lmFD * 10) / 10, stSpd); // 2026-11-13: la raffica si scala come la velocita' (l'index mostrava raffica 30 con vento stimato 53) e non scende sotto il vento
           }
         }
-        tryDraw(z.lat, z.lon, stDir, stSpd, stGust, true, 0);
+        tryDraw(z.lat, z.lon, stDir, stSpd, stGust, true, stPrio);
         continue;
       }
       // nessuna lettura reale recente -- cade sull'OM del punto griglia piu' vicino
@@ -925,8 +962,13 @@ async function updateZoneMarkerPopups(){
         // (Livorno senza lettura Livornometeo fresca): si leggeva come un dato reale e di adesso. Ora cambia col caso.
         var popHdr = 'Dato reale stazione, adesso', popHdrCol = '#fff';
         if (z.biasStation === 'livorno_porto') {
-          var lmOvP = await getLivornometeoOverride();
-          if (lmOvP) {
+          var lnP = await getLivornoNowPv();
+          var lmOvP = lnP ? null : await getLivornometeoOverride();
+          if (lnP) {
+            var lnPi = lnPvInfo(lnP);
+            stSpd = lnP.valore.velocita_kn; stDir = lnP.valore.direzione;
+            popHdr = lnPi.hdr; popHdrCol = lnPi.col; freshNote = lnPi.extra;
+          } else if (lmOvP) {
             stSpd = lmOvP.speed; stDir = lmOvP.direction;
             popHdr = 'Livornometeo, lettura di ' + lmOvP.ageMin + ' min fa'; popHdrCol = '#22cc66';
           } else {
@@ -1025,7 +1067,8 @@ async function exportXLS(){
   // fix 2026-10-16: presa una sola volta, prima dei due cicli sotto -- non
   // cambia nei pochi secondi che l'export impiega, non serve richiederla a
   // ogni zona/fascia oraria (ne' convertire i forEach in for per via dell'await).
-  var lmOvX = await getLivornometeoOverride();
+  var lnX = await getLivornoNowPv(true);
+  var lmOvX = lnX ? null : await getLivornometeoOverride();
   try {
     var wb = XLSX.utils.book_new();
     state.hourButtons.forEach(function(hb){
@@ -1042,7 +1085,8 @@ async function exportXLS(){
             // priorita' sulla stima +4.2 -- vedi nota estesa in drawAll.
             var stSpd = st.wind_kt, stDir = st.direction, stGustX = st.gust_kt, stFonte = 'stazione reale (' + (st.age_min != null ? st.age_min + 'min fa' : '?') + ')';
             if (z.biasStation === 'livorno_porto') {
-              if (lmOvX) { stSpd = lmOvX.speed; stDir = lmOvX.direction; stGustX = null; stFonte = 'Livornometeo diretto (' + lmOvX.ageMin + 'min fa)'; }
+              if (lnX) { stSpd = lnX.valore.velocita_kn; stDir = lnX.valore.direzione; stGustX = lnPvGust(lnX.valore); stFonte = lnPvInfo(lnX).xls; } // 2026-11-16: valore deciso dall'engine (livorno_now)
+              else if (lmOvX) { stSpd = lmOvX.speed; stDir = lmOvX.direction; stGustX = null; stFonte = 'Livornometeo diretto (' + lmOvX.ageMin + 'min fa)'; }
               else { var lmFX = lmFactorForDir(stDir, st.wind_kt); stSpd = Math.round(st.wind_kt * lmFX * 10) / 10; if (stGustX != null && !isNaN(stGustX)) stGustX = Math.max(Math.round(stGustX * lmFX * 10) / 10, stSpd); stFonte = 'stima da Windfinder \u00d7' + lmFX.toFixed(1); } // 2026-11-13: tetto sulla velocita' e raffica scalata
             }
             rows.push(['zona', z.name, z.lat, z.lon, stFonte, stSpd, stDir, stGustX]);
@@ -1106,4 +1150,4 @@ setInterval(loadAll, REFRESH_MS);
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS PREVISIONI v3.16 -->
+<!-- Fine codice - NAUTILUS PREVISIONI v3.17 -->

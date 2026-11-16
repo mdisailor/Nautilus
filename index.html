@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.7.48 -- 2026-11-13 - CORREZIONE PROVVISORIA del fattore di Livorno: tetto sulla velocita' (lmFactorForDir(dir, kn): stima = min(kn x fattore_direzione, 3.3 + 1.08 x kn), mai piu' della vecchia) e raffica scalata come la velocita' nelle due bussole di Livorno. Motivo: il 13/11 la bussola dava 53 kn con raffica 30 (x2.2 a 240 gradi, Windfinder 24 kn) contro i 25 di Livornometeo. | v5.7.47 (27/10): dettaglio della bussola tripla per Livorno piu' chiaro: SORGENTE dice "Stima da Windfinder x1.9 (grezzo 4.1 kn)" e una riga a parte "ULT. LETTURA LM" riporta l'ultima lettura VERA di Livornometeo con valore, direzione, ora ed eta' (prima "AGGIORNATO" era l'orario del campione Windfinder accanto a "STIMA x1.9", senza altro). La bussola singola resta con la sola etichetta "STIMA x1.9" (poco spazio). Su base v5.7.46 -->
+<!-- NAUTILUS v5.7.49 -- 2026-11-13 - CORREZIONE PROVVISORIA del fattore di Livorno: tetto sulla velocita' (lmFactorForDir(dir, kn): stima = min(kn x fattore_direzione, 3.3 + 1.08 x kn), mai piu' della vecchia) e raffica scalata come la velocita' nelle due bussole di Livorno. Motivo: il 13/11 la bussola dava 53 kn con raffica 30 (x2.2 a 240 gradi, Windfinder 24 kn) contro i 25 di Livornometeo. | v5.7.47 (27/10): dettaglio della bussola tripla per Livorno piu' chiaro: SORGENTE dice "Stima da Windfinder x1.9 (grezzo 4.1 kn)" e una riga a parte "ULT. LETTURA LM" riporta l'ultima lettura VERA di Livornometeo con valore, direzione, ora ed eta' (prima "AGGIORNATO" era l'orario del campione Windfinder accanto a "STIMA x1.9", senza altro). La bussola singola resta con la sola etichetta "STIMA x1.9" (poco spazio). Su base v5.7.46 -->
 
 <html lang="it">
 <head>
@@ -600,7 +600,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.48  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.49  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -2013,7 +2013,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.48  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.49  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -3119,6 +3119,15 @@ async function loadSingleCompass() {
         var scDisplayGust = realS.station.gust_kt;
         var scDisplaySrc = 'CFR';
         if (cfrId === 'livorno_porto') {
+          var scLn = await getLivornoNowIdx();
+          if (scLn) {
+            // 2026-11-16: valore deciso dall'engine (livorno_now); la raffica non scende mai sotto il vento
+            var scLv = scLn.valore, scLi = lnIdxInfo(scLn);
+            scDisplaySpd = scLv.velocita_kn;
+            scDisplayDir = scLv.direzione;
+            scDisplayGust = (scLv.raffica_kn !== null && scLv.raffica_kn !== undefined) ? Math.max(scLv.raffica_kn, scLv.velocita_kn) : null;
+            scDisplaySrc = scLi.model ? 'OM' : scLi.short; // 'OM' = il colore rosso del modello gia' gestito da updateSingleCompass
+          } else {
           var scLm = await getLivornometeoOverride();
           if (scLm) {
             scDisplaySpd = scLm.speed;
@@ -3132,6 +3141,7 @@ async function loadSingleCompass() {
             if (scDisplayGust !== null && scDisplayGust !== undefined && !isNaN(scDisplayGust)) scDisplayGust = Math.max(Math.round(scDisplayGust * scF * 10) / 10, scDisplaySpd);
             scDisplaySrc = 'STIMA \u00d7' + scF.toFixed(1);
           }
+          } // fine ripiego (livorno_now non raggiungibile)
         }
         updateSingleCompass(scDisplaySpd, scDisplayDir, scDisplayGust, scDisplaySrc);
         scCfrLoaded = true;
@@ -3487,6 +3497,44 @@ function lmHHMM(ts) {
   try { return new Date(ts).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Rome' }); } catch (e) { return ''; }
 }
 function lmAgeText(m) { return m < 120 ? Math.round(m) + ' min' : m < 2880 ? Math.round(m / 60) + ' h' : Math.round(m / 1440) + ' g'; }
+
+// 2026-11-16: UN SOLO valore per Livorno, deciso dall'engine (action=livorno_now): lettura vera <=30 min,
+// altrimenti media tra stima da Windfinder e AROME, altrimenti AROME. Cosi' index, mappa e previsioni mostrano lo stesso numero.
+var LN_IDX = null, LN_IDX_TS = 0, LN_IDX_P = null;
+async function getLivornoNowIdx() {
+  if (LN_IDX && (Date.now() - LN_IDX_TS) < 20000) return LN_IDX;
+  if (LN_IDX_P) return LN_IDX_P;
+  LN_IDX_P = (async function() {
+    try {
+      var r = await fetch(ENGINE_URL + '?action=livorno_now', { cache: 'no-store' });
+      var d = await r.json();
+      if (!d || !d.ok || !d.valore || d.valore.velocita_kn === null || d.valore.velocita_kn === undefined) return null;
+      LN_IDX = d; LN_IDX_TS = Date.now(); return d;
+    } catch (e) { return null; } finally { LN_IDX_P = null; }
+  })();
+  return LN_IDX_P;
+}
+// ora dell'OSSERVAZIONE (non della richiesta): lettura vera, campione Windfinder, oppure adesso per AROME
+function lnIdxObsTs(d) {
+  var v = d.valore, det = d.dettagli || {};
+  if ((v.fonte === 'livornometeo' || v.fonte === 'livornometeo_vecchia') && det.livornometeo) return det.livornometeo.ts;
+  if (v.fonte.indexOf('windfinder') === 0 && det.windfinder) return det.windfinder.osservato_alle;
+  return d.ts;
+}
+// etichetta corta (sulla bussola) e lunga (nel dettaglio) in base alla fonte; model = true -> numero rosso (modello, non dato vero)
+function lnIdxInfo(d) {
+  var v = d.valore, age = (v.eta_min !== null && v.eta_min !== undefined) ? lmAgeText(v.eta_min) : null;
+  var f = (v.fattore !== undefined && v.fattore !== null) ? Number(v.fattore).toFixed(1) : '';
+  var det = d.dettagli || {};
+  var o = { short: v.fonte, long: v.fonte, model: false };
+  if (v.fonte === 'livornometeo') { o.short = 'LIVORNOMETEO'; o.long = 'Livornometeo diretto, ' + age + ' fa'; }
+  else if (v.fonte === 'livornometeo_vecchia') { o.short = 'LIVORNOMETEO ' + age; o.long = 'Livornometeo, lettura VECCHIA di ' + age; }
+  else if (v.fonte === 'windfinder_arome') { o.short = 'MEDIA'; o.long = 'Media: stima Windfinder ' + v.componenti.windfinder_stimato_kn + ' kn e AROME ' + v.componenti.arome_kn + ' kn (campione di ' + age + ' fa)'; }
+  else if (v.fonte === 'windfinder_stima') { o.short = 'STIMA ×' + f; o.long = 'Stima da Windfinder ×' + f + ' (grezzo ' + (det.windfinder ? det.windfinder.grezzo_kn : '?') + ' kn, campione di ' + age + ' fa)'; }
+  else if (v.fonte === 'windfinder_stima_vecchia') { o.short = 'STIMA ×' + f + ' ' + age; o.long = 'Stima da Windfinder ×' + f + ', campione VECCHIO di ' + age; }
+  else if (v.fonte === 'arome') { o.short = 'AROME'; o.long = 'Modello AROME (nessun dato recente di stazione)'; o.model = true; }
+  return o;
+}
 function lmLastText() {
   if (!LM_LAST || LM_LAST_AGE_MIN === null || isNaN(LM_LAST_AGE_MIN)) return 'nessuna lettura registrata';
   return LM_LAST.speed + ' kn da ' + LM_LAST.direction + '\u00b0 alle ' + lmHHMM(LM_LAST.ts) + ' (' + lmAgeText(LM_LAST_AGE_MIN) + ' fa)';
@@ -6233,9 +6281,17 @@ function updateTripleCompass(idx, r) {
   // METODOLOGIA sezione 17-18).
   var displaySpd = spd;
   var displaySrcLabel = src.toUpperCase().replace('MNW_API','MNW').replace('MNW_WEB','MNW');
-  var srcLongTc = null, lmLastTc = null; // 2026-10-27: testo esteso della stima per il dettaglio
-  if (TC_ZONES[idx] === 'livorno' && spd !== null) {
-    if (tcLmOverride) {
+  var tcModel = false; var srcLongTc = null, lmLastTc = null; // 2026-10-27: testo esteso della stima per il dettaglio
+  if (TC_ZONES[idx] === 'livorno' && (spd !== null || tcLn)) {
+    if (tcLn) {
+      // 2026-11-16: valore deciso dall'engine (livorno_now): stesso numero di mappa e previsioni
+      var tcLv = tcLn.valore, tcLi = lnIdxInfo(tcLn);
+      displaySpd = tcLv.velocita_kn; dir = tcLv.direzione;
+      gust = (tcLv.raffica_kn !== null && tcLv.raffica_kn !== undefined) ? Math.max(tcLv.raffica_kn, tcLv.velocita_kn) : null;
+      ts = new Date(lnIdxObsTs(tcLn)).toLocaleString('it-IT',{timeZone:'Europe/Rome',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+      displaySrcLabel = tcLi.short; srcLongTc = tcLi.long; tcModel = tcLi.model;
+      if (tcLn.dettagli && tcLn.dettagli.livornometeo && tcLv.fonte !== 'livornometeo') lmLastTc = tcLn.dettagli.livornometeo.velocita_kn + ' kn da ' + tcLn.dettagli.livornometeo.direzione + '\u00b0 alle ' + lmHHMM(tcLn.dettagli.livornometeo.ts) + ' (' + lmAgeText(tcLn.dettagli.livornometeo.eta_min) + ' fa)';
+    } else if (tcLmOverride) {
       // 2026-10-19: lettura Livornometeo fresca (<=30min) -- velocita', direzione e orario veri
       displaySpd = tcLmOverride.speed;
       dir = tcLmOverride.direction;
@@ -6260,6 +6316,7 @@ function updateTripleCompass(idx, r) {
   // 2026-09-16: 'STIMA' (Livorno corretto) trattata come dato reale ai fini
   // del colore -- stessa lettura reale, solo +4.2kn.
   var isOm = src && src.toLowerCase().indexOf('om') === 0 && displaySrcLabel.indexOf('STIMA') !== 0 && displaySrcLabel !== 'LIVORNOMETEO';
+  if (TC_ZONES[idx] === 'livorno' && tcLn) isOm = tcModel; // con livorno_now conta solo la fonte decisa dall'engine (AROME = rosso), non quella di triple_wind
   var tcColor = (displaySpd !== null && isOm) ? '#ff4444' : 'var(--accent)';
   if (sEl) { sEl.textContent = displaySpd !== null ? Math.round(displaySpd) : '--'; sEl.style.color = tcColor; }
   var dEl = document.getElementById('tc-dir-' + idx);
@@ -6326,12 +6383,14 @@ function selectTripleCompass(idx) {
   }
 }
 
+var tcLn = null; // 2026-11-16: valore Livorno deciso dall'engine (o null -> ripiego sulla logica precedente)
 var tcLmOverride = null; // 2026-10-19: lettura Livornometeo fresca (o null), presa una volta per ciclo
 async function loadTripleCompasses() {
   try {
     var res = await fetch(ENGINE_URL + '?action=triple_wind&zones=' + TC_ZONES.join(','), { cache: 'no-store' });
     var data = await res.json();
-    tcLmOverride = await getLivornometeoOverride();
+    tcLn = await getLivornoNowIdx();
+    tcLmOverride = tcLn ? null : await getLivornometeoOverride();
     if (data.ok && data.results) {
       data.results.forEach(function(r, idx) { updateTripleCompass(idx, r); });
     }
@@ -6356,4 +6415,4 @@ async function loadTripleCompasses() {
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS v5.7.48 -->
+<!-- Fine codice - NAUTILUS v5.7.49 -->

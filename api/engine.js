@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.57 - by mdisailor engine - v2.14.58: triple_wind: vento 0 kn e direzione 0 gradi non diventano piu' null, aggiunti eta_min e modello:true. v2.14.57: livorno_now: la media tra stima con tetto e AROME SOLO da 8 kn in su (sotto, con vento debole, la sola stima da Windfinder). Motivo: lm_factor_report del 13/11 sera, stesse 177 coppie un giorno fuori: 2.04 kn contro 2.20 della media sempre e 2.48 del solo tetto (vento debole 1.89 contro 2.76, errore p90 4.28 contro 5.09, nessuna sovrastima oltre 8 kn). Include tutto il v2.14.56. Su base v2.14.56
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.57 - by mdisailor engine - v2.14.59: record orari: fusione dell'osservato (CFR vince su openweathermap, qualunque sia l'ordine tra cron_snap e scrape_cfr). v2.14.58: triple_wind: vento 0 kn e direzione 0 gradi non diventano piu' null, aggiunti eta_min e modello:true. v2.14.57: livorno_now: la media tra stima con tetto e AROME SOLO da 8 kn in su (sotto, con vento debole, la sola stima da Windfinder). Motivo: lm_factor_report del 13/11 sera, stesse 177 coppie un giorno fuori: 2.04 kn contro 2.20 della media sempre e 2.48 del solo tetto (vento debole 1.89 contro 2.76, errore p90 4.28 contro 5.09, nessuna sovrastima oltre 8 kn). Include tutto il v2.14.56. Su base v2.14.56
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2982,20 +2982,60 @@ function zhPairs(raw) { // HGETALL: Upstash risponde con un elenco piatto [campo
   else if (raw && typeof raw === 'object') o = raw;
   return o;
 }
+// 2026-11-17 (v2.14.59): FUSIONE DELL'OSSERVATO. Prima, chi scriveva per ultimo nell'ora decideva la fonte dell'osservato: cron_snap (HSET) sovrascriveva
+// tutto, anche un osservato CFR gia' scritto da scrape_cfr, con quello di openweathermap (visto il 13/11 su Orbetello, 07-09 UTC); scrape_cfr (HSETNX) non
+// poteva correggere un record gia' presente. Regola ora, uguale per i due percorsi e indipendente dall'ordine:
+//  - il GRUPPO dell'osservato (vento, direzione, raffica, pressione, temperatura reale, obs_src) si prende tutto insieme da una sola fonte, mai mescolato:
+//    vince quello con obs_src='cfr' (la stazione vera); a parita' vince chi scrive e' completo (cron_snap), altrimenti quello gia' presente;
+//    se il gruppo scelto non ha il vento ma l'altro si', si usa l'altro;
+//  - tutti gli altri campi: il completo (cron_snap) vince dove ha un valore e lascia i vuoti al presente; il povero (scrape_cfr) riempie solo i vuoti.
+// Costo: un HGET in piu' solo quando serve (cron_snap con osservato non CFR; scrape_cfr su record gia' presente). Non e' atomico (HGET poi HSET): se due scritture
+// cadono nello stesso millisecondo una puo' perdere la fusione, e si recupera all'ora dopo; mai un record a meta' perche' ogni HSET scrive il record intero.
+var ZH_OBS_IDX = [3, 4, 5, 13, 16, 21]; // wind_obs, dir_obs, gust_obs, p_obs, t_real, obs_src
+function zhCombine(oldArr, newArr, newIsRich) {
+  if (!Array.isArray(oldArr)) return newArr;
+  var out = [], i, empty = function(v) { return v === null || v === undefined; };
+  for (i = 0; i < ZH_FIELDS.length; i++) {
+    var a = oldArr[i], b = newArr[i];
+    out[i] = newIsRich ? (empty(b) ? (empty(a) ? null : a) : b) : (empty(a) ? (empty(b) ? null : b) : a);
+  }
+  var oldCfr = oldArr[21] === 'cfr', newCfr = newArr[21] === 'cfr', takeNew = (oldCfr !== newCfr) ? newCfr : newIsRich;
+  var pick = takeNew ? newArr : oldArr, other = takeNew ? oldArr : newArr;
+  if (empty(pick[3]) && !empty(other[3])) { var t = pick; pick = other; other = t; }
+  ZH_OBS_IDX.forEach(function(k) { out[k] = empty(pick[k]) ? null : pick[k]; });
+  return out;
+}
+async function zhReadRecord(zone, now, restUrl, restToken) {
+  var raw = await kvCmd(['HGET', zhKey(zone, now), zhField(now)], restUrl, restToken);
+  if (raw === null || raw === undefined) return null;
+  try { var o = typeof raw === 'string' ? JSON.parse(raw) : raw; return Array.isArray(o) ? o : null; } catch (e) { return null; }
+}
+// cron_snap / saveZoneSnapshot: record completo. Se porta un osservato CFR vince comunque (HSET semplice); altrimenti si controlla che non ce ne sia gia' uno CFR.
 async function zhWriteHourly(zone, snapshot, data, now, restUrl, restToken) {
   if (!ZH_ENABLED || !restUrl || !restToken) return false;
   try {
-    var r = await kvCmd(['HSET', zhKey(zone, now), zhField(now), JSON.stringify(zhRecord(snapshot, data))], restUrl, restToken);
+    var rec = zhRecord(snapshot, data);
+    if (rec[21] !== 'cfr') { var old = await zhReadRecord(zone, now, restUrl, restToken); if (old) rec = zhCombine(old, rec, true); }
+    var r = await kvCmd(['HSET', zhKey(zone, now), zhField(now), JSON.stringify(rec)], restUrl, restToken);
     return r !== null;
   } catch (e) { return false; }
 }
-// Come zhWriteHourly ma NON sovrascrive un record gia' presente (HSETNX): lo usa scrape_cfr, la cui fotografia e' spesso piu' povera (solo CFR + OM corrente)
-// di quella che cron_snap / saveZoneSnapshot scrivono con onde, ICON, IFS: il record completo vince sempre, qualunque sia l'ordine.
+// scrape_cfr: fotografia spesso piu' povera (solo CFR + OM corrente). HSETNX come prima (il completo non si perde mai); se il record c'era gia' e questo porta
+// un osservato CFR, lo si fonde (l'osservato vero entra, i vuoti si riempiono) e si riscrive solo se qualcosa e' cambiato.
 async function zhWriteHourlyNX(zone, snapshot, now, restUrl, restToken) {
   if (!ZH_ENABLED || !restUrl || !restToken) return false;
   try {
-    var r = await kvCmd(['HSETNX', zhKey(zone, now), zhField(now), JSON.stringify(zhRecord(snapshot, null))], restUrl, restToken);
-    return r !== null;
+    var rec = zhRecord(snapshot, null);
+    var r = await kvCmd(['HSETNX', zhKey(zone, now), zhField(now), JSON.stringify(rec)], restUrl, restToken);
+    if (r === null) return false;
+    if (Number(r) === 0 && rec[21] === 'cfr') {
+      var old = await zhReadRecord(zone, now, restUrl, restToken);
+      if (old) {
+        var mer = zhCombine(old, rec, false);
+        if (JSON.stringify(mer) !== JSON.stringify(old)) await kvCmd(['HSET', zhKey(zone, now), zhField(now), JSON.stringify(mer)], restUrl, restToken);
+      }
+    }
+    return true;
   } catch (e) { return false; }
 }
 // Zone da un parametro ?zones=a,b: nomi in minuscolo (il 10/11 la lista dei lavori cron_snap di M conteneva "Livorno" e "Quercianella" con la maiuscola: probabile
@@ -3365,7 +3405,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.58', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.59', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -8369,7 +8409,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.58 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.59 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -8500,4 +8540,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.58
+// Fine codice - NAUTILUS ENGINE v2.14.59

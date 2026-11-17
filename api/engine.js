@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.57 - by mdisailor engine - v2.14.57: livorno_now: la media tra stima con tetto e AROME SOLO da 8 kn in su (sotto, con vento debole, la sola stima da Windfinder). Motivo: lm_factor_report del 13/11 sera, stesse 177 coppie un giorno fuori: 2.04 kn contro 2.20 della media sempre e 2.48 del solo tetto (vento debole 1.89 contro 2.76, errore p90 4.28 contro 5.09, nessuna sovrastima oltre 8 kn). Include tutto il v2.14.56. Su base v2.14.56
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.57 - by mdisailor engine - v2.14.58: triple_wind: vento 0 kn e direzione 0 gradi non diventano piu' null, aggiunti eta_min e modello:true. v2.14.57: livorno_now: la media tra stima con tetto e AROME SOLO da 8 kn in su (sotto, con vento debole, la sola stima da Windfinder). Motivo: lm_factor_report del 13/11 sera, stesse 177 coppie un giorno fuori: 2.04 kn contro 2.20 della media sempre e 2.48 del solo tetto (vento debole 1.89 contro 2.76, errore p90 4.28 contro 5.09, nessuna sovrastima oltre 8 kn). Include tutto il v2.14.56. Su base v2.14.56
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -3329,7 +3329,9 @@ var twResults = await Promise.all(twZones.map(async function(zk) {
         wind_dir: latest.station.direction,
         wind_gust: latest.station.gust_kt,
         quota: latest.station.quota,
-        ts: latest.ts
+        ts: latest.ts,
+        // 2026-11-17: l'eta' del campione, cosi' chi mostra il valore puo' scriverla (prima c'era solo l'ora, e un campione di 1h50 sembrava "adesso")
+        eta_min: Math.round((Date.now() - new Date(latest.ts).getTime()) / 60000)
       };
     }
   }
@@ -3341,11 +3343,13 @@ var twResults = await Promise.all(twZones.map(async function(zk) {
     var omRes = await fetch(omUrl);
     var omJson = await omRes.json();
     var c = omJson.current || {};
+    // 2026-11-17: prima "x || null": un vento di 0 kn o una direzione di 0 gradi (nord) diventavano null e la bussola mostrava "--". Si scarta solo il dato assente.
+    var twN = function(v) { return (v === null || v === undefined || isNaN(Number(v))) ? null : Number(v); };
     return {
-      zone: zk, ok: true, source: 'om',
-      wind_kt: c.wind_speed_10m || null,
-      wind_dir: c.wind_direction_10m || null,
-      wind_gust: c.wind_gusts_10m || null,
+      zone: zk, ok: true, source: 'om', modello: true, eta_min: null,
+      wind_kt: twN(c.wind_speed_10m),
+      wind_dir: twN(c.wind_direction_10m),
+      wind_gust: twN(c.wind_gusts_10m),
       quota: null,
       ts: new Date().toISOString()
     };
@@ -3361,7 +3365,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.57', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.58', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -8365,7 +8369,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.57 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.58 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -8496,4 +8500,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.57
+// Fine codice - NAUTILUS ENGINE v2.14.58

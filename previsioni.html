@@ -1265,6 +1265,10 @@ function pdfLoadTile(z, x, y){
 async function exportMapPdf(){
   var btn = document.getElementById('btn-pdf'), oldText = btn.innerHTML;
   btn.innerHTML = '...';
+  // 2026-11-18: il PDF si apre in una scheda NUOVA, aperta qui subito (nel gesto del tocco) e riempita a fine lavoro. Su Safari iPad il vecchio
+  // "link con download" caricava il PDF nella finestra di previsioni, facendo perdere la pagina; una scheda aperta dopo i calcoli verrebbe bloccata.
+  var pdfWin = null;
+  try { pdfWin = window.open('', '_blank'); if (pdfWin) pdfWin.document.write('<title>NAUTILUS PDF</title><body style="font-family:sans-serif;background:#0a1a2e;color:#fff;padding:24px">Preparo il PDF...</body>'); } catch (e0) { pdfWin = null; }
   try {
     if (!state.zonePoints.length) throw new Error('dati non ancora caricati');
     var offset = state.currentOffset, hb = state.hourButtons[offset];
@@ -1352,9 +1356,12 @@ async function exportMapPdf(){
     var bytes = pdf.build({ title: 'NAUTILUS previsioni ' + romeHourLabel(hb.date) });
     var blob = new Blob([bytes], { type: 'application/pdf' });
     var fname = 'nautilus_mappa_' + (offset === 0 ? 'adesso' : 'ore' + romeHourLabel(hb.date)) + '_' + now.toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.pdf';
-    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = fname; document.body.appendChild(a); a.click();
-    setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 20000);
+    var url = URL.createObjectURL(blob);
+    if (pdfWin && !pdfWin.closed) { pdfWin.location.href = url; }
+    else { var a = document.createElement('a'); a.href = url; a.download = fname; document.body.appendChild(a); a.click(); a.remove(); } // scheda bloccata dal browser: scarica come prima
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 120000);
   } catch (e) {
+    if (pdfWin && !pdfWin.closed) pdfWin.close();
     alert('Errore PDF: ' + e.message);
   } finally {
     btn.innerHTML = oldText;

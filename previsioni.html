@@ -1,4 +1,4 @@
-<!-- NAUTILUS PREVISIONI v3.18 - mdisailor - 2026-11-16 - v3.18: Livorno prende il valore da action=livorno_now (lettura vera / media Windfinder+AROME / AROME), stesso numero di index e mappa; ripiego sulla logica precedente. v3.16 (13/11): CORREZIONE PROVVISORIA del fattore di Livorno: tetto sulla velocita' (lmFactorForDir(dir, kn): stima = min(kn x fattore_direzione, 3.3 + 1.08 x kn), mai piu' della vecchia) e raffica scalata come la velocita' (e null con la lettura vera). Motivo: il 13/11 la stima era 53 kn (x2.2 a 240 gradi, Windfinder 24 kn) contro i 25 di Livornometeo. Su base v3.15 | v3.15 (6/11): i numeri del bottone NODI hanno due colori: bianco = valore nostro (lettura vera della stazione, stima di Livorno, nostra previsione), azzurro = modello (griglia OM e ripiego sull'OM), richiesta di M (un numero sulla mappa e' o il dato vero, o quello ricalcolato, o il modello). Freccia e popup nascono gia' dallo stesso calcolo. Su base v3.14 -->
+<!-- NAUTILUS PREVISIONI v3.19 - mdisailor - 2026-11-18 - v3.19 (18/11): tasto PDF: una pagina A4 verticale con la mappa della fascia oraria selezionata su tutta l'area della griglia, frecce, numeri e nomi zona, bollo SCARICATO; si apre in scheda nuova; drawAll accetta un bersaglio alternativo (T). v3.17 (16/11): Livorno prende il valore da action=livorno_now (lettura vera / media Windfinder+AROME / AROME), stesso numero di index e mappa; ripiego sulla logica precedente. v3.16 (13/11): CORREZIONE PROVVISORIA del fattore di Livorno: tetto sulla velocita' (lmFactorForDir(dir, kn): stima = min(kn x fattore_direzione, 3.3 + 1.08 x kn), mai piu' della vecchia) e raffica scalata come la velocita' (e null con la lettura vera). Motivo: il 13/11 la stima era 53 kn (x2.2 a 240 gradi, Windfinder 24 kn) contro i 25 di Livornometeo. Su base v3.15 | v3.15 (6/11): i numeri del bottone NODI hanno due colori: bianco = valore nostro (lettura vera della stazione, stima di Livorno, nostra previsione), azzurro = modello (griglia OM e ripiego sull'OM), richiesta di M (un numero sulla mappa e' o il dato vero, o quello ricalcolato, o il modello). Freccia e popup nascono gia' dallo stesso calcolo. Su base v3.14 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Previsioni Vento v3.18</title>
+<title>NAUTILUS Previsioni Vento v3.19</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -159,7 +159,7 @@ NautilusPdf.prototype.build = function(meta) { // -> Uint8Array
 
 <header>
   <h1>NAUTILUS &mdash; Previsioni Vento</h1>
-  <span class="ver">v3.18</span>
+  <span class="ver">v3.19</span>
   <a class="back" href="/index2.html">&larr; cruscotto</a>
 </header>
 
@@ -1390,4 +1390,4 @@ setInterval(loadAll, REFRESH_MS);
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS PREVISIONI v3.18 -->
+<!-- Fine codice - NAUTILUS PREVISIONI v3.19 -->

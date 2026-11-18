@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.57 - by mdisailor engine - v2.14.60: archive_export con i tipi bias_archive e predict_archive (fase C), index con stazioni_archivio. v2.14.59: record orari: fusione dell'osservato (CFR vince su openweathermap, qualunque sia l'ordine tra cron_snap e scrape_cfr). v2.14.58: triple_wind: vento 0 kn e direzione 0 gradi non diventano piu' null, aggiunti eta_min e modello:true. v2.14.57: livorno_now: la media tra stima con tetto e AROME SOLO da 8 kn in su (sotto, con vento debole, la sola stima da Windfinder). Motivo: lm_factor_report del 13/11 sera, stesse 177 coppie un giorno fuori: 2.04 kn contro 2.20 della media sempre e 2.48 del solo tetto (vento debole 1.89 contro 2.76, errore p90 4.28 contro 5.09, nessuna sovrastima oltre 8 kn). Include tutto il v2.14.56. Su base v2.14.56
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.57 - by mdisailor engine - v2.14.61: manual_now (ultimo dato delle stazioni manuali con ora, modelli dell'ora del dato, valore da disegnare). v2.14.60: archive_export con i tipi bias_archive e predict_archive (fase C), index con stazioni_archivio. v2.14.59: record orari: fusione dell'osservato (CFR vince su openweathermap, qualunque sia l'ordine tra cron_snap e scrape_cfr). v2.14.58: triple_wind: vento 0 kn e direzione 0 gradi non diventano piu' null, aggiunti eta_min e modello:true. v2.14.57: livorno_now: la media tra stima con tetto e AROME SOLO da 8 kn in su (sotto, con vento debole, la sola stima da Windfinder). Motivo: lm_factor_report del 13/11 sera, stesse 177 coppie un giorno fuori: 2.04 kn contro 2.20 della media sempre e 2.48 del solo tetto (vento debole 1.89 contro 2.76, errore p90 4.28 contro 5.09, nessuna sovrastima oltre 8 kn). Include tutto il v2.14.56. Su base v2.14.56
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -3148,6 +3148,61 @@ function lnAromeNow(json, nowMs, suffix) { // AROME adesso: interpolazione linea
   var g0 = wg ? lnNum(wg[best]) : null, g1 = (wg && ok1) ? lnNum(wg[nx]) : null, gst = g0 === null ? null : (g1 === null ? g0 : g0 + (g1 - g0) * f);
   return { speed: Math.round(spd * 10) / 10, dir: Math.round(dir), gust: gst === null ? null : Math.round(gst * 10) / 10, ora_modello: String(h.time[best]), interpolato: ok1 };
 }
+// ===== 2026-11-18 (v2.14.61): manual_now -- l'ultimo dato passato da M e i modelli, per le stazioni manuali =====
+// Perche': Capraiameteo, Rosignanometeo e Golfo Aranci non hanno una stazione automatica: i dati li passa M col segnalibro, quindi sono "freschi" solo per un po' dopo
+// ogni tocco. Per la mappa e per l'index serve, per ognuna: (1) l'ultimo dato con la sua ORA (anche del giorno prima: l'ora e' scritta sempre, mai un vecchio dato che
+// sembra di adesso); (2) il modello (OM e AROME) dell'ora piu' vicina AL DATO, non ad adesso, per confrontare cose dello stesso momento; (3) il valore da disegnare:
+// se il dato ha <= 30 minuti e' il dato vero, altrimenti il modello di adesso (AROME, se manca OM) segnato come modello (sulla mappa: numero azzurro).
+// La regola e' quella del resto del sistema: un numero sulla mappa e' vero, ricalcolato o modello, e il popup scrive quale.
+var MN_FRESH_MIN = 30;          // un dato di stazione manuale vale come "adesso" fino a 30 minuti (come Livornometeo)
+var MN_MODEL_MAX_GAP_MIN = 90;  // il modello dell'ora piu' vicina al dato si usa solo se e' entro 90 minuti dal dato
+var MN_MODEL_NOW_MAX_MIN = 150; // il modello "adesso" e' l'ultima ora salvata, purche' non piu' vecchia di 150 minuti
+var MN_CACHE_S = 60;
+function mnModelAt(map, tsMs, maxGapMin) { // ora salvata piu' vicina a tsMs: { key, gap_min, rec } o null
+  if (!map || typeof map !== 'object') return null;
+  var h0 = Math.floor(tsMs / 3600000) * 3600000, best = null;
+  [h0, h0 + 3600000].forEach(function(hMs) {
+    var key = new Date(hMs).toISOString().slice(0, 13), rec = map[key];
+    if (!rec || (!rec.om && !rec.ar)) return;
+    var gap = Math.abs(hMs - tsMs) / 60000;
+    if (gap <= maxGapMin && (!best || gap < best.gap_min)) best = { key: key, gap_min: Math.round(gap), rec: rec };
+  });
+  return best;
+}
+function mnAgeText(m) { return m < 120 ? Math.round(m) + ' min' : m < 2880 ? Math.round(m / 60) + ' h' : Math.round(m / 1440) + ' g'; }
+function mnRomeHour(key) { try { return new Date(key + ':00:00Z').toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Rome' }); } catch (e) { return key; } }
+function mnTriplet(a) { return (Array.isArray(a) && lnNum(a[0]) !== null && lnNum(a[1]) !== null) ? { kn: Number(a[0]), dir: Math.round(Number(a[1])), gust: lnNum(a[2]) } : null; }
+function manualNowBuild(id, st, series, readings, models, nowMs) {
+  var out = { id: id, name: st.name, lat: st.lat, lon: st.lon, dato: null, modello_al_dato: null, modello_adesso: null, valore: null };
+  var pt = (Array.isArray(series) && series.length) ? series[series.length - 1] : null, rd = (Array.isArray(readings) && readings.length) ? readings[0] : null;
+  var tPt = pt ? Date.parse(pt[0]) : NaN, tRd = (rd && rd.station) ? Date.parse(rd.ts) : NaN, d = null;
+  if (!isNaN(tPt) && lnNum(pt[1]) !== null && lnNum(pt[2]) !== null && (isNaN(tRd) || tPt >= tRd)) d = { kn: Number(pt[1]), dir: Math.round(Number(pt[2])), gust: null, t: tPt, fonte: 'serie' };
+  else if (!isNaN(tRd) && lnNum(rd.station.wind_kt) !== null && lnNum(rd.station.direction) !== null) d = { kn: Number(rd.station.wind_kt), dir: Math.round(Number(rd.station.direction)), gust: lnNum(rd.station.gust_kt), t: tRd, fonte: 'lettura' };
+  // la raffica sta nella lettura singola: si prende se e' dello stesso momento (entro 15 minuti) del punto di serie
+  if (d && d.fonte === 'serie' && !isNaN(tRd) && rd.station && Math.abs(tRd - d.t) <= 15 * 60000 && lnNum(rd.station.gust_kt) !== null) d.gust = Number(rd.station.gust_kt);
+  if (d) {
+    var age = Math.round((nowMs - d.t) / 60000);
+    out.dato = { kn: d.kn, dir: d.dir, gust: d.gust, ts: new Date(d.t).toISOString(), eta_min: age, fresco: age <= MN_FRESH_MIN, fonte: d.fonte };
+    var m = mnModelAt(models, d.t, MN_MODEL_MAX_GAP_MIN);
+    if (m) {
+      var om = mnTriplet(m.rec.om), ar = mnTriplet(m.rec.ar);
+      out.modello_al_dato = { ora: m.key, distanza_min: m.gap_min, om: om, arome: ar,
+        diff_om_kn: om ? Math.round((d.kn - om.kn) * 10) / 10 : null, diff_arome_kn: ar ? Math.round((d.kn - ar.kn) * 10) / 10 : null };
+    }
+  }
+  var keys = models && typeof models === 'object' ? Object.keys(models).sort() : [], nowKey = null;
+  for (var i = keys.length - 1; i >= 0; i--) { var kMs = Date.parse(keys[i] + ':00:00Z'); if (!isNaN(kMs) && kMs <= nowMs && (models[keys[i]].om || models[keys[i]].ar)) { nowKey = keys[i]; break; } }
+  if (nowKey) {
+    var kAge = Math.round((nowMs - Date.parse(nowKey + ':00:00Z')) / 60000);
+    if (kAge <= MN_MODEL_NOW_MAX_MIN) {
+      var nOm = mnTriplet(models[nowKey].om), nAr = mnTriplet(models[nowKey].ar), use = nAr || nOm;
+      if (use) out.modello_adesso = { ora: nowKey, eta_min: kAge, fonte: nAr ? 'arome' : 'om', kn: use.kn, dir: use.dir, gust: use.gust, om: nOm, arome: nAr };
+    }
+  }
+  if (out.dato && out.dato.fresco) out.valore = { tipo: 'vero', kn: out.dato.kn, dir: out.dato.dir, gust: out.dato.gust, eta_min: out.dato.eta_min, nota: 'dato di ' + mnAgeText(out.dato.eta_min) + ' fa' };
+  else if (out.modello_adesso) out.valore = { tipo: 'modello', kn: out.modello_adesso.kn, dir: out.modello_adesso.dir, gust: out.modello_adesso.gust, eta_min: out.modello_adesso.eta_min, nota: out.dato ? ('ultimo dato di ' + mnAgeText(out.dato.eta_min) + ' fa: troppo vecchio, si mostra il modello ' + out.modello_adesso.fonte.toUpperCase() + ' delle ' + mnRomeHour(out.modello_adesso.ora)) : ('nessun dato registrato: modello ' + out.modello_adesso.fonte.toUpperCase()) };
+  return out;
+}
 function lnDecide(lmS, wfS, ar, nowMs, o) {
   o = o || {}; var lmMax = o.lmMax || LN_LM_FRESH_MIN, wfMax = o.wfMax || LN_WF_FRESH_MIN, blMax = o.blendMax || LN_WF_BLEND_MAX_MIN, det = {}, lm = null, wf = null;
   if (lmS && lmS.station && lnNum(lmS.station.wind_kt) !== null && lnNum(lmS.station.direction) !== null) {
@@ -3335,6 +3390,24 @@ var kvToken = process.env.UPSTASH_REDIS_REST_TOKEN || null;
 
 // /api/engine?action=livorno_now -- il VALORE UNICO di Livorno (vedi il commento sopra lnDecide): lo usano index, mappa2 e previsioni. Sola lettura, pubblica.
 // Tre letture Redis piccole; AROME da Open-Meteo solo se la lettura vera non e' recente, con cache di 10 minuti (ln_arome).
+// /api/engine?action=manual_now -- pubblica, sola lettura: per ogni stazione manuale l'ultimo dato (con ora), i modelli dell'ora piu' vicina al dato e il valore da disegnare. Cache di 60 s
+// (legge le serie intere: fino a 30000 punti per stazione).
+if (action === 'manual_now') {
+  try {
+    var mnNow = Date.now(), mnCache = await kvGet('manual_now_cache', kvUrl, kvToken);
+    if (mnCache && mnCache.ts && mnCache.v && (mnNow - Date.parse(mnCache.ts)) < MN_CACHE_S * 1000) return res.status(200).json(Object.assign({}, mnCache.v, { cache_s: Math.round((mnNow - Date.parse(mnCache.ts)) / 1000) }));
+    var mnOut = {}, mnIds = Object.keys(MANUAL_STATIONS);
+    await Promise.all(mnIds.map(async function(id) {
+      var rr = await Promise.all([kvGet('manual_series:' + id, kvUrl, kvToken), kvGet('bias_samples:' + id, kvUrl, kvToken), kvGet('manual_models:' + id, kvUrl, kvToken)]);
+      mnOut[id] = manualNowBuild(id, MANUAL_STATIONS[id], rr[0], rr[1], (rr[2] && typeof rr[2] === 'object' && !Array.isArray(rr[2])) ? rr[2] : {}, mnNow);
+    }));
+    var mnRes = { ok: true, ts: new Date(mnNow).toISOString(), soglia_fresco_min: MN_FRESH_MIN, stazioni: mnOut };
+    await kvSet('manual_now_cache', { ts: mnRes.ts, v: mnRes }, 300, kvUrl, kvToken);
+    return res.status(200).json(mnRes);
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+}
 if (action === 'livorno_now') {
   try {
     var lnNow = Date.now();
@@ -3418,7 +3491,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.60', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.61', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -8446,7 +8519,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.60 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.61 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -8577,4 +8650,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.60
+// Fine codice - NAUTILUS ENGINE v2.14.61

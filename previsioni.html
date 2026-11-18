@@ -1270,10 +1270,11 @@ async function exportMapPdf(){
     var offset = state.currentOffset, hb = state.hourButtons[offset];
     var page = { w: 595.28, h: 841.89 }, mxp = 15, topH = 84, botH = 92;
     var imgWpt = page.w - 2 * mxp, imgHpt = page.h - topH - botH, ratio = imgWpt / imgHpt;
-    // area: tutte le zone nostre + un margine, poi allargata al formato della pagina
+    // area: tutta la mappa che trattiamo = l'estensione della griglia modello (40.0-44.6 N, 7.4-12.5 E), non solo le zone nostre (prima si tagliavano Bonifacio, Capalbio...)
     var la0 = 90, la1 = -90, lo0 = 180, lo1 = -180;
+    GRID.forEach(function(g){ la0 = Math.min(la0, g.lat); la1 = Math.max(la1, g.lat); lo0 = Math.min(lo0, g.lon); lo1 = Math.max(lo1, g.lon); });
     state.zonePoints.forEach(function(z){ la0 = Math.min(la0, z.lat); la1 = Math.max(la1, z.lat); lo0 = Math.min(lo0, z.lon); lo1 = Math.max(lo1, z.lon); });
-    var padLa = 0.3, padLo = 0.3;
+    var padLa = 0.12, padLo = 0.12;
     var x0 = pdfWx(lo0 - padLo), x1 = pdfWx(lo1 + padLo), y0 = pdfWy(la1 + padLa), y1 = pdfWy(la0 - padLa);
     var w0 = x1 - x0, h0 = y1 - y0;
     if (w0 / h0 < ratio) { var nw = h0 * ratio; x0 -= (nw - w0) / 2; x1 = x0 + nw; } else { var nh = w0 / ratio; y0 -= (nh - h0) / 2; y1 = y0 + nh; }
@@ -1305,19 +1306,20 @@ async function exportMapPdf(){
       pt: function(lat, lon){ return { x: (pdfWx(lon) - x0) / PDF_SCALE, y: (pdfWy(lat) - y0) / PDF_SCALE }; } };
     await drawAll(T);
     // nomi delle zone (non c'e' popup sulla carta): sotto la freccia, con bordo scuro per leggerli su qualsiasi colore
-    c.font = '700 11px -apple-system, Helvetica, Arial, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'top'; c.lineJoin = 'round';
+    c.font = '700 10px -apple-system, Helvetica, Arial, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'top'; c.lineJoin = 'round';
     // posto del nome: sotto la freccia; se li' c'e' gia' un altro nome (zone vicine, es. Elba Nord / Elba Sud) si prova sopra, poi a destra e a sinistra, poi si salta
     var placed = [];
     T.labels.forEach(function(l){
-      var tw = c.measureText(l.name).width + 4, th = 14;
+      l.short = l.name.split(' - ')[0]; // sulla carta basta la parte prima del trattino ("Forte dei Marmi - Versilia N" -> "Forte dei Marmi"): i nomi interi coprivano la mappa
+      var tw = c.measureText(l.short).width + 4, th = 12;
       var cand = [[0, 15], [0, -29], [tw / 2 + 12, -7], [-tw / 2 - 12, -7], [0, 29], [0, -43]];
       for (var ci = 0; ci < cand.length; ci++) {
         var cx = l.x + cand[ci][0], cy = l.y + cand[ci][1], bx0 = cx - tw / 2, bx1 = cx + tw / 2, by0 = cy, by1 = cy + th, hit = false;
         for (var pi = 0; pi < placed.length; pi++) { var o = placed[pi]; if (bx0 < o[2] && bx1 > o[0] && by0 < o[3] && by1 > o[1]) { hit = true; break; } }
         if (hit) continue;
         placed.push([bx0, by0, bx1, by1]);
-        c.lineWidth = 3; c.strokeStyle = 'rgba(2,12,24,0.85)'; c.strokeText(l.name, cx, cy + 1);
-        c.fillStyle = l.model ? '#9ec5e6' : '#ffffff'; c.fillText(l.name, cx, cy + 1);
+        c.lineWidth = 3; c.strokeStyle = 'rgba(2,12,24,0.85)'; c.strokeText(l.short, cx, cy + 1);
+        c.fillStyle = l.model ? '#9ec5e6' : '#ffffff'; c.fillText(l.short, cx, cy + 1);
         break;
       }
     });

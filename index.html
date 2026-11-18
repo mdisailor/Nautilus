@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.7.49 -- 2026-11-13 - CORREZIONE PROVVISORIA del fattore di Livorno: tetto sulla velocita' (lmFactorForDir(dir, kn): stima = min(kn x fattore_direzione, 3.3 + 1.08 x kn), mai piu' della vecchia) e raffica scalata come la velocita' nelle due bussole di Livorno. Motivo: il 13/11 la bussola dava 53 kn con raffica 30 (x2.2 a 240 gradi, Windfinder 24 kn) contro i 25 di Livornometeo. | v5.7.47 (27/10): dettaglio della bussola tripla per Livorno piu' chiaro: SORGENTE dice "Stima da Windfinder x1.9 (grezzo 4.1 kn)" e una riga a parte "ULT. LETTURA LM" riporta l'ultima lettura VERA di Livornometeo con valore, direzione, ora ed eta' (prima "AGGIORNATO" era l'orario del campione Windfinder accanto a "STIMA x1.9", senza altro). La bussola singola resta con la sola etichetta "STIMA x1.9" (poco spazio). Su base v5.7.46 -->
+<!-- NAUTILUS v5.7.50 -- 2026-11-13 - CORREZIONE PROVVISORIA del fattore di Livorno: tetto sulla velocita' (lmFactorForDir(dir, kn): stima = min(kn x fattore_direzione, 3.3 + 1.08 x kn), mai piu' della vecchia) e raffica scalata come la velocita' nelle due bussole di Livorno. Motivo: il 13/11 la bussola dava 53 kn con raffica 30 (x2.2 a 240 gradi, Windfinder 24 kn) contro i 25 di Livornometeo. | v5.7.47 (27/10): dettaglio della bussola tripla per Livorno piu' chiaro: SORGENTE dice "Stima da Windfinder x1.9 (grezzo 4.1 kn)" e una riga a parte "ULT. LETTURA LM" riporta l'ultima lettura VERA di Livornometeo con valore, direzione, ora ed eta' (prima "AGGIORNATO" era l'orario del campione Windfinder accanto a "STIMA x1.9", senza altro). La bussola singola resta con la sola etichetta "STIMA x1.9" (poco spazio). Su base v5.7.46 -->
 
 <html lang="it">
 <head>
@@ -600,7 +600,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
   <div>
     <div class="logo">NAUTI<span>LUS</span></div>
     <div class="logo-sub">Tirreno Nord  Arcipelago Toscano</div>
-    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.49  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
+    <div style="font-family:'DM Mono',monospace;font-size:0.45rem;color:var(--muted);margin-top:2px;letter-spacing:0.1em;">v5.7.50  by mdisailor &nbsp;·&nbsp; <span id="engine-ver-display">engine ...</span></div>
   </div>
   <div>
     <div id="clock">--:--</div>
@@ -2013,7 +2013,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.49  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.50  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -6096,6 +6096,11 @@ async function biasLoadHistory(selectedStation, sfx) {
     {id:'bonifacio_pertusato',name:'Bonifacio - Cap Pertusato'},
     {id:'vada',               name:'Vada'},
     {id:'livornometeo_porto', name:'Livornometeo Porto (manuale)'},
+    // 2026-11-18 (v5.7.50): le altre tre stazioni MANUALI. Il dato lo passa M col segnalibro, quindi puo' essere vecchio di ore o di giorni: la riga scrive sempre
+    // l'ora del dato e, accanto, i modelli (OM e AROME) dell'ora piu' vicina AL DATO (action=manual_now), cosi' si confrontano valori dello stesso momento.
+    {id:'capraiameteo',       name:'Capraiameteo (man.)', manual:true},
+    {id:'rosignanometeo',     name:'Rosignano (man.)', manual:true},
+    {id:'golfoaranci_lm',     name:'Golfo Aranci (man.)', manual:true},
   ];
   // Quota stazioni (m slm) -- >100m = bias non affidabile per navigazione
   var STATION_QUOTAS = {
@@ -6108,9 +6113,42 @@ async function biasLoadHistory(selectedStation, sfx) {
   };
   let html = '';
   let anyData = false;
+  // 2026-11-18: ultimo dato, modelli dell'ora del dato e valore delle tre stazioni manuali, una sola richiesta (il motore tiene 60 s di cache)
+  var mnAll = null;
+  try { var rMn = await fetch(ENGINE_URL + '?action=manual_now', { cache: 'no-store' }); var dMn = await rMn.json(); if (dMn && dMn.ok && dMn.stazioni) mnAll = dMn.stazioni; } catch (eMn) { mnAll = null; }
+  function mnFmtDt(ts) { return new Date(ts).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Rome' }); }
+  function mnFmtAge(m) { return m < 120 ? m + ' min fa' : m < 2880 ? Math.round(m / 60) + ' h fa' : Math.round(m / 1440) + ' g fa'; }
+  function mnDiffTxt(v) { return v === null || v === undefined ? '--' : (v >= 0 ? '+' : '') + v; }
+  function mnDiffCol(v) { return v === null || v === undefined ? 'var(--muted)' : Math.abs(v) > 5 ? '#e07070' : '#6dbf6d'; }
+  // riga compatta di una stazione manuale: dato, scostamento dai modelli dell'ORA DEL DATO, ora e eta' (arancio se il dato non e' recente)
+  function mnIdxCompact(st, info) {
+    var d = info.dato, m = info.modello_al_dato;
+    var rowStyle = 'font-family:DM Mono,monospace;font-size:0.55rem;display:flex;justify-content:space-between;align-items:center;padding:3px 0;cursor:pointer';
+    if (!d) return '<div style="' + rowStyle + '"><span style="color:var(--muted);width:80px">' + st.name + '</span><span style="color:var(--muted)">nessun dato registrato</span></div>';
+    var old = !d.fresco;
+    return '<div onclick="biasLoadHistory(\'' + st.id + '\',' + (typeof sfx !== 'undefined' && sfx ? '\'' + sfx + '\'' : 'null') + ')" style="' + rowStyle + '">'
+      + '<span style="color:var(--muted);width:80px">' + st.name + '</span>'
+      + '<span style="width:70px">' + d.kn + ' kn ' + degToCard(d.dir) + ' ' + d.dir + '\u00b0</span>'
+      + '<span style="color:' + mnDiffCol(m && m.diff_om_kn) + ';width:38px;text-align:right" title="vs OM, ora del dato">' + mnDiffTxt(m ? m.diff_om_kn : null) + '</span>'
+      + '<span style="color:' + mnDiffCol(m && m.diff_arome_kn) + ';width:42px;text-align:right" title="vs AROME, ora del dato">' + (m && m.diff_arome_kn !== null && m.diff_arome_kn !== undefined ? '*' + mnDiffTxt(m.diff_arome_kn) : '') + '</span>'
+      + '<span style="color:' + (old ? '#ffaa00' : 'var(--muted)') + ';font-size:0.5rem">' + mnFmtDt(d.ts) + ' \u00b7 ' + mnFmtAge(d.eta_min) + '</span></div>';
+  }
+  // blocco di dettaglio (stazione selezionata): l'ora del dato, i modelli di quell'ora con i loro valori, e che numero si mostra in mappa
+  function mnIdxDetail(info) {
+    var d = info.dato, m = info.modello_al_dato, sty = 'color:var(--muted);font-size:0.5rem;margin-top:2px', h = '<div style="font-family:DM Mono,monospace;margin:4px 0 8px 6px;border-left:2px solid var(--border);padding-left:6px">';
+    if (!d) return h + '<div style="' + sty + '">Nessun dato registrato</div></div>';
+    h += '<div style="' + sty + '">Ultimo dato: ' + mnFmtDt(d.ts) + ' (' + mnFmtAge(d.eta_min) + ')' + (d.fresco ? '' : ' \u2014 non recente') + '</div>';
+    if (m) {
+      h += '<div style="' + sty + '">Modelli delle ' + new Date(m.ora + ':00:00Z').toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Rome' }) + ' (' + m.distanza_min + ' min dal dato):</div>'
+        + '<div style="' + sty + '">AROME ' + (m.arome ? m.arome.kn + ' kn da ' + m.arome.dir + '\u00b0' : 'n.d.') + ' \u00b7 OM ' + (m.om ? m.om.kn + ' kn da ' + m.om.dir + '\u00b0' : 'n.d.') + '</div>';
+    } else h += '<div style="' + sty + '">Modello dell\'ora del dato non salvato</div>';
+    if (info.valore) h += '<div style="' + sty + '">In mappa: ' + (info.valore.tipo === 'modello' ? 'modello (' + info.valore.nota + ')' : 'il dato vero') + '</div>';
+    return h + '</div>';
+  }
   for (const st of allStations) {
     try {
     const limit = (selectedStation && st.id === selectedStation) ? 10 : 5;
+    if (st.manual && mnAll && mnAll[st.id] && !(selectedStation && st.id === selectedStation)) { anyData = true; html += mnIdxCompact(st, mnAll[st.id]); continue; }
     const r = await fetch(ENGINE_URL + '?action=bias_history&station=' + st.id + '&limit=' + limit, { cache: 'no-store' });
     const data = await r.json();
     const allSamples = data.samples || [];
@@ -6134,7 +6172,7 @@ async function biasLoadHistory(selectedStation, sfx) {
     // due volte: non e' ferma, e Livorno la usa eccome quando ha <=30min). Con
     // quel ramo M vedeva una sola riga invece dello storico delle letture.
     // Per lei la lista mostra sempre la tabella normale, qualunque sia l'eta'.
-    const freshValid = (st.id === 'livornometeo_porto') ? valid : valid.filter(function(s){ return ageMinOf(s) <= RECENT_MIN; });
+    const freshValid = (st.id === 'livornometeo_porto' || st.manual) ? valid : valid.filter(function(s){ return ageMinOf(s) <= RECENT_MIN; });
 
     if (!freshValid.length) {
       // Nessun dato fresco. Cerco piu' a fondo (fino a ~4 giorni) l'ultimo dato
@@ -6198,6 +6236,7 @@ async function biasLoadHistory(selectedStation, sfx) {
           + '<td style="color:' + colA + '">' + (dwA !== null ? (dwA >= 0 ? '+' : '') + dwA + ' kn' : '--') + '</td></tr>';
       }
       html += '</table></div>';
+      if (st.manual && mnAll && mnAll[st.id]) html += mnIdxDetail(mnAll[st.id]); // 2026-11-18: ora del dato e modelli di quell'ora
     } else {
       // Vista compatta: una riga per stazione
       const s = valid[0];
@@ -6415,4 +6454,4 @@ async function loadTripleCompasses() {
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS v5.7.49 -->
+<!-- Fine codice - NAUTILUS v5.7.50 -->

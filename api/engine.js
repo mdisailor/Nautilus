@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.57 - by mdisailor engine - v2.14.59: record orari: fusione dell'osservato (CFR vince su openweathermap, qualunque sia l'ordine tra cron_snap e scrape_cfr). v2.14.58: triple_wind: vento 0 kn e direzione 0 gradi non diventano piu' null, aggiunti eta_min e modello:true. v2.14.57: livorno_now: la media tra stima con tetto e AROME SOLO da 8 kn in su (sotto, con vento debole, la sola stima da Windfinder). Motivo: lm_factor_report del 13/11 sera, stesse 177 coppie un giorno fuori: 2.04 kn contro 2.20 della media sempre e 2.48 del solo tetto (vento debole 1.89 contro 2.76, errore p90 4.28 contro 5.09, nessuna sovrastima oltre 8 kn). Include tutto il v2.14.56. Su base v2.14.56
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.57 - by mdisailor engine - v2.14.60: archive_export con i tipi bias_archive e predict_archive (fase C), index con stazioni_archivio. v2.14.59: record orari: fusione dell'osservato (CFR vince su openweathermap, qualunque sia l'ordine tra cron_snap e scrape_cfr). v2.14.58: triple_wind: vento 0 kn e direzione 0 gradi non diventano piu' null, aggiunti eta_min e modello:true. v2.14.57: livorno_now: la media tra stima con tetto e AROME SOLO da 8 kn in su (sotto, con vento debole, la sola stima da Windfinder). Motivo: lm_factor_report del 13/11 sera, stesse 177 coppie un giorno fuori: 2.04 kn contro 2.20 della media sempre e 2.48 del solo tetto (vento debole 1.89 contro 2.76, errore p90 4.28 contro 5.09, nessuna sovrastima oltre 8 kn). Include tutto il v2.14.56. Su base v2.14.56
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -2976,6 +2976,19 @@ async function kvCmd(cmd, restUrl, restToken) {
     return (data.result === undefined) ? null : data.result;
   } catch (e) { return null; }
 }
+// 2026-11-18 (v2.14.60): elenco dei nomi che hanno una chiave con questo prefisso (SCAN a pagine). Serve all'esportazione per sapere quali stazioni hanno un
+// bias_archive senza tenere un elenco a mano che si dimentica di aggiornare (le liste scritte a mano di questo motore sono gia' incomplete in tre punti).
+async function aeScanNames(prefix, restUrl, restToken) {
+  var cur = '0', out = [], guard = 0;
+  do {
+    var r = await kvCmd(['SCAN', cur, 'MATCH', prefix + '*', 'COUNT', '1000'], restUrl, restToken);
+    if (!Array.isArray(r) || r.length < 2) return out.length ? out.sort() : null;
+    cur = String(r[0]);
+    (Array.isArray(r[1]) ? r[1] : []).forEach(function(k) { var n = String(k).slice(prefix.length); if (n && out.indexOf(n) < 0) out.push(n); });
+    guard++;
+  } while (cur !== '0' && guard < 200);
+  return out.sort();
+}
 function zhPairs(raw) { // HGETALL: Upstash risponde con un elenco piatto [campo, valore, ...]; per sicurezza si accetta anche un oggetto
   var o = {};
   if (Array.isArray(raw)) { for (var i = 0; i + 1 < raw.length; i += 2) o[raw[i]] = raw[i + 1]; }
@@ -3405,7 +3418,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.59', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.60', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -5126,7 +5139,7 @@ if (action === 'archive_export') {
   if (!aeExpected || aeSecret !== aeExpected) return res.status(401).json({ error: 'Unauthorized' });
   var aeType = (req.query.type || '').toString();
   if (aeType === 'index') {
-    return res.status(200).json({ ora_utc: new Date().toISOString(), zone: Object.keys(ZONES), stazioni_manuali: Object.keys(MANUAL_STATIONS), campi_zone: ZH_FIELDS });
+    return res.status(200).json({ ora_utc: new Date().toISOString(), zone: Object.keys(ZONES), stazioni_manuali: Object.keys(MANUAL_STATIONS), campi_zone: ZH_FIELDS, stazioni_archivio: await aeScanNames('bias_archive:', kvUrl, kvToken) });
   }
   if (aeType === 'zone_hourly') {
     var aeZone = (req.query.zone || '').toString().toLowerCase(), aeMonth = (req.query.month || '').toString();
@@ -5146,7 +5159,31 @@ if (action === 'archive_export') {
     var aePage = aeSel.slice(0, aeLim);
     return res.status(200).json({ station: aeSt, legend: '[tempo_UTC, velocita_kn, direzione]', totale_in_redis: aeArr.length, n: aePage.length, has_more: aeSel.length > aeLim, ultimo_ts: aePage.length ? aePage[aePage.length - 1][0] : null, punti: aePage });
   }
-  return res.status(400).json({ error: 'type non valido', validi: ['index', 'zone_hourly', 'manual_series'] });
+  // 2026-11-18 (v2.14.60): fase C. bias_archive: campioni delle stazioni (ognuno scritto una volta e mai cambiato) -> si accumula con `after`, come le serie manuali.
+  // La lista in Redis e' dal piu' recente al piu' vecchio con tetto 3000 (circa 4 mesi): qui esce in ordine di tempo, a pagine.
+  if (aeType === 'bias_archive') {
+    var aeBst = (req.query.station || '').toString();
+    if (!/^[a-z0-9_]+$/.test(aeBst)) return res.status(400).json({ error: 'station non valida' });
+    var aeBaArr = await kvGet('bias_archive:' + aeBst, kvUrl, kvToken); aeBaArr = Array.isArray(aeBaArr) ? aeBaArr : [];
+    var aeBaAfter = req.query.after ? new Date(req.query.after).getTime() : NaN;
+    var aeBaLim = Math.max(1, Math.min(parseInt(req.query.limit, 10) || 2000, 3000));
+    var aeBaSel = aeBaArr.filter(function(x) { return x && x.ts && !isNaN(new Date(x.ts).getTime()) && (isNaN(aeBaAfter) || new Date(x.ts).getTime() > aeBaAfter); })
+      .sort(function(a, b) { return new Date(a.ts).getTime() - new Date(b.ts).getTime(); });
+    var aeBaPage = aeBaSel.slice(0, aeBaLim);
+    return res.status(200).json({ station: aeBst, totale_in_redis: aeBaArr.length, n: aeBaPage.length, has_more: aeBaSel.length > aeBaLim, ultimo_ts: aeBaPage.length ? aeBaPage[aeBaPage.length - 1].ts : null, punti: aeBaPage });
+  }
+  // predict_archive: previsioni di una zona SENZA il testo dell'AI (decisione di M, 18/11: il testo non serve al sistema e fa crescere il file). A differenza
+  // di bias_archive i record CAMBIANO dopo: i valori reali (actual_*) si aggiungono col tempo. Per questo qui esce tutto l'archivio della zona (al massimo 1000
+  // record, un paio di centinaia di KB) e chi lo copia deve unire per generated_at e aggiornare le righe che ha gia', non solo aggiungere in fondo.
+  if (aeType === 'predict_archive') {
+    var aePz = (req.query.zone || '').toString().toLowerCase();
+    if (!ZONES[aePz]) return res.status(400).json({ error: 'Zona sconosciuta', known: Object.keys(ZONES) });
+    var aePaArr = await kvGet('predict_archive:' + aePz, kvUrl, kvToken); aePaArr = Array.isArray(aePaArr) ? aePaArr : [];
+    var aePaOut = aePaArr.filter(function(x) { return x && x.generated_at; }).map(function(x) { var c = Object.assign({}, x); delete c.prediction_text; return c; })
+      .sort(function(a, b) { return String(a.generated_at) < String(b.generated_at) ? -1 : (String(a.generated_at) > String(b.generated_at) ? 1 : 0); });
+    return res.status(200).json({ zona: aePz, totale_in_redis: aePaArr.length, n: aePaOut.length, previsioni: aePaOut });
+  }
+  return res.status(400).json({ error: 'type non valido', validi: ['index', 'zone_hourly', 'manual_series', 'bias_archive', 'predict_archive'] });
 }
 // /api/engine?action=health_alert_test&secret=<CRON_SECRET> -- manda un messaggio di prova su Telegram. Richiede il segreto
 // SEMPRE (anche se CRON_SECRET non fosse impostato): altrimenti chiunque potrebbe riempire di messaggi il telefono di M.
@@ -8409,7 +8446,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.59 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.60 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };
@@ -8540,4 +8577,4 @@ async function runLammaBiasCron(kvUrl, kvToken) {
 
 
 
-// Fine codice - NAUTILUS ENGINE v2.14.59
+// Fine codice - NAUTILUS ENGINE v2.14.60

@@ -1,4 +1,4 @@
-<!-- NAUTILUS PREVISIONI v3.17 - mdisailor - 2026-11-16 - v3.17: Livorno prende il valore da action=livorno_now (lettura vera / media Windfinder+AROME / AROME), stesso numero di index e mappa; ripiego sulla logica precedente. v3.16 (13/11): CORREZIONE PROVVISORIA del fattore di Livorno: tetto sulla velocita' (lmFactorForDir(dir, kn): stima = min(kn x fattore_direzione, 3.3 + 1.08 x kn), mai piu' della vecchia) e raffica scalata come la velocita' (e null con la lettura vera). Motivo: il 13/11 la stima era 53 kn (x2.2 a 240 gradi, Windfinder 24 kn) contro i 25 di Livornometeo. Su base v3.15 | v3.15 (6/11): i numeri del bottone NODI hanno due colori: bianco = valore nostro (lettura vera della stazione, stima di Livorno, nostra previsione), azzurro = modello (griglia OM e ripiego sull'OM), richiesta di M (un numero sulla mappa e' o il dato vero, o quello ricalcolato, o il modello). Freccia e popup nascono gia' dallo stesso calcolo. Su base v3.14 -->
+<!-- NAUTILUS PREVISIONI v3.18 - mdisailor - 2026-11-16 - v3.18: Livorno prende il valore da action=livorno_now (lettura vera / media Windfinder+AROME / AROME), stesso numero di index e mappa; ripiego sulla logica precedente. v3.16 (13/11): CORREZIONE PROVVISORIA del fattore di Livorno: tetto sulla velocita' (lmFactorForDir(dir, kn): stima = min(kn x fattore_direzione, 3.3 + 1.08 x kn), mai piu' della vecchia) e raffica scalata come la velocita' (e null con la lettura vera). Motivo: il 13/11 la stima era 53 kn (x2.2 a 240 gradi, Windfinder 24 kn) contro i 25 di Livornometeo. Su base v3.15 | v3.15 (6/11): i numeri del bottone NODI hanno due colori: bianco = valore nostro (lettura vera della stazione, stima di Livorno, nostra previsione), azzurro = modello (griglia OM e ripiego sull'OM), richiesta di M (un numero sulla mappa e' o il dato vero, o quello ricalcolato, o il modello). Freccia e popup nascono gia' dallo stesso calcolo. Su base v3.14 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,10 +8,104 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Previsioni Vento v3.17</title>
+<title>NAUTILUS Previsioni Vento v3.18</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+// ===== NAUTILUS: piccolo scrittore di PDF (2026-11-18) =====
+// Perche' non una libreria: il PDF serve a M in mare, senza segnale, e va fatto da una pagina che puo' essere aperta anche con rete debole; una libreria
+// esterna e' un altro file da scaricare e un'altra cosa che puo' mancare. Qui basta poco: pagine, rettangoli, linee, poligoni, testo in Helvetica
+// (font standard del PDF, non va incorporato) con le lettere accentate italiane (codifica WinAnsi). Si controlla qui trasformando il file in immagini.
+// Coordinate: origine in ALTO a sinistra, in punti (1 pt = 1/72 di pollice), come in una pagina web.
+var NPDF_W_REG = [278, 278, 355, 556, 556, 889, 667, 191, 333, 333, 389, 584, 278, 333, 278, 278, 556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 278, 278, 584, 584, 584, 556, 1015, 667, 667, 722, 722, 667, 611, 778, 722, 278, 500, 667, 556, 833, 722, 778, 667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 278, 278, 278, 469, 556, 333, 556, 556, 500, 556, 556, 278, 556, 556, 222, 222, 500, 222, 833, 556, 556, 556, 556, 333, 500, 278, 556, 500, 722, 500, 500, 500, 334, 260, 334, 584];
+var NPDF_W_BOLD = [278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 584, 278, 333, 278, 278, 556, 556, 556, 556, 556, 556, 556, 556, 556, 556, 333, 333, 584, 584, 584, 611, 975, 722, 722, 722, 722, 667, 611, 778, 722, 278, 556, 722, 611, 833, 722, 778, 667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 333, 278, 333, 584, 556, 333, 556, 611, 556, 611, 556, 333, 611, 611, 278, 278, 556, 278, 889, 611, 611, 611, 611, 389, 556, 333, 611, 556, 778, 556, 556, 500, 389, 280, 389, 584];
+function NautilusPdf() { this.pages = []; this.images = []; }
+// Immagine JPEG gia' codificata (la mappa disegnata sul canvas): il PDF la include cosi' com'e' (DCTDecode), senza ricomprimerla. Ritorna l'indice da passare a page.image().
+NautilusPdf.prototype.addImage = function(jpegBytes, w, h) { this.images.push({ data: jpegBytes, w: w, h: h }); return this.images.length - 1; };
+NautilusPdf.prototype.addPage = function(w, h) { var p = new NautilusPdfPage(w, h); this.pages.push(p); return p; };
+function NautilusPdfPage(w, h) { this.w = w; this.h = h; this.ops = []; }
+function npdfColor(c) { // '#rrggbb' -> '0.1 0.2 0.3'
+  var m = /^#?([0-9a-f]{6})$/i.exec(c || '#000000'); if (!m) m = ['', '000000'];
+  var v = parseInt(m[1], 16); return [((v >> 16) & 255) / 255, ((v >> 8) & 255) / 255, (v & 255) / 255].map(function(x) { return (Math.round(x * 1000) / 1000).toString(); }).join(' ');
+}
+function npdfNum(n) { return (Math.round(n * 100) / 100).toString(); }
+NautilusPdfPage.prototype.y = function(y) { return this.h - y; };
+NautilusPdfPage.prototype.rect = function(x, y, w, h, o) {
+  o = o || {}; var s = '';
+  if (o.fill) s += npdfColor(o.fill) + ' rg ';
+  if (o.stroke) s += npdfColor(o.stroke) + ' RG ' + npdfNum(o.lw || 0.5) + ' w ';
+  s += npdfNum(x) + ' ' + npdfNum(this.y(y + h)) + ' ' + npdfNum(w) + ' ' + npdfNum(h) + ' re ' + (o.fill && o.stroke ? 'B' : (o.fill ? 'f' : 'S'));
+  this.ops.push(s);
+};
+NautilusPdfPage.prototype.image = function(x, y, w, h, idx) { // x,y angolo in alto a sinistra, w,h in punti
+  this.ops.push('q ' + npdfNum(w) + ' 0 0 ' + npdfNum(h) + ' ' + npdfNum(x) + ' ' + npdfNum(this.y(y + h)) + ' cm /Im' + idx + ' Do Q');
+};
+NautilusPdfPage.prototype.line = function(x1, y1, x2, y2, o) {
+  o = o || {};
+  this.ops.push(npdfColor(o.color || '#000000') + ' RG ' + npdfNum(o.lw || 0.5) + ' w ' + npdfNum(x1) + ' ' + npdfNum(this.y(y1)) + ' m ' + npdfNum(x2) + ' ' + npdfNum(this.y(y2)) + ' l S');
+};
+NautilusPdfPage.prototype.poly = function(pts, o) { // pts = [[x,y],...] chiuso
+  o = o || {}; var s = '';
+  if (o.fill) s += npdfColor(o.fill) + ' rg ';
+  if (o.stroke) s += npdfColor(o.stroke) + ' RG ' + npdfNum(o.lw || 0.5) + ' w ';
+  pts.forEach(function(p, i) { s += npdfNum(p[0]) + ' ' + npdfNum(this.y(p[1])) + (i === 0 ? ' m ' : ' l '); }, this);
+  s += 'h ' + (o.fill && o.stroke ? 'B' : (o.fill ? 'f' : 'S'));
+  this.ops.push(s);
+};
+NautilusPdf.width = function(str, size, bold) {
+  var t = bold ? NPDF_W_BOLD : NPDF_W_REG, w = 0;
+  for (var i = 0; i < str.length; i++) { var c = str.charCodeAt(i); w += (c >= 32 && c <= 126) ? t[c - 32] : 556; }
+  return w * size / 1000;
+};
+function npdfEsc(str) { // testo -> stringa PDF in WinAnsi: ( ) \ con la barra, lettere oltre il Latin-1 sostituite
+  var out = '';
+  for (var i = 0; i < str.length; i++) {
+    var c = str.charCodeAt(i);
+    if (c === 0x2013 || c === 0x2014) c = 45; else if (c === 0x2019) c = 39; else if (c === 0x2022) c = 0x95; else if (c > 255) c = 63;
+    var ch = String.fromCharCode(c);
+    out += (ch === '(' || ch === ')' || ch === '\\') ? '\\' + ch : ch;
+  }
+  return out;
+}
+// o: size, font ('R' normale, 'B' grassetto, 'I' corsivo), color, align ('l','c','r'), rot (gradi, antiorario)
+NautilusPdfPage.prototype.text = function(x, y, str, o) {
+  o = o || {}; var size = o.size || 10, font = o.font || 'R', w = NautilusPdf.width(String(str), size, font === 'B');
+  var dx = o.align === 'c' ? -w / 2 : (o.align === 'r' ? -w : 0), f = font === 'B' ? 'F2' : (font === 'I' ? 'F3' : 'F1');
+  var r = (o.rot || 0) * Math.PI / 180, cs = Math.cos(r), sn = Math.sin(r), px = x + dx * cs, py = this.y(y) + dx * sn;
+  this.ops.push('BT ' + npdfColor(o.color || '#000000') + ' rg /' + f + ' ' + npdfNum(size) + ' Tf ' + npdfNum(cs) + ' ' + npdfNum(sn) + ' ' + npdfNum(-sn) + ' ' + npdfNum(cs) + ' ' + npdfNum(px) + ' ' + npdfNum(py) + ' Tm (' + npdfEsc(String(str)) + ') Tj ET');
+};
+NautilusPdf.prototype.build = function(meta) { // -> Uint8Array
+  meta = meta || {};
+  var objs = [], self = this;
+  function add(s) { objs.push(s); return objs.length; }
+  var catalog = add(''), pagesObj = add('');
+  var f1 = add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
+  var f2 = add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
+  var f3 = add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique /Encoding /WinAnsiEncoding >>');
+  var imgObjs = this.images.map(function(im) {
+    var bin = ''; for (var i = 0; i < im.data.length; i++) bin += String.fromCharCode(im.data[i]);
+    return add('<< /Type /XObject /Subtype /Image /Width ' + im.w + ' /Height ' + im.h + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + bin.length + ' >>\nstream\n' + bin + '\nendstream');
+  });
+  var xo = imgObjs.map(function(o, i) { return '/Im' + i + ' ' + o + ' 0 R'; }).join(' ');
+  var kids = [];
+  this.pages.forEach(function(p) {
+    var content = p.ops.join('\n'), cobj = add('<< /Length ' + content.length + ' >>\nstream\n' + content + '\nendstream');
+    var pobj = add('<< /Type /Page /Parent ' + pagesObj + ' 0 R /MediaBox [0 0 ' + npdfNum(p.w) + ' ' + npdfNum(p.h) + '] /Resources << /Font << /F1 ' + f1 + ' 0 R /F2 ' + f2 + ' 0 R /F3 ' + f3 + ' 0 R >>' + (xo ? ' /XObject << ' + xo + ' >>' : '') + ' >> /Contents ' + cobj + ' 0 R >>');
+    kids.push(pobj + ' 0 R');
+  });
+  objs[catalog - 1] = '<< /Type /Catalog /Pages ' + pagesObj + ' 0 R >>';
+  objs[pagesObj - 1] = '<< /Type /Pages /Kids [' + kids.join(' ') + '] /Count ' + kids.length + ' >>';
+  var info = add('<< /Title (' + npdfEsc(meta.title || 'NAUTILUS') + ') /Producer (NAUTILUS) >>');
+  var out = '%PDF-1.4\n%\xE2\xE3\xCF\xD3\n', offs = [];
+  objs.forEach(function(o, i) { offs.push(out.length); out += (i + 1) + ' 0 obj\n' + o + '\nendobj\n'; });
+  var xref = out.length;
+  out += 'xref\n0 ' + (objs.length + 1) + '\n0000000000 65535 f \n' + offs.map(function(o) { return ('0000000000' + o).slice(-10) + ' 00000 n \n'; }).join('');
+  out += 'trailer\n<< /Size ' + (objs.length + 1) + ' /Root ' + catalog + ' 0 R /Info ' + info + ' 0 R >>\nstartxref\n' + xref + '\n%%EOF\n';
+  var u8 = new Uint8Array(out.length); for (var i = 0; i < out.length; i++) u8[i] = out.charCodeAt(i) & 255;
+  return u8;
+};
+</script>
 <style>
   :root{--bg:#020e1c;--panel:#0a1a2e;--border:#1c3a54;--text:#dce8f2;--muted:#7d99ad;--accent:#2fb8d6;}
   *{box-sizing:border-box;}
@@ -65,7 +159,7 @@
 
 <header>
   <h1>NAUTILUS &mdash; Previsioni Vento</h1>
-  <span class="ver">v3.17</span>
+  <span class="ver">v3.18</span>
   <a class="back" href="/index2.html">&larr; cruscotto</a>
 </header>
 
@@ -78,6 +172,7 @@
   <canvas id="particle-canvas"></canvas>
   <button id="btn-flow" title="Animazione flusso vento">&#x1F300; FLOW</button>
   <button id="btn-xls" title="Esporta tutti i dati orari in Excel" style="position:absolute;top:10px;left:110px;z-index:900;background:rgba(10,26,46,0.92);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;">&#128202; XLS</button>
+  <button id="btn-pdf" title="Scarica la mappa di questa fascia oraria in PDF (A4 verticale, tutta l'area)" style="position:absolute;top:50px;left:110px;z-index:900;background:rgba(10,26,46,0.92);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;">&#128196; PDF</button>
   <button id="btn-grid-toggle" title="Mostra/nasconde le frecce della griglia OM di sfondo" class="active" style="position:absolute;top:10px;left:200px;z-index:900;background:rgba(10,26,46,0.92);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;">&#9750; GRID</button>
   <button id="btn-knots" title="Mostra il numero di nodi accanto a ogni freccia, anche a GRID spento. Bianco = valore nostro (dato vero, stima o previsione), azzurro = modello (spento all'apertura)" style="position:absolute;bottom:24px;left:10px;z-index:900;background:rgba(10,26,46,0.92);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;">NODI</button>
   <div id="status"></div>
@@ -394,7 +489,7 @@ function drawArrow(ctx, cx, cy, dir, spd, gust, alpha, isZone, zoom, prio, kq, n
   var rad = (dir - 180) * Math.PI / 180;
   var colSpd  = windColor(spd);
   var colGust = (gust != null && !isNaN(gust)) ? windColor(gust) : colSpd;
-  if (kq && state.showKnots) kq.push({ cx: cx, cy: cy, rad: rad, lw: lw, spd: spd, isZone: !!isZone, centered: !!noDraw, real: !!real, prio: (prio === undefined ? (isZone ? 0 : 2) : prio) });
+  if (kq) kq.push({ cx: cx, cy: cy, rad: rad, lw: lw, spd: spd, isZone: !!isZone, centered: !!noDraw, real: !!real, prio: (prio === undefined ? (isZone ? 0 : 2) : prio) });
   if (noDraw) return; // 3/11: GRID spento ma NODI acceso: si accoda solo il numero, la freccia non si disegna
 
   if (isZone) {
@@ -844,25 +939,35 @@ function nearestGridPoint(lat, lon){
 }
 
 // ==================== Disegno ====================
-async function drawAll(){
-  if (!ctx) return;
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  var bounds = map.getBounds();
-  var zoom = map.getZoom();
+// 2026-11-18: T (facoltativo) = bersaglio alternativo per il PDF: { ctx, w, h, zoom, offset, pt(lat,lon)->{x,y}, labels:[] }.
+// Perche' qui e non una copia: il PDF deve mostrare ESATTAMENTE i valori che si vedono sullo schermo (Livorno vero/media/stima, nostra previsione, ripiego modello,
+// griglia), quindi usa la stessa scelta di sorgente e la stessa regola anti-sovrapposizione. Senza T il comportamento e' identico a prima.
+async function drawAll(T){
+  var tctx = T ? T.ctx : ctx;
+  if (!tctx) return;
+  if (!T) ctx.clearRect(0,0,canvas.width,canvas.height); // col PDF la cartina e' gia' disegnata sotto: non si cancella
+  var bounds = T ? null : map.getBounds();
+  var zoom = T ? T.zoom : map.getZoom();
   var minPx = zoom >= 10 ? 18 : zoom >= 9 ? 22 : 30;
   var drawn = [];
-  var offset = state.currentOffset;
+  var offset = T ? T.offset : state.currentOffset;
+  var showK = T ? true : state.showKnots;          // sulla carta non c'e' il tocco: i numeri dei nodi ci sono sempre
+  var showG = T ? true : state.showGridArrows;
+  var curZone = null;                              // zona in corso nel ciclo sotto (serve per scrivere il nome sul PDF)
   var kq = []; // 3/11: numeri dei nodi, accodati dalle frecce e disegnati alla fine (locale: drawAll e' asincrona)
 
   function tryDraw(lat, lon, dir, spd, gust, isZone, prio, noDraw){
-    if (!bounds.contains([lat, lon])) return;
-    var pt = map.latLngToContainerPoint([lat, lon]);
+    var pt;
+    if (T) { pt = T.pt(lat, lon); if (pt.x < 0 || pt.y < 0 || pt.x > T.w || pt.y > T.h) return false; }
+    else { if (!bounds.contains([lat, lon])) return false; pt = map.latLngToContainerPoint([lat, lon]); }
     for (var i = 0; i < drawn.length; i++){
       var dx = pt.x - drawn[i].x, dy = pt.y - drawn[i].y;
-      if (Math.sqrt(dx*dx+dy*dy) < minPx) return;
+      if (Math.sqrt(dx*dx+dy*dy) < minPx) return false;
     }
     drawn.push(pt);
-    drawArrow(ctx, pt.x, pt.y, dir, spd, gust, 0.95, isZone, zoom, prio, kq, noDraw, prio === 0); // real: prio 0 = valore nostro (lettura vera, stima, nostra previsione); 1 e 2 = modello
+    drawArrow(tctx, pt.x, pt.y, dir, spd, gust, 0.95, isZone, zoom, prio, showK ? kq : null, noDraw, prio === 0); // real: prio 0 = valore nostro (lettura vera, stima, nostra previsione); 1 e 2 = modello
+    if (T && curZone) T.labels.push({ x: pt.x, y: pt.y, name: curZone.name, model: prio !== 0 });
+    return true;
   }
 
   // Zone nostre per prime (vincono lo spazio)
@@ -871,6 +976,7 @@ async function drawAll(){
   // disegno parta prima che il controllo sia finito.
   for (var zi = 0; zi < state.zonePoints.length; zi++) {
     var z = state.zonePoints[zi];
+    curZone = z;
     if (offset === 0) {
       // bottone "ora": dato reale stazione, mai AI
       var st = state.stationsNow[z.biasStation];
@@ -914,16 +1020,17 @@ async function drawAll(){
   // Griglia OM di sfondo -- sempre dall'orologio OM (relativo ad adesso)
   // 3/11 (M): con NODI acceso la griglia entra nel ciclo anche a GRID spento: la freccia non si disegna (noDraw)
   // ma il numero della velocita' si', cosi' spegnere GRID non fa sparire i valori.
-  if (state.showGridArrows || state.showKnots) {
+  curZone = null;
+  if (showG || showK) {
     state.gridPoints.forEach(function(g){
       var gv = omValueForOffset(g, offset);
       if (!gv) return;
-      tryDraw(g.lat, g.lon, gv.dir, gv.speed, gv.gust, false, 2, !state.showGridArrows);
+      tryDraw(g.lat, g.lon, gv.dir, gv.speed, gv.gust, false, 2, !showG);
     });
   }
 
-  if (state.showKnots) flushKnotLabels(ctx, zoom, kq); // 3/11: numeri dopo tutte le frecce, zone per prime
-  await updateZoneMarkerPopups();
+  if (showK) flushKnotLabels(tctx, zoom, kq); // 3/11: numeri dopo tutte le frecce, zone per prime
+  if (!T) await updateZoneMarkerPopups();
 }
 
 // D20 (17/9): un marker Leaflet invisibile per zona (solo per il tocco, non
@@ -1130,6 +1237,130 @@ async function exportXLS(){
 }
 document.getElementById('btn-xls').addEventListener('click', exportXLS);
 
+// ==================== PDF della mappa (2026-11-18, M) ====================
+// Una pagina A4 verticale con la mappa della fascia oraria selezionata, su tutta l'area che trattiamo (non l'inquadratura dello schermo), con frecce e numeri
+// come a video e il nome di ogni zona (sulla carta non c'e' il tocco per il popup). In alto, grande e rosso, quando e' stato scaricato: senza segnale il
+// rischio e' leggere un foglio vecchio credendolo di adesso. La cartina e le frecce si disegnano su un canvas fuori schermo con la stessa drawAll della pagina.
+var PDF_TILE_Z = 8;            // tessere @2x di livello 8 = densita' di un livello 9 (circa 364 px per grado di longitudine)
+var PDF_SCALE = 2.0;           // pixel del canvas per "pixel schermo": le frecce hanno dimensioni pensate per lo schermo, qui si ingrandiscono in proporzione
+var PDF_ARROW_ZOOM = 9;        // livello che regola lunghezza frecce e distanza minima tra loro (come a video quando si ingrandisce un po')
+function pdfWorld(){ return 256 * Math.pow(2, PDF_TILE_Z + 1); }
+function pdfWx(lon){ return (lon + 180) / 360 * pdfWorld(); }
+function pdfWy(lat){ var r = lat * Math.PI / 180; return (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * pdfWorld(); }
+function pdfLon(wx){ return wx / pdfWorld() * 360 - 180; }
+function pdfLat(wy){ var n = Math.PI - 2 * Math.PI * wy / pdfWorld(); return 180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n))); }
+
+function pdfLoadTile(z, x, y){
+  return new Promise(function(res){
+    var img = new Image(), done = false;
+    function fin(v){ if (!done){ done = true; res(v); } }
+    img.crossOrigin = 'anonymous'; // senza, il canvas diventa "contaminato" e non si puo' trasformare in immagine
+    img.onload = function(){ fin(img); };
+    img.onerror = function(){ fin(null); };
+    setTimeout(function(){ fin(null); }, 15000);
+    img.src = 'https://' + 'abcd'.charAt((x + y) % 4) + '.basemaps.cartocdn.com/rastertiles/voyager/' + z + '/' + x + '/' + y + '@2x.png?key=cb1_2aye_1_6aa06c5e5eb9da4db55be03f';
+  });
+}
+
+async function exportMapPdf(){
+  var btn = document.getElementById('btn-pdf'), oldText = btn.innerHTML;
+  btn.innerHTML = '...';
+  try {
+    if (!state.zonePoints.length) throw new Error('dati non ancora caricati');
+    var offset = state.currentOffset, hb = state.hourButtons[offset];
+    var page = { w: 595.28, h: 841.89 }, mxp = 15, topH = 84, botH = 92;
+    var imgWpt = page.w - 2 * mxp, imgHpt = page.h - topH - botH, ratio = imgWpt / imgHpt;
+    // area: tutte le zone nostre + un margine, poi allargata al formato della pagina
+    var la0 = 90, la1 = -90, lo0 = 180, lo1 = -180;
+    state.zonePoints.forEach(function(z){ la0 = Math.min(la0, z.lat); la1 = Math.max(la1, z.lat); lo0 = Math.min(lo0, z.lon); lo1 = Math.max(lo1, z.lon); });
+    var padLa = 0.3, padLo = 0.3;
+    var x0 = pdfWx(lo0 - padLo), x1 = pdfWx(lo1 + padLo), y0 = pdfWy(la1 + padLa), y1 = pdfWy(la0 - padLa);
+    var w0 = x1 - x0, h0 = y1 - y0;
+    if (w0 / h0 < ratio) { var nw = h0 * ratio; x0 -= (nw - w0) / 2; x1 = x0 + nw; } else { var nh = w0 / ratio; y0 -= (nh - h0) / 2; y1 = y0 + nh; }
+    var W = Math.round(x1 - x0), H = Math.round(y1 - y0);
+    var cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    var c = cv.getContext('2d');
+    c.fillStyle = '#cfe3ee'; c.fillRect(0, 0, W, H);
+    // cartina
+    var tz = PDF_TILE_Z, tsz = pdfWorld() / Math.pow(2, tz), jobs = [];
+    for (var ty = Math.floor(y0 / tsz); ty <= Math.floor((y1 - 1) / tsz); ty++)
+      for (var tx = Math.floor(x0 / tsz); tx <= Math.floor((x1 - 1) / tsz); tx++) jobs.push({ tx: tx, ty: ty });
+    var imgs = await Promise.all(jobs.map(function(j){ return pdfLoadTile(tz, j.tx, j.ty); }));
+    var okTiles = 0;
+    jobs.forEach(function(j, i){ if (imgs[i]) { c.drawImage(imgs[i], j.tx * tsz - x0, j.ty * tsz - y0, tsz, tsz); okTiles++; } });
+    // sfondo colorato della velocita' modello (come il campo a video: bilineare sulla griglia, qui a celle piccole e poi ingrandito con smussatura)
+    buildGridLookup();
+    var cell = 8 * PDF_SCALE, cols = Math.ceil(W / cell), rows = Math.ceil(H / cell);
+    var fc = document.createElement('canvas'); fc.width = cols; fc.height = rows;
+    var fx = fc.getContext('2d');
+    for (var r = 0; r < rows; r++) for (var q = 0; q < cols; q++) {
+      var spd = bilinearGridSpeed(pdfLat(y0 + (r + 0.5) * cell), pdfLon(x0 + (q + 0.5) * cell), offset);
+      if (spd == null) continue;
+      fx.fillStyle = speedToFieldColor(spd); fx.fillRect(q, r, 1, 1);
+    }
+    c.save(); c.globalAlpha = 0.4; c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high'; c.drawImage(fc, 0, 0, cols * cell, rows * cell); c.restore();
+    // frecce e numeri: stessa drawAll della pagina
+    c.save(); c.scale(PDF_SCALE, PDF_SCALE);
+    var T = { ctx: c, w: W / PDF_SCALE, h: H / PDF_SCALE, zoom: PDF_ARROW_ZOOM, offset: offset, labels: [],
+      pt: function(lat, lon){ return { x: (pdfWx(lon) - x0) / PDF_SCALE, y: (pdfWy(lat) - y0) / PDF_SCALE }; } };
+    await drawAll(T);
+    // nomi delle zone (non c'e' popup sulla carta): sotto la freccia, con bordo scuro per leggerli su qualsiasi colore
+    c.font = '700 11px -apple-system, Helvetica, Arial, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'top'; c.lineJoin = 'round';
+    // posto del nome: sotto la freccia; se li' c'e' gia' un altro nome (zone vicine, es. Elba Nord / Elba Sud) si prova sopra, poi a destra e a sinistra, poi si salta
+    var placed = [];
+    T.labels.forEach(function(l){
+      var tw = c.measureText(l.name).width + 4, th = 14;
+      var cand = [[0, 15], [0, -29], [tw / 2 + 12, -7], [-tw / 2 - 12, -7], [0, 29], [0, -43]];
+      for (var ci = 0; ci < cand.length; ci++) {
+        var cx = l.x + cand[ci][0], cy = l.y + cand[ci][1], bx0 = cx - tw / 2, bx1 = cx + tw / 2, by0 = cy, by1 = cy + th, hit = false;
+        for (var pi = 0; pi < placed.length; pi++) { var o = placed[pi]; if (bx0 < o[2] && bx1 > o[0] && by0 < o[3] && by1 > o[1]) { hit = true; break; } }
+        if (hit) continue;
+        placed.push([bx0, by0, bx1, by1]);
+        c.lineWidth = 3; c.strokeStyle = 'rgba(2,12,24,0.85)'; c.strokeText(l.name, cx, cy + 1);
+        c.fillStyle = l.model ? '#9ec5e6' : '#ffffff'; c.fillText(l.name, cx, cy + 1);
+        break;
+      }
+    });
+    c.restore();
+    var jpg = cv.toDataURL('image/jpeg', 0.9); // se la cartina avesse "contaminato" il canvas, qui scatta un errore e lo vediamo
+    var bin = atob(jpg.split(',')[1]), u8 = new Uint8Array(bin.length);
+    for (var k = 0; k < bin.length; k++) u8[k] = bin.charCodeAt(k);
+
+    // pagina
+    var pdf = new NautilusPdf(), p = pdf.addPage(page.w, page.h), idx = pdf.addImage(u8, W, H);
+    var now = new Date();
+    function dayTxt(d){ return new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', weekday: 'short', day: '2-digit', month: '2-digit' }).format(d); }
+    function hmTxt(d){ return new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', hour: '2-digit', minute: '2-digit', hour12: false }).format(d); }
+    p.text(mxp, 24, 'NAUTILUS - Previsioni vento (nodi)', { size: 13, font: 'B' });
+    p.text(page.w - mxp, 24, 'SCARICATO ' + dayTxt(now) + ' alle ' + hmTxt(now), { size: 13, font: 'B', align: 'r', color: '#b00000' });
+    var big = offset === 0 ? 'ADESSO - dati reali delle ' + hmTxt(now) : 'ORE ' + romeHourLabel(hb.date) + ' - ' + dayTxt(hb.date) + '  (+' + offset + ' h)';
+    p.text(mxp, 54, big, { size: 22, font: 'B' });
+    p.text(page.w - mxp, 40, offset === 0 ? 'Vale per pochi minuti: poi scarica un nuovo PDF.' : 'Previsione per quell\'ora. Dopo, non fidarti: scarica un nuovo PDF.', { size: 8, align: 'r', color: '#b00000' });
+    p.text(mxp, 72, 'Dati caricati alle ' + (state.lastFetch ? hmTxt(state.lastFetch) : '?') + (okTiles ? '' : '  -  cartina di fondo non disponibile'), { size: 8, color: '#333333' });
+    p.image(mxp, topH, imgWpt, imgHpt, idx);
+    p.rect(mxp, topH, imgWpt, imgHpt, { stroke: '#444444', lw: 0.8 });
+    // legenda
+    var ly = topH + imgHpt + 12, lx = mxp, sc = [[0.5, '0-3'], [4, '4-6'], [7, '7-10'], [11, '11-16'], [17, '17-21'], [22, '22-27'], [28, '28-33'], [34, '34+']];
+    function onCol(hex){ var v = parseInt(hex.slice(1), 16); return (0.299 * ((v >> 16) & 255) + 0.587 * ((v >> 8) & 255) + 0.114 * (v & 255)) < 140 ? '#ffffff' : '#111111'; }
+    p.text(lx, ly + 8, 'Nodi:', { size: 8, font: 'B' }); lx += 30;
+    sc.forEach(function(e){ var col = windColor(e[0]); p.rect(lx, ly, 34, 11, { fill: col }); p.text(lx + 17, ly + 8.5, e[1], { size: 7, align: 'c', color: onCol(col) }); lx += 35; });
+    p.text(mxp, ly + 26, 'La freccia punta dove va il vento. Zone nostre: freccia doppia (vento e raffica) con il nome; frecce piccole: modello Open-Meteo.', { size: 7.5, color: '#333333' });
+    p.text(mxp, ly + 38, 'Numeri: bianco = dato nostro (lettura vera, stima o nostra previsione); azzurro = solo modello. Colore di fondo: velocita\' del modello.', { size: 7.5, color: '#333333' });
+    p.text(mxp, ly + 50, 'Zone senza nostra previsione per quest\'ora mostrano il modello Open-Meteo del punto piu\' vicino.', { size: 7.5, color: '#333333' });
+    var bytes = pdf.build({ title: 'NAUTILUS previsioni ' + romeHourLabel(hb.date) });
+    var blob = new Blob([bytes], { type: 'application/pdf' });
+    var fname = 'nautilus_mappa_' + (offset === 0 ? 'adesso' : 'ore' + romeHourLabel(hb.date)) + '_' + now.toISOString().slice(0, 16).replace(/[:T]/g, '-') + '.pdf';
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = fname; document.body.appendChild(a); a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 20000);
+  } catch (e) {
+    alert('Errore PDF: ' + e.message);
+  } finally {
+    btn.innerHTML = oldText;
+  }
+}
+document.getElementById('btn-pdf').addEventListener('click', exportMapPdf);
+
+
 document.getElementById('btn-grid-toggle').addEventListener('click', function(){
   state.showGridArrows = !state.showGridArrows;
   this.classList.toggle('active', state.showGridArrows);
@@ -1150,4 +1381,4 @@ setInterval(loadAll, REFRESH_MS);
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS PREVISIONI v3.17 -->
+<!-- Fine codice - NAUTILUS PREVISIONI v3.18 -->

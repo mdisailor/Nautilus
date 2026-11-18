@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA2 v1.20 - mdisailor - 2026-11-13 - v1.20: IL VALORE DI LIVORNO LO DECIDE IL MOTORE (action=livorno_now): lettura vera di Livornometeo se recente, altrimenti la media tra la stima da Windfinder (con tetto) e AROME, altrimenti AROME, mai OM; fonte, eta' dall'orario di osservazione e componenti della media nel popup; AROME in azzurro; il vecchio calcolo resta come ripiego. Motivo: il 13/11 mappa2 e index mostravano 32 e 13 kn per lo stesso istante (campione di 2 ore prima e OM di ripiego scritto STIMA). Su base v1.19 | v1.19: CORREZIONE PROVVISORIA del fattore di Livorno: tetto sulla velocita' (lmFactorForDir(dir, kn): stima = min(kn x fattore_direzione, 3.3 + 1.08 x kn), mai piu' della vecchia). Motivo: il 13/11 la stima era 53 kn (x2.2 a 240 gradi, Windfinder 24 kn) contro i 25 di Livornometeo, il 12/11 30.7 contro 10.4. Su base v1.18 -->
+<!-- NAUTILUS MAPPA2 v1.21 - mdisailor - 2026-11-18 - v1.21: PUNTI DELLE STAZIONI MANUALI (Capraiameteo, Rosignanometeo, Golfo Aranci) con freccia, numero e popup che scrive l'ora del dato e i modelli di quell'ora (action=manual_now). v1.20 (13/11): IL VALORE DI LIVORNO LO DECIDE IL MOTORE (action=livorno_now): lettura vera di Livornometeo se recente, altrimenti la media tra la stima da Windfinder (con tetto) e AROME, altrimenti AROME, mai OM; fonte, eta' dall'orario di osservazione e componenti della media nel popup; AROME in azzurro; il vecchio calcolo resta come ripiego. Motivo: il 13/11 mappa2 e index mostravano 32 e 13 kn per lo stesso istante (campione di 2 ore prima e OM di ripiego scritto STIMA). Su base v1.19 | v1.19: CORREZIONE PROVVISORIA del fattore di Livorno: tetto sulla velocita' (lmFactorForDir(dir, kn): stima = min(kn x fattore_direzione, 3.3 + 1.08 x kn), mai piu' della vecchia). Motivo: il 13/11 la stima era 53 kn (x2.2 a 240 gradi, Windfinder 24 kn) contro i 25 di Livornometeo, il 12/11 30.7 contro 10.4. Su base v1.18 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa2 Vento v1.20</title>
+<title>NAUTILUS Mappa2 Vento v1.21</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -241,7 +241,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa2 v1.20</span>
+    <span id="nav-ver">mappa2 v1.21</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -304,11 +304,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA2 v1.20 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA2 v1.21 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA2 v1.20
+// NAUTILUS MAPPA2 v1.21
 
 var ENGINE_URL = '/api/engine';
 
@@ -1935,6 +1935,7 @@ async function loadAll(){
     updateZoneMarkers();
     resizeCanvas();
     drawWind();
+    updateManualMarkers(true); // 2026-11-18 (v1.21): punti delle stazioni manuali (non si aspetta: non blocca il resto)
     if (particleState.active) rebuildAndAnimate();
     state.lastUpdate = new Date();
     var ts = state.lastUpdate.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
@@ -2340,6 +2341,83 @@ function exportGrid() {
   if (btn) { btn.innerHTML = '📊<br>XLS'; btn.style.color = 'var(--muted)'; }
 }
 
+
+// ============================================================
+// STAZIONI MANUALI (2026-11-18, v1.21): Capraiameteo, Rosignanometeo, Golfo Aranci. Il motore (action=manual_now) da' per ognuna l'ultimo dato passato da M
+// (con ora ed eta'), i modelli dell'ora piu' vicina AL DATO e il valore da disegnare. Sulla mappa: un punto con freccia e numero; il numero e' BIANCO se il dato
+// ha <= 30 minuti (dato vero), AZZURRO se il dato e' piu' vecchio e si mostra il modello di adesso (regola dell'app: un numero e' vero, ricalcolato o modello).
+// Il popup scrive sempre l'ora del dato, anche se e' del giorno prima, e i modelli di QUELL'ora. Nessuna di queste stazioni entra nell'OI ne' nelle previsioni.
+// zIndexOffset 90, sotto il cerchio di zona (100): Capraiameteo sta a ~300 m dal punto della zona Capraia e a zoom bassi i due si sovrappongono; la zona vince, a zoom alto si separano.
+// ============================================================
+var MANUAL_MAP_IDS = ['capraiameteo', 'rosignanometeo', 'golfoaranci_lm'];
+var manualLayer = null, MN_NOW = null, MN_NOW_TS = 0;
+async function getManualNow(force) {
+  if (!force && MN_NOW && (Date.now() - MN_NOW_TS) < 20000) return MN_NOW;
+  try {
+    var r = await fetch(ENGINE_URL + '?action=manual_now', { cache: 'no-store' });
+    var d = await r.json();
+    if (!d || !d.ok || !d.stazioni) return null;
+    MN_NOW = d; MN_NOW_TS = Date.now(); return d;
+  } catch (e) { return null; }
+}
+function mnDayTime(ts) { // "mer 18/11 alle 13:18" in ora italiana
+  try {
+    var d = new Date(ts);
+    return d.toLocaleDateString('it-IT', { weekday: 'short', day: '2-digit', month: '2-digit', timeZone: 'Europe/Rome' }) + ' alle ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Rome' });
+  } catch (e) { return ts; }
+}
+function mnHourLocal(key) { return lmHHMM(key + ':00:00Z'); } // "2026-11-18T13" (UTC) -> ora italiana
+function mnIcon(st) {
+  var v = st.valore, model = v && v.tipo === 'modello', col = model ? KNOTS_COLOR_MODEL : KNOTS_COLOR_REAL;
+  var inner;
+  if (v && v.kn != null && v.dir != null) {
+    var len = 12 + Math.min(v.kn * 1.2, 10), spdTxt = (Math.round(v.kn) === v.kn || v.kn >= 10) ? String(Math.round(v.kn)) : v.kn.toFixed(1);
+    inner = '<g transform="translate(23,23) rotate(' + (v.dir + 180) + ')"><line x1="0" y1="' + (len * 0.45) + '" x2="0" y2="' + (-len * 0.25) + '" stroke="#000" stroke-width="5" stroke-linecap="round" opacity="0.55"/>' +
+      '<line x1="0" y1="' + (len * 0.45) + '" x2="0" y2="' + (-len * 0.25) + '" stroke="' + windColor(v.kn) + '" stroke-width="2.6" stroke-linecap="round"/>' +
+      '<polygon points="0,' + (-len * 0.5) + ' -5,' + (-len * 0.5 + 9) + ' 5,' + (-len * 0.5 + 9) + '" fill="' + windColor(v.kn) + '" stroke="#000" stroke-opacity="0.55" stroke-width="1"/></g>' +
+      '<text x="30" y="38" font-size="13" font-weight="700" fill="' + col + '" stroke="#000" stroke-width="3" paint-order="stroke" font-family=\'-apple-system,"Helvetica Neue",Arial,sans-serif\'>' + spdTxt + '</text>';
+  } else inner = '<text x="23" y="27" font-size="12" text-anchor="middle" fill="#888" stroke="#000" stroke-width="3" paint-order="stroke">?</text>';
+  // il punto della stazione: quadratino (non il cerchio delle zone) bianco se il dato e' fresco, altrimenti grigio/azzurro
+  var dot = '<rect x="19.5" y="19.5" width="7" height="7" rx="1.5" fill="' + (model ? '#6f8ea8' : '#fff') + '" stroke="#000" stroke-width="1.2" transform="rotate(45 23 23)"/>';
+  return L.divIcon({ html: '<svg xmlns="http://www.w3.org/2000/svg" width="46" height="46" style="overflow:visible">' + dot + inner + '</svg>', className: '', iconSize: [46, 46], iconAnchor: [23, 23], popupAnchor: [0, -16] });
+}
+function mnPopupHtml(st) {
+  var sty = 'font-size:0.62rem;margin-top:3px', h = '<div style="font-family:DM Mono,monospace;font-size:0.7rem;min-width:210px">' +
+    '<div style="font-weight:bold;color:#00cc66;margin-bottom:2px">' + lnEsc(st.name) + '</div><div style="color:#8ab8d0;font-size:0.56rem;margin-bottom:4px">Stazione manuale: dati passati da te, non automatici</div>';
+  var d = st.dato;
+  if (d) {
+    var col = d.fresco ? '#22cc66' : (d.eta_min <= 180 ? '#ffaa00' : '#ff8844');
+    h += '<div style="color:#fff;font-size:0.72rem"><b>' + d.kn + ' kn</b> da ' + degToDir(d.dir) + ' ' + d.dir + '&deg;' + (d.gust != null ? ' &middot; raffica <b>' + d.gust + '</b> kn' : '') + '</div>' +
+      '<div style="color:' + col + ';' + sty + '">Ultimo dato: ' + mnDayTime(d.ts) + ' (' + lmAgeText(d.eta_min) + ' fa)' + (d.fresco ? '' : ' &mdash; VECCHIO') + '</div>';
+  } else h += '<div style="color:#bbb;' + sty + '">Nessun dato registrato</div>';
+  var m = st.modello_al_dato;
+  if (m) {
+    var om = m.om ? ('OM <b>' + m.om.kn + '</b> kn da ' + m.om.dir + '&deg;' + (m.diff_om_kn != null ? ' (dato ' + (m.diff_om_kn >= 0 ? '+' : '') + m.diff_om_kn + ')' : '')) : 'OM n.d.';
+    var ar = m.arome ? ('AROME <b>' + m.arome.kn + '</b> kn da ' + m.arome.dir + '&deg;' + (m.diff_arome_kn != null ? ' (dato ' + (m.diff_arome_kn >= 0 ? '+' : '') + m.diff_arome_kn + ')' : '')) : 'AROME n.d.';
+    h += '<div style="color:#bbb;' + sty + '">Modelli delle ' + mnHourLocal(m.ora) + ' (' + m.distanza_min + ' min dal dato):</div><div style="color:#ddd;font-size:0.62rem">' + ar + '</div><div style="color:#ddd;font-size:0.62rem">' + om + '</div>';
+  } else if (d) h += '<div style="color:#888;' + sty + '">Modello dell\'ora del dato non salvato (nessuna invenzione)</div>';
+  if (st.valore && st.valore.tipo === 'modello') h += '<div style="color:' + KNOTS_COLOR_MODEL + ';font-size:0.58rem;margin-top:5px">Sulla mappa: ' + lnEsc(st.valore.nota) + '</div>';
+  else if (st.valore) h += '<div style="color:#fff;font-size:0.58rem;margin-top:5px">Sulla mappa: il dato vero (' + lnEsc(st.valore.nota) + ')</div>';
+  return h + '</div>';
+}
+async function updateManualMarkers(force) {
+  try {
+    var d = await getManualNow(force);
+    if (!d) return;
+    if (!manualLayer) manualLayer = L.layerGroup().addTo(map);
+    manualLayer.clearLayers();
+    MANUAL_MAP_IDS.forEach(function(id) {
+      var st = d.stazioni[id]; if (!st) return;
+      var mk = L.marker([st.lat, st.lon], { icon: mnIcon(st), zIndexOffset: 90 }).addTo(manualLayer);
+      mk.bindPopup(mnPopupHtml(st), { maxWidth: 260 });
+      mk.on('popupopen', async function() { // dati aggiornati all'apertura (il motore tiene 60 s di cache)
+        var d2 = await getManualNow(true);
+        if (d2 && d2.stazioni[id]) { mk.setPopupContent(mnPopupHtml(d2.stazioni[id])); }
+      });
+    });
+  } catch (e) { /* i punti delle stazioni manuali non devono mai fermare la mappa */ }
+}
+
 loadAll();
 // Carica osservazioni esistenti all'avvio
 setTimeout(loadObsMarkers, 2000);
@@ -2705,7 +2783,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine script - NAUTILUS MAPPA2 v1.20 (segue markup HTML pannello osservazioni, non altro codice)
+// Fine script - NAUTILUS MAPPA2 v1.21 (segue markup HTML pannello osservazioni, non altro codice)
 </script>
 <!-- Pannello inserimento osservazione manuale -->
 <div id="obs-panel">
@@ -2745,4 +2823,4 @@ function refreshMnwStation(sid, popupId, name) {
 </body>
 </html>
 
-<!-- Fine codice - NAUTILUS MAPPA2 v1.20 -->
+<!-- Fine codice - NAUTILUS MAPPA2 v1.21 -->

@@ -1,4 +1,4 @@
-// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.57 - by mdisailor engine - v2.14.61: manual_now (ultimo dato delle stazioni manuali con ora, modelli dell'ora del dato, valore da disegnare). v2.14.60: archive_export con i tipi bias_archive e predict_archive (fase C), index con stazioni_archivio. v2.14.59: record orari: fusione dell'osservato (CFR vince su openweathermap, qualunque sia l'ordine tra cron_snap e scrape_cfr). v2.14.58: triple_wind: vento 0 kn e direzione 0 gradi non diventano piu' null, aggiunti eta_min e modello:true. v2.14.57: livorno_now: la media tra stima con tetto e AROME SOLO da 8 kn in su (sotto, con vento debole, la sola stima da Windfinder). Motivo: lm_factor_report del 13/11 sera, stesse 177 coppie un giorno fuori: 2.04 kn contro 2.20 della media sempre e 2.48 del solo tetto (vento debole 1.89 contro 2.76, errore p90 4.28 contro 5.09, nessuna sovrastima oltre 8 kn). Include tutto il v2.14.56. Su base v2.14.56
+// NAUTILUS ENGINE - Vercel API - engine.js - v2.14.63 - by mdisailor engine - v2.14.63: zona Livorno alle coordinate nuove 43.549682, 10.292348 (come LivornoPorto#). v2.14.62: nomi e coordinate delle stazioni manuali (LivornoPorto#, Capraia#, Rosignano#, Golfo Aranci#: il # dice 'dato passato da M', niente piu' riferimento al sito d'origine); gli id interni non cambiano, per non spezzare le serie salvate. v2.14.61: manual_now (ultimo dato delle stazioni manuali con ora, modelli dell'ora del dato, valore da disegnare). v2.14.60: archive_export con i tipi bias_archive e predict_archive (fase C), index con stazioni_archivio. v2.14.59: record orari: fusione dell'osservato (CFR vince su openweathermap, qualunque sia l'ordine tra cron_snap e scrape_cfr). v2.14.58: triple_wind: vento 0 kn e direzione 0 gradi non diventano piu' null, aggiunti eta_min e modello:true. v2.14.57: livorno_now: la media tra stima con tetto e AROME SOLO da 8 kn in su (sotto, con vento debole, la sola stima da Windfinder). Motivo: lm_factor_report del 13/11 sera, stesse 177 coppie un giorno fuori: 2.04 kn contro 2.20 della media sempre e 2.48 del solo tetto (vento debole 1.89 contro 2.76, errore p90 4.28 contro 5.09, nessuna sovrastima oltre 8 kn). Include tutto il v2.14.56. Su base v2.14.56
 // v2.13.57 - scrape_cfr non sovrascrive piu vento/direzione se gia presenti, ogni fonte mantiene il proprio valore stabile
 // Motore diagnostico meteo-marino - 12 zone puntuali
 
@@ -40,7 +40,8 @@ cross_sea_canale: { desc: 'Mare incrociato nel canale', active_wind_dirs: [0, 36
 livorno: {
 enabled: true,
 name: 'Livorno',
-lat: 43.5497, lon: 10.2950,
+lat: 43.549682, lon: 10.292348, // 19/11/2026: coordinate nuove indicate da M (prima 43.5497, 10.2950); la stazione Windfinder resta al suo punto
+
 bias_station: 'livorno_porto', bias_quota: 2,
 ports: {
 livorno:        { name: 'Livorno',        exposure: 'SW', shelter: 'high', swell_threshold: 2.0 },
@@ -2117,10 +2118,10 @@ function lmSeriesBucket(arr, bucketMin) {
 // SOLO per questo punto, quindi non vanno piu' cambiate senza rifare le regole. Ogni
 // campione salvato da manual_submit registra il punto usato (campo pt).
 var MANUAL_STATIONS = {
-  livornometeo_porto: { name: 'Livornometeo Porto',               lat: 43.54972, lon: 10.29500, source: 'livornometeo_manual' },
-  capraiameteo:       { name: 'Capraiameteo',                     lat: 43.05117, lon:  9.84425, source: 'capraiameteo_manual' },
-  rosignanometeo:     { name: 'Rosignanometeo',                   lat: 43.39583, lon: 10.42500, source: 'rosignanometeo_manual' },
-  golfoaranci_lm:     { name: 'Golfo Aranci (da livornometeo.it)', lat: 40.99528, lon:  9.62361, source: 'golfoaranci_lm_manual' }
+  livornometeo_porto: { name: 'LivornoPorto#',                     lat: 43.549682, lon: 10.292348, source: 'livornometeo_manual' },
+  capraiameteo:       { name: 'Capraia#',                          lat: 43.051164, lon:  9.844352, source: 'capraiameteo_manual' },
+  rosignanometeo:     { name: 'Rosignano#',                        lat: 43.395842, lon: 10.423860, source: 'rosignanometeo_manual' },
+  golfoaranci_lm:     { name: 'Golfo Aranci#',                     lat: 40.996073, lon:  9.621568, source: 'golfoaranci_lm_manual' }
 };
 
 // 2026-10-27 (v2.14.37): CORREZIONE DI RIFERIMENTO LIVORNOMETEO PER DIREZIONE.
@@ -2649,7 +2650,7 @@ function buildHourlyTable(series, models, singles, opts) {
 // ===== 2026-10-28 (v2.14.42): MONITORAGGIO DELLE PREVISIONI DI LIVORNO CONTRO LIVORNOMETEO =====
 // Richiesta di M (27/10): "faremo monitoraggio per verificare se siamo dentro una tolleranza accettabile".
 // Per ogni previsione salvata di Livorno (predict_history:livorno) e per ogni orizzonte (H+1, 3, 6, 9, 12),
-// l'orario di arrivo e' generated_at + N ore; l'osservato e' la media delle serie di Livornometeo entro
+// l'orario di arrivo e' generated_at + N ore; l'osservato e' la media delle serie di LivornoPorto# entro
 // +-30 minuti da quell'orario (almeno 8 punti: altrimenti l'orario non e' coperto e la coppia manca; la
 // notte M non raccoglie). Si confronta la previsione FINALE (quella mostrata, col fattore) e la previsione
 // nella scala di Windfinder (senza fattore, forecast_hN_wf): la differenza dice quanto il fattore aggiunge.
@@ -3219,7 +3220,7 @@ function lnDecide(lmS, wfS, ar, nowMs, o) {
   }
   if (ar) det.arome = ar;
   var pick = null;
-  if (lm && lm.eta_min <= lmMax) pick = { fonte: 'livornometeo', tipo: 'vero', velocita_kn: lm.velocita_kn, direzione: lm.direzione, raffica_kn: null, eta_min: lm.eta_min, vecchio: false, motivo: 'lettura di Livornometeo di ' + lm.eta_min + ' min fa (limite ' + lmMax + ')' };
+  if (lm && lm.eta_min <= lmMax) pick = { fonte: 'livornometeo', tipo: 'vero', velocita_kn: lm.velocita_kn, direzione: lm.direzione, raffica_kn: null, eta_min: lm.eta_min, vecchio: false, motivo: 'lettura di LivornoPorto# di ' + lm.eta_min + ' min fa (limite ' + lmMax + ')' };
   else if (wf && ar && wf.eta_min <= blMax && wf.stima_kn < (o.blendFrom !== undefined ? o.blendFrom : LN_BLEND_FROM_KN)) pick = { fonte: 'windfinder_stima', tipo: 'ricalcolato', velocita_kn: wf.stima_kn, direzione: wf.direzione, raffica_kn: wf.raffica_stimata_kn, eta_min: wf.eta_min, vecchio: false, fattore: wf.fattore_efficace,
            motivo: 'vento debole (stima ' + wf.stima_kn + ' kn, sotto gli ' + (o.blendFrom !== undefined ? o.blendFrom : LN_BLEND_FROM_KN) + '): la media con AROME peggiora (1.89 contro 2.76 kn di errore), si usa la sola stima da Windfinder (campione di ' + wf.eta_min + ' min fa)' };
   else if (wf && ar && wf.eta_min <= blMax) {
@@ -3228,11 +3229,11 @@ function lnDecide(lmS, wfS, ar, nowMs, o) {
              componenti: { windfinder_stimato_kn: wf.stima_kn, arome_kn: ar.speed }, motivo: 'media tra la stima da Windfinder (' + wf.stima_kn + ' kn, campione di ' + wf.eta_min + ' min fa, limite ' + blMax + ') e AROME (' + ar.speed + ' kn), vento da ' + (o.blendFrom !== undefined ? o.blendFrom : LN_BLEND_FROM_KN) + ' kn in su' };
   }
   else if (wf && wf.eta_min <= wfMax) pick = { fonte: 'windfinder_stima', tipo: 'ricalcolato', velocita_kn: wf.stima_kn, direzione: wf.direzione, raffica_kn: wf.raffica_stimata_kn, eta_min: wf.eta_min, vecchio: false, fattore: wf.fattore_efficace, motivo: 'campione di Windfinder osservato ' + wf.eta_min + ' min fa (limite ' + wfMax + '), per il fattore ' + wf.fattore_efficace };
-  else if (ar) pick = { fonte: 'arome', tipo: 'modello', velocita_kn: ar.speed, direzione: ar.dir, raffica_kn: ar.gust === null ? null : Math.max(ar.gust, ar.speed), eta_min: null, vecchio: false, motivo: 'nessuna lettura vera o campione di Windfinder recenti (Livornometeo ' + (lm ? lm.eta_min + ' min' : 'assente') + ', Windfinder ' + (wf ? wf.eta_min + ' min' : 'assente') + '): modello AROME' };
+  else if (ar) pick = { fonte: 'arome', tipo: 'modello', velocita_kn: ar.speed, direzione: ar.dir, raffica_kn: ar.gust === null ? null : Math.max(ar.gust, ar.speed), eta_min: null, vecchio: false, motivo: 'nessuna lettura vera o campione di Windfinder recenti (LivornoPorto# ' + (lm ? lm.eta_min + ' min' : 'assente') + ', Windfinder ' + (wf ? wf.eta_min + ' min' : 'assente') + '): modello AROME' };
   else if (wf || lm) {
     var useWf = wf && (!lm || wf.eta_min <= lm.eta_min);
     pick = useWf ? { fonte: 'windfinder_stima_vecchia', tipo: 'ricalcolato', velocita_kn: wf.stima_kn, direzione: wf.direzione, raffica_kn: wf.raffica_stimata_kn, eta_min: wf.eta_min, vecchio: true, fattore: wf.fattore_efficace, motivo: 'AROME non disponibile: ultimo campione di Windfinder, di ' + wf.eta_min + ' min fa' }
-                 : { fonte: 'livornometeo_vecchia', tipo: 'vero', velocita_kn: lm.velocita_kn, direzione: lm.direzione, raffica_kn: null, eta_min: lm.eta_min, vecchio: true, motivo: 'AROME non disponibile: ultima lettura di Livornometeo, di ' + lm.eta_min + ' min fa' };
+                 : { fonte: 'livornometeo_vecchia', tipo: 'vero', velocita_kn: lm.velocita_kn, direzione: lm.direzione, raffica_kn: null, eta_min: lm.eta_min, vecchio: true, motivo: 'AROME non disponibile: ultima lettura di LivornoPorto#, di ' + lm.eta_min + ' min fa' };
   }
   var res = { ok: !!pick, ts: new Date(nowMs).toISOString(), soglie: { livornometeo_min: lmMax, windfinder_min: wfMax }, dettagli: det };
   if (pick) { res.valore = pick; } else res.motivo = 'nessun dato disponibile';
@@ -3491,7 +3492,7 @@ var activeZones = Object.keys(ZONES).filter(function(k){ return ZONES[k].enabled
 var romeParts2 = new Intl.DateTimeFormat('it-IT', { timeZone: 'Europe/Rome', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(new Date());
     var rp2 = {}; romeParts2.forEach(function(p) { rp2[p.type] = p.value; });
     var romeNow = rp2.year + '-' + rp2.month + '-' + rp2.day + 'T' + rp2.hour + ':' + rp2.minute;
-    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.61', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
+    return res.status(200).json({ ok: true, engine: 'nautilus-engine', v: '2.14.63', zones: activeZones, ts: Date.now(), rome_now: romeNow, utc_now: new Date().toISOString() });
 }
 
 // /api/engine?action=cron - called by cron-job.org every hour for all zones
@@ -4570,7 +4571,7 @@ if (action === 'livornometeo_submit') {
     var lsSpeed = parseFloat(lsBody.speed);
     var lsDir = parseFloat(lsBody.direction);
     if (isNaN(lsSpeed) || isNaN(lsDir)) return res.status(400).json({ error: 'speed e direction richiesti, numerici' });
-    var LS_LAT = 43.5497, LS_LON = 10.2950; // Livornometeo Porto -- stesse coordinate gia' usate in mappa.html/mappa2.html (BUOYS: lv_porto)
+    var LS_LAT = 43.549682, LS_LON = 10.292348; // LivornoPorto# -- 19/11/2026: coordinate nuove indicate da M (prima 43.5497, 10.2950); stesse di mappa2
 
     var lsOmUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + LS_LAT + '&longitude=' + LS_LON + '&current=wind_speed_10m,wind_gusts_10m,wind_direction_10m,surface_pressure&wind_speed_unit=kn';
     var lsAromeUrl = 'https://api.open-meteo.com/v1/meteofrance?latitude=' + LS_LAT + '&longitude=' + LS_LON + '&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m&wind_speed_unit=kn&models=arome_france&forecast_days=1';
@@ -6872,7 +6873,7 @@ if (action === 'predict') {
       // v2.14.37: fattore per direzione (vedi applyLmReference). Al posto del +4.2 fisso.
       var refApplied = applyLmReference(predRecord, aiText);
       if (refApplied.length > 0) {
-        predRecord.prediction_text = aiText + '\n\nCORREZIONE DI RIFERIMENTO (Livornometeo, per direzione, provvisoria):\n- ' + refApplied.join('\n- ');
+        predRecord.prediction_text = aiText + '\n\nCORREZIONE DI RIFERIMENTO (LivornoPorto#, per direzione, provvisoria):\n- ' + refApplied.join('\n- ');
         aiText = predRecord.prediction_text;
       }
     }
@@ -8519,7 +8520,7 @@ return res.status(500).json({ error: err.message, zone: zoneKey });
 }
 
 return res.status(200).json({
-engine: 'nautilus-engine v2.14.61 - by mdisailor engine',
+engine: 'nautilus-engine v2.14.63 - by mdisailor engine',
 endpoints: ['/api/engine?action=ping', '/api/engine?action=zones', '/api/engine?action=zone&zone={key}']
 });
 };

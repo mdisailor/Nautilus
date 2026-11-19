@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 
-<!-- NAUTILUS v5.7.51 -- 2026-11-13 - CORREZIONE PROVVISORIA del fattore di Livorno: tetto sulla velocita' (lmFactorForDir(dir, kn): stima = min(kn x fattore_direzione, 3.3 + 1.08 x kn), mai piu' della vecchia) e raffica scalata come la velocita' nelle due bussole di Livorno. Motivo: il 13/11 la bussola dava 53 kn con raffica 30 (x2.2 a 240 gradi, Windfinder 24 kn) contro i 25 di Livornometeo. | v5.7.47 (27/10): dettaglio della bussola tripla per Livorno piu' chiaro: SORGENTE dice "Stima da Windfinder x1.9 (grezzo 4.1 kn)" e una riga a parte "ULT. LETTURA LM" riporta l'ultima lettura VERA di Livornometeo con valore, direzione, ora ed eta' (prima "AGGIORNATO" era l'orario del campione Windfinder accanto a "STIMA x1.9", senza altro). La bussola singola resta con la sola etichetta "STIMA x1.9" (poco spazio). Su base v5.7.46 -->
+<!-- NAUTILUS v5.7.52 -- 2026-11-19 - v5.7.52 (19/11): nomi delle stazioni manuali: LivornoPorto#, Capraia#, Rosignano#, Golfo Aranci# (il # dice 'dato passato da M'; niente piu' riferimento al sito d'origine); gli id interni non cambiano. v5.7.51 (13/11): CORREZIONE PROVVISORIA del fattore di Livorno: tetto sulla velocita' (lmFactorForDir(dir, kn): stima = min(kn x fattore_direzione, 3.3 + 1.08 x kn), mai piu' della vecchia) e raffica scalata come la velocita' nelle due bussole di Livorno. Motivo: il 13/11 la bussola dava 53 kn con raffica 30 (x2.2 a 240 gradi, Windfinder 24 kn) contro i 25 di Livornometeo. | v5.7.47 (27/10): dettaglio della bussola tripla per Livorno piu' chiaro: SORGENTE dice "Stima da Windfinder x1.9 (grezzo 4.1 kn)" e una riga a parte "ULT. LETTURA LM" riporta l'ultima lettura VERA di Livornometeo con valore, direzione, ora ed eta' (prima "AGGIORNATO" era l'orario del campione Windfinder accanto a "STIMA x1.9", senza altro). La bussola singola resta con la sola etichetta "STIMA x1.9" (poco spazio). Su base v5.7.46 -->
 
 <html lang="it">
 <head>
@@ -1082,10 +1082,10 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
       <button class="btn-history" onclick="biasWebSample('luri','m')">📡 Luri</button>
       <div style="width:100%;font-family:DM Mono,monospace;font-size:0.6rem;color:var(--accent);letter-spacing:0.1em;text-transform:uppercase;margin:10px 0 4px;border-top:1px solid rgba(0,240,255,0.25);padding-top:8px">CFR Toscana — Costa</div>
       <button class="btn-history" onclick="biasWebSample('livorno_porto','m')">📡 Livorno Porto</button>
-      <button class="btn-history" onclick="biasLoadHistory('livornometeo_porto','m')">📡 Livornometeo (manuale)</button>
-      <button class="btn-history" onclick="biasLoadHistory('capraiameteo','m')">📡 Capraiameteo (manuale)</button>
-      <button class="btn-history" onclick="biasLoadHistory('rosignanometeo','m')">📡 Rosignano (manuale)</button>
-      <button class="btn-history" onclick="biasLoadHistory('golfoaranci_lm','m')">📡 Golfo Aranci (manuale)</button>
+      <button class="btn-history" onclick="biasLoadHistory('livornometeo_porto','m')">📡 LivornoPorto#</button>
+      <button class="btn-history" onclick="biasLoadHistory('capraiameteo','m')">📡 Capraia#</button>
+      <button class="btn-history" onclick="biasLoadHistory('rosignanometeo','m')">📡 Rosignano#</button>
+      <button class="btn-history" onclick="biasLoadHistory('golfoaranci_lm','m')">📡 Golfo Aranci#</button>
       <button class="btn-history" onclick="biasWebSample('bocca_arno_cfr','m')">📡 Bocca d'Arno</button>
       <button class="btn-history" onclick="biasWebSample('viareggio_cfr','m')">📡 Viareggio CFR</button>
       <button class="btn-history" onclick="biasWebSample('lido_camaiore','m')">📡 Lido Camaiore</button>
@@ -2016,7 +2016,7 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
 
 <div class="engine-header">
   <div class="engine-title">NAUTILUS <span>ENGINE</span></div>
-  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.51  by mdisailor</div>
+  <div class="engine-sub">Diagnostica sinottica  Previsione operativa  v5.7.52  by mdisailor</div>
 </div>
 
 <div style="margin:12px 20px 0;font-family:'DM Mono',monospace;font-size:0.55rem;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase">Seleziona fino a 3 zone</div>
@@ -2100,10 +2100,10 @@ padding: 5px 12px; background: transparent; border: 1px solid var(--border); bor
       <button class="btn-history" onclick="biasWebSample('luri',undefined)">📡 Luri</button>
       <div style="width:100%;font-family:DM Mono,monospace;font-size:0.6rem;color:var(--accent);letter-spacing:0.1em;text-transform:uppercase;margin:10px 0 4px;border-top:1px solid rgba(0,240,255,0.25);padding-top:8px">CFR Toscana — Costa</div>
       <button class="btn-history" onclick="biasWebSample('livorno_porto',undefined)">📡 Livorno Porto</button>
-      <button class="btn-history" onclick="biasLoadHistory('livornometeo_porto',undefined)">📡 Livornometeo (manuale)</button>
-      <button class="btn-history" onclick="biasLoadHistory('capraiameteo',undefined)">📡 Capraiameteo (manuale)</button>
-      <button class="btn-history" onclick="biasLoadHistory('rosignanometeo',undefined)">📡 Rosignano (manuale)</button>
-      <button class="btn-history" onclick="biasLoadHistory('golfoaranci_lm',undefined)">📡 Golfo Aranci (manuale)</button>
+      <button class="btn-history" onclick="biasLoadHistory('livornometeo_porto',undefined)">📡 LivornoPorto#</button>
+      <button class="btn-history" onclick="biasLoadHistory('capraiameteo',undefined)">📡 Capraia#</button>
+      <button class="btn-history" onclick="biasLoadHistory('rosignanometeo',undefined)">📡 Rosignano#</button>
+      <button class="btn-history" onclick="biasLoadHistory('golfoaranci_lm',undefined)">📡 Golfo Aranci#</button>
       <button class="btn-history" onclick="biasWebSample('bocca_arno_cfr',undefined)">📡 Bocca d'Arno</button>
       <button class="btn-history" onclick="biasWebSample('viareggio_cfr',undefined)">📡 Viareggio CFR</button>
       <button class="btn-history" onclick="biasWebSample('lido_camaiore',undefined)">📡 Lido Camaiore</button>
@@ -3139,7 +3139,7 @@ async function loadSingleCompass() {
             scDisplaySpd = scLm.speed;
             scDisplayDir = scLm.direction;
             scDisplayGust = null;
-            scDisplaySrc = 'LIVORNOMETEO';
+            scDisplaySrc = 'LIVORNOPORTO#';
           } else if (realS.station.wind_kt !== null && realS.station.wind_kt !== undefined) {
             var scF = lmFactorForDir(realS.station.direction, realS.station.wind_kt); // 2026-11-13: con il tetto sulla velocita' (prima 53 kn a 240 gradi con Windfinder a 24)
             scDisplaySpd = Math.round(realS.station.wind_kt * scF * 10) / 10;
@@ -3498,7 +3498,7 @@ var LM_LAST_AGE_MIN = null;
 // non faceva capire quale dato fosse quale. Qui, nel dettaglio della bussola tripla: SORGENTE dice
 // "Stima da Windfinder x1.9 (grezzo 4.1 kn)" e una riga a parte riporta l'ultima lettura VERA di
 // Livornometeo con valore, direzione, ora ed eta'.
-var LM_LAST = null; // ultima lettura Livornometeo registrata, anche se scaduta: { speed, direction, ts }
+var LM_LAST = null; // ultima lettura LivornoPorto# registrata, anche se scaduta: { speed, direction, ts }
 function lmHHMM(ts) {
   try { return new Date(ts).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Rome' }); } catch (e) { return ''; }
 }
@@ -3533,8 +3533,8 @@ function lnIdxInfo(d) {
   var f = (v.fattore !== undefined && v.fattore !== null) ? Number(v.fattore).toFixed(1) : '';
   var det = d.dettagli || {};
   var o = { short: v.fonte, long: v.fonte, model: false };
-  if (v.fonte === 'livornometeo') { o.short = 'LIVORNOMETEO'; o.long = 'Livornometeo diretto, ' + age + ' fa'; }
-  else if (v.fonte === 'livornometeo_vecchia') { o.short = 'LIVORNOMETEO ' + age; o.long = 'Livornometeo, lettura VECCHIA di ' + age; }
+  if (v.fonte === 'livornometeo') { o.short = 'LIVORNOPORTO#'; o.long = 'LivornoPorto# diretto, ' + age + ' fa'; }
+  else if (v.fonte === 'livornometeo_vecchia') { o.short = 'LIVORNOPORTO# ' + age; o.long = 'LivornoPorto#, lettura VECCHIA di ' + age; }
   else if (v.fonte === 'windfinder_arome') { o.short = 'MEDIA'; o.long = 'Media: stima Windfinder ' + v.componenti.windfinder_stimato_kn + ' kn e AROME ' + v.componenti.arome_kn + ' kn (campione di ' + age + ' fa)'; }
   else if (v.fonte === 'windfinder_stima') { o.short = 'STIMA ×' + f; o.long = 'Stima da Windfinder ×' + f + ' (grezzo ' + (det.windfinder ? det.windfinder.grezzo_kn : '?') + ' kn, campione di ' + age + ' fa)'; }
   else if (v.fonte === 'windfinder_stima_vecchia') { o.short = 'STIMA ×' + f + ' ' + age; o.long = 'Stima da Windfinder ×' + f + ', campione VECCHIO di ' + age; }
@@ -3549,7 +3549,7 @@ function lmStaleNote() {
   if (LM_LAST_AGE_MIN === null || isNaN(LM_LAST_AGE_MIN)) return '';
   var m = LM_LAST_AGE_MIN, t;
   if (m < 120) t = Math.round(m) + ' min'; else if (m < 2880) t = Math.round(m / 60) + ' h'; else t = Math.round(m / 1440) + ' g';
-  return ' \u00b7 ultima lettura Livornometeo ' + t + ' fa';
+  return ' \u00b7 ultima lettura LivornoPorto# ' + t + ' fa';
 }
 
 const ALL_ZONES = [
@@ -6101,12 +6101,12 @@ async function biasLoadHistory(selectedStation, sfx) {
     {id:'barcaggio',          name:'Barcaggio (Corsica)'},
     {id:'bonifacio_pertusato',name:'Bonifacio - Cap Pertusato'},
     {id:'vada',               name:'Vada'},
-    {id:'livornometeo_porto', name:'Livornometeo Porto (manuale)'},
+    {id:'livornometeo_porto', name:'LivornoPorto#'},
     // 2026-11-18 (v5.7.51): le altre tre stazioni MANUALI. Il dato lo passa M col segnalibro, quindi puo' essere vecchio di ore o di giorni: la riga scrive sempre
     // l'ora del dato e, accanto, i modelli (OM e AROME) dell'ora piu' vicina AL DATO (action=manual_now), cosi' si confrontano valori dello stesso momento.
-    {id:'capraiameteo',       name:'Capraiameteo (man.)', manual:true},
-    {id:'rosignanometeo',     name:'Rosignano (man.)', manual:true},
-    {id:'golfoaranci_lm',     name:'Golfo Aranci (man.)', manual:true},
+    {id:'capraiameteo',       name:'Capraia#', manual:true},
+    {id:'rosignanometeo',     name:'Rosignano#', manual:true},
+    {id:'golfoaranci_lm',     name:'Golfo Aranci#', manual:true},
   ];
   // Quota stazioni (m slm) -- >100m = bias non affidabile per navigazione
   var STATION_QUOTAS = {
@@ -6342,7 +6342,7 @@ function updateTripleCompass(idx, r) {
       dir = tcLmOverride.direction;
       gust = null;
       ts = new Date(tcLmOverride.ts).toLocaleString('it-IT',{timeZone:'Europe/Rome',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-      displaySrcLabel = 'LIVORNOMETEO';
+      displaySrcLabel = 'LIVORNOPORTO#';
     } else {
       var tcF = lmFactorForDir(dir, spd); // 2026-11-13: con il tetto sulla velocita' (prima 53 kn a 240 gradi con Windfinder a 24)
       srcLongTc = 'Stima da Windfinder \u00d7' + tcF.toFixed(1) + ' (grezzo ' + spd + ' kn)'; lmLastTc = lmLastText();
@@ -6360,7 +6360,7 @@ function updateTripleCompass(idx, r) {
   // stazione CFR non ha risposto). CFR = dato reale, colore normale.
   // 2026-09-16: 'STIMA' (Livorno corretto) trattata come dato reale ai fini
   // del colore -- stessa lettura reale, solo +4.2kn.
-  var isOm = src && src.toLowerCase().indexOf('om') === 0 && displaySrcLabel.indexOf('STIMA') !== 0 && displaySrcLabel !== 'LIVORNOMETEO';
+  var isOm = src && src.toLowerCase().indexOf('om') === 0 && displaySrcLabel.indexOf('STIMA') !== 0 && displaySrcLabel !== 'LIVORNOPORTO#';
   if (TC_ZONES[idx] === 'livorno' && tcLn) isOm = tcModel; // con livorno_now conta solo la fonte decisa dall'engine (AROME = rosso), non quella di triple_wind
   var tcColor = (displaySpd !== null && isOm) ? '#ff4444' : 'var(--accent)';
   if (sEl) { sEl.textContent = displaySpd !== null ? Math.round(displaySpd) : '--'; sEl.style.color = tcColor; }
@@ -6429,7 +6429,7 @@ function selectTripleCompass(idx) {
 }
 
 var tcLn = null; // 2026-11-16: valore Livorno deciso dall'engine (o null -> ripiego sulla logica precedente)
-var tcLmOverride = null; // 2026-10-19: lettura Livornometeo fresca (o null), presa una volta per ciclo
+var tcLmOverride = null; // 2026-10-19: lettura LivornoPorto# fresca (o null), presa una volta per ciclo
 async function loadTripleCompasses() {
   try {
     var res = await fetch(ENGINE_URL + '?action=triple_wind&zones=' + TC_ZONES.join(','), { cache: 'no-store' });
@@ -6460,4 +6460,4 @@ async function loadTripleCompasses() {
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS v5.7.51 -->
+<!-- Fine codice - NAUTILUS v5.7.52 -->

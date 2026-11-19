@@ -1,4 +1,4 @@
-<!-- NAUTILUS PREVISIONI v3.19 - mdisailor - 2026-11-18 - v3.19 (18/11): tasto PDF: una pagina A4 verticale con la mappa della fascia oraria selezionata su tutta l'area della griglia, frecce, numeri e nomi zona, bollo SCARICATO; si apre in scheda nuova; drawAll accetta un bersaglio alternativo (T). v3.17 (16/11): Livorno prende il valore da action=livorno_now (lettura vera / media Windfinder+AROME / AROME), stesso numero di index e mappa; ripiego sulla logica precedente. v3.16 (13/11): CORREZIONE PROVVISORIA del fattore di Livorno: tetto sulla velocita' (lmFactorForDir(dir, kn): stima = min(kn x fattore_direzione, 3.3 + 1.08 x kn), mai piu' della vecchia) e raffica scalata come la velocita' (e null con la lettura vera). Motivo: il 13/11 la stima era 53 kn (x2.2 a 240 gradi, Windfinder 24 kn) contro i 25 di Livornometeo. Su base v3.15 | v3.15 (6/11): i numeri del bottone NODI hanno due colori: bianco = valore nostro (lettura vera della stazione, stima di Livorno, nostra previsione), azzurro = modello (griglia OM e ripiego sull'OM), richiesta di M (un numero sulla mappa e' o il dato vero, o quello ricalcolato, o il modello). Freccia e popup nascono gia' dallo stesso calcolo. Su base v3.14 -->
+<!-- NAUTILUS PREVISIONI v3.20 - mdisailor - 2026-11-19 - v3.20 (19/11): LivornoPorto# al posto di Livornometeo nelle scritte (il # dice 'dato passato da M'). v3.19 (18/11): tasto PDF: una pagina A4 verticale con la mappa della fascia oraria selezionata su tutta l'area della griglia, frecce, numeri e nomi zona, bollo SCARICATO; si apre in scheda nuova; drawAll accetta un bersaglio alternativo (T). v3.17 (16/11): Livorno prende il valore da action=livorno_now (lettura vera / media Windfinder+AROME / AROME), stesso numero di index e mappa; ripiego sulla logica precedente. v3.16 (13/11): CORREZIONE PROVVISORIA del fattore di Livorno: tetto sulla velocita' (lmFactorForDir(dir, kn): stima = min(kn x fattore_direzione, 3.3 + 1.08 x kn), mai piu' della vecchia) e raffica scalata come la velocita' (e null con la lettura vera). Motivo: il 13/11 la stima era 53 kn (x2.2 a 240 gradi, Windfinder 24 kn) contro i 25 di Livornometeo. Su base v3.15 | v3.15 (6/11): i numeri del bottone NODI hanno due colori: bianco = valore nostro (lettura vera della stazione, stima di Livorno, nostra previsione), azzurro = modello (griglia OM e ripiego sull'OM), richiesta di M (un numero sulla mappa e' o il dato vero, o quello ricalcolato, o il modello). Freccia e popup nascono gia' dallo stesso calcolo. Su base v3.14 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Previsioni Vento v3.19</title>
+<title>NAUTILUS Previsioni Vento v3.20</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -159,7 +159,7 @@ NautilusPdf.prototype.build = function(meta) { // -> Uint8Array
 
 <header>
   <h1>NAUTILUS &mdash; Previsioni Vento</h1>
-  <span class="ver">v3.19</span>
+  <span class="ver">v3.20</span>
   <a class="back" href="/index2.html">&larr; cruscotto</a>
 </header>
 
@@ -242,7 +242,7 @@ var LM_LAST_AGE_MIN = null;
 // lettura vera di Livornometeo con valore, direzione e ora. lmStaleNote() non e' piu' chiamata: il suo
 // testo ("ultima lettura ... fa") finiva attaccato al titolo della stima e si leggeva come un dato di
 // Livornometeo; la sostituisce lmEstimateExtra().
-var LM_LAST = null; // ultima lettura Livornometeo registrata, anche se scaduta: { speed, direction, ts }
+var LM_LAST = null; // ultima lettura LivornoPorto# registrata, anche se scaduta: { speed, direction, ts }
 function lmHHMM(ts) {
   try { return new Date(ts).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Rome' }); } catch (e) { return ''; }
 }
@@ -270,15 +270,15 @@ function lnPvInfo(d) {
   var f = (v.fattore != null) ? Number(v.fattore).toFixed(1) : '';
   var o = { hdr: v.fonte, col: '#bbb', xls: v.fonte, model: false, extra: '' };
   var sty = 'font-size:0.58rem;color:#bbb;margin-top:2px';
-  if (v.fonte === 'livornometeo') { o.hdr = 'Livornometeo, lettura di ' + age + ' fa'; o.col = '#22cc66'; o.xls = 'Livornometeo diretto (' + age + ' fa)'; }
-  else if (v.fonte === 'livornometeo_vecchia') { o.hdr = 'Livornometeo, lettura VECCHIA di ' + age; o.col = '#ff8844'; o.xls = 'Livornometeo VECCHIO (' + age + ')'; }
+  if (v.fonte === 'livornometeo') { o.hdr = 'LivornoPorto#, lettura di ' + age + ' fa'; o.col = '#22cc66'; o.xls = 'LivornoPorto# diretto (' + age + ' fa)'; }
+  else if (v.fonte === 'livornometeo_vecchia') { o.hdr = 'LivornoPorto#, lettura VECCHIA di ' + age; o.col = '#ff8844'; o.xls = 'LivornoPorto# VECCHIO (' + age + ')'; }
   else if (v.fonte === 'windfinder_arome') { o.hdr = 'Media: stima Windfinder e AROME (campione di ' + age + ' fa)'; o.col = '#ffaa00'; o.xls = 'media stima Windfinder ' + v.componenti.windfinder_stimato_kn + ' e AROME ' + v.componenti.arome_kn;
     o.extra = '<div style="' + sty + '">Stima Windfinder <b>' + v.componenti.windfinder_stimato_kn + '</b> kn &middot; AROME <b>' + v.componenti.arome_kn + '</b> kn</div>'; }
-  else if (v.fonte === 'windfinder_stima') { o.hdr = 'Stima per Livornometeo, da Windfinder ×' + f + ' (campione di ' + age + ' fa)'; o.col = '#ffaa00'; o.xls = 'stima da Windfinder ×' + f; }
+  else if (v.fonte === 'windfinder_stima') { o.hdr = 'Stima per LivornoPorto#, da Windfinder ×' + f + ' (campione di ' + age + ' fa)'; o.col = '#ffaa00'; o.xls = 'stima da Windfinder ×' + f; }
   else if (v.fonte === 'windfinder_stima_vecchia') { o.hdr = 'Stima da Windfinder ×' + f + ', campione VECCHIO di ' + age; o.col = '#ff8844'; o.xls = 'stima da Windfinder ×' + f + ' (campione vecchio ' + age + ')'; }
   else if (v.fonte === 'arome') { o.hdr = 'Modello AROME (nessun dato recente di stazione)'; o.col = '#4da6ff'; o.xls = 'modello AROME'; o.model = true; }
   if (det.windfinder) o.extra += '<div style="' + sty + '">Windfinder grezzo: ' + det.windfinder.grezzo_kn + ' kn da ' + det.windfinder.direzione + '&deg; alle ' + lmHHMM(det.windfinder.osservato_alle) + '</div>';
-  if (det.livornometeo && v.fonte !== 'livornometeo') o.extra += '<div style="' + sty + '">Ultima lettura Livornometeo: ' + det.livornometeo.velocita_kn + ' kn da ' + det.livornometeo.direzione + '&deg; alle ' + lmHHMM(det.livornometeo.ts) + ' (' + lmAgeText(det.livornometeo.eta_min) + ' fa)</div>';
+  if (det.livornometeo && v.fonte !== 'livornometeo') o.extra += '<div style="' + sty + '">Ultima lettura LivornoPorto#: ' + det.livornometeo.velocita_kn + ' kn da ' + det.livornometeo.direzione + '&deg; alle ' + lmHHMM(det.livornometeo.ts) + ' (' + lmAgeText(det.livornometeo.eta_min) + ' fa)</div>';
   return o;
 }
 function lnPvGust(v) { return (v.raffica_kn != null) ? Math.max(v.raffica_kn, v.velocita_kn) : null; } // la raffica non scende mai sotto il vento
@@ -288,9 +288,9 @@ function lmEstimateExtra(rawKn, rawDir, whenText) {
   var sty = 'font-size:0.6rem;color:#bbb;margin-top:2px';
   var h = '<div style="' + sty + '">Windfinder grezzo: ' + rawKn + ' kn da ' + rawDir + '&deg;' + (whenText ? ' &middot; campione ' + whenText : '') + '</div>';
   if (LM_LAST && LM_LAST_AGE_MIN !== null && !isNaN(LM_LAST_AGE_MIN)) {
-    h += '<div style="' + sty + '">Ultima lettura Livornometeo: ' + LM_LAST.speed + ' kn da ' + LM_LAST.direction + '&deg; alle ' + lmHHMM(LM_LAST.ts) + ' (' + lmAgeText(LM_LAST_AGE_MIN) + ' fa)</div>';
+    h += '<div style="' + sty + '">Ultima lettura LivornoPorto#: ' + LM_LAST.speed + ' kn da ' + LM_LAST.direction + '&deg; alle ' + lmHHMM(LM_LAST.ts) + ' (' + lmAgeText(LM_LAST_AGE_MIN) + ' fa)</div>';
   } else {
-    h += '<div style="' + sty + '">Nessuna lettura Livornometeo registrata</div>';
+    h += '<div style="' + sty + '">Nessuna lettura LivornoPorto# registrata</div>';
   }
   if (rawKn < 6) h += '<div style="font-size:0.58rem;color:#888;margin-top:2px">Con vento debole la stima pu&ograve; sbagliare di &plusmn;2 kn</div>';
   return h;
@@ -300,7 +300,7 @@ function lmStaleNote() {
   if (LM_LAST_AGE_MIN === null || isNaN(LM_LAST_AGE_MIN)) return '';
   var m = LM_LAST_AGE_MIN, t;
   if (m < 120) t = Math.round(m) + ' min'; else if (m < 2880) t = Math.round(m / 60) + ' h'; else t = Math.round(m / 1440) + ' g';
-  return ' \u00b7 ultima lettura Livornometeo ' + t + ' fa';
+  return ' \u00b7 ultima lettura LivornoPorto# ' + t + ' fa';
 }
 
 var REFRESH_MS = 600000; // 10 minuti, stessa cadenza di mappa.html
@@ -1077,12 +1077,12 @@ async function updateZoneMarkerPopups(){
             popHdr = lnPi.hdr; popHdrCol = lnPi.col; freshNote = lnPi.extra;
           } else if (lmOvP) {
             stSpd = lmOvP.speed; stDir = lmOvP.direction;
-            popHdr = 'Livornometeo, lettura di ' + lmOvP.ageMin + ' min fa'; popHdrCol = '#22cc66';
+            popHdr = 'LivornoPorto#, lettura di ' + lmOvP.ageMin + ' min fa'; popHdrCol = '#22cc66';
           } else {
             var lmFP = lmFactorForDir(stDir, st.wind_kt); // 2026-11-13: con il tetto sulla velocita' // 2026-10-27: fattore per direzione, non piu' +4.2 fisso
             var rawKnP = st.wind_kt;
             stSpd = Math.round(st.wind_kt * lmFP * 10) / 10;
-            popHdr = 'Stima per Livornometeo, da Windfinder \u00d7' + lmFP.toFixed(1); popHdrCol = '#ffaa00';
+            popHdr = 'Stima per LivornoPorto#, da Windfinder \u00d7' + lmFP.toFixed(1); popHdrCol = '#ffaa00';
             freshNote = lmEstimateExtra(rawKnP, stDir, (st.age_min !== undefined && st.age_min !== null) ? 'di ' + lmAgeText(st.age_min) + ' fa' : '');
           }
         }
@@ -1193,7 +1193,7 @@ async function exportXLS(){
             var stSpd = st.wind_kt, stDir = st.direction, stGustX = st.gust_kt, stFonte = 'stazione reale (' + (st.age_min != null ? st.age_min + 'min fa' : '?') + ')';
             if (z.biasStation === 'livorno_porto') {
               if (lnX) { stSpd = lnX.valore.velocita_kn; stDir = lnX.valore.direzione; stGustX = lnPvGust(lnX.valore); stFonte = lnPvInfo(lnX).xls; } // 2026-11-16: valore deciso dall'engine (livorno_now)
-              else if (lmOvX) { stSpd = lmOvX.speed; stDir = lmOvX.direction; stGustX = null; stFonte = 'Livornometeo diretto (' + lmOvX.ageMin + 'min fa)'; }
+              else if (lmOvX) { stSpd = lmOvX.speed; stDir = lmOvX.direction; stGustX = null; stFonte = 'LivornoPorto# diretto (' + lmOvX.ageMin + 'min fa)'; }
               else { var lmFX = lmFactorForDir(stDir, st.wind_kt); stSpd = Math.round(st.wind_kt * lmFX * 10) / 10; if (stGustX != null && !isNaN(stGustX)) stGustX = Math.max(Math.round(stGustX * lmFX * 10) / 10, stSpd); stFonte = 'stima da Windfinder \u00d7' + lmFX.toFixed(1); } // 2026-11-13: tetto sulla velocita' e raffica scalata
             }
             rows.push(['zona', z.name, z.lat, z.lon, stFonte, stSpd, stDir, stGustX]);
@@ -1390,4 +1390,4 @@ setInterval(loadAll, REFRESH_MS);
 
 </body>
 </html>
-<!-- Fine codice - NAUTILUS PREVISIONI v3.19 -->
+<!-- Fine codice - NAUTILUS PREVISIONI v3.20 -->

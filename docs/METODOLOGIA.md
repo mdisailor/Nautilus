@@ -1,7 +1,7 @@
 # NAUTILUS — Metodologia di Calcolo (METODOLOGIA.md)
 
 Documento tecnico-scientifico sulle logiche di calcolo, fonti e assunzioni.
-Versione documento: v2.7 — Aggiornato: 2026-10-17 (aggiunta una CHECKLIST OPERATIVA in cima al documento, prima della sezione 1 — controlli da fare sempre su ogni file, non la cronaca di un bug specifico come le sezioni numerate. Risposta alla domanda di M su cosa serva registrare perché una sessione futura lavori con la stessa precisione fin dal primo colpo)
+Versione documento: v3.9 — Aggiornato: 2026-11-24 (nuova sezione 33: i nomi con il #, la serie nascosta di Livornometeo, il giro dell'archivio del 23/11); 19/11 (nuova sezione 32: Livornometeo chiuso e la fotografia finale del modello di Livorno; il PDF della mappa di previsioni); 18/11 (nuova sezione 31: la fusione dell'osservato e la fase C dell'archivio); 16/11: sezione 30 (Livorno, il tetto sul fattore e il valore unico deciso dal motore); prima: 2026-11-13 (nuova sezione 29: l'archivio dei dati e quello che ha rivelato; la CHECKLIST ha cinque voci nuove: un dato scritto da due percorsi va controllato in entrambi, una tabella di copertura per zona subito dopo aver costruito un archivio, un archivio che copia da un deposito con un tetto deve accumulare e non riscrivere, l'ordine delle operazioni per strumenti esterni, e un nome sbagliato deve dirsi)
 
 ---
 
@@ -12,10 +12,16 @@ Non è la cronaca di un bug specifico (quella è nelle sezioni numerate sotto) �
 **Prima di modificare un file:**
 - Leggere la prima riga per confermare la versione caricata — non presumere di sapere cosa contiene da conversazioni precedenti
 - Se due file sembrano simili (es. un fork come `mappa.html`/`mappa2.html`), verificarli riga per riga sul punto specifico da modificare, non presumerli identici solo perché "dovrebbero esserlo"
+- Se una frase di M ammette due letture ("lasciamo la correzione", "il bottone"), **chiedere prima di costruire** e non presentare mai la propria lettura come una sua decisione (successo due volte il 19/10: bussola esclusa per errore, bottone che apriva il sito invece dell'elenco)
+- **Se M chiede "è possibile / si può fare?", rispondere alla domanda (fattibilità, limiti, cosa servirebbe) e chiedere se partire: non scrivere codice.** Richiamo del 27/10 sulla matrice dalle stazioni: avevo costruito `field_test` quando M chiedeva solo se era una cosa sensata
+- Un file dal nome strano (es. `vuoto.zip`): aprirlo e guardare cosa contiene, **senza commenti sospettosi**; se è uno scherzo M lo dice dopo (richiesta del 27/10)
+- Per dati di posizione (coordinate di una stazione) cercare prima il **dato ufficiale** (qui scritto sul sito stesso) e chiederlo a M: le stime "al centro del paese" sbagliavano di 0.9-1.8 km, e a Livorno uno scambio di marker su una base sbagliata ha messo due stazioni 600 m al contrario
+- Prima di spostare o aggiungere un marker sulla mappa, controllare cosa c'è già alle stesse coordinate (altri marker, cerchi di zona) e l'ordine di sovrapposizione: un marker coperto da un altro è invisibile e non toccabile (Livorno Porto/Windfinder sotto il cerchio di zona, 20/10)
 
 **Durante la modifica:**
 - Dopo 2 tentativi falliti nel capire una struttura sconosciuta (dati, HTML, comportamento di una pagina esterna), smettere di indovinare un terzo tentativo — costruire invece uno strumento diagnostico che mostri la struttura vera, poi agire su quello
 - Quando si aggiunge una logica che richiede `await`/`async` dentro un ciclo su un array, verificare se è un `forEach` — non lo aspetta correttamente, va convertito in un `for` tradizionale
+- Quando si rimuove o si disattiva codice, scrivere nel commento **il motivo**, non solo cosa è cambiato (preferenza esplicita di M)
 
 **Prima di consegnare un file:**
 - Validare la sintassi JavaScript (estrarre ogni blocco `<script>`, eseguire `node --check`) — sempre, anche per modifiche piccole
@@ -23,6 +29,47 @@ Non è la cronaca di un bug specifico (quella è nelle sezioni numerate sotto) �
 - Contare con `grep` tutti i punti dove compare il numero di versione (di solito 3-4: commento iniziale, `<title>`, un'etichetta a video, il commento di chiusura) prima di affermare che sono coerenti — non fidarsi a memoria
 - Se il testo da inserire contiene apostrofi o virgolette (frequente in italiano), preferire uno script Python a `sed` — `sed` si è rotto più volte proprio su questo
 - Verificare che ogni ID HTML referenziato in JavaScript (`getElementById`, `querySelector`) esista davvero nel markup, e viceversa — un conteggio incrociato con `grep` basta
+
+**Quando si analizzano dati e si propone una formula o una soglia:**
+- Con pochi punti dirlo apertamente e non scegliere sulla base di una forma che "sembra meglio": con 8 letture "×2" pareva battere il "+4.2", con 23 non c'era differenza
+- Validare le forme adattate ai dati con "uno fuori" (adattare senza il punto da prevedere), non solo sui dati con cui sono state adattate
+- Non definire le fasce sul valore che si vuole prevedere: gonfia l'effetto "sopra a vento debole, sotto a vento forte"
+- Distinguere "il modello e la stazione non concordano" da "il modello sbaglia": un confronto tra due fonti misura il disaccordo, non chi ha ragione
+- Prima di discutere cosa fa un componente (es. "AROME sulla mappa"), leggere nel codice cosa usa davvero: la mappa usava Open-Meteo standard, non AROME
+- **Quando si corregge un valore a valle (es. un fattore sulla previsione), controllare chi lo rilegge a monte**: il bias delle previsioni confronta `forecast_hN` con la stazione, quindi riassorbiva la correzione (successo con il +4.2, dal 15/9). Soluzione: salvare anche il valore **prima** della correzione e fare i confronti in quella scala
+- **Quando si cambia un modello dell'AI (o qualunque dipendenza esterna che restituisce dati), provare il percorso che ne elabora la risposta prima di consegnare**: end-to-end, con una risposta finta in tutti i formati possibili (blocco di ragionamento davanti al testo, solo ragionamento, errore del servizio, errore di rete), e dopo il deploy leggere **l'ultimo record scritto** (data e `model_used`). Il 9-10/10 il cambio da Haiku 4.5 a 5.5 ha fermato per 19 giorni il salvataggio delle previsioni (sezione 24)
+- **Una regola di correzione si propone solo dopo la validazione un giorno fuori, misurando l'errore medio assoluto sulle singole ore, non il bias medio**: il bias di OM sotto i 7 kn si correggeva (+0.9 → −0.1 kn) ma l'errore sulle ore non scendeva (3.1 → 3.1-3.2). Ho proposto la regola prima del test: da evitare
+- **Le fasce per una correzione si scelgono sul valore che il sistema conosce (il modello), non sull'osservato**, e nei risultati non si giudica con colonne selezionate sull'osservato (qui "ore deboli"): ogni rialzo vi viene punito per costruzione. Il test giusto e' la colonna su tutte le ore
+- **Se un'analisi successiva rovescia una conclusione già data, dirlo per esteso e aggiornare i documenti**: le "calme sovrastimate dai modelli" (0.6 con fasce sull'osservato) sono diventate "calme sottostimate da OM" (1.4-1.7 con fasce sul modello), e poi "nessuna regola valida" al test finale
+- **Quando un collaudo con dati finti dà un errore inatteso, controllare prima il collaudo, ma poi chiedersi se il codice e' fragile**: una firma sbagliata dell'aiuto di prova (`pts('25',...)`) ha prodotto orari non validi e l'engine ha risposto con un errore invece di scartarli; ho aggiunto la protezione in `lmSeriesBucket`
+- **Prima di generalizzare da un campione, elencare come il sistema divide i casi e controllare un campione per gruppo**: il 28/10 ho scritto che il fermo delle previsioni era generale guardando Livorno e Viareggio, due zone dello stesso gruppo (13 con Haiku, 11 con Sonnet); il guasto toccava solo le 13
+- **Prima di cambiare una regola condivisa, cercare nei commenti del codice le decisioni precedenti che la riguardano**: la regola "direzione con vento debole per tutte le stazioni" avrebbe riaperto il fix del 1/7 (Bocca d'Arno, Viareggio, dove la direzione con vento debole è vera). Si applica ai soli casi dimostrati, con un interruttore (`OI_DIR_WEAK_ALL`) per estenderla e un collaudo di invarianza per tutto il resto
+- **Un'azione di sola lettura che segnala problemi deve restare leggibile da chi la usa**: il controllo di salute risponde 503 perché cron-job.org lo segni fallito, ma il mio strumento di lettura scarta le risposte di errore; serve un parametro `soft=1` che risponda 200 con lo stesso contenuto
+- **Il primo giro di un controllo nuovo scopre la realtà della configurazione**: le zone attive senza previsioni per scelta (vada, bonifacio) avrebbero dato errore ogni 30 minuti. Si decide caso per caso e si scrive un elenco esplicito delle zone ignorate, con il motivo, visibile nella risposta; non si abbassa la soglia
+- **La forma di una correzione segue dove i dati mostrano l'errore**: un tetto fisso di fiducia per Orbetello avrebbe tolto peso anche col vento forte, dove la stazione ha ragione; una rampa sulla velocità della stazione toglie peso solo alle calme
+- **Non dare istruzioni operative (indirizzi, parametri) a memoria**: avevo dato a M il lavoro `cron_snap` con i parametri senza averli letti nel codice; li ho verificati dopo (erano giusti, ma per fortuna). Si leggono prima, e si dice cosa non è verificato
+- **Un canale di avviso si prova con un guasto simulato prima di fidarsene**: l'email di errore di cron-job.org sembrava configurata (tutti i canali, un'email per ogni errore) e non e' mai arrivata, nemmeno nelle settimane del fermo di ottobre; l'ho scoperto solo facendo fallire apposta un lavoro verso un indirizzo inesistente. Un'impostazione giusta non e' un avviso che funziona
+- **Quando un servizio esterno non garantisce l'avviso, farlo partire da chi conosce lo stato**: il motore sa gia' a ogni controllo se qualcosa e' rotto; manda il messaggio **sul passaggio di stato** (nuovo, cambiato, promemoria, ripristino) e non a ogni controllo, ricorda lo stato in un posto sicuro e tiene un registro dei cambi. Gli avvisi non gravi non mandano niente, o il segnale smette di significare qualcosa
+- **Una frequenza dedotta dal codice va confrontata con un conteggio reale**: avevo scritto che le fotografie di zona erano ogni 30 minuti perche' il codice arrotonda la chiave alla mezz'ora; i lavori di M giravano ogni ora (315 punti dati in 13 giorni = 24 al giorno). Quello che il codice permette non e' quello che il sistema fa
+- **Lo stato di un episodio non deve ereditare da quello precedente**: l'ora dell'ultimo avviso va azzerata a ogni cambio di stato; altrimenti, se il messaggio nuovo non parte, il sistema crede di aver gia' avvisato (per l'episodio di prima) e non riprova per 6 ore. L'ha trovato un collaudo con un Telegram finto che risponde male
+- **Per rendere coerente un numero, prima elencare tutti i punti del codice che lo mostrano**: freccia, numero accanto alla freccia, popup di zona, popup di griglia, popup di stazione. Il 6/11 ne ho trovate tre incoerenze (zona di Livorno senza il fattore, click che apriva la cella e non la freccia, popup che leggevano un valore piu' fresco della freccia) solo perche' le ho cercate tutte
+- **Dopo aver cambiato un'etichetta, controllare che il dato sotto sia quello che l'etichetta dice**: ho cambiato in "Punto stazione (dato vero)" il titolo di un popup il cui valore era quello di MODELLO della cella di una stazione; M l'ha visto cliccando in mezzo al mare
+- **Un click libero non deve ereditare il significato di un elemento speciale**: le celle dei punti stazione valgono solo per la loro freccia; cliccando a 20 km da una stazione si deve ricevere una cella normale, non il valore della cella della stazione
+- **Prima di attribuire una causa, controllare il dato; una causa non verificata si scrive come ipotesi**: avevo scritto che il punto di Gorgona "non aveva un dato vivo"; tre minuti di `bias_history` hanno mostrato letture fresche ogni 30 minuti e la causa era un'altra
+- **Un dato scritto da due percorsi diversi va controllato in entrambi**: le fotografie di zona le scrivono `cron_snap` (14 giorni) e `scrape_cfr` (3 giorni), sulle stesse chiavi: chi scriveva per ultimo decideva la scadenza. Per quasi due mesi 16 zone su 17 hanno lavorato con il 20% della storia che la previsione chiedeva. Si trovano elencando **tutti i punti del codice che scrivono quella chiave**, con la loro scadenza
+- **Dopo aver costruito un archivio, guardare subito la copertura per zona**: una tabella (ore, prima, ultima, ore mancanti) ha mostrato tre gruppi di zone con storie diverse, e due difetti (la scadenza di 3 giorni, il buco di scrittura per le zone che passano da `scrape_cfr`). L'archivio e' anche uno strumento di diagnosi
+- **Una copia da un deposito con un tetto deve accumulare, non riscrivere**: Redis tiene solo gli ultimi 30.000 punti per stazione; se l'esportazione riscrivesse il file ogni volta, perderebbe i punti piu' vecchi. Lo script riparte dall'ultimo punto gia' nel file; il collaudo include il caso in cui Redis perde i primi punti
+- **Per strumenti esterni, dare le operazioni nell'ordine in cui vanno fatte e dire cosa controllare**: il primo giro della GitHub Action e' fallito perche' il motore v2.14.51 non era ancora deployato; un percorso senza il punto iniziale (`github/` invece di `.github/`) faceva sparire la Action. Prima il deploy, poi il lancio; e il nome esatto dei file nascosti va detto
+- **Un nome sbagliato deve dirsi, non essere ignorato in silenzio**: un lavoro con `zones=Livorno` non scriveva niente e non lo segnalava; ora la risposta contiene `unknown_zones`. Lo stesso principio del controllo di salute: l'assenza di un effetto non e' un segnale
+- **Un costo costante o l'assenza di errori visibili non prova che il sistema produca**: controllare la **data dell'ultimo record scritto** per ogni uscita (previsioni, archivi, bias). Le chiamate all'AI venivano fatturate anche mentre le previsioni non venivano salvate
+- **Un risultato "zero" di un report nuovo e' una scoperta, non un difetto da ritoccare**: `forecast_monitor` con 0 coppie su 150 orizzonti ha fatto trovare il fermo delle previsioni. Prima di toccare soglie e finestre, guardare i dati grezzi (qui: la data dell'ultima previsione)
+- **Confrontare solo cose confrontabili, e dirlo**: un'osservazione fatta nell'istante (Windfinder) non e' commensurabile con una previsione (AROME): il confronto vale per la stima "adesso", non per le ore future. Un fattore ricavato sulle stesse ore su cui si valuta e' ottimista: dare anche la versione adattata un giorno fuori
+- **Quando chiedo a M di rifare una chiamata, dargli un indirizzo con un parametro nuovo** (`&v=N`): con lo stesso indirizzo lo strumento puo' restituire la pagina letta prima. Una chiamata molto lenta (190 letture in fila, come `predict_debug`) va in timeout nello strumento: preferire controlli leggeri
+- **Le dichiarazioni sul sistema ("questo lavoro non chiama l'AI", "i costi sono un buon segno") vanno controllate sull'effetto, non dedotte**: avevo scritto il contrario di quel che succedeva e non l'avevo verificato
+- Confrontare i metodi **sullo stesso insieme di dati**: nel test `field_test` la "scala migliore" confrontava insiemi di ore diversi (la scala più stretta scartava i casi difficili) e dava una scelta sbagliata. Meglio il guadagno relativo sullo stesso insieme
+- Usare **medie orarie** quando il valore istantaneo oscilla (Livornometeo ±3-6 kn con vento forte): la correlazione con Windfinder passa da 0.70 a 0.88. E validare **per giorno intero** (o per episodio), non per ora: le ore dello stesso evento non sono indipendenti
+- Scartare in ingresso i dati che non sono misure: osservazione con orario **dopo** la cattura (righe di previsione), valori **identici** all'ora precedente (congelati). Controllarlo anche dove i dati si visualizzano o si usano (la mappa non lo fa)
+- Se un test fallisce, dire se è colpa **del test o del codice** (3 volte su 3 il 27/10 era il test: un conto a mano sbagliato, un arrotondamento, un confronto tra numeri in virgola mobile)
 
 **Quando si propaga una modifica su più file** (es. la stessa correzione su più pagine):
 - Non presumere che la stessa modifica vada bene identica ovunque — leggere ogni file, verificare come legge/mostra il dato in questione, prima di copiare la stessa patch
@@ -604,7 +651,7 @@ Il numero di versione non va solo *dentro* il file, va anche **nel nome del file
 
 | Tipo | Formato | Esempio |
 |---|---|---|
-| Documenti `.md` | `NOME-vX.Y.md` | `METODOLOGIA-v2.7.md` |
+| Documenti `.md` | `NOME-vX.Y.md` | `METODOLOGIA-v2.8.md` |
 | Engine | `engine-vXYYZZ.zip` | `engine-v21409.zip` (= v2.14.9) |
 | App | `index-vXYZZ.zip` | `index-v5739.zip` (= v5.7.39) |
 | Mappa | `mappa-vXYZZ.zip` | `mappa-v1687.zip` (= v1.6.87) |
@@ -933,3 +980,275 @@ Il `robots.txt` regola **chi può chiedere la pagina al server** (nuove richiest
 ### Perché vale la pena scriverlo come principio, non solo come eccezione
 
 Il rischio concreto era opposto a quello affrontato finora: non "cedere per comodità" (scartato subito, giustamente, nelle proposte precedenti), ma **continuare a rifiutare qualcosa di legittimo** per non aver distinto con abbastanza precisione *cosa* rendeva problematiche le proposte precedenti. Il principio corretto non era "mai nessuno script su Livornometeo" — era "mai uno script che visita il sito al posto di una persona". Una volta isolato il principio vero, la soluzione corretta (il bookmarklet) è diventata ovvia, e ha sbloccato un intero filone di lavoro (D24) che era rimasto fermo per settimane.
+
+---
+
+## 22. Poche letture, molte formule: cosa ha insegnato l'analisi della correzione Livorno (19-22 ottobre 2026)
+
+### La storia in breve
+
+Con 8 letture di Livornometeo accoppiate a Windfinder sembrava che un fattore proporzionale ("×2") battesse il "+4.2" fisso (errore 3.8 contro 4.1 kn, e 2.3 contro 3.3 sui sei casi "normali"). Con 23 letture e validazione "uno fuori" tutte le forme provate (additiva, proporzionale, mista) stanno intorno a 3.0 kn, il "+4.2" compreso: nessuna batte le altre in modo misurabile. La differenza vista con 8 punti era rumore, in gran parte dovuta a due letture che andavano nell'altra direzione. **Deciso di lasciare il +4.2** (D22) e di ripetere il test a ~60 letture.
+
+### Lezioni
+
+1. **Con pochi punti, ogni forma "sembra" meglio dell'altra.** Dichiarare il numero di punti accanto a ogni risultato e aspettare prima di cambiare la formula in produzione (stesso principio di sempre, già applicato al +4.2 stesso il 15/9).
+2. **La validazione "uno fuori" costa poco e smonta le illusioni**: ogni forma adattata va provata sul punto che non ha visto. In questo caso ha reso tutte le forme equivalenti.
+3. **Non definire le fasce sul valore da prevedere.** Le tabelle "per fascia di Livornometeo" che avevo mostrato (con vento debole il modello sopra, con vento forte sotto) hanno un artefatto: se le fasce sono scelte sul valore vero, l'errore sembra crescere con esso anche quando non è così. Vale per la mia frase "AROME comprime i valori". Le fasce vanno fatte su ciò che il sistema conosce davvero (il dato della stazione, il modello).
+4. **Disaccordo non è errore.** Il report sulla direzione dei modelli (16.361 confronti, 23 stazioni) mostra quanto spesso modello e stazione non concordano (50% entro 45° sotto 4 kn), non chi ha ragione. In calma la direzione di una stazione può essere rumore quanto quella di un modello. Per decidere cose come il peso della direzione nell'OI serve un riferimento terzo, non un altro confronto a due.
+5. **Il sapere di M sul posto vale più delle mie ipotesi sul codice.** Vada ha la direzione sbagliata sempre: io avevo pensato a un parser mai verificato, M ha detto che la stazione è interna e probabilmente coperta da alberi. La seconda spiegazione è fisicamente più plausibile; il sospetto sul parser resta in secondo piano. Per Cap Pertusato (troppo in alto, effetti della costa) i dati hanno poi mostrato esattamente "in certe condizioni": direzione sbagliata con vento debole-moderato, giusta col forte.
+6. **Controllare cosa usa davvero un componente prima di discuterne.** M pensava che AROME alimentasse la mappa e che "lavorasse troppo ad alto livello": la mappa usa Open-Meteo standard su una griglia da 25 km, e AROME compare solo nei confronti statistici. Leggere il codice ha spostato la discussione dal modello sbagliato a quello giusto.
+7. **Prima di toccare qualcosa, vedere cosa c'è già in quel posto.** Lo scambio dei marker non si vedeva perché il cerchio di zona stava esattamente sulle stesse coordinate e sopra. Un controllo sulle coordinate e sull'ordine di sovrapposizione avrebbe evitato due giri.
+8. **Una frase ambigua si chiede, non si interpreta.** "Nella bussola lasciamo la correzione" e "il bottone" hanno avuto due letture: ho scelto una e l'ho presentata come decisione di M. Una domanda sarebbe costata una riga; l'errore due deploy.
+
+
+
+---
+
+## 23. Il circuito che annullava la correzione, e cosa dicono le stazioni da sole (22-27 ottobre 2026)
+
+Lavoro di cinque giorni su Livorno e sulle altre tre stazioni manuali. Il risultato pratico è un fattore di correzione per direzione, ma le lezioni che restano sono sul **metodo**.
+
+### Cosa è successo
+
+1. **Con 36 ore di medie orarie il quadro cambia.** Il 22/10, con 23 letture singole, nessuna forma batteva il +4.2. Con le medie orarie delle serie (correlazione 0.88 con Windfinder invece di 0.70) il rapporto Livornometeo/Windfinder risulta proporzionale e diverso per direzione: ×2.2 da Sud-Sud-Ovest, ×1.6-1.7 da Ovest-Nord-Ovest, ×1.5 da Nord-Est/Est. Validato un giorno fuori: +4.2 → 4.1 kn (7.5 sulle ore forti), per direzione → 2.4 (3.4). **Non era una contraddizione con il 22/10: la risposta dipende dalla qualità del dato.** Il rumore del valore istantaneo nascondeva la struttura.
+2. **Il circuito di bias.** Guardando dove la previsione viene riletta, si è visto che `backfill_actuals` calcola il bias come stazione meno `forecast_hN`, cioè la previsione finale, compreso il +4.2. Per Livorno la stazione è Windfinder: il sistema vedeva "troppo alto di 4.2" e imparava a toglierlo. Dal 15/9 la correzione è stata riassorbita dopo una trentina di previsioni (dedotto dal codice, non verificato sui dati reali). Corretto: i confronti usano la previsione **nella scala della stazione** (`forecast_hN_wf`, o `forecast_hN` meno l'offset per i vecchi record).
+3. **Dati che non sono misure.** Sette campioni Windfinder con `obs_time` 79 minuti nel futuro (righe di previsione), stazioni con 5-19% di ore ripetute identiche (Follonica 19%). I conti li scartano; la mappa no.
+4. **Cosa fanno le stazioni da sole.** Test "una fuori alla volta" su 21 stazioni e 30 giorni (`field_test`): l'interpolazione ricostruisce il vento di una stazione quasi come OM (5.33 contro 5.27 kn di errore del vettore), la correzione di OM con le stazioni vale −5% fino a circa 30 km, su AROME nulla. Solo il 17% dell'alto Tirreno è entro 15 km da una stazione. Quindi: una mappa estesa dalle sole stazioni non ha senso; modelli + stazioni come seconda opinione sì.
+
+### Lezioni
+
+1. **Quando si corregge a valle, cercare chi rilegge a monte.** Un valore salvato e usato sia per mostrare sia per misurare l'errore crea un circuito: la correzione sembra un errore e viene tolta. Si salva il valore prima della correzione e si confronta in quella scala.
+2. **Prima di dire che una forma non regge, chiedersi se i dati sono abbastanza buoni per distinguerla.** Il 22/10 la conclusione era giusta *con quei dati*; con dati migliori è cambiata. Non rimproverarsi né difendere la prima conclusione: dirlo e aggiornarla.
+3. **La mia previsione sul risultato del test era sbagliata in parte.** Mi aspettavo che l'interpolazione perdesse ovunque contro OM; tra 15 e 30 km invece vince (3.55 contro 4.10 kn). Dichiararlo quando i dati lo smentiscono, e non tenere la previsione.
+4. **Un test da calibrare sui dati veri, non solo sugli scenari inventati.** I collaudi sintetici hanno trovato errori nei conti, ma non il difetto della scelta della scala (insiemi diversi): è saltato fuori solo leggendo il risultato reale. Leggere sempre un risultato vero prima di fidarsi di una sintesi come "la L migliore".
+5. **I confronti si fanno sullo stesso insieme.** Se un parametro cambia quali ore entrano nel confronto, l'errore non è confrontabile.
+6. **Il numero di eventi indipendenti conta più del numero di ore.** 36 ore sono tre episodi principali: i fattori per settore reggono nel test un giorno fuori, ma la prova più dura (prevedere il 25/10 senza averlo visto) sbaglia ancora di 4.4 kn. Si dice "provvisorio" e si continua a raccogliere.
+7. **Contare la copertura prima di proporre una mappa.** Un calcolo di mezzo minuto (quanta parte del mare è entro 15/30/50 km da una stazione) risponde meglio di un ragionamento.
+8. **Le domande si capiscono prima di rispondere con codice.** "Si può fare?" è una domanda; la costruzione del test di ricostruzione del campo non era richiesta. Il rischio è costruire la cosa sbagliata o far deployare per niente.
+9. **Un nome strano non è un indizio.** Un file dal nome `vuoto.zip` era uno scherzo di M, con dentro i quattro file giusti: aprirlo e guardare era il comportamento giusto, i commenti sospettosi no.
+10. **Le coordinate ufficiali battono le stime.** A Livorno la posizione dichiarata dal sito coincideva con il vecchio marker, non con quello messo il 19/10 su indicazione di M (che si basava sul porto in generale): 600 metri. Anche con decisioni prese in buona fede, un dato esterno nuovo può ribaltarle: dirlo con i numeri e lasciar decidere.
+
+
+---
+
+## 24. Le previsioni ferme per 19 giorni, per un mio cambio di modello non provato (28 ottobre 2026)
+
+Una settimana di lavoro su Livorno e sulle stazioni manuali ha fatto emergere, per caso, che **dal 9-10 ottobre nessuna previsione veniva salvata** in nessuna zona. La causa era mia.
+
+### Cosa e' successo
+
+1. **Il cambio.** Nella v2.14.29 (9-10/10) ho sostituito Haiku 4.5 con Haiku 5.5 in `predict fast=1` e in `agent`. Non ho provato cosa restituiva `predict` con il modello nuovo.
+2. **Il guasto.** `predict` leggeva `aiData.content[0].text`. Con Haiku 5.5 il primo blocco della risposta non e' di testo: `text` era `undefined`, e `text.match(...)` lanciava un'eccezione prima del salvataggio. Risposta del servizio: 500 in meno di 4 secondi, `Cannot read properties of undefined (reading 'match')`. Sonnet (senza `fast`) funzionava.
+3. **Gli effetti.** Storico (`predict_history`), archivio (`predict_archive`) e bias fermi 19 giorni; i lavori di cron-job.org restavano programmati e fallivano; le chiamate all'AI venivano fatturate (circa 0.12 USD al giorno, **costante**: sembrava tutto in ordine).
+4. **Come e' emerso.** Il nuovo `forecast_monitor` dava 0 coppie con 30 record e 1471 punti di serie; `predict_history` di Livorno e di Viareggio finiva il 9/10; il log di Bocca d'Arno mostrava il 500; una chiamata a mano con `fast=1` ha dato lo stesso messaggio.
+5. **La correzione (v2.14.43).** Testo dal primo blocco di tipo `text`; `fast=1` prova Haiku 5.5 e poi Sonnet 4.6; se non c'e' testo non si salva niente (prima si salvava un record vuoto) e si risponde 502 con i dettagli; il record porta `model_used` e `ai_fallback`. Collaudata end-to-end e **riproduzione del guasto sulla versione precedente** (stesso messaggio). Verificata in produzione: `model_used: claude-haiku-5-5`, `ai_fallback: false`.
+
+### Lezioni
+
+1. **Un cambio di modello e' un cambio di contratto.** Il formato della risposta non e' una garanzia. Si prova il percorso che la elabora, con risposte finte in tutti i formati, e si controlla l'effetto dopo il deploy leggendo l'ultimo record scritto, non il codice di risposta di una chiamata.
+2. **Le metriche di costo non sono segnali di salute.** Quel che costa non e' quel che viene salvato. Il segnale giusto e' la data dell'ultimo record di ogni uscita.
+3. **Un guasto che sta in mezzo puo' durare a lungo se nessuno guarda l'uscita.** M non usava in quel periodo le parti dell'app che mostrano le previsioni, i lavori risultavano "programmati", e nessun controllo automatico confrontava la data dell'ultima previsione con adesso. Un controllo semplice (previsione piu' recente piu' vecchia di 12 ore = allarme) avrebbe segnalato il fermo il giorno dopo. Da valutare (D39).
+4. **Non registrare quando manca il dato.** Salvare un record vuoto (`Errore risposta AI`) non e' meglio di non salvare: inquina lo storico. Ora un errore dell'AI non scrive niente e restituisce i dettagli.
+5. **Ritorna una cosa utile: una risposta "zero" va indagata.** Il monitoraggio senza coppie e' stato piu' utile di qualunque numero.
+6. **Dichiarare l'errore proprio, con i fatti.** Ho scritto a M che il cambio era mio, con la data, la causa, la durata e cosa non si recupera. Non e' una questione di tono: M deve sapere quali dati mancano per poter decidere.
+7. **Il ripiego va dichiarato nel dato.** Il ripiego su Sonnet scrive `ai_fallback: true`, cosi' si vede se scatta spesso (e se Haiku 5.5 non basta) invece di nascondere il problema dietro un'uscita che sembra normale.
+8. **Prove con strumenti di lettura.** Una chiamata uguale a una gia' fatta puo' tornare dalla memoria dello strumento: URL con parametro nuovo. Un'azione lenta va in timeout: usare controlli leggeri (qui, l'ultima previsione di un'altra zona) per restringere il problema.
+
+
+---
+
+## 25. La validazione che ha bocciato la regola candidata (28 ottobre 2026)
+
+L'idea di partenza era una "mappa più estesa" corretta con i dati delle stazioni. In una giornata di lavoro siamo passati da un campo ricostruito dalle sole stazioni (`field_test`), a un salvataggio orario dei modelli sui punti delle quattro stazioni manuali, a tabelle orarie, a una **regola candidata** (OM sottostima il vento debole di circa 2 kn), alla **sua validazione**, che non ha retto.
+
+### Cosa e' successo
+
+1. **Salvataggio dei modelli e recupero del passato.** OM (`best_match`) e AROME (`arome_france`) sui punti ufficiali, ogni ora, agganciati a `scrape_web2`; passato dall'archivio (stessa versione AROME del salvataggio orario: la HD sarebbe stata un modello diverso). Quattro stazioni, 130-132 ore ciascuna.
+2. **Tabelle orarie.** Con le fasce scelte sul valore osservato: Livorno anomalo, Capraia e Golfo Aranci ben rappresentate, Rosignano a meta' (Sud-Ovest forte sottostimato), AROME migliore di OM in tre stazioni su quattro.
+3. **Fasce sul valore del modello.** Rovesciano un segno: le calme risultavano sovrastimate (0.6) con le fasce sull'osservato, e risultano sottostimate da OM (1.4-1.7) con le fasce sul modello. Provato con un modello fatto di solo rumore: le fasce sull'osservato danno una "sovrastima" apparente anche senza nessun difetto.
+4. **Validazione un giorno fuori (289 ore, 6 giorni).** Nessuna correzione generale migliora l'errore su tutte le ore: OM 3.1 → 3.1-3.2, AROME 2.6 → 2.8-2.9. L'unico guadagno vero e' la correzione per stazione di Livorno su OM (5.0 → 3.5 kn), cioe' quello che gia' facevamo con Windfinder × fattore.
+
+### Lezioni
+
+1. **Il bias medio non e' l'errore.** Una correzione che toglie il bias medio puo' lasciare invariato l'errore sulle singole ore, se questo e' dominato da errori casuali (tempi, posizioni). Il bias si corregge con un fattore; l'errore casuale no. Valutare sempre l'errore medio assoluto.
+2. **Una regola candidata non e' una regola.** L'ho presentata con tutte le cautele, ma prima di un test che la mettesse alla prova. Si propone dopo. E non e' una sconfitta: il test ha impedito di correggere qualcosa che peggiorava (AROME fino a −31% sulle ore forti).
+3. **La scelta della variabile su cui si fanno le fasce cambia il risultato, e va fatta su quella che l'app conosce.** Fasce sull'osservato: effetto statistico (il modello sembra troppo alto con vento basso e troppo basso con vento forte). Fasce sul modello: ritorno verso la media, che fa parte della correzione ottimale. Chi legge i numeri deve sapere con quale delle due sono calcolati.
+4. **Una colonna selezionata sull'osservato e' un trabocchetto anche nei test.** "Ore deboli" (osservato <6 kn) punisce ogni rialzo per costruzione, e faceva sembrare la correzione molto peggiore di quanto fosse. Il verdetto si legge sull'insieme di tutte le ore.
+5. **Quando il test e' senza fuga di informazione lo si dimostra.** Un giorno con un comportamento che negli altri non c'e' (fattore 3): la correzione non puo' adattarsi, l'errore non scende. Senza una prova cosi', "un giorno fuori" resta una dichiarazione.
+6. **Fermarsi e' una conclusione, con dei criteri per riaprire.** "Resta solo accumulare dati" non e' un "finito": si riapre con almeno 15 giorni, con serate e notti, con piu' episodi forti; lo strumento (`manual_hourly&station=all`) e' gia' pronto e la validazione e' in fondo alla risposta. Il criterio di successo e' scritto: errore su tutte le ore sotto quello grezzo, non solo il bias.
+7. **Una sola chiamata per tutto.** `station=all` evita di far incollare quattro risposte lunghe: le richieste a M vanno ridotte al minimo.
+
+
+---
+
+## 26. Il 3 novembre 2026: controllo di salute, estensione del fermo, Orbetello e la mappa, archivio
+
+Una giornata di lavori diversi, con tre cose che si tengono insieme: **vedere in tempo se qualcosa si rompe**, **non correggere più del necessario**, e **decidere cosa conservare in base a cosa il sistema rilegge**.
+
+### Cosa e' successo
+
+1. **Il controllo di salute** (`action=health`) e' nato dal fermo di ottobre: nessun controllo aveva visto che le previsioni non si salvavano. Controlla la data dell'ultima previsione di ogni zona rispetto all'ultimo giro dovuto (07:15 e 13:15, tolleranza 90 minuti), le fotografie di zona, il salvataggio orario dei modelli e il ripiego su Sonnet. Il primo giro reale ha trovato due cose vere (zone attive senza previsioni per scelta; Barcaggio e Alberese senza fotografie) e ha confermato che le previsioni sono guarite.
+2. **L'estensione del fermo e' stata corretta**: dal dettaglio del controllo (modello usato per zona) e dallo storico di Orbetello si e' visto che il guasto toccava solo le 13 zone con Haiku 5.5, non tutte. Avevo generalizzato da due zone dello stesso gruppo.
+3. **Orbetello e la mappa**: con le fasce di vento della stazione (`model_dir_report`) la sua direzione e' inaffidabile con vento debole (16% entro 45° da OM sotto i 4 kn) ma buona dal moderato in su. Una prima correzione della sola direzione (v1.15) non bastava, perche' la velocita' si spandeva con peso pieno; la seconda (v1.16) ha reso la fiducia una rampa sulla velocita' della stazione. Nel mezzo ho rinunciato a una regola generale, perche' avrebbe riaperto una decisione precedente.
+4. **Archivio e statistiche**: si e' visto che tutto e' finestra mobile e che l'irripetibile e' poco (serie delle stazioni manuali, archivio delle stazioni, previsioni con verifica). Si e' deciso un archivio freddo e dei record compatti letti dal motore; la scheda mensile aspetta fino a quando il sistema potra' usarla.
+
+### Lezioni
+
+1. **Un campione rappresenta il gruppo da cui e' preso, non tutto.** Conoscere come il sistema divide i casi (due gruppi di zone con due modelli, due percorsi, due lavori) e' il primo passo di ogni verifica.
+2. **I commenti del codice sono la memoria delle decisioni.** Prima di toccare una regola condivisa va letto cosa e' stato deciso e perche': stavolta mi ha evitato di rompere un fix di luglio.
+3. **Una correzione e' una forma, non un numero.** Tetto fisso, rampa, soglia: la forma deve combaciare con dove l'errore e' dimostrato. Il collaudo giusto e' doppio: l'effetto voluto (il caso reale degli screenshot) e l'invarianza dove non deve cambiare niente (300 casi casuali identici al codice originale).
+4. **Un segnale di salute vale solo se arriva a chi puo' agire.** Per questo la risposta e' 503 per cron-job.org e `soft=1` per chi legge con strumenti che scartano gli errori. E il primo giro va guardato con attenzione, perche' spesso racconta la configurazione vera.
+5. **Si conserva in base a cosa e' irripetibile e a cosa il sistema rilegge.** Irripetibili: osservazioni locali e nostre previsioni. Riscaricabili: modelli e rianalisi. Un dato che nessuno rilegge e' utile solo come materia prima per una prova futura: costruire prima la prova, poi l'uso.
+6. **Dire cosa non e' verificato.** Le istruzioni date a memoria (i parametri di un lavoro) vanno lette nel codice prima; e le ipotesi sulle cause (l'Argentario, un'altra copia del motore) vanno scritte come ipotesi finche' non c'e' un dato.
+
+
+---
+
+## 27. Il 4-6 novembre 2026: un avviso che arriva davvero
+
+Il controllo di salute del 3/11 era pronto, ma da solo non basta: serve che qualcuno si accorga. Questa parte e' la storia di come si e' passati da un avviso "configurato" a uno che arriva.
+
+### Cosa e' successo
+
+1. **L'avviso di cron-job.org non arriva.** Il lavoro `health` e' stato creato il 4/11. Per provare l'avviso M ha fatto fallire apposta un lavoro verso un indirizzo inesistente: errore registrato, nessuna email. Le impostazioni erano giuste, il canale c'era, la posta di registrazione era arrivata, e non esiste un log delle esecuzioni. Nessuna email nemmeno in ottobre.
+2. **L'avviso parte dal motore.** Telegram (bot creato da M con @BotFather, due variabili in Vercel: token di tipo Secret, chat di tipo Config). Solo sul passaggio di stato, con promemoria ogni 6 ore e messaggio di ripristino. Il messaggio di prova e' arrivato il 6/11.
+3. **Il collaudo ha trovato un errore di logica**: l'ora dell'ultimo avviso ereditata dall'episodio precedente. E' stato corretto prima del deploy.
+4. **Le fotografie di Barcaggio e Alberese** sono tornate con due lavori nuovi; nell'occasione e' emerso che i lavori `cron_snap` girano una volta all'ora, non ogni 30 minuti come avevo scritto.
+
+### Lezioni
+
+1. **Un'impostazione giusta non e' un avviso che funziona.** Si prova con un guasto simulato, e si controlla che il messaggio arrivi.
+2. **L'avviso deve partire da chi sa.** Il motore conosce lo stato a ogni controllo: affidare la notifica a un servizio esterno di cui non si vede il log aggiunge un punto cieco.
+3. **Un segnale che suona sempre non segnala niente.** Per questo i messaggi partono sul passaggio di stato e gli avvisi non gravi no; e per questo il punto esclamativo in app mostrera' solo gli errori.
+4. **Un limite va detto.** Se l'intero progetto non risponde, il motore non puo' avvisare di se': per quel caso serve una seconda rete fuori dal motore (l'indicatore in app, o un controllo esterno).
+5. **Le frequenze e i conteggi si controllano con i numeri reali**, non con quello che il codice consente.
+6. **I segreti non passano in chat.** Il token e il segreto dei lavori si mettono solo nelle variabili di Vercel e negli indirizzi dei lavori; chi aiuta spiega dove va ogni cosa (tipo Secret o Config, quale variabile) senza mai vederlo.
+
+
+---
+
+## 28. Il 6 novembre 2026 (sera): un valore solo per punto
+
+M ha fissato una regola per tutta l'app: **un numero sulla mappa e' o il dato vero, o quello ricalcolato, o (se non c'e' altro) quello del modello; e il popup di quel punto dice lo stesso numero.** Il lavoro e' stato rendere vera quella frase, e poi correggere due errori miei trovati da M.
+
+### Cosa e' successo
+
+1. **La regola.** M ha visto, accanto alle frecce di Livorno, 12 e 17, mentre il popup diceva 17.3. Dal codice: la freccia di zona usava lo snapshot senza il fattore, il punto stazione e i popup usavano la stima; il popup di griglia apriva la cella piu' vicina al click e non la freccia disegnata; i popup di stazione leggevano il valore al click e la freccia no.
+2. **La soluzione.** Una funzione sola per il valore di zona (`zoneBest`), usata da freccia, numero, icona e popup; un popup di zona unico; la scelta della freccia disegnata per il popup di griglia; il riallineamento di freccia e numero quando un popup legge un dato piu' fresco; numeri bianchi (vero o ricalcolato) e azzurri (modello). Collaudo con le funzioni vere, confrontando il numero disegnato con quello del popup per ogni tipo di punto.
+3. **Due errori miei nella prima versione**, trovati da M cliccando in mezzo al mare a destra di Gorgona: il popup diceva "Punto stazione (dato vero)" ma mostrava il valore di modello della cella del punto stazione; e quando ho cercato la causa ne ho scritta una (nessun dato vivo) che i dati hanno smentito: la stazione dava letture fresche.
+
+### Lezioni
+
+1. **Una regola di coerenza si realizza elencando tutti i punti del codice che mostrano quel dato**, non correggendo quello che si e' visto. Tre incoerenze su quattro erano in punti che non erano quello dello screenshot.
+2. **Un'etichetta e' una promessa.** Cambiarla senza controllare il dato sotto e' piu' grave di non cambiarla: "dato vero" su un valore di modello e' un'informazione falsa dentro un'app che fa della precisione il suo scopo.
+3. **I casi speciali non devono contagiare quelli generici.** Una cella costruita per far disegnare la freccia di una stazione non deve essere la risposta a un click libero in mare.
+4. **Verificare prima di attribuire una causa.** Un'ipotesi plausibile (il dato non c'era) e' stata smentita da un controllo di tre minuti, e se non l'avessi scritta come fatto non sarebbe stato necessario correggerla.
+5. **Il test deve contenere il caso che l'utente ha trovato.** Il click a destra di Gorgona e' ora un caso del collaudo (con dato vivo, senza dato vivo, senza celle normali), cosi' non puo' tornare in silenzio.
+
+
+---
+
+## 29. Il 10-13 novembre 2026: l'archivio dei dati, e quello che ha rivelato
+
+Era partito come "salviamo quello che sta per scadere". E' diventato anche uno strumento di diagnosi.
+
+### Cosa e' successo
+
+1. **Fase A**: ogni ora di ogni zona lascia un record compatto (22 campi, circa 100 byte) in un hash Redis permanente, scritto dopo la fotografia e in `try/catch`, con un'azione per recuperare i 14 giorni ancora vivi. Il giro di recupero ha scritto 3.606 ore.
+2. **La tabella di stato per zona ha mostrato tre gruppi**: 7 zone con 336 ore, 10 con 72 e 5 intermedie. Dal codice: `scrape_cfr` riscriveva le fotografie con scadenza di 3 giorni sopra quelle di 14 di `cron_snap`. La previsione chiede sempre 14 giorni: 16 zone su 17 ne avevano il 20%. La lista dei lavori `cron_snap` di M ha chiuso il quadro (10 zone senza lavoro, solo fotografia CFR, niente onde ne' IFS).
+3. **Correzione**: 14 giorni per `scrape_cfr`, e il record orario anche da `scrape_cfr` senza sovrascrivere (un buco mio: le zone che passano da li' non venivano archiviate in tempo reale).
+4. **Fase B**: esportazione settimanale su un repository privato di GitHub, che accumula le serie manuali (Redis ne tiene solo 30.000 per stazione). Primo giro riuscito il 13/11 con 27.829 punti in sicurezza.
+
+### Lezioni
+
+1. **Costruire un archivio e' anche costruire un osservatorio.** La prima tabella di copertura ha trovato un difetto vecchio di settimane che nessun controllo vedeva, perche' ogni singola fotografia era "presente".
+2. **Il vero difetto era in un percorso che non c'entrava con l'archivio.** E' stato trovato perche' si e' cercato il perche' di una differenza tra zone invece di accettarla.
+3. **Chi scrive per ultimo comanda.** Con due scrittori sulla stessa chiave, la regola (qui la scadenza) va decisa in un posto solo.
+4. **Un archivio di accumulo non e' una copia.** Il tetto del deposito e' il motivo stesso dell'archivio: la copia deve aggiungere.
+5. **Ho contato 21 campi e erano 22.** Una temperatura compare due volte (modello e stazione): prima di annunciare una lista di campi si conta sul codice, non a memoria.
+6. **Le istruzioni per strumenti che non si vedono (GitHub, cron-job.org) vanno date come una lista di operazioni con l'esito atteso di ciascuna**, e con la domanda "cosa vedi?" quando non torna: il file senza il punto iniziale era invisibile dalla scheda Actions e l'unico indizio era una pagina d'ingresso.
+7. **Il confronto con un modello nuovo e' una domanda di costo e di vincoli, non solo di potenza.** Fable 5.2 costa nove volte la nostra spesa e ha classificatori che bloccano proprio il controllo di sicurezza che si voleva fare: la scelta giusta per quel compito era un altro modello.
+
+## 30. Livorno: il tetto sul fattore e il valore unico deciso dal motore (13-16 novembre 2026)
+
+**Il sintomo.** M ha visto Livorno con 53 kn (fattore x2.2 a 240 gradi) mentre Livornometeo dava 25; poi 30,7 contro 10,4 in mappa2 e 32 contro 13 nell'index; la raffica risultava addirittura sotto il vento. Il fattore per direzione (x1.5 da est, x2.2 da sud-ovest) era stato stimato con venti deboli e moltiplicava senza limite.
+
+**Il rapporto `lm_factor_report` (engine v2.14.52+).** Accoppia ogni osservazione di Windfinder (ora di *osservazione*, non di cattura) con la lettura di Livornometeo entro 20 minuti, e valuta le regole con la tecnica "un giorno fuori" (la regola si costruisce sugli altri giorni e si prova su quello tenuto fuori). 177 coppie. Errore medio un giorno fuori: regola attuale **3,01 kn**; con il tetto **2,48**; AROME da solo **2,80**; **media tra stima con tetto e AROME 2,20**; media solo da 8 kn in su **2,04** (da 10 kn: 2,06).
+
+**Il tetto.** stima = min(vento Windfinder x fattore per direzione, 3,3 + 1,08 x vento Windfinder). La raffica si scala con lo stesso fattore e non scende mai sotto il vento. Vale per le previsioni convertite (`reference_method='fattore_per_direzione_con_tetto_v2.14.54'`) e per le tre pagine.
+
+**La media.** Sotto gli 8 kn di stima la media con AROME peggiora (1,89 contro 2,76 kn), quindi sotto gli 8 si usa la sola stima. Da 8 in su la media con AROME e' la regola.
+
+**Quanto invecchia una lettura vera.** Errore medio contro la lettura di Livornometeo successiva: 1,54 kn a 0 minuti, 2,07 a 15, 2,41 a 30, 2,88 a 60, 3,24 a 90. Con la media degli ultimi 10 minuti: 0,62 / 1,56 / 1,94 / 2,45 / 2,86. Per questo la lettura vera vale 30 minuti, poi la regola passa alla media.
+
+**La regola `livorno_now` (engine v2.14.57, azione pubblica in sola lettura).** In ordine: (1) lettura Livornometeo di non piu' di 30 minuti: valore vero (`tipo: vero`); (2) campione Windfinder di non piu' di 90 minuti con AROME disponibile e stima da 8 kn: **media** tra stima e AROME (`fonte: windfinder_arome`, `tipo: ricalcolato`, con le due componenti); (3) stesso campione ma stima sotto 8 kn: la sola stima (`windfinder_stima`); (4) campione Windfinder piu' vecchio di 90 minuti, o assente: AROME (`tipo: modello`); (5) niente di tutto cio': il dato piu' recente con `vecchio: true`. **Open-Meteo non entra mai.** AROME arriva da Open-Meteo (`meteofrance_arome_france`, poi `_hd`), con cache di 10 minuti (`ln_arome`). L'eta' e' sempre quella dell'osservazione.
+
+**La regola di M, che resta.** Il numero sulla mappa e' vero, ricalcolato o modello; il popup mostra lo stesso numero; numeri bianchi = vero o ricalcolato, azzurri = modello (nell'index il modello e' rosso).
+
+**Le pagine (16/11).** index v5.7.49, mappa2 v1.20, previsioni v3.17 leggono tutte `livorno_now` e, se non risponde, tornano alla logica precedente. Nei popup: la media con le due componenti, il Windfinder grezzo con l'ora di osservazione, l'ultima lettura di Livornometeo con la sua eta', il motivo della scelta.
+
+**Il difetto dell'index (non ancora corretto per le altre zone).** `triple_wind` ricade su Open-Meteo quando il campione Windfinder ha piu' di 2 ore, ma lo etichettava ancora "STIMA": da li' i 13 kn dell'index. Per Livorno non conta piu'; per Viareggio e Bocca d'Arno resta da sistemare. Inoltre la fusione dell'osservato CFR nei record orari (v2.14.52 come idea) non e' stata fatta.
+
+**Un caso che nessuna regola copre (15/11).** Alle 15:42 UTC Livornometeo dava 26,1 kn (37 minuti prima) e subito dopo 9,6 "adesso": un calo di 16 kn. La regola dei 30 minuti avrebbe gia' scartato il 26,1; ma la risposta giusta resta scrivere sempre fonte ed eta'.
+
+### Lezioni
+
+1. **Un fattore stimato con venti deboli non si moltiplica senza limite con venti forti.** Ogni correzione moltiplicativa ha bisogno di un tetto, e un tetto si prova sui dati fuori campione.
+2. **Una media di due stime sbagliate in modo diverso batte entrambe, ma non sempre:** sotto gli 8 kn peggiora. Si misura, non si presume.
+3. **Un solo posto decide il valore.** Quando tre pagine ricalcolano lo stesso numero con regole proprie, prima o poi mostrano numeri diversi; il motore decide e le pagine mostrano.
+4. **Un'etichetta e' una promessa.** "dato vero" su un valore di modello (Gorgona, v1.17) e "STIMA" su un valore Open-Meteo (index) hanno la stessa radice: l'etichetta viene dal percorso del codice, non dal dato. Prima di attribuire una causa si guardano i dati (la stazione di Gorgona aveva dati freschi).
+5. **Non dire "letto" di cio' che non si e' letto.** Ho detto a M che un rapporto era stato letto quando non lo era; si dice cosa si e' letto e cosa no.
+
+## 31. La fusione dell'osservato e la fase C dell'archivio (17-18 novembre 2026)
+
+**Il difetto.** Nel record orario di una zona la fonte dell'osservato dipendeva da chi scriveva per ultimo: `cron_snap` riscriveva tutto con l'osservato di `openweathermap` anche se `scrape_cfr` aveva gia' scritto quello della stazione (visto il 13/11 su Orbetello, 07-09 UTC); `scrape_cfr`, che scrive con HSETNX, non poteva correggere. Il 17/11, prima del deploy, 5 ore su 7 erano `openweathermap`.
+
+**La regola (v2.14.59).** Il gruppo dell'osservato (vento, direzione, raffica, pressione, temperatura reale, `obs_src`) si prende da UNA sola fonte, mai mescolato: vince quella con `obs_src='cfr'`; a parita' vince chi scrive e' il record completo; se il gruppo scelto non ha il vento e l'altro si', si usa l'altro. Gli altri campi: il completo vince dove ha un valore e lascia i vuoti, il povero riempie solo i vuoti. Il risultato non dipende dall'ordine di scrittura. Costo: un HGET in piu' solo quando serve. Limite: HGET e HSET non sono atomici, ma ogni HSET scrive il record intero. **Verifica: 17 ore consecutive `cfr` su Orbetello dopo il deploy.**
+
+**Cio' che i dati hanno detto.** Il record orario con solo `scrape_cfr` (senza onda, ICON, IFS) compare quando `cron_snap` non e' arrivato in quell'ora: 3 ore su 24 su Orbetello. Le zone con ~370 ore di novembre e quelle con ~220 il 16/11 crescono entrambe di 24 al giorno (+48 in 47 ore il 18/11): i due gruppi dipendevano da quando sono partiti i lavori orari.
+
+**La fase C.** `bias_archive` (campioni di stazione, scritti una volta e mai cambiati) si accumula con `after`; `predict_archive` (previsioni) si UNISCE per `generated_at` perche' i valori reali (`actual_*`) si aggiungono nei giorni dopo, e senza il testo dell'AI. L'elenco delle stazioni lo da' il motore con SCAN: la scansione ne ha trovate **34**, non le 27 scritte a mano nei documenti.
+
+### Lezioni
+
+1. **Quando due scrittori toccano lo stesso record, la regola di fusione va nello stesso posto per tutti e due**, e deve funzionare in qualunque ordine: farla solo in uno avrebbe lasciato il difetto nell'altro.
+2. **Un elenco scritto a mano e' sempre piu' corto della realta'**: 27 contro 34. Se il sistema sa elencare da solo (SCAN), si lascia fare a lui.
+3. **Un archivio che si accumula e un archivio che si aggiorna sono due cose diverse.** I campioni non cambiano, le previsioni si completano dopo: la copia deve unire, non solo aggiungere.
+4. **Prima di correggere un difetto si legge il codice che lo avrebbe prodotto.** Avevo descritto male quello di `triple_wind`: l'etichetta sbagliata era solo di Livorno; i difetti veri erano altri due.
+
+## 32. Livornometeo chiuso e la fotografia finale del modello di Livorno (18-19 novembre 2026)
+
+**Il fatto.** Dal 18/11 Livornometeo chiede utente e password: resta solo una pagina di login. Il segnalibro con cui M passava le letture non puo' piu' funzionare. Altre volte il sito era stato chiuso dopo una richiesta di accesso di M, senza risposta; potrebbe riaprirsi. Le altre stazioni sono aperte. Non si cerca di aggirare il login. Il sistema non si rompe: senza una lettura fresca `livorno_now` passa alla media Windfinder+AROME (da 8 kn di stima) o alla sola stima; cambia l'etichetta, che non dice piu' "vero".
+
+**La fotografia finale (`lm_factor_report`, 19/11).** 198 coppie (196 con AROME) su 27 giorni consecutivi, dal 23/10 al 18/11. Errore medio "un giorno fuori": regola in uso (media con tetto e AROME, da 8 kn in su) **2,19 kn** (2,04 il 13/11, con 177 coppie: le 21 nuove non la smentiscono); p90 4,56; sovrastime oltre 8 kn 0%; sottostime 2%; bias +0,74. Le altre: media con tetto e AROME sempre 2,34; solo tetto 2,78; AROME da solo 2,83 (sovrastime 5%); regola vecchia senza tetto 3,47 (sovrastime 10%, peggiore +24,8 kn).
+
+**Dove regge e dove no.** Regge dove ci sono i dati: 103 coppie da NE e 29 da N (circa il 70%), errore intorno a 2 kn. Non e' confermabile per scirocco, libeccio e vento forte: da S 11 coppie con errore 7-8 kn, da SW 18 con 6 kn (rapporto lettura vera / Windfinder 1,7 da S e 2,1 da SW: qui la stazione automatica sottostima di piu'); E 8 coppie e NW 3 non valutabili. Sopra 14 kn solo 12 coppie, dove AROME da solo sbaglia meno della regola in uso (2,47 contro 2,97 kn): campione troppo piccolo per cambiare regola. Il rumore di una lettura manuale singola e' di 1,3 kn (p90 3,8). Le cifre vengono dalla lettura che lo strumento ha fatto del rapporto, non dal JSON integrale.
+
+**Decisione.** Nessuna modifica alla regola. Se Livornometeo riaprisse, ripartire dalle fasce senza dati (sud, sud-ovest, vento forte) con `lm_factor_report&rows=1`.
+
+**Il PDF della mappa (previsioni v3.19, 18/11).** Tasto PDF: una pagina A4 verticale con la mappa della fascia oraria selezionata, su tutta l'area della griglia modello (40.0-44.6 N, 7.4-12.5 E), con frecce, numeri dei nodi (sempre accesi: sulla carta non c'e' il tocco) e nome di ogni zona (la parte prima del trattino). In alto, grande e rosso, quando e' stato scaricato. Si disegna su un canvas fuori schermo con la STESSA `drawAll` della pagina (parametro facoltativo `T`: bersaglio alternativo), cosi' i valori sono identici a quelli a video; il JPEG entra in un PDF scritto a mano (`NautilusPdf`, senza librerie, con immagine DCTDecode). Si apre in una scheda aperta subito al tocco e riempita a fine lavoro: su Safari iPad il vecchio link con download caricava il PDF nella finestra di previsioni.
+
+### Lezioni
+
+1. **Non intendere una richiesta in modo piu' stretto del suo scopo.** M voleva le mappe che vede cliccando le fasce orarie; io avevo proposto una tabella e, approvata sulla carta, l'ho costruita. Un esempio con dati inventati e' servito a scoprirlo, ma una domanda sul tipo di immagine l'avrebbe evitato.
+2. **"Tutta la mappa che trattiamo" e' l'estensione della griglia, non il rettangolo delle zone.** La prima versione tagliava Bonifacio e Capalbio.
+3. **Una finestra va aperta nel gesto dell'utente.** Aperta dopo i calcoli, il browser la blocca; Safari carica il file nella pagina e la fa perdere.
+4. **Un cambio di versione fatto con sostituzione globale riscrive anche la storia.** Il commento con la modifica di Livorno era diventato "3.19".
+5. **Una nuova consegna ha sempre un nome nuovo**, anche per una correzione piccola (regola di M), e non si rimanda un file che M ha detto di non rifare.
+
+## 33. I nomi con il #, la serie nascosta di Livornometeo e il giro dell'archivio del 23 novembre (19-24 novembre 2026)
+
+**I nomi (19/11).** Le stazioni manuali si chiamano ora **LivornoPorto#**, **Capraia#**, **Rosignano#**, **Golfo Aranci#**: il # dice "dato passato da M" e non c'e' piu' nessun riferimento al sito di origine (decisione di M: "sganciamo i riferimenti"). Il punto esclamativo, che M aveva pensato per questo, e' libero per gli errori (D54). Cambiano solo le scritte e le coordinate (motore 2.14.62-63, index 5.7.52, mappa2 1.22-1.23, previsioni 3.20); gli id interni (`livornometeo_porto`, `capraiameteo`, `rosignanometeo`, `golfoaranci_lm`) restano, perche' contengono le serie salvate e l'archivio. Coordinate nuove (indicate da M): LivornoPorto# 43.549682, 10.292348 (anche zona Livorno e punto di mappa2); Capraia# 43.051164, 9.844352; Rosignano# 43.395842, 10.423860; Golfo Aranci# 40.996073, 9.621568. La stazione Windfinder "Livorno Porto" resta a 43.5525, 10.3014.
+
+**Livornometeo risponde solo con il dato istantaneo (23/11).** Dal 18/11 il sito aveva un login; oggi risponde, ma M non vede nessun grafico ne' tabella. Lanciando il segnalibro per vedere che errore dava, e' arrivato invece "Serie inviata: 60 punti". In archivio ci sono 6526-6536 punti, con un buco dal 18/11 09:02 al 23/11 10:20 UTC. Su Firefox `typeof Highcharts` risponde `undefined` e la scheda Rete non mostra richieste con json: da dove escano i punti non e' chiaro (forse un errore del sito che lascia i dati nella pagina, forse nascosti di proposito). La serie si e' verificata sui valori: sono multipli di 0,87 kn (mph intere convertite), l'andamento e' plausibile (calma poi, alle 12:04-12:08 UTC, salto a 17 kn con vento che gira da 168 a 246 gradi) e l'istantaneo visto da M (18,2 kn da 251) coincide per direzione con l'ultimo punto (15,6 kn da 251, delle 14:12 UTC) e per velocita' sta nella variazione dei minuti vicini. La finestra e' di circa tre ore: per non avere buchi il segnalibro va lanciato almeno ogni tre ore. Da fare ancora: un secondo confronto con vento diverso e il confronto con la stazione CFR di Livorno. Se i dati sono nascosti di proposito il sito puo' smettere in qualsiasi momento: la fonte e' utile finche' dura.
+
+**Il giro dell'archivio del 23/11.** Il giro programmato di lunedi' e' partito alle 17:21 italiane invece che alle 06:30, con 11 ore di ritardo (il 16/11 erano state 8): GitHub non garantisce l'ora dei lavori programmati. M aveva lanciato prima un giro a mano; `STATUS.json` del giro programmato ha `problemi: []`, "aggiunti questo giro" 0 quasi ovunque (1 campione per sette stazioni), previsioni e serie manuali gia' dentro, senza doppioni. Non serve un secondo giro programmato: il motore tiene al massimo 3000 campioni per stazione (circa uno ogni mezz'ora) e butta via i piu' vecchi, che sono gia' nel repository; si perderebbe qualcosa solo con piu' di 3000 campioni nuovi tra due esportazioni (oltre due mesi). Se un lunedi' non parte, si avvia dal pulsante "Run workflow".
+
+**Le piccole correzioni (24/11).** Index 5.7.53: Golfo Aranci# nel gruppo Corsica / Sardegna e Vada in Toscana (tasti e righe). Mappa2 1.24: sottotitolo del popup solo "Stazione manuale"; il numero dei punti manuali segue il tasto Nodi; il punto di Capraia# (a ~300 m dalla zona) non finisce piu' sotto il cerchio della zona: se una zona sta a meno di 30 px, freccia e numero si spostano di lato con un filo che li collega al punto vero, e si ricalcola a ogni zoom.
+
+### Lezioni
+
+1. **Non descrivere come funziona uno strumento senza guardarlo.** Ho chiesto due volte a M di controllare un grafico "come sempre" che sul sito non c'era piu': avevo dato per scontato il funzionamento del segnalibro dalle note di ottobre. Si guarda cosa vede la persona, poi si decide.
+2. **Un dato che arriva da una fonte che non si capisce si verifica sul valore, non sulla provenienza.** Unita' (mph intere), andamento e confronto con la lettura istantanea in due punti hanno dato la risposta senza sapere da dove venisse.
+3. **Il tetto di un archivio si ragiona su cio' che si perde, non su cio' che si raggiunge.** Avevo detto che le stazioni erano vicine al tetto e a rischio; ma i campioni che il motore scarta sono gia' copiati. La differenza e' tra "il motore ricorda 3000 campioni" e "l'archivio conserva tutto".
+4. **Un orario programmato su GitHub e' solo un'intenzione.** Il giro puo' partire con ore di ritardo; per i controlli conta cosa e' stato esportato, non quando.

@@ -1,4 +1,4 @@
-<!-- NAUTILUS MAPPA2 v1.23 - mdisailor - 2026-11-19 - v1.23 (19/11): zona Livorno alle coordinate nuove 43.549682, 10.292348. v1.22 (19/11): nomi delle stazioni manuali con il # (LivornoPorto#, Capraia#, Rosignano#, Golfo Aranci#), niente piu' riferimento al sito d'origine; punto LivornoPorto# alle coordinate nuove 43.549682, 10.292348. v1.21 (18/11): PUNTI DELLE STAZIONI MANUALI (Capraiameteo, Rosignanometeo, Golfo Aranci) con freccia, numero e popup che scrive l'ora del dato e i modelli di quell'ora (action=manual_now). v1.20 (13/11): IL VALORE DI LIVORNO LO DECIDE IL MOTORE (action=livorno_now): lettura vera di Livornometeo se recente, altrimenti la media tra la stima da Windfinder (con tetto) e AROME, altrimenti AROME, mai OM; fonte, eta' dall'orario di osservazione e componenti della media nel popup; AROME in azzurro; il vecchio calcolo resta come ripiego. Motivo: il 13/11 mappa2 e index mostravano 32 e 13 kn per lo stesso istante (campione di 2 ore prima e OM di ripiego scritto STIMA). Su base v1.19 | v1.19: CORREZIONE PROVVISORIA del fattore di Livorno: tetto sulla velocita' (lmFactorForDir(dir, kn): stima = min(kn x fattore_direzione, 3.3 + 1.08 x kn), mai piu' della vecchia). Motivo: il 13/11 la stima era 53 kn (x2.2 a 240 gradi, Windfinder 24 kn) contro i 25 di Livornometeo, il 12/11 30.7 contro 10.4. Su base v1.18 -->
+<!-- NAUTILUS MAPPA2 v1.24 - mdisailor - 2026-11-24 - v1.24 (24/11): punti delle stazioni manuali: sottotitolo del popup solo 'Stazione manuale'; il numero segue il tasto Nodi; il punto di Capraia# non si nasconde piu' sotto il cerchio della zona (freccia spostata di lato con un filo). v1.23 (19/11): zona Livorno alle coordinate nuove 43.549682, 10.292348. v1.22 (19/11): nomi delle stazioni manuali con il # (LivornoPorto#, Capraia#, Rosignano#, Golfo Aranci#), niente piu' riferimento al sito d'origine; punto LivornoPorto# alle coordinate nuove 43.549682, 10.292348. v1.21 (18/11): PUNTI DELLE STAZIONI MANUALI (Capraiameteo, Rosignanometeo, Golfo Aranci) con freccia, numero e popup che scrive l'ora del dato e i modelli di quell'ora (action=manual_now). v1.20 (13/11): IL VALORE DI LIVORNO LO DECIDE IL MOTORE (action=livorno_now): lettura vera di Livornometeo se recente, altrimenti la media tra la stima da Windfinder (con tetto) e AROME, altrimenti AROME, mai OM; fonte, eta' dall'orario di osservazione e componenti della media nel popup; AROME in azzurro; il vecchio calcolo resta come ripiego. Motivo: il 13/11 mappa2 e index mostravano 32 e 13 kn per lo stesso istante (campione di 2 ore prima e OM di ripiego scritto STIMA). Su base v1.19 | v1.19: CORREZIONE PROVVISORIA del fattore di Livorno: tetto sulla velocita' (lmFactorForDir(dir, kn): stima = min(kn x fattore_direzione, 3.3 + 1.08 x kn), mai piu' della vecchia). Motivo: il 13/11 la stima era 53 kn (x2.2 a 240 gradi, Windfinder 24 kn) contro i 25 di Livornometeo, il 12/11 30.7 contro 10.4. Su base v1.18 -->
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -8,7 +8,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#020e1c">
-<title>NAUTILUS Mappa2 Vento v1.23</title>
+<title>NAUTILUS Mappa2 Vento v1.24</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -241,7 +241,7 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
 <nav id="nav">
   <div style="display:flex;align-items:baseline;gap:10px">
     <div id="nav-logo">NAUTI<span>LUS</span></div>
-    <span id="nav-ver">mappa2 v1.23</span>
+    <span id="nav-ver">mappa2 v1.24</span>
     <span id="nav-zoom" style="font-size:0.5rem;color:#00f0ff;margin-left:8px;letter-spacing:0.05em">z--</span>
     <span style="font-family:'DM Mono',monospace;font-size:0.62rem;color:var(--muted);letter-spacing:0.06em">by mdisailor</span>
   </div>
@@ -304,11 +304,11 @@ body{display:flex;flex-direction:column;font-family:'DM Mono',monospace;color:va
   </div>
 </div>
 
-<div id="footer">NAUTILUS MAPPA2 v1.23 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
+<div id="footer">NAUTILUS MAPPA2 v1.24 -- by mdisailor -- Open-Meteo + OpenSeaMap</div>
 
 <script>
 'use strict';
-// NAUTILUS MAPPA2 v1.23
+// NAUTILUS MAPPA2 v1.24
 
 var ENGINE_URL = '/api/engine';
 
@@ -1499,6 +1499,7 @@ document.getElementById('btn-knots').addEventListener('click', function(){
   state.showKnots = !state.showKnots;
   this.classList.toggle('active', state.showKnots);
   drawWind();
+  updateManualMarkers(false); // 2026-11-24: anche il numero dei punti manuali segue il tasto (dati gia' in cache, nessuna nuova richiesta)
 });
 
 // LOAD ALL
@@ -2367,7 +2368,7 @@ function mnDayTime(ts) { // "mer 18/11 alle 13:18" in ora italiana
   } catch (e) { return ts; }
 }
 function mnHourLocal(key) { return lmHHMM(key + ':00:00Z'); } // "2026-11-18T13" (UTC) -> ora italiana
-function mnIcon(st) {
+function mnIcon(st, off) { // off = { dx, dy } o null: freccia e numero spostati di lato, con un filo fino al punto vero (vedi updateManualMarkers)
   var v = st.valore, model = v && v.tipo === 'modello', col = model ? KNOTS_COLOR_MODEL : KNOTS_COLOR_REAL;
   var inner;
   if (v && v.kn != null && v.dir != null) {
@@ -2376,14 +2377,18 @@ function mnIcon(st) {
       '<line x1="0" y1="' + (len * 0.45) + '" x2="0" y2="' + (-len * 0.25) + '" stroke="' + windColor(v.kn) + '" stroke-width="2.6" stroke-linecap="round"/>' +
       '<polygon points="0,' + (-len * 0.5) + ' -5,' + (-len * 0.5 + 9) + ' 5,' + (-len * 0.5 + 9) + '" fill="' + windColor(v.kn) + '" stroke="#000" stroke-opacity="0.55" stroke-width="1"/></g>' +
       '<text x="30" y="38" font-size="13" font-weight="700" fill="' + col + '" stroke="#000" stroke-width="3" paint-order="stroke" font-family=\'-apple-system,"Helvetica Neue",Arial,sans-serif\'>' + spdTxt + '</text>';
+    if (!state.showKnots) inner = inner.replace(/<text [\s\S]*<\/text>$/, ''); // 2026-11-24: il numero compare solo con Nodi acceso, come gli altri numeri della mappa (prima si vedeva sempre)
   } else inner = '<text x="23" y="27" font-size="12" text-anchor="middle" fill="#888" stroke="#000" stroke-width="3" paint-order="stroke">?</text>';
   // il punto della stazione: quadratino (non il cerchio delle zone) bianco se il dato e' fresco, altrimenti grigio/azzurro
   var dot = '<rect x="19.5" y="19.5" width="7" height="7" rx="1.5" fill="' + (model ? '#6f8ea8' : '#fff') + '" stroke="#000" stroke-width="1.2" transform="rotate(45 23 23)"/>';
+  // 2026-11-24: a zoom basso il punto di Capraia# (a ~300 m dalla zona Capraia) finiva sotto il cerchio della zona. Il quadratino resta nella posizione vera;
+  // freccia e numero si spostano di lato, con un filo sottile che li collega, e si toccano lo stesso (il tocco sale al marcatore).
+  if (off) inner = '<line x1="23" y1="23" x2="' + (23 + off.dx) + '" y2="' + (23 + off.dy) + '" stroke="#fff" stroke-width="1.4" stroke-opacity="0.85"/><g transform="translate(' + off.dx + ',' + off.dy + ')">' + inner + '</g>';
   return L.divIcon({ html: '<svg xmlns="http://www.w3.org/2000/svg" width="46" height="46" style="overflow:visible">' + dot + inner + '</svg>', className: '', iconSize: [46, 46], iconAnchor: [23, 23], popupAnchor: [0, -16] });
 }
 function mnPopupHtml(st) {
   var sty = 'font-size:0.62rem;margin-top:3px', h = '<div style="font-family:DM Mono,monospace;font-size:0.7rem;min-width:210px">' +
-    '<div style="font-weight:bold;color:#00cc66;margin-bottom:2px">' + lnEsc(st.name) + '</div><div style="color:#8ab8d0;font-size:0.56rem;margin-bottom:4px">Stazione manuale: dati passati da te, non automatici</div>';
+    '<div style="font-weight:bold;color:#00cc66;margin-bottom:2px">' + lnEsc(st.name) + '</div><div style="color:#8ab8d0;font-size:0.56rem;margin-bottom:4px">Stazione manuale</div>';
   var d = st.dato;
   if (d) {
     var col = d.fresco ? '#22cc66' : (d.eta_min <= 180 ? '#ffaa00' : '#ff8844');
@@ -2408,7 +2413,12 @@ async function updateManualMarkers(force) {
     manualLayer.clearLayers();
     MANUAL_MAP_IDS.forEach(function(id) {
       var st = d.stazioni[id]; if (!st) return;
-      var mk = L.marker([st.lat, st.lon], { icon: mnIcon(st), zIndexOffset: 90 }).addTo(manualLayer);
+      var pm = map.latLngToContainerPoint([st.lat, st.lon]), off = null;
+      for (var zi = 0; zi < ZONES.length && !off; zi++) { // zona a meno di 30 px (cerchio di 26 px): si sposta la freccia di lato
+        var pz = map.latLngToContainerPoint([ZONES[zi].lat, ZONES[zi].lon]);
+        if (Math.abs(pz.x - pm.x) < 30 && Math.abs(pz.y - pm.y) < 30) off = { dx: 30, dy: 34 };
+      }
+      var mk = L.marker([st.lat, st.lon], { icon: mnIcon(st, off), zIndexOffset: 90 }).addTo(manualLayer);
       mk.bindPopup(mnPopupHtml(st), { maxWidth: 260 });
       mk.on('popupopen', async function() { // dati aggiornati all'apertura (il motore tiene 60 s di cache)
         var d2 = await getManualNow(true);
@@ -2418,6 +2428,7 @@ async function updateManualMarkers(force) {
   } catch (e) { /* i punti delle stazioni manuali non devono mai fermare la mappa */ }
 }
 
+map.on('zoomend', function() { updateManualMarkers(false); }); // 2026-11-24: lo scostamento dal cerchio della zona dipende dallo zoom
 loadAll();
 // Carica osservazioni esistenti all'avvio
 setTimeout(loadObsMarkers, 2000);
@@ -2783,7 +2794,7 @@ function refreshMnwStation(sid, popupId, name) {
     });
 }
 
-// Fine script - NAUTILUS MAPPA2 v1.23 (segue markup HTML pannello osservazioni, non altro codice)
+// Fine script - NAUTILUS MAPPA2 v1.24 (segue markup HTML pannello osservazioni, non altro codice)
 </script>
 <!-- Pannello inserimento osservazione manuale -->
 <div id="obs-panel">
@@ -2823,4 +2834,4 @@ function refreshMnwStation(sid, popupId, name) {
 </body>
 </html>
 
-<!-- Fine codice - NAUTILUS MAPPA2 v1.23 -->
+<!-- Fine codice - NAUTILUS MAPPA2 v1.24 -->
